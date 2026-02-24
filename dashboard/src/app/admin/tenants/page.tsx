@@ -2,13 +2,20 @@ import { db } from "../../../storage/db";
 import { tenants, tenantBalances } from "../../../storage/schema";
 import { eq } from "drizzle-orm";
 import {
-  MagnifyingGlassIcon,
-  EllipsisVerticalIcon,
-  PlusIcon
+  MagnifyingGlassIcon
 } from "@heroicons/react/24/outline";
+import CreateTenantModal from "./CreateTenantModal";
+import TenantActionsMenu from "./TenantActionsMenu";
 
 // Next.js App Router Server Component
 export default async function TenantManagerPage() {
+
+  // Bypass the database request entirely if we are currently compiling in a Docker image
+  const isNextBuild = process.env.npm_lifecycle_event === 'build' || process.env.NEXT_PHASE === 'phase-production-build';
+
+  if (isNextBuild) {
+    return <div>Building Component</div>;
+  }
 
   // Directly fetch tenants via DB on the server
   const allTenants = await db.select({
@@ -30,10 +37,7 @@ export default async function TenantManagerPage() {
           <p className="text-sm text-gray-500 mt-1">View and manage all client workspaces on the Pulse Gateway.</p>
         </div>
 
-        <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm shadow-sm">
-          <PlusIcon className="w-4 h-4" />
-          Create Tenant
-        </button>
+        <CreateTenantModal />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -85,10 +89,8 @@ export default async function TenantManagerPage() {
                       {tenant.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors">
-                      <EllipsisVerticalIcon className="w-5 h-5" />
-                    </button>
+                  <td className="px-6 py-4 text-right relative">
+                    <TenantActionsMenu tenantId={tenant.id} currentStatus={tenant.status as string} />
                   </td>
                 </tr>
               ))}

@@ -4,7 +4,21 @@ import {
     ShieldCheckIcon
 } from "@heroicons/react/24/outline";
 
-export default function AdminSettingsPage() {
+import { saveGlobalSettingsAction, getGlobalSettings } from "./actions";
+
+export const dynamic = 'force-dynamic';
+
+export default async function AdminSettingsPage() {
+
+    // Bypass the database request entirely if we are currently compiling in a Docker image
+    const isNextBuild = process.env.npm_lifecycle_event === 'build' || process.env.NEXT_PHASE === 'phase-production-build';
+
+    if (isNextBuild) {
+        return <div>Building Component</div>;
+    }
+
+    const settings = await getGlobalSettings() as any;
+
     return (
         <div className="p-8 max-w-4xl mx-auto">
             <div className="mb-8">
@@ -15,7 +29,7 @@ export default function AdminSettingsPage() {
             <div className="space-y-6">
 
                 {/* AI Providers */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <form action={saveGlobalSettingsAction} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-6 border-b border-slate-200">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-indigo-50 rounded-lg">
@@ -32,17 +46,17 @@ export default function AdminSettingsPage() {
                             <div className="flex">
                                 <input
                                     type="password"
-                                    readOnly
-                                    value="sk-ant-api03-***************************************"
-                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-l-lg text-slate-500 focus:outline-none"
+                                    name="anthropicApiKey"
+                                    placeholder={settings.anthropicApiKeyHash ? "••••••••••••••••••••••••••••••••" : "sk-ant-api03-..."}
+                                    className="w-full px-4 py-2 border border-slate-300 rounded-l-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400"
                                 />
-                                <button className="px-4 py-2 bg-indigo-50 text-indigo-600 border border-l-0 border-indigo-200 rounded-r-lg font-medium hover:bg-indigo-100 transition-colors">
+                                <button type="submit" className="px-4 py-2 bg-indigo-50 text-indigo-600 border border-l-0 border-indigo-200 rounded-r-lg font-medium hover:bg-indigo-100 transition-colors">
                                     Update
                                 </button>
                             </div>
-                            <p className="text-xs text-emerald-600 mt-1 flex items-center mt-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
-                                Currently loaded from .env (Active)
+                            <p className="text-xs text-emerald-600 flex items-center mt-2">
+                                <span className={`w-2 h-2 rounded-full mr-2 ${settings.anthropicApiKeyHash ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                                {settings.anthropicApiKeyHash ? 'Active in Database' : 'Missing (Agent will fail)'}
                             </p>
                         </div>
 
@@ -51,19 +65,21 @@ export default function AdminSettingsPage() {
                             <div className="flex">
                                 <input
                                     type="password"
-                                    placeholder="sk-proj-..."
+                                    name="openaiApiKey"
+                                    placeholder={settings.openaiApiKeyHash ? "••••••••••••••••••••••••••••••••" : "sk-proj-..."}
                                     className="w-full px-4 py-2 border border-slate-300 rounded-l-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400"
                                 />
-                                <button className="px-4 py-2 bg-slate-900 text-white rounded-r-lg font-medium hover:bg-slate-800 transition-colors">
+                                <button type="submit" className="px-4 py-2 bg-slate-900 text-white rounded-r-lg font-medium hover:bg-slate-800 transition-colors">
                                     Save
                                 </button>
                             </div>
-                            <p className="text-xs text-slate-500 mt-2">
-                                Optional fallback provider.
+                            <p className="text-xs text-emerald-600 flex items-center mt-2">
+                                <span className={`w-2 h-2 rounded-full mr-2 ${settings.openaiApiKeyHash ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                                {settings.openaiApiKeyHash ? 'Active in Database' : 'Optional fallback provider.'}
                             </p>
                         </div>
                     </div>
-                </div>
+                </form>
 
                 {/* Database Settings */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

@@ -12,6 +12,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+// -- Global Settings (Super Admin level) --
+export const globalSettings = pgTable("global_settings", {
+    id: varchar("id", { length: 50 }).primaryKey().default("root"), // Singleton pattern, always 'root'
+    config: jsonb("config").notNull().default({}),
+    anthropicApiKeyHash: varchar("anthropic_api_key_hash", { length: 255 }),
+    openaiApiKeyHash: varchar("openai_api_key_hash", { length: 255 }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
 // -- Tenants (your clients) --
 export const tenants = pgTable("tenants", {
     id: uuid("id").primaryKey().defaultRandom(),
