@@ -87,9 +87,7 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     async sendMessage(msg: OutboundMessage): Promise<{ channelMessageId: string }> {
-        const bot = this.activeBots.get(msg.conversationId); // Normally we lookup bot by tenant, so this requires `tenantId` in OutboundMessage technically.
-        // For simplicity right now, assuming the agent runner passes tenantId via Outbound...
-        // Let's assume msg actually has tenantId (I will add it to types.js next).
+        const bot = this.activeBots.get(msg.tenantId);
         if (!bot) throw new Error("Bot not found for this tenant");
 
         const sent = await bot.api.sendMessage(msg.channelContactId, this.formatResponse(msg.content), {

@@ -37,11 +37,23 @@ async function start() {
         // Register channel adapter with worker for queue processing
         channelAdapters.set("telegram", telegramAdapter);
 
-        // Set up message handler for synchronous processing (fallback when queue unavailable)
+        // Set up message handler for queue or fallback synchronous processing
         telegramAdapter.onMessage(async (inbound) => {
-            await agentRuntime.processMessage(inbound, async (outbound) => {
-                return await telegramAdapter.sendMessage(outbound);
-            });
+            if (messageQueue) {
+                // Production: Offload the heavy LLM call to Redis background worker
+                try {
+                    await messageQueue.add("process-message", inbound, {
+                        jobId: inbound.id, // Idempotency key
+                    });
+                } catch (e) {
+                    server.log.error({ err: e }, "Failed to enqueue message");
+                }
+            } else {
+                // Dev Fallback: Run synchronously on main thread
+                await agentRuntime.processMessage(inbound, async (outbound) => {
+                    return await telegramAdapter.sendMessage(outbound);
+                });
+            }
         });
 
         // Register Telegram adapter with server for webhook access
