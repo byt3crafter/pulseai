@@ -1,55 +1,46 @@
-# Multi-stage build for Pulse AI backend
-# Stage 1: Build TypeScript
-FROM node:22-alpine AS builder
+# Use a lightweight Node Alpine image
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
+# Core dependancy maps
+COPY pulse/package.json ./
+COPY pulse/package-lock.json* ./
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Source files
+COPY pulse/tsconfig.json .
+COPY pulse/src ./src
+COPY pulse/drizzle.config.ts .
 
-# Build TypeScript
+# Build TS to JS
 RUN npm run build
 
-# Stage 2: Production image
-FROM node:22-alpine
+# ==========================================
+# Run Stage
+# ==========================================
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Install production dependencies only
-COPY package*.json ./
+# Copy isolated dependencies
+COPY pulse/package.json ./
+COPY pulse/package-lock.json* ./
 RUN npm ci --only=production
 
-# Copy built files from builder
+# Copy compiled resources
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 
-# Copy drizzle migrations
-COPY --from=builder /app/src/storage/migrations ./dist/storage/migrations
+# We need drizzle-kit globally available for runtime migrations in production
+RUN npm install drizzle-kit@0.31.9 -g
 
-# Copy drizzle config
-COPY drizzle.config.ts ./
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=8080
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+EXPOSE 8080
 
-# Change ownership
-RUN chown -R nodejs:nodejs /app
-
-# Switch to non-root user
-USER nodejs
-
-# Expose port
-EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Start the application
+# Exécute the server (no tsx watcher needed)
+# Using 'node' directly for performance 
 CMD ["node", "dist/index.js"]

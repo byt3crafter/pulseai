@@ -17,9 +17,28 @@ const envSchema = z.object({
 
 const _env = envSchema.safeParse(process.env);
 
+// Next.js static builder requires the file to execute but won't have the secrets
+const isNextBuild = process.env.npm_lifecycle_event === 'build' || process.env.NEXT_PHASE === 'phase-production-build';
+
+let finalConfig: any;
+
 if (!_env.success) {
-    console.error("❌ Invalid environment variables:", _env.error.format());
-    process.exit(1);
+    if (isNextBuild) {
+        console.warn("⚠️ Bypassing environment validation for Next.js build phase.");
+        finalConfig = {
+            NODE_ENV: "production",
+            PORT: 3000,
+            LOG_LEVEL: "info",
+            DATABASE_URL: "postgres://mock",
+            ANTHROPIC_API_KEY: "mock",
+            ENCRYPTION_KEY: "1234567890123456789012345678901234567890123456789012345678901234",
+        };
+    } else {
+        console.error("❌ Invalid environment variables:", _env.error.format());
+        process.exit(1);
+    }
+} else {
+    finalConfig = _env.data;
 }
 
-export const config = _env.data;
+export const config = finalConfig;
