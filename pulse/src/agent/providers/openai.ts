@@ -26,13 +26,15 @@ export class OpenAIProvider {
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tenantApiKey?: string;
+        globalOpenAIKey?: string;
         tools?: Array<{
             name: string;
             description: string;
             input_schema: any;
         }>;
     }): Promise<ProviderResponse> {
-        const client = this.getClient(params.tenantApiKey);
+        const activeKey = params.tenantApiKey || params.globalOpenAIKey || config.OPENAI_API_KEY;
+        const client = this.getClient(activeKey);
 
         // Convert tool definitions to OpenAI format
         const tools = params.tools?.map((tool) => ({

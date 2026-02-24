@@ -43,13 +43,19 @@ export class AnthropicProvider {
         systemPrompt: string;
         messages: ProviderMessage[];
         tenantApiKey?: string;
+        globalAnthropicKey?: string;
         tools?: Array<{
             name: string;
             description: string;
             input_schema: any;
         }>;
     }): Promise<ProviderResponse> {
-        const client = this.getClient(params.tenantApiKey);
+        // Evaluate Key Hierarchy:
+        // 1. Tenant specific overrides
+        // 2. Dashboard super-admin DB configuration
+        // 3. Falling back to local .env deployment config
+        const activeKey = params.tenantApiKey || params.globalAnthropicKey || config.ANTHROPIC_API_KEY;
+        const client = this.getClient(activeKey);
 
         // Map internal 'system' messages into standard user/assistant chain if any, or pass as system string to Claude API.
         const mappedMessages = params.messages.filter((m) => m.role !== "system").map((m) => ({

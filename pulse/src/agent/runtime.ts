@@ -1,8 +1,9 @@
 import { InboundMessage, OutboundMessage } from "../channels/types.js";
 import { ProviderManager } from "./providers/provider-manager.js";
+import { ToolCall } from "./providers/anthropic.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { db } from "../storage/db.js";
-import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions } from "../storage/schema.js";
+import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, globalSettings } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
@@ -97,6 +98,11 @@ export class AgentRuntime {
                 "Loaded enabled tools for tenant"
             );
 
+            // 3.75 Fecth dynamic Provider API Keys from Postgres Settings
+            const rootSettings = await db.query.globalSettings.findFirst({
+                where: eq(globalSettings.id, "root")
+            });
+
             // 4. Call LLM with tools (with automatic fallback)
             // TODO: Fetch custom System Prompt and Custom API key from Tenant DB records.
             tenantLog.debug("Dispatching to LLM Provider");
@@ -105,6 +111,8 @@ export class AgentRuntime {
                 systemPrompt: defaultSystemPrompt,
                 messages: llmMessages,
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+                globalAnthropicKey: rootSettings?.anthropicApiKeyHash || undefined,
+                globalOpenAIKey: rootSettings?.openaiApiKeyHash || undefined,
             });
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
@@ -120,9 +128,10 @@ export class AgentRuntime {
                     "Processing tool calls"
                 );
 
+                const calls = llmResponse.toolCalls as ToolCall[];
                 // Execute all tool calls
                 const toolResults = await Promise.all(
-                    llmResponse.toolCalls.map(async (toolCall) => {
+                    calls.map(async (toolCall: ToolCall) => {
                         tenantLog.debug({ toolCall }, "Executing tool");
 
                         const result = await this.toolRegistry.executeTool(toolCall.name, {
@@ -145,7 +154,7 @@ export class AgentRuntime {
                     role: "assistant" as const,
                     content: [
                         ...(llmResponse.content ? [{ type: "text" as const, text: llmResponse.content }] : []),
-                        ...llmResponse.toolCalls.map((tc) => ({
+                        ...calls.map((tc: ToolCall) => ({
                             type: "tool_use" as const,
                             id: tc.id,
                             name: tc.name,
@@ -170,6 +179,8 @@ export class AgentRuntime {
                         toolResultMessage as any,
                     ],
                     tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+                    globalAnthropicKey: rootSettings?.anthropicApiKeyHash || undefined,
+                    globalOpenAIKey: rootSettings?.openaiApiKeyHash || undefined,
                 });
 
                 totalInputTokens += llmResponse.usage.inputTokens;

@@ -19,6 +19,8 @@ export class ProviderManager {
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tenantApiKey?: string;
+        globalAnthropicKey?: string;
+        globalOpenAIKey?: string;
         tools?: Array<{
             name: string;
             description: string;
