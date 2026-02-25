@@ -5,6 +5,7 @@ import { InboundMessage, OutboundMessage } from "./types.js";
 export interface ChannelConnectionConfig {
     id: string;
     tenantId: string;
+    agentProfileId?: string | null;
     channelType: string;
     channelConfig: Record<string, any>;
 }

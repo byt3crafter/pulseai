@@ -27,6 +27,7 @@ async function start() {
             .map((conn) => ({
                 id: conn.id,
                 tenantId: conn.tenantId,
+                agentProfileId: conn.agentProfileId,
                 channelType: conn.channelType,
                 channelConfig: conn.channelConfig as Record<string, any>,
             }));
@@ -58,6 +59,9 @@ async function start() {
 
         // Register Telegram adapter with server for webhook access
         server.decorate("telegramAdapter", telegramAdapter);
+
+        // Register AgentRuntime so MCP route can access it
+        server.decorate("agentRuntime", agentRuntime);
 
         // Log queue status
         if (messageQueue) {

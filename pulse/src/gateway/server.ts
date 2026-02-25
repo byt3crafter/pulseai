@@ -3,6 +3,7 @@ import formbody from "@fastify/formbody";
 import { config } from "../config.js";
 import { oauthRoutes } from "./oauth.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { mcpRoutes } from "./routes/mcp.js";
 import { rateLimitPlugin, rateLimitConfig } from "./middleware/rate-limit.js";
 export const server = Fastify({
     logger: {
@@ -28,6 +29,7 @@ server.register(rateLimitPlugin, rateLimitConfig);
 
 server.register(oauthRoutes);
 server.register(webhookRoutes);
+server.register(mcpRoutes);
 
 server.get("/health", async (request, reply) => {
     return reply.send({ status: "ok", version: "1.0.0", uptime: process.uptime() });

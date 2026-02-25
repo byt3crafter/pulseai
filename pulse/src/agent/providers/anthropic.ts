@@ -31,11 +31,12 @@ export interface ProviderResponse {
 export class AnthropicProvider {
     readonly name = "anthropic";
 
-    private getClient(tenantApiKey?: string) {
-        if (tenantApiKey) {
-            return new Anthropic({ apiKey: tenantApiKey });
+    private getClient(apiKey?: string, authMethod?: string) {
+        if (authMethod === "setup_token" && apiKey) {
+            // Explicitly null out apiKey so the SDK only sends Authorization: Bearer
+            return new Anthropic({ authToken: apiKey, apiKey: null });
         }
-        return new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+        return new Anthropic({ apiKey: apiKey || config.ANTHROPIC_API_KEY });
     }
 
     async chat(params: {
@@ -43,19 +44,14 @@ export class AnthropicProvider {
         systemPrompt: string;
         messages: ProviderMessage[];
         tenantApiKey?: string;
-        globalAnthropicKey?: string;
+        authMethod?: string;
         tools?: Array<{
             name: string;
             description: string;
             input_schema: any;
         }>;
     }): Promise<ProviderResponse> {
-        // Evaluate Key Hierarchy:
-        // 1. Tenant specific overrides
-        // 2. Dashboard super-admin DB configuration
-        // 3. Falling back to local .env deployment config
-        const activeKey = params.tenantApiKey || params.globalAnthropicKey || config.ANTHROPIC_API_KEY;
-        const client = this.getClient(activeKey);
+        const client = this.getClient(params.tenantApiKey, params.authMethod);
 
         // Map internal 'system' messages into standard user/assistant chain if any, or pass as system string to Claude API.
         const mappedMessages = params.messages.filter((m) => m.role !== "system").map((m) => ({
@@ -64,7 +60,7 @@ export class AnthropicProvider {
         }));
 
         const response = await client.messages.create({
-            model: params.model || "claude-3-7-sonnet-20250219",
+            model: params.model || "claude-sonnet-4-20250514",
             max_tokens: 2048,
             system: params.systemPrompt,
             messages: mappedMessages,

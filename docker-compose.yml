@@ -33,7 +33,7 @@ services:
       - "6379:6379"
     volumes:
       - pulse-redis-data:/data
-    command: redis-server --appendonly yes Make
+    command: redis-server --appendonly yes
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -63,10 +63,11 @@ services:
       - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD:-secure_pulse_db_password}@postgres:5432/pulse
       - REDIS_URL=redis://redis:6379
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - WORKSPACE_BASE_DIR=/app/data/workspaces
     volumes:
-      # Optional: mount local dev code directly if desired instead of build
-      # - ./pulse:/app
       - /app/node_modules
+      - pulse-workspace-data:/app/data/workspaces
 
   # -----------------------------------------------------------------
   # Next.js Dashboard (Frontend Admin Panel)
@@ -87,8 +88,12 @@ services:
       - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD:-secure_pulse_db_password}@postgres:5432/pulse
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-d009088af6421528620ba012a6cb8f1e626bb3f9052731c3606a38575083fc3c}
-      # The dashboard doesn't need Anthropic/OpenAI keys as it uses Global Settings DB Configs
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - WORKSPACE_BASE_DIR=/app/data/workspaces
+    volumes:
+      - pulse-workspace-data:/app/data/workspaces
 
 volumes:
   pulse-db-data:
   pulse-redis-data:
+  pulse-workspace-data:

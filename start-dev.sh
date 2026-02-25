@@ -40,9 +40,9 @@ echo "🧹 Reaping zombie processes..."
 pkill -9 -f "next dev" || true
 pkill -9 -f "tsx watch" || true
 
-# 4. Start database 
-echo "📦 Starting PostgreSQL Containers..."
-cd pulse && docker compose up -d && cd ..
+# 4. Start database and redis
+echo "📦 Starting PostgreSQL & Redis Containers..."
+docker compose up -d postgres redis
 
 # 5. Connect the servers using explicitly passed ports
 echo "🌐 Launching Servers..."

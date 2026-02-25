@@ -2,8 +2,11 @@ import { InboundMessage, OutboundMessage } from "../channels/types.js";
 import { ProviderManager } from "./providers/provider-manager.js";
 import { ToolCall } from "./providers/anthropic.js";
 import { ToolRegistry } from "./tools/registry.js";
+import { workspaceService } from "./workspace/workspace-service.js";
+import { getDefaultModel, getProviderByModel } from "./providers/model-registry.js";
+import { providerKeyService } from "./providers/provider-key-service.js";
 import { db } from "../storage/db.js";
-import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, globalSettings } from "../storage/schema.js";
+import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
 import { randomUUID } from "crypto";
@@ -62,12 +65,19 @@ export class AgentRuntime {
             }
 
             // 2. Save Inbound User Message to the database.
+            const messageMetadata: Record<string, any> = { receivedAt: inbound.receivedAt };
+            if (inbound.isGroup) {
+                messageMetadata.senderUserId = inbound.senderUserId;
+                messageMetadata.senderUsername = inbound.senderUsername;
+                messageMetadata.groupTitle = inbound.groupTitle;
+            }
+
             await db.insert(messages).values({
                 conversationId: conversation.id,
                 tenantId: inbound.tenantId,
                 role: "user",
                 content: inbound.content,
-                metadata: { receivedAt: inbound.receivedAt },
+                metadata: messageMetadata,
             });
 
             // 3. Sliding Context Window: Fetch last 20 messages for Context limit. (Adapting OpenClaw strategy)
@@ -85,8 +95,20 @@ export class AgentRuntime {
                 content: m.content,
             }));
 
-            // 3.5. Get enabled tools for tenant
-            const enabledTools = await this.toolRegistry.getEnabledTools(inbound.tenantId);
+            // 3.5. Resolve agentProfileId: use from inbound, or fall back to tenant's first agent profile
+            let resolvedAgentProfileId = inbound.agentProfileId;
+            if (!resolvedAgentProfileId) {
+                const fallbackProfile = await db.query.agentProfiles.findFirst({
+                    where: eq(agentProfiles.tenantId, inbound.tenantId),
+                });
+                if (fallbackProfile) {
+                    resolvedAgentProfileId = fallbackProfile.id;
+                    tenantLog.warn({ agentProfileId: resolvedAgentProfileId }, "agentProfileId missing from channel connection, using tenant fallback");
+                }
+            }
+
+            // 3.6. Get enabled tools for tenant and agent profile
+            const enabledTools = await this.toolRegistry.getEnabledTools(inbound.tenantId, resolvedAgentProfileId);
             const toolDefinitions = enabledTools.map((t) => ({
                 name: t.name,
                 description: t.description,
@@ -98,21 +120,63 @@ export class AgentRuntime {
                 "Loaded enabled tools for tenant"
             );
 
-            // 3.75 Fecth dynamic Provider API Keys from Postgres Settings
-            const rootSettings = await db.query.globalSettings.findFirst({
-                where: eq(globalSettings.id, "root")
-            });
+            // 3.75 Resolve per-agent model and system prompt (workspace-first, DB fallback)
+            let activeSystemPrompt = defaultSystemPrompt;
+            let activeModelId = getDefaultModel().id;
 
-            // 4. Call LLM with tools (with automatic fallback)
-            // TODO: Fetch custom System Prompt and Custom API key from Tenant DB records.
-            tenantLog.debug("Dispatching to LLM Provider");
+            if (resolvedAgentProfileId) {
+                const profile = await db.query.agentProfiles.findFirst({
+                    where: eq(agentProfiles.id, resolvedAgentProfileId)
+                });
+
+                if (profile) {
+                    // Use per-agent model if set
+                    if (profile.modelId) {
+                        activeModelId = profile.modelId;
+                    }
+
+                    // Try workspace prompt first, fall back to DB systemPrompt
+                    const workspacePrompt = await workspaceService.buildSystemPrompt(
+                        inbound.tenantId,
+                        resolvedAgentProfileId
+                    );
+
+                    if (workspacePrompt) {
+                        activeSystemPrompt = workspacePrompt;
+                    } else if (profile.systemPrompt) {
+                        activeSystemPrompt = profile.systemPrompt;
+                    }
+                }
+            }
+
+            tenantLog.info({ model: activeModelId, agentProfileId: resolvedAgentProfileId ?? "none" }, "Model resolved for request");
+
+            // 3.9 Pre-Flight: Verify an AI provider key exists before calling the LLM
+            const providerDef = getProviderByModel(activeModelId);
+            const providerId = providerDef?.id ?? "anthropic";
+            const resolvedKey = await providerKeyService.resolveKey(inbound.tenantId, providerId);
+
+            if (!resolvedKey) {
+                tenantLog.warn({ model: activeModelId, provider: providerId }, "No AI provider key configured");
+                await sendMessageCallback({
+                    conversationId: conversation.id,
+                    tenantId: inbound.tenantId,
+                    channelType: inbound.channelType,
+                    channelContactId: inbound.channelContactId,
+                    content: `Setup required: No AI provider key is configured for ${providerDef?.name || providerId}. Please go to your dashboard Settings > AI Providers and add an API key, or ask your administrator to configure one.`,
+                    replyToMessageId: inbound.isGroup ? (inbound.raw as any)?.message_id?.toString() : undefined,
+                });
+                return;
+            }
+
+            // 4. Call LLM with tools — ProviderManager routes to correct provider based on model
+            tenantLog.info({ provider: providerId, model: activeModelId }, "Dispatching to LLM Provider");
             let llmResponse = await this.providerManager.chat({
-                model: "claude-3-7-sonnet-20250219",
-                systemPrompt: defaultSystemPrompt,
+                model: activeModelId,
+                tenantId: inbound.tenantId,
+                systemPrompt: activeSystemPrompt,
                 messages: llmMessages,
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
-                globalAnthropicKey: rootSettings?.anthropicApiKeyHash || undefined,
-                globalOpenAIKey: rootSettings?.openaiApiKeyHash || undefined,
             });
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
@@ -128,17 +192,30 @@ export class AgentRuntime {
                     "Processing tool calls"
                 );
 
-                const calls = llmResponse.toolCalls as ToolCall[];
+                const currentToolCalls = llmResponse.toolCalls as ToolCall[];
                 // Execute all tool calls
                 const toolResults = await Promise.all(
-                    calls.map(async (toolCall: ToolCall) => {
+                    currentToolCalls.map(async (toolCall: ToolCall) => {
                         tenantLog.debug({ toolCall }, "Executing tool");
 
-                        const result = await this.toolRegistry.executeTool(toolCall.name, {
-                            tenantId: inbound.tenantId,
-                            conversationId: conversation.id,
-                            args: toolCall.input,
-                        });
+                        const tool = enabledTools.find(t => t.name === toolCall.name);
+                        let result: { result: string; metadata?: any };
+
+                        if (!tool) {
+                            tenantLog.warn({ toolName: toolCall.name }, "Attempted to execute unknown tool");
+                            result = { result: `Error: Tool '${toolCall.name}' not found` };
+                        } else {
+                            try {
+                                result = await tool.execute({
+                                    tenantId: inbound.tenantId,
+                                    conversationId: conversation.id,
+                                    args: toolCall.input as Record<string, any>,
+                                });
+                            } catch (err: any) {
+                                tenantLog.error({ err, toolName: toolCall.name }, "Tool execution failed");
+                                result = { result: `Error executing tool '${toolCall.name}': ${err.message || "Unknown error"}` };
+                            }
+                        }
 
                         return {
                             type: "tool_result" as const,
@@ -154,7 +231,7 @@ export class AgentRuntime {
                     role: "assistant" as const,
                     content: [
                         ...(llmResponse.content ? [{ type: "text" as const, text: llmResponse.content }] : []),
-                        ...calls.map((tc: ToolCall) => ({
+                        ...currentToolCalls.map((tc: ToolCall) => ({
                             type: "tool_use" as const,
                             id: tc.id,
                             name: tc.name,
@@ -169,18 +246,17 @@ export class AgentRuntime {
                     content: toolResults,
                 };
 
-                // Call LLM with tool results
+                // Call LLM with tool results — same model + tenant routing
                 llmResponse = await this.providerManager.chat({
-                    model: "claude-3-7-sonnet-20250219",
-                    systemPrompt: defaultSystemPrompt,
+                    model: activeModelId,
+                    tenantId: inbound.tenantId,
+                    systemPrompt: activeSystemPrompt,
                     messages: [
                         ...llmMessages,
                         assistantMessage as any,
                         toolResultMessage as any,
                     ],
                     tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
-                    globalAnthropicKey: rootSettings?.anthropicApiKeyHash || undefined,
-                    globalOpenAIKey: rootSettings?.openaiApiKeyHash || undefined,
                 });
 
                 totalInputTokens += llmResponse.usage.inputTokens;
@@ -204,8 +280,9 @@ export class AgentRuntime {
             });
 
             // 6. Record Cost/Usage for Billing Tracking
-            // Get pricing based on actual provider and model used
-            const pricing = this.providerManager.getPricing(llmResponse.model, llmResponse.provider);
+            // Use canonical model ID (from our registry) for accurate pricing
+            const usedModel = llmResponse.canonicalModel;
+            const pricing = this.providerManager.getPricing(usedModel, llmResponse.provider);
             const costUsd =
                 (llmResponse.usage.inputTokens * pricing.input) / 1000000 +
                 (llmResponse.usage.outputTokens * pricing.output) / 1000000;
@@ -214,7 +291,9 @@ export class AgentRuntime {
             tenantLog.info(
                 {
                     provider: llmResponse.provider,
-                    model: llmResponse.model,
+                    requestedModel: activeModelId,
+                    usedModel,
+                    wasFallback: llmResponse.wasFallback,
                     inputTokens: llmResponse.usage.inputTokens,
                     outputTokens: llmResponse.usage.outputTokens,
                     costUsd: costUsd.toFixed(6),
@@ -223,10 +302,11 @@ export class AgentRuntime {
                 "Usage calculated"
             );
 
+            // Record canonical model ID (matches registry) with provider prefix for clarity
             const [usageRecord] = await db.insert(usageRecords).values({
                 tenantId: inbound.tenantId,
                 conversationId: conversation.id,
-                model: `${llmResponse.provider}:${llmResponse.model}`, // Record provider for transparency
+                model: usedModel,
                 inputTokens: llmResponse.usage.inputTokens.toString(),
                 outputTokens: llmResponse.usage.outputTokens.toString(),
                 costUsd: costUsd.toFixed(6),
@@ -245,29 +325,56 @@ export class AgentRuntime {
                 tenantId: inbound.tenantId,
                 amount: (-creditsUsed).toFixed(4),
                 type: "usage",
-                description: `Message generation usage (${llmResponse.model})`,
+                description: `${llmResponse.provider}/${usedModel}${llmResponse.wasFallback ? " (fallback)" : ""}`,
                 referenceId: usageRecord.id,
             });
 
             // 7. Dispatch Response to Channel Adapter
-            await sendMessageCallback({
+            const outbound: OutboundMessage = {
                 conversationId: conversation.id,
                 tenantId: inbound.tenantId,
                 channelType: inbound.channelType,
                 channelContactId: inbound.channelContactId,
                 content: llmResponse.content,
                 format: "markdown",
-            });
+            };
 
-        } catch (err) {
+            // For group messages, reply in-thread to the original message
+            if (inbound.isGroup && inbound.raw) {
+                const rawMsg = inbound.raw as any;
+                if (rawMsg.message_id) {
+                    outbound.replyToMessageId = rawMsg.message_id.toString();
+                }
+            }
+
+            await sendMessageCallback(outbound);
+
+        } catch (err: any) {
             tenantLog.error({ err }, "Agent Runtime failed to process message");
-            // Graceful degradation response
+
+            // Provide actionable error messages instead of generic "technical difficulties"
+            let userMessage: string;
+            const errMsg = err?.message || "";
+
+            if (errMsg.includes("All LLM providers failed") || errMsg.includes("No fallback available")) {
+                userMessage = "AI service is currently unavailable. Your administrator needs to check the API key configuration in Settings > AI Providers.";
+            } else if (errMsg.includes("401") || errMsg.includes("authentication") || errMsg.includes("invalid_api_key")) {
+                userMessage = "AI authentication failed. The API key may be invalid or expired. Please update it in Settings > AI Providers.";
+            } else if (errMsg.includes("rate") || errMsg.includes("429")) {
+                userMessage = "AI rate limit reached. Please wait a moment and try again.";
+            } else if (errMsg.includes("insufficient") || errMsg.includes("quota")) {
+                userMessage = "AI provider quota exceeded. Please check your API key billing or add credits.";
+            } else {
+                userMessage = "I encountered an error processing your request. Please try again or contact your administrator if this persists.";
+            }
+
             await sendMessageCallback({
-                conversationId: randomUUID(), // fallback if conv undefined
+                conversationId: randomUUID(),
                 tenantId: inbound.tenantId,
                 channelType: inbound.channelType,
                 channelContactId: inbound.channelContactId,
-                content: "I am currently experiencing technical difficulties processing your request. Please try again later.",
+                content: userMessage,
+                replyToMessageId: inbound.isGroup ? (inbound.raw as any)?.message_id?.toString() : undefined,
             }).catch((e) => tenantLog.error({ e }, "Failed to send fallback error message"));
         }
     }

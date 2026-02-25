@@ -1,5 +1,6 @@
 import rateLimit from "@fastify/rate-limit";
 import { config } from "../../config.js";
+import { Redis } from "ioredis";
 
 /**
  * Rate Limiting Configuration
@@ -18,16 +19,7 @@ export const rateLimitConfig = {
     timeWindow: "1 minute",
 
     // Use Redis if available for distributed rate limiting
-    redis: config.REDIS_URL
-        ? (() => {
-              const url = new URL(config.REDIS_URL);
-              return {
-                  host: url.hostname,
-                  port: parseInt(url.port || "6379"),
-                  password: url.password || undefined,
-              };
-          })()
-        : undefined,
+    redis: config.REDIS_URL ? new Redis(config.REDIS_URL) : undefined,
 
     // Key generator - rate limit by tenant slug or IP
     keyGenerator: (request: any) => {

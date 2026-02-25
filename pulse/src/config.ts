@@ -24,7 +24,9 @@ const envSchema = z.object({
     OPENAI_API_KEY: z.string().optional(),
     ENCRYPTION_KEY: z.string().length(64, "Encryption key must be a 32-byte hex string (64 characters)"),
     WEBHOOK_BASE_URL: z.string().url().optional(), // e.g., https://pulse.runstate.mu
+    DASHBOARD_URL: z.string().url().optional(), // e.g., http://localhost:3001
     TELEGRAM_WEBHOOK_SECRET: z.string().optional(), // For webhook validation
+    WORKSPACE_BASE_DIR: z.string().default("../data/workspaces"),
 });
 
 const _env = envSchema.safeParse(process.env);

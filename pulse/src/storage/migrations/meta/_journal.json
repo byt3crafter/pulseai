@@ -36,6 +36,34 @@
       "when": 1771903523363,
       "tag": "0004_gifted_albert_cleary",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771908442180,
+      "tag": "0005_add_mcp_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771920000000,
+      "tag": "0006_user_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771930000000,
+      "tag": "0007_agent_workspaces_and_providers",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771940000000,
+      "tag": "0008_telegram_groups_and_pairing",
+      "breakpoints": true
     }
   ]
 }

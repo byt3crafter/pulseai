@@ -1,121 +1,134 @@
 import { AnthropicProvider, ProviderResponse } from "./anthropic.js";
 import { OpenAIProvider } from "./openai.js";
+import { providerKeyService } from "./provider-key-service.js";
+import { getModelById, getProviderByModel, getFallbackModelId, getDefaultModel } from "./model-registry.js";
 import { logger } from "../../utils/logger.js";
 
 /**
- * Provider Manager - Handles LLM provider selection and fallback
+ * Provider Manager - Dynamic LLM provider selection and fallback
  *
  * Strategy:
- * 1. Try Anthropic (primary provider)
- * 2. On failure, fallback to OpenAI
- * 3. Log all provider switches for monitoring
+ * 1. Route to correct provider based on model ID
+ * 2. Resolve API key via ProviderKeyService (tenant BYOK -> global -> env)
+ * 3. On failure, fallback to alternative provider
  */
 export class ProviderManager {
-    private primary = new AnthropicProvider();
-    private fallback = new OpenAIProvider();
+    private anthropic = new AnthropicProvider();
+    private openai = new OpenAIProvider();
 
     async chat(params: {
         model: string;
+        tenantId: string;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
-        tenantApiKey?: string;
-        globalAnthropicKey?: string;
-        globalOpenAIKey?: string;
         tools?: Array<{
             name: string;
             description: string;
             input_schema: any;
         }>;
-    }): Promise<ProviderResponse & { provider: string }> {
+    }): Promise<ProviderResponse & { provider: string; canonicalModel: string; wasFallback: boolean }> {
+        const modelDef = getModelById(params.model);
+        const providerDef = getProviderByModel(params.model);
+        const providerId = providerDef?.id ?? "anthropic";
+
+        // Resolve API key for the primary provider
+        const resolved = await providerKeyService.resolveKey(params.tenantId, providerId);
+        const apiKey = resolved?.key;
+        const authMethod = resolved?.authMethod;
+
+        const primaryProvider = this.getProviderInstance(providerId);
+
         try {
-            logger.debug("Attempting primary provider (Anthropic)");
-            const response = await this.primary.chat(params);
+            logger.debug({ provider: providerId, model: params.model }, "Attempting primary provider");
+            const response = await primaryProvider.chat({
+                model: params.model,
+                systemPrompt: params.systemPrompt,
+                messages: params.messages,
+                tenantApiKey: apiKey,
+                authMethod,
+                tools: params.tools,
+            });
             return {
                 ...response,
-                provider: this.primary.name,
+                provider: primaryProvider.name,
+                canonicalModel: params.model,
+                wasFallback: false,
             };
         } catch (err: any) {
             logger.warn(
                 {
-                    err: {
-                        message: err.message,
-                        status: err.status,
-                        type: err.type,
-                    },
+                    err: { message: err.message, status: err.status, type: err.type },
+                    provider: providerId,
                 },
-                "Primary provider (Anthropic) failed, falling back to OpenAI"
+                "Primary provider failed, attempting fallback"
             );
 
-            try {
-                // Map Anthropic model to OpenAI equivalent
-                const openAIModel = this.mapModelToOpenAI(params.model);
+            // Try fallback provider
+            const fallbackModelId = getFallbackModelId(params.model);
+            if (!fallbackModelId) {
+                throw new Error(`Primary provider (${providerId}) failed and no fallback available: ${err.message}`);
+            }
 
+            const fallbackProvider = getProviderByModel(fallbackModelId);
+            if (!fallbackProvider || fallbackProvider.id === providerId) {
+                throw new Error(`Primary provider (${providerId}) failed: ${err.message}`);
+            }
+
+            const fallbackResolved = await providerKeyService.resolveKey(params.tenantId, fallbackProvider.id);
+            const fallbackInstance = this.getProviderInstance(fallbackProvider.id);
+
+            try {
                 logger.info(
-                    { originalModel: params.model, fallbackModel: openAIModel },
-                    "Using OpenAI fallback provider"
+                    { originalModel: params.model, fallbackModel: fallbackModelId, fallbackProvider: fallbackProvider.id },
+                    "Using fallback provider"
                 );
 
-                const response = await this.fallback.chat({
+                const response = await fallbackInstance.chat({
                     ...params,
-                    model: openAIModel,
+                    model: fallbackModelId,
+                    tenantApiKey: fallbackResolved?.key,
+                    authMethod: fallbackResolved?.authMethod,
                 });
 
                 return {
                     ...response,
-                    provider: this.fallback.name,
+                    provider: fallbackInstance.name,
+                    canonicalModel: fallbackModelId,
+                    wasFallback: true,
                 };
             } catch (fallbackErr: any) {
                 logger.error(
-                    {
-                        primaryErr: err.message,
-                        fallbackErr: fallbackErr.message,
-                    },
+                    { primaryErr: err.message, fallbackErr: fallbackErr.message },
                     "Both primary and fallback providers failed"
                 );
                 throw new Error(
-                    `All LLM providers failed. Primary: ${err.message}, Fallback: ${fallbackErr.message}`
+                    `All LLM providers failed. Primary (${providerId}): ${err.message}, Fallback (${fallbackProvider.id}): ${fallbackErr.message}`
                 );
             }
         }
     }
 
-    /**
-     * Map Anthropic models to OpenAI equivalents
-     * Ensures comparable quality when falling back
-     */
-    private mapModelToOpenAI(anthropicModel: string): string {
-        const mapping: Record<string, string> = {
-            "claude-3-7-sonnet-20250219": "gpt-4o",
-            "claude-3-5-sonnet-20241022": "gpt-4o",
-            "claude-3-opus-20240229": "gpt-4o",
-            "claude-3-haiku-20240307": "gpt-4o-mini",
-        };
-
-        return mapping[anthropicModel] || "gpt-4o";
+    private getProviderInstance(providerId: string): AnthropicProvider | OpenAIProvider {
+        switch (providerId) {
+            case "openai":
+                return this.openai;
+            case "anthropic":
+            default:
+                return this.anthropic;
+        }
     }
 
     /**
-     * Get pricing for cost tracking
-     * Returns pricing in USD per million tokens
+     * Get pricing from model registry for cost tracking
      */
     getPricing(model: string, provider: string): { input: number; output: number } {
-        if (provider === "anthropic") {
-            const anthropicPricing: Record<string, { input: number; output: number }> = {
-                "claude-3-7-sonnet-20250219": { input: 3.0, output: 15.0 },
-                "claude-3-5-sonnet-20241022": { input: 3.0, output: 15.0 },
-                "claude-3-opus-20240229": { input: 15.0, output: 75.0 },
-                "claude-3-haiku-20240307": { input: 0.25, output: 1.25 },
+        const modelDef = getModelById(model);
+        if (modelDef) {
+            return {
+                input: modelDef.pricing.inputPerMillion,
+                output: modelDef.pricing.outputPerMillion,
             };
-            return anthropicPricing[model] || { input: 3.0, output: 15.0 };
-        } else if (provider === "openai") {
-            const openAIPricing: Record<string, { input: number; output: number }> = {
-                "gpt-4o": { input: 2.5, output: 10.0 },
-                "gpt-4o-mini": { input: 0.15, output: 0.6 },
-                "gpt-4-turbo": { input: 10.0, output: 30.0 },
-            };
-            return openAIPricing[model] || { input: 2.5, output: 10.0 };
         }
-
         // Default fallback pricing
         return { input: 3.0, output: 15.0 };
     }

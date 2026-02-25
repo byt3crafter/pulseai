@@ -7,6 +7,7 @@ import {
     text,
     decimal,
     boolean,
+    integer,
     index,
     unique,
 } from "drizzle-orm/pg-core";
@@ -33,12 +34,59 @@ export const tenants = pgTable("tenants", {
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+// -- Agent Profiles (Distinct AI Characters/Employees) --
+export const agentProfiles = pgTable("agent_profiles", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+        .references(() => tenants.id)
+        .notNull(),
+    name: varchar("name", { length: 255 }).notNull(), // e.g., "Sélina - COO"
+    systemPrompt: text("system_prompt"), // The specific instructions injected to the LLM
+    modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),
+    workspacePath: varchar("workspace_path", { length: 512 }),
+    dockerSandboxEnabled: boolean("docker_sandbox_enabled").default(false), // WARNING: Grants raw bash execution
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+    index("idx_agent_profiles_tenant").on(table.tenantId)
+]);
+
+// -- MCP Servers (External integrations like ERPNext) --
+export const mcpServers = pgTable("mcp_servers", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+        .references(() => tenants.id)
+        .notNull(),
+    name: varchar("name", { length: 255 }).notNull(), // e.g., "ERPNext Production"
+    url: varchar("url", { length: 1024 }).notNull(),
+    authHeaders: jsonb("auth_headers").default({}), // Encrypted at app layer if needed
+    status: varchar("status", { length: 20 }).default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+    index("idx_mcp_servers_tenant").on(table.tenantId)
+]);
+
+// -- Bindings: Which Agent can use which MCP Server --
+export const agentProfileMcpBindings = pgTable("agent_profile_mcp_bindings", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentProfileId: uuid("agent_profile_id")
+        .references(() => agentProfiles.id, { onDelete: 'cascade' })
+        .notNull(),
+    mcpServerId: uuid("mcp_server_id")
+        .references(() => mcpServers.id, { onDelete: 'cascade' })
+        .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+    unique("idx_unique_agent_mcp").on(table.agentProfileId, table.mcpServerId)
+]);
+
 // -- Channel connections per tenant --
 export const channelConnections = pgTable("channel_connections", {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id")
         .references(() => tenants.id)
         .notNull(),
+    agentProfileId: uuid("agent_profile_id").references(() => agentProfiles.id), // The specific bot persona
     channelType: varchar("channel_type", { length: 50 }).notNull(), // 'telegram', 'whatsapp', 'webchat'
     channelConfig: jsonb("channel_config").notNull().default({}),
     status: varchar("status", { length: 20 }).default("active"),
@@ -124,6 +172,7 @@ export const allowlists = pgTable(
         channelType: varchar("channel_type", { length: 50 }).notNull(),
         contactId: varchar("contact_id", { length: 255 }).notNull(),
         contactName: varchar("contact_name", { length: 255 }),
+        contactType: varchar("contact_type", { length: 20 }).default("user"), // 'user' or 'group'
         status: varchar("status", { length: 20 }).default("approved"), // 'approved', 'pending', 'blocked'
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     },
@@ -187,8 +236,7 @@ export const oauthClients = pgTable(
     {
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id")
-            .references(() => tenants.id)
-            .notNull(),
+            .references(() => tenants.id),
         name: varchar("name", { length: 255 }).notNull(), // e.g., "Claude Code CLI"
         clientId: varchar("client_id", { length: 255 }).notNull().unique(),
         clientSecretHash: varchar("client_secret_hash", { length: 255 }).notNull(),
@@ -209,6 +257,8 @@ export const oauthCodes = pgTable(
             .references(() => tenants.id)
             .notNull(),
         redirectUri: varchar("redirect_uri", { length: 1024 }),
+        codeChallenge: varchar("code_challenge", { length: 255 }),
+        codeChallengeMethod: varchar("code_challenge_method", { length: 10 }),
         expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     },
@@ -240,6 +290,85 @@ export const users = pgTable("users", {
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     role: varchar("role", { length: 20 }).notNull().default("TENANT"), // 'ADMIN', 'TENANT'
     tenantId: uuid("tenant_id").references(() => tenants.id), // Nullable for global admins
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+// -- Workspace Revisions (Agent file-based workspace revision tracking) --
+export const workspaceRevisions = pgTable(
+    "workspace_revisions",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        agentProfileId: uuid("agent_profile_id")
+            .references(() => agentProfiles.id, { onDelete: "cascade" })
+            .notNull(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        fileName: varchar("file_name", { length: 255 }).notNull(),
+        content: text("content").notNull(),
+        changeSummary: varchar("change_summary", { length: 500 }),
+        changedBy: uuid("changed_by").references(() => users.id),
+        revisionNumber: integer("revision_number").notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_workspace_revisions_agent_file").on(
+            table.agentProfileId,
+            table.fileName,
+            table.revisionNumber
+        ),
+    ]
+);
+
+// -- Pairing Codes (DM approval flow) --
+export const pairingCodes = pgTable(
+    "pairing_codes",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        channelType: varchar("channel_type", { length: 50 }).notNull(),
+        contactId: varchar("contact_id", { length: 255 }).notNull(),
+        contactName: varchar("contact_name", { length: 255 }),
+        code: varchar("code", { length: 8 }).notNull(),
+        status: varchar("status", { length: 20 }).default("pending"), // 'pending', 'approved', 'rejected'
+        expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_pairing_code").on(table.code),
+        index("idx_pairing_tenant").on(table.tenantId, table.status),
+    ]
+);
+
+// -- Tenant Provider Keys (BYOK - encrypted at rest) --
+export const tenantProviderKeys = pgTable(
+    "tenant_provider_keys",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id, { onDelete: "cascade" })
+            .notNull(),
+        provider: varchar("provider", { length: 50 }).notNull(),
+        authMethod: varchar("auth_method", { length: 20 }).notNull().default("api_key"),
+        encryptedApiKey: text("encrypted_api_key"),
+        oauthClientId: varchar("oauth_client_id", { length: 255 }),
+        oauthClientSecretEnc: text("oauth_client_secret_enc"),
+        oauthAccessTokenEnc: text("oauth_access_token_enc"),
+        oauthRefreshTokenEnc: text("oauth_refresh_token_enc"),
+        oauthTokenExpiresAt: timestamp("oauth_token_expires_at", { withTimezone: true }),
+        keyAlias: varchar("key_alias", { length: 100 }),
+        isActive: boolean("is_active").default(true),
+        lastValidatedAt: timestamp("last_validated_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        unique("idx_unique_tenant_provider").on(table.tenantId, table.provider),
+        index("idx_tenant_provider_keys_tenant").on(table.tenantId),
+    ]
+);

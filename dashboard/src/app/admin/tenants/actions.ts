@@ -6,10 +6,13 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import * as crypto from "crypto";
+import bcrypt from "bcryptjs";
+import { generateSecurePassword } from "../../../utils/password";
 
 const createTenantSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
-    slug: z.string().min(2, "Slug must be at least 2 characters").regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
+    customerEmail: z.string().email("Please enter a valid customer email address"),
+    slug: z.string().min(2, "Slug must be at least 2 characters").regex(/^[-a-z0-9]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
     initialBalance: z.coerce.number().min(0, "Balance cannot be negative").default(0),
 });
 
@@ -17,6 +20,7 @@ export async function createTenantAction(formData: FormData) {
     try {
         const rawData = {
             name: formData.get("name") as string,
+            customerEmail: formData.get("customerEmail") as string,
             slug: formData.get("slug") as string,
             initialBalance: formData.get("initialBalance"),
         };
@@ -24,7 +28,7 @@ export async function createTenantAction(formData: FormData) {
         const validatedData = createTenantSchema.parse(rawData);
 
         // Using a transaction to ensure all related records are created together
-        await db.transaction(async (tx) => {
+        const credentials = await db.transaction(async (tx) => {
             // 1. Create the base Tenant record
             const [newTenant] = await tx.insert(tenants).values({
                 name: validatedData.name,
@@ -38,8 +42,6 @@ export async function createTenantAction(formData: FormData) {
                 balance: validatedData.initialBalance.toFixed(4),
             });
 
-            // 3. Automatically generate an OAuth Client for third-party CLI tools (Claude Code, Cursor)
-            // They can always view these credentials in their dashboard settings later.
             const clientId = `pls_${crypto.randomBytes(16).toString("hex")}`;
             const clientSecret = crypto.randomBytes(32).toString("hex");
 
@@ -51,18 +53,35 @@ export async function createTenantAction(formData: FormData) {
                 redirectUris: ["http://127.0.0.1:*/oauth/callback", "http://localhost:*/oauth/callback"],
             });
 
-            // In a real app, you would also probably create the first 'Admin' user for this specific tenant here
-            // and email them a welcome link to securely set their password.
+            // Automatically create the first 'Admin' user for this specific tenant
+            // Use the customer's real email and flag them to change their password on first login
+            const userEmail = validatedData.customerEmail;
+            const tempPassword = generateSecurePassword(16);
+            const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+            await tx.insert(users).values({
+                name: `${validatedData.name} Admin`,
+                email: userEmail,
+                passwordHash,
+                role: "TENANT",
+                tenantId: newTenant.id,
+                mustChangePassword: true, // Force password change on first login
+            });
+
+            return { clientId, clientSecret, initialUser: { email: userEmail, password: tempPassword } };
         });
 
         revalidatePath("/admin/tenants");
-        return { success: true };
+        return { success: true, credentials };
     } catch (error) {
         if (error instanceof z.ZodError) {
             return { success: false, message: error.issues[0].message };
         }
-        // Handle Postgres unique constraint violation
+        // Handle Postgres unique constraint violations with more specific messages
         if (error instanceof Error && error.message.includes("unique constraint")) {
+            if (error.message.includes("users_email_unique")) {
+                return { success: false, message: "A workspace admin user with this slug already exists. The slug must be unique." };
+            }
             return { success: false, message: "A tenant with this slug already exists." };
         }
         console.error("Failed to create tenant:", error);

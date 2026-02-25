@@ -3,22 +3,18 @@ import { config } from "../../config.js";
 import { ProviderResponse, ToolCall } from "./anthropic.js";
 
 /**
- * OpenAI Provider - Fallback LLM provider
- *
- * Used when Anthropic API is unavailable or fails
- * Supports GPT-4o and other OpenAI models
+ * OpenAI Provider - Supports GPT-4o and other OpenAI models
+ * Used as primary for OpenAI models, or as fallback for Anthropic failures
  */
 export class OpenAIProvider {
     readonly name = "openai";
 
-    private getClient(tenantApiKey?: string) {
-        if (tenantApiKey) {
-            return new OpenAI({ apiKey: tenantApiKey });
-        }
-        if (!config.OPENAI_API_KEY) {
+    private getClient(apiKey?: string) {
+        const key = apiKey || config.OPENAI_API_KEY;
+        if (!key) {
             throw new Error("OPENAI_API_KEY not configured");
         }
-        return new OpenAI({ apiKey: config.OPENAI_API_KEY });
+        return new OpenAI({ apiKey: key });
     }
 
     async chat(params: {
@@ -26,15 +22,14 @@ export class OpenAIProvider {
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tenantApiKey?: string;
-        globalOpenAIKey?: string;
+        authMethod?: string;
         tools?: Array<{
             name: string;
             description: string;
             input_schema: any;
         }>;
     }): Promise<ProviderResponse> {
-        const activeKey = params.tenantApiKey || params.globalOpenAIKey || config.OPENAI_API_KEY;
-        const client = this.getClient(activeKey);
+        const client = this.getClient(params.tenantApiKey);
 
         // Convert tool definitions to OpenAI format
         const tools = params.tools?.map((tool) => ({

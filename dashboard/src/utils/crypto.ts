@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from "node:crypto";
-import { config } from "../config.js";
+import { config } from "../config";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // GCM optimal IV length is 12 bytes

@@ -4,9 +4,10 @@ import { db } from "./storage/db";
 import { users } from "./storage/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { config } from "./config";
+import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+    ...authConfig,
     providers: [
         Credentials({
             credentials: {
@@ -41,6 +42,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         return null;
                     }
 
+                    // Update last login timestamp
+                    await db.update(users)
+                        .set({ lastLoginAt: new Date() })
+                        .where(eq(users.id, userRecord.id));
+
                     console.log("[AUTH] -> Approved: Login successful for", userRecord.email);
                     return {
                         id: userRecord.id,
@@ -48,6 +54,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         email: userRecord.email,
                         role: userRecord.role,
                         tenantId: userRecord.tenantId,
+                        mustChangePassword: userRecord.mustChangePassword,
                     };
                 } catch (e) {
                     console.error("[AUTH] -> Exception during database query:", e);
@@ -56,29 +63,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
         }),
     ],
-    callbacks: {
-        jwt({ token, user }) {
-            if (user) {
-                token.id = user.id;
-                token.role = user.role as string;
-                token.tenantId = user.tenantId as string;
-            }
-            return token;
-        },
-        session({ session, token }) {
-            if (token && session.user) {
-                session.user.id = token.id as string;
-                session.user.role = token.role as string;
-                session.user.tenantId = token.tenantId as string | null;
-            }
-            return session;
-        },
-    },
-    pages: {
-        signIn: "/login",
-    },
-    session: {
-        strategy: "jwt",
-    },
-    secret: config.ENCRYPTION_KEY,
 });

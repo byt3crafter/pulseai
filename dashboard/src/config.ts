@@ -1,8 +1,4 @@
 import { z } from "zod";
-import * as dotenv from "dotenv";
-
-// Load environment variables from .env
-dotenv.config();
 
 const envSchema = z.object({
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -13,6 +9,7 @@ const envSchema = z.object({
     ANTHROPIC_API_KEY: z.string().min(1, "Anthropic API key is required"),
     OPENAI_API_KEY: z.string().optional(),
     ENCRYPTION_KEY: z.string().length(64, "Encryption key must be a 32-byte hex string (64 characters)"),
+    WORKSPACE_BASE_DIR: z.string().default("../data/workspaces"),
 });
 
 const _env = envSchema.safeParse(process.env);
@@ -32,10 +29,11 @@ if (!_env.success) {
             DATABASE_URL: "postgres://mock",
             ANTHROPIC_API_KEY: "mock",
             ENCRYPTION_KEY: "1234567890123456789012345678901234567890123456789012345678901234",
+            WORKSPACE_BASE_DIR: "./data/workspaces",
         };
     } else {
         console.error("❌ Invalid environment variables:", _env.error.format());
-        process.exit(1);
+        throw new Error("Invalid environment variables: " + JSON.stringify(_env.error.format()));
     }
 } else {
     finalConfig = _env.data;
