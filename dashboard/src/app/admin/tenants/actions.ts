@@ -97,39 +97,43 @@ export async function deleteTenantAction(tenantId: string) {
     }
 
     try {
-        // Delete all dependent data in correct FK order using raw SQL for reliability.
-        // This covers all 27+ tables that reference tenant_id.
-        await db.execute(sql`
-            DELETE FROM api_tokens WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM tenant_provider_keys WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM tenant_plugin_configs WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM exec_policy_rules WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM exec_audit_log WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM agent_delegations WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM credentials WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM agent_scripts WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM memory_entries WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM job_runs WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM scheduled_jobs WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM pairing_codes WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM workspace_revisions WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM usage_records WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM messages WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM conversations WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM allowlists WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM tenant_skills WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM ledger_transactions WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM oauth_tokens WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM oauth_codes WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM channel_connections WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM agent_profile_mcp_bindings WHERE agent_profile_id IN (SELECT id FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid);
-            DELETE FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM mcp_servers WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM users WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM oauth_clients WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM tenant_balances WHERE tenant_id = ${tenantId}::uuid;
-            DELETE FROM tenants WHERE id = ${tenantId}::uuid;
-        `);
+        // Delete all dependent data in correct FK order inside a transaction.
+        // Each query runs as a separate parameterized statement (Postgres doesn't
+        // support multiple parameterized statements in a single execute call).
+        await db.transaction(async (tx) => {
+            // Leaf tables (no other table references these via FK)
+            await tx.execute(sql`DELETE FROM api_tokens WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM tenant_provider_keys WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM tenant_plugin_configs WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM exec_policy_rules WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM exec_audit_log WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM agent_delegations WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM credentials WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM agent_scripts WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM memory_entries WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM job_runs WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM scheduled_jobs WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM pairing_codes WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM workspace_revisions WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM usage_records WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM messages WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM conversations WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM allowlists WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM tenant_skills WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM ledger_transactions WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM oauth_tokens WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM oauth_codes WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM channel_connections WHERE tenant_id = ${tenantId}::uuid`);
+            // MCP bindings reference agent_profiles, so delete before agents
+            await tx.execute(sql`DELETE FROM agent_profile_mcp_bindings WHERE agent_profile_id IN (SELECT id FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid)`);
+            await tx.execute(sql`DELETE FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM mcp_servers WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM users WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM oauth_clients WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM tenant_balances WHERE tenant_id = ${tenantId}::uuid`);
+            // Finally, delete the tenant itself
+            await tx.execute(sql`DELETE FROM tenants WHERE id = ${tenantId}::uuid`);
+        });
 
         revalidatePath("/admin/tenants");
         revalidatePath("/admin/users");
