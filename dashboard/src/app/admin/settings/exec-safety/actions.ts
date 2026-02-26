@@ -4,8 +4,12 @@ import { db } from "../../../../storage/db";
 import { globalSettings, execAuditLog, execPolicyRules } from "../../../../storage/schema";
 import { revalidatePath } from "next/cache";
 import { desc, eq, sql } from "drizzle-orm";
+import { requireAdmin } from "../../../../utils/admin-auth";
 
 export async function getExecSafetySettings() {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { enabled: false, defaultPolicy: "allow_all", globalDenyPatterns: "", globalAllowPatterns: "" };
+
     const settings = await db.query.globalSettings.findFirst({
         where: (table, { eq }) => eq(table.id, "root"),
     });
@@ -19,6 +23,9 @@ export async function getExecSafetySettings() {
 }
 
 export async function saveExecSafetySettings(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return;
+
     try {
         const currentSettings = await db.query.globalSettings.findFirst({
             where: (table, { eq }) => eq(table.id, "root"),
@@ -47,6 +54,9 @@ export async function saveExecSafetySettings(formData: FormData) {
 }
 
 export async function getAuditLogs(page = 0, pageSize = 50) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { logs: [], total: 0, page, pageSize };
+
     const offset = page * pageSize;
     const logs = await db
         .select()
@@ -64,6 +74,9 @@ export async function getAuditLogs(page = 0, pageSize = 50) {
 }
 
 export async function getGlobalPolicyRules() {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return [];
+
     return db
         .select()
         .from(execPolicyRules)
@@ -72,6 +85,9 @@ export async function getGlobalPolicyRules() {
 }
 
 export async function addPolicyRule(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return;
+
     try {
         await db.insert(execPolicyRules).values({
             tenantId: null,
@@ -88,6 +104,9 @@ export async function addPolicyRule(formData: FormData) {
 }
 
 export async function deletePolicyRule(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return;
+
     try {
         const ruleId = formData.get("ruleId") as string;
         await db.delete(execPolicyRules).where(eq(execPolicyRules.id, ruleId));

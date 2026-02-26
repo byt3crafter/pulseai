@@ -18,6 +18,9 @@ dist/
 .vscode/
 .idea/
 
+# Migration state (per-environment)
+scripts/migrations/.applied
+
 # OS
 .DS_Store
 Thumbs.db

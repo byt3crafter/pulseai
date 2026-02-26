@@ -2,35 +2,44 @@ import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { db } from "../../../../storage/db";
 import { globalSettings } from "../../../../storage/schema";
 import { revalidatePath } from "next/cache";
+import SaveButton from "../../../../components/SaveButton";
+import { requireAdmin } from "../../../../utils/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 async function saveMemorySettings(formData: FormData) {
     "use server";
-    const currentSettings = await db.query.globalSettings.findFirst({
-        where: (table, { eq }) => eq(table.id, "root"),
-    });
-    const gwConfig: any = currentSettings?.gatewayConfig
-        ? { ...(currentSettings.gatewayConfig as any) }
-        : {};
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return;
 
-    gwConfig.memory_system = {
-        enabled: formData.get("enabled") === "on",
-        embedding_model: formData.get("embeddingModel") as string || "text-embedding-3-small",
-        max_memories_per_agent: parseInt(formData.get("maxMemories") as string) || 10000,
-        decay_half_life_days: parseInt(formData.get("decayHalfLife") as string) || 30,
-        mmr_lambda: parseFloat(formData.get("mmrLambda") as string) || 0.7,
-    };
-
-    await db
-        .insert(globalSettings)
-        .values({ id: "root", gatewayConfig: gwConfig, updatedAt: new Date() })
-        .onConflictDoUpdate({
-            target: globalSettings.id,
-            set: { gatewayConfig: gwConfig, updatedAt: new Date() },
+    try {
+        const currentSettings = await db.query.globalSettings.findFirst({
+            where: (table, { eq }) => eq(table.id, "root"),
         });
+        const gwConfig: any = currentSettings?.gatewayConfig
+            ? { ...(currentSettings.gatewayConfig as any) }
+            : {};
 
-    revalidatePath("/admin/settings/memory");
+        gwConfig.memory_system = {
+            enabled: formData.get("enabled") === "on",
+            embedding_model: formData.get("embeddingModel") as string || "text-embedding-3-small",
+            max_memories_per_agent: parseInt(formData.get("maxMemories") as string) || 10000,
+            decay_half_life_days: parseInt(formData.get("decayHalfLife") as string) || 30,
+            mmr_lambda: parseFloat(formData.get("mmrLambda") as string) || 0.7,
+        };
+
+        await db
+            .insert(globalSettings)
+            .values({ id: "root", gatewayConfig: gwConfig, updatedAt: new Date() })
+            .onConflictDoUpdate({
+                target: globalSettings.id,
+                set: { gatewayConfig: gwConfig, updatedAt: new Date() },
+            });
+
+        revalidatePath("/admin/settings/memory");
+    } catch (error) {
+        console.error("Failed to save memory settings:", error);
+    }
 }
 
 export default async function MemorySettingsPage() {
@@ -44,7 +53,7 @@ export default async function MemorySettingsPage() {
     const mem = gwConfig.memory_system || {};
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
                 <a href="/admin/settings" className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
@@ -120,9 +129,7 @@ export default async function MemorySettingsPage() {
                     </div>
 
                     <div className="flex justify-end">
-                        <button type="submit" className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">
-                            Save Memory Settings
-                        </button>
+                        <SaveButton label="Save Memory Settings" />
                     </div>
                 </div>
             </form>

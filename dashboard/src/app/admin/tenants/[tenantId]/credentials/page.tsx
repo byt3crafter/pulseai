@@ -4,11 +4,15 @@ import { credentials, tenants } from "../../../../../storage/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "../../../../../utils/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 async function deleteCredentialAction(formData: FormData) {
     "use server";
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return;
+
     const credentialId = formData.get("credentialId") as string;
     const tenantId = formData.get("tenantId") as string;
     await db.delete(credentials).where(eq(credentials.id, credentialId));
@@ -40,7 +44,7 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
     });
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
                 <a href={`/admin/tenants/${tenantId}`} className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">
                     &larr; Back to {tenant.name}

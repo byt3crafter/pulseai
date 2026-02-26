@@ -4,6 +4,15 @@
 
 import { Tool } from "../../agent/tools/tool.interface.js";
 
+export interface PluginCredentialField {
+    name: string;
+    label: string;
+    type: "url" | "text" | "secret";
+    placeholder?: string;
+    required?: boolean;
+    helpText?: string;
+}
+
 export interface PluginManifest {
     name: string;
     version: string;
@@ -12,6 +21,7 @@ export interface PluginManifest {
     tools?: Tool[];
     hooks?: Partial<PluginHooks>;
     routes?: PluginRoute[];
+    credentialSchema?: PluginCredentialField[];
 }
 
 export interface PluginContext {

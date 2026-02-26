@@ -6,13 +6,13 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { generateSecurePassword } from "../../../utils/password";
-import { auth } from "../../../auth";
+import { requireAdmin } from "../../../utils/admin-auth";
 
 export async function createUserAction(formData: FormData) {
     try {
-        const session = await auth();
-        if (session?.user?.role !== "ADMIN") {
-            return { success: false, message: "Unauthorized." };
+        const adminCheck = await requireAdmin();
+        if (!adminCheck.authorized) {
+            return { success: false, message: adminCheck.message };
         }
 
         const email = formData.get("email") as string;
@@ -56,9 +56,9 @@ export async function createUserAction(formData: FormData) {
 
 export async function resetPasswordAction(userId: string) {
     try {
-        const session = await auth();
-        if (session?.user?.role !== "ADMIN") {
-            return { success: false, message: "Unauthorized." };
+        const adminCheck = await requireAdmin();
+        if (!adminCheck.authorized) {
+            return { success: false, message: adminCheck.message };
         }
 
         const tempPassword = generateSecurePassword(16);
@@ -79,14 +79,20 @@ export async function resetPasswordAction(userId: string) {
 
 export async function deleteUserAction(userId: string) {
     try {
-        const session = await auth();
-        if (session?.user?.role !== "ADMIN") {
-            return { success: false, message: "Unauthorized." };
+        const adminCheck = await requireAdmin();
+        if (!adminCheck.authorized) {
+            return { success: false, message: adminCheck.message };
         }
 
         // Prevent self-delete
-        if (session.user.id === userId) {
+        if (adminCheck.userId === userId) {
             return { success: false, message: "You cannot delete your own account." };
+        }
+
+        // Check if user belongs to a tenant — those users are deleted via tenant deletion
+        const [user] = await db.select({ tenantId: users.tenantId }).from(users).where(eq(users.id, userId));
+        if (user?.tenantId) {
+            return { success: false, message: "This user belongs to a workspace. Delete the workspace to remove its users." };
         }
 
         await db.delete(users).where(eq(users.id, userId));

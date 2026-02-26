@@ -3,12 +3,12 @@
 import { db } from "../../../storage/db";
 import { tenants, tenantBalances, users, oauthClients } from "../../../storage/schema";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { generateSecurePassword } from "../../../utils/password";
-import { auth } from "../../../auth";
+import { requireAdmin } from "../../../utils/admin-auth";
 
 const createTenantSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -18,9 +18,9 @@ const createTenantSchema = z.object({
 });
 
 export async function createTenantAction(formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.role || session.user.role !== "ADMIN") {
-        return { success: false, message: "Unauthorized" };
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) {
+        return { success: false, message: adminCheck.message };
     }
 
     try {
@@ -33,16 +33,13 @@ export async function createTenantAction(formData: FormData) {
 
         const validatedData = createTenantSchema.parse(rawData);
 
-        // Using a transaction to ensure all related records are created together
         const credentials = await db.transaction(async (tx) => {
-            // 1. Create the base Tenant record
             const [newTenant] = await tx.insert(tenants).values({
                 name: validatedData.name,
                 slug: validatedData.slug,
                 status: "active",
             }).returning();
 
-            // 2. Initialize the Tenant's Credit Balance
             await tx.insert(tenantBalances).values({
                 tenantId: newTenant.id,
                 balance: validatedData.initialBalance.toFixed(4),
@@ -59,8 +56,6 @@ export async function createTenantAction(formData: FormData) {
                 redirectUris: ["http://127.0.0.1:*/oauth/callback", "http://localhost:*/oauth/callback"],
             });
 
-            // Automatically create the first 'Admin' user for this specific tenant
-            // Use the customer's real email and flag them to change their password on first login
             const userEmail = validatedData.customerEmail;
             const tempPassword = generateSecurePassword(16);
             const passwordHash = await bcrypt.hash(tempPassword, 10);
@@ -71,7 +66,8 @@ export async function createTenantAction(formData: FormData) {
                 passwordHash,
                 role: "TENANT",
                 tenantId: newTenant.id,
-                mustChangePassword: true, // Force password change on first login
+                mustChangePassword: true,
+                onboardingComplete: false,
             });
 
             return { clientId, clientSecret, initialUser: { email: userEmail, password: tempPassword } };
@@ -83,7 +79,6 @@ export async function createTenantAction(formData: FormData) {
         if (error instanceof z.ZodError) {
             return { success: false, message: error.issues[0].message };
         }
-        // Handle Postgres unique constraint violations with more specific messages
         if (error instanceof Error && error.message.includes("unique constraint")) {
             if (error.message.includes("users_email_unique")) {
                 return { success: false, message: "A workspace admin user with this slug already exists. The slug must be unique." };
@@ -96,29 +91,48 @@ export async function createTenantAction(formData: FormData) {
 }
 
 export async function deleteTenantAction(tenantId: string) {
-    const session = await auth();
-    if (!session?.user?.role || session.user.role !== "ADMIN") {
-        return { success: false, message: "Unauthorized" };
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) {
+        return { success: false, message: adminCheck.message };
     }
 
     try {
-        // Drizzle will handle cascading deletes if foreign keys are set up correctly,
-        // otherwise we must transactionally delete child records first.
-        await db.transaction(async (tx) => {
-            // 1. Delete associated users
-            await tx.delete(users).where(eq(users.tenantId, tenantId));
-
-            // 2. Delete the OAuth clients
-            await tx.delete(oauthClients).where(eq(oauthClients.tenantId, tenantId));
-
-            // 3. Delete balance records
-            await tx.delete(tenantBalances).where(eq(tenantBalances.tenantId, tenantId));
-
-            // 4. Finally, delete the base tenant
-            await tx.delete(tenants).where(eq(tenants.id, tenantId));
-        });
+        // Delete all dependent data in correct FK order using raw SQL for reliability.
+        // This covers all 27+ tables that reference tenant_id.
+        await db.execute(sql`
+            DELETE FROM api_tokens WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM tenant_provider_keys WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM tenant_plugin_configs WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM exec_policy_rules WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM exec_audit_log WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM agent_delegations WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM credentials WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM agent_scripts WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM memory_entries WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM job_runs WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM scheduled_jobs WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM pairing_codes WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM workspace_revisions WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM usage_records WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM messages WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM conversations WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM allowlists WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM tenant_skills WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM ledger_transactions WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM oauth_tokens WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM oauth_codes WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM channel_connections WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM agent_profile_mcp_bindings WHERE agent_profile_id IN (SELECT id FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid);
+            DELETE FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM mcp_servers WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM users WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM oauth_clients WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM tenant_balances WHERE tenant_id = ${tenantId}::uuid;
+            DELETE FROM tenants WHERE id = ${tenantId}::uuid;
+        `);
 
         revalidatePath("/admin/tenants");
+        revalidatePath("/admin/users");
         return { success: true };
     } catch (error) {
         console.error("Failed to delete tenant:", error);
@@ -127,9 +141,9 @@ export async function deleteTenantAction(tenantId: string) {
 }
 
 export async function toggleTenantStatusAction(tenantId: string, currentStatus: string) {
-    const session = await auth();
-    if (!session?.user?.role || session.user.role !== "ADMIN") {
-        return { success: false, message: "Unauthorized" };
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) {
+        return { success: false, message: adminCheck.message };
     }
 
     try {

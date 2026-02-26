@@ -1,11 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { readdir, readFile, writeFile, unlink, mkdir, access } from "node:fs/promises";
+import { readdir, readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { db } from "../../../../../storage/db";
-import { agentProfiles } from "../../../../../storage/schema";
-import { eq } from "drizzle-orm";
+import { requireTenant } from "../../../../../utils/tenant-auth";
 
 const KNOWLEDGE_FILE_PATTERN = /^KNOWLEDGE_[A-Z0-9_]+\.md$/;
 
@@ -29,7 +27,11 @@ function getWorkspacePath(tenantId: string, agentId: string): string {
 }
 
 export async function getKnowledgeFiles(tenantId: string, agentId: string) {
-    const ws = getWorkspacePath(tenantId, agentId);
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return [];
+    if (tenantId !== tenantCheck.tenantId) return [];
+
+    const ws = getWorkspacePath(tenantCheck.tenantId, agentId);
     try {
         const files = await readdir(ws);
         const knowledgeFiles = files.filter((f) => KNOWLEDGE_FILE_PATTERN.test(f));
@@ -45,8 +47,11 @@ export async function getKnowledgeFiles(tenantId: string, agentId: string) {
 }
 
 export async function addKnowledgeTemplate(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
+
     const agentId = formData.get("agentId") as string;
-    const tenantId = formData.get("tenantId") as string;
     const templateKey = formData.get("templateKey") as string;
 
     const tmpl = TEMPLATES[templateKey];
@@ -70,8 +75,11 @@ export async function addKnowledgeTemplate(formData: FormData) {
 }
 
 export async function updateKnowledgeFile(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
+
     const agentId = formData.get("agentId") as string;
-    const tenantId = formData.get("tenantId") as string;
     const fileName = formData.get("fileName") as string;
     const content = formData.get("content") as string;
 
@@ -84,8 +92,11 @@ export async function updateKnowledgeFile(formData: FormData) {
 }
 
 export async function removeKnowledgeFile(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
+
     const agentId = formData.get("agentId") as string;
-    const tenantId = formData.get("tenantId") as string;
     const fileName = formData.get("fileName") as string;
 
     if (!KNOWLEDGE_FILE_PATTERN.test(fileName)) return;
@@ -99,8 +110,11 @@ export async function removeKnowledgeFile(formData: FormData) {
 }
 
 export async function addCustomKnowledge(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
+
     const agentId = formData.get("agentId") as string;
-    const tenantId = formData.get("tenantId") as string;
     const name = (formData.get("name") as string).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
 
     const fileName = `KNOWLEDGE_${name}.md`;

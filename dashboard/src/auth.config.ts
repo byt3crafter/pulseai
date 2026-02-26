@@ -1,5 +1,9 @@
 import type { NextAuthConfig } from "next-auth";
-import { config } from "./config";
+
+// Read secret directly from process.env to avoid importing config.ts,
+// which validates DATABASE_URL, ANTHROPIC_API_KEY, etc. and throws in Edge runtime
+// (middleware) where those env vars may not be available.
+const authSecret = process.env.ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET || "";
 
 export const authConfig = {
     pages: {
@@ -9,10 +13,11 @@ export const authConfig = {
     callbacks: {
         jwt({ token, user }) {
             if (user) {
-                token.id = user.id;
+                token.id = user.id!;
                 token.role = user.role as string;
                 token.tenantId = user.tenantId as string | null;
                 token.mustChangePassword = (user as any).mustChangePassword as boolean;
+                token.onboardingComplete = (user as any).onboardingComplete as boolean;
             }
             return token;
         },
@@ -22,6 +27,7 @@ export const authConfig = {
                 session.user.role = token.role as string;
                 session.user.tenantId = token.tenantId as string | null;
                 session.user.mustChangePassword = token.mustChangePassword as boolean;
+                session.user.onboardingComplete = token.onboardingComplete as boolean;
             }
             return session;
         },
@@ -29,5 +35,5 @@ export const authConfig = {
     session: {
         strategy: "jwt",
     },
-    secret: config.ENCRYPTION_KEY,
+    secret: authSecret,
 } satisfies NextAuthConfig;

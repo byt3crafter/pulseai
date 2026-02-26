@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "../../../auth";
+import { auth, signIn } from "../../../auth";
 import { db } from "../../../storage/db";
 import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pairingCodes, agentProfiles, apiTokens } from "../../../storage/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -37,9 +37,18 @@ export async function changePasswordAction(formData: FormData) {
         .set({ passwordHash, mustChangePassword: false, updatedAt: new Date() })
         .where(eq(users.id, session.user.id));
 
-    // Force session refresh to update mustChangePassword in JWT
-    revalidatePath("/dashboard/settings");
+    // If forced password change, re-authenticate to refresh the JWT cookie
+    // with mustChangePassword=false, then redirect to dashboard seamlessly
+    if (session.user.mustChangePassword) {
+        await signIn("credentials", {
+            email: session.user.email,
+            password: newPassword,
+            redirectTo: "/dashboard",
+        });
+        // signIn redirects — this line won't execute
+    }
 
+    revalidatePath("/dashboard/settings");
     return { success: true, message: "Password updated successfully." };
 }
 
@@ -182,6 +191,9 @@ export async function removeProviderKeyAction(formData: FormData) {
 }
 
 export async function validateProviderKeyAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.tenantId) return { valid: false, error: "Unauthorized." };
+
     const provider = formData.get("provider") as string;
     const apiKey = formData.get("apiKey") as string;
     const authMethod = (formData.get("authMethod") as string) || "api_key";
@@ -263,8 +275,8 @@ export async function validateProviderKeyAction(formData: FormData) {
             default:
                 return { valid: false, error: `Unknown provider: ${provider}` };
         }
-    } catch (err: any) {
-        return { valid: false, error: err.message || "Validation request failed" };
+    } catch {
+        return { valid: false, error: "Validation failed" };
     }
 }
 
@@ -480,7 +492,6 @@ export async function exchangeOpenAICodeAction({
                 chatgptAccountId = authClaim.chatgpt_account_id;
             }
             if (claims.scope) grantedScopes = claims.scope;
-            console.log("[OAuth] JWT claims - scopes:", claims.scope, "accountId:", chatgptAccountId?.substring(0, 8), "exp:", expiresAt);
         } catch { /* ignore parse errors */ }
 
         const existing = await db.query.tenantProviderKeys.findFirst({
@@ -518,9 +529,9 @@ export async function exchangeOpenAICodeAction({
 
         revalidatePath("/dashboard/settings");
         return { success: true, message: "ChatGPT account connected successfully." };
-    } catch (error: any) {
+    } catch (error) {
         console.error("OpenAI OAuth exchange failed:", error);
-        return { success: false, message: error.message || "OAuth exchange failed." };
+        return { success: false, message: "OAuth exchange failed." };
     }
 }
 

@@ -7,6 +7,7 @@ import {
     addGroupToAllowlistAction,
     removeFromAllowlistAction,
 } from "./actions";
+import ConfirmDialog from "../../../../../components/ConfirmDialog";
 
 interface PairingRequest {
     id: string;
@@ -42,6 +43,7 @@ export default function ApprovalsClient({
     const [groupName, setGroupName] = useState("");
     const [addingGroup, setAddingGroup] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: "block" | "remove"; contactId: string } | null>(null);
 
     const handleApprove = async (code: string) => {
         setProcessing(code);
@@ -51,7 +53,6 @@ export default function ApprovalsClient({
     };
 
     const handleReject = async (contactId: string) => {
-        if (!confirm("Block this contact? They will not be able to request pairing again.")) return;
         setProcessing(contactId);
         const result = await rejectPairingAction(tenantId, contactId);
         if (!result.success) alert(result.message);
@@ -59,11 +60,20 @@ export default function ApprovalsClient({
     };
 
     const handleRemove = async (contactId: string) => {
-        if (!confirm("Remove this entry from the allowlist?")) return;
         setProcessing(contactId);
         const result = await removeFromAllowlistAction(tenantId, contactId);
         if (!result.success) alert(result.message);
         setProcessing(null);
+    };
+
+    const handleConfirmAction = async () => {
+        if (!confirmAction) return;
+        if (confirmAction.type === "block") {
+            await handleReject(confirmAction.contactId);
+        } else {
+            await handleRemove(confirmAction.contactId);
+        }
+        setConfirmAction(null);
     };
 
     const handleAddGroup = async () => {
@@ -129,7 +139,7 @@ export default function ApprovalsClient({
                                         {processing === p.code ? "..." : "Approve"}
                                     </button>
                                     <button
-                                        onClick={() => handleReject(p.contactId)}
+                                        onClick={() => setConfirmAction({ type: "block", contactId: p.contactId })}
                                         disabled={processing === p.contactId}
                                         className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
                                     >
@@ -161,7 +171,7 @@ export default function ApprovalsClient({
                                     <div className="text-xs text-gray-500 font-mono">{u.contactId}</div>
                                 </div>
                                 <button
-                                    onClick={() => handleRemove(u.contactId)}
+                                    onClick={() => setConfirmAction({ type: "remove", contactId: u.contactId })}
                                     disabled={processing === u.contactId}
                                     className="px-3 py-1.5 text-red-600 bg-red-50 text-xs font-medium rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
                                 >
@@ -192,7 +202,7 @@ export default function ApprovalsClient({
                                     <div className="text-xs text-gray-500 font-mono">{g.contactId}</div>
                                 </div>
                                 <button
-                                    onClick={() => handleRemove(g.contactId)}
+                                    onClick={() => setConfirmAction({ type: "remove", contactId: g.contactId })}
                                     disabled={processing === g.contactId}
                                     className="px-3 py-1.5 text-red-600 bg-red-50 text-xs font-medium rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
                                 >
@@ -232,6 +242,20 @@ export default function ApprovalsClient({
                     {errorMsg && <p className="text-xs text-red-600 mt-2">{errorMsg}</p>}
                 </div>
             </section>
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                title={confirmAction?.type === "block" ? "Block Contact" : "Remove from Allowlist"}
+                message={
+                    confirmAction?.type === "block"
+                        ? "Block this contact? They will not be able to request pairing again."
+                        : "Remove this entry from the allowlist?"
+                }
+                confirmLabel={confirmAction?.type === "block" ? "Block" : "Remove"}
+                variant={confirmAction?.type === "block" ? "danger" : "warning"}
+                onConfirm={handleConfirmAction}
+                onCancel={() => setConfirmAction(null)}
+            />
         </div>
     );
 }

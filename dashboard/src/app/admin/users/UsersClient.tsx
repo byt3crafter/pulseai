@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { resetPasswordAction, deleteUserAction } from "./actions";
 import CreateUserModal from "./CreateUserModal";
+import ConfirmDialog from "../../../components/ConfirmDialog";
 
 interface User {
     id: string;
@@ -32,6 +33,7 @@ export default function UsersClient({ users, tenants }: Props) {
     const [actionUserId, setActionUserId] = useState<string | null>(null);
     const [tempPassword, setTempPassword] = useState<string | null>(null);
     const [error, setError] = useState("");
+    const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
 
     const handleResetPassword = async (userId: string) => {
         const result = await resetPasswordAction(userId);
@@ -43,8 +45,10 @@ export default function UsersClient({ users, tenants }: Props) {
         }
     };
 
-    const handleDelete = async (userId: string) => {
-        const result = await deleteUserAction(userId);
+    const handleDelete = async () => {
+        if (!deleteUserId) return;
+        const result = await deleteUserAction(deleteUserId);
+        setDeleteUserId(null);
         if (result.success) {
             setActionUserId(null);
             router.refresh();
@@ -54,7 +58,7 @@ export default function UsersClient({ users, tenants }: Props) {
     };
 
     return (
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
@@ -183,7 +187,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                         </button>
                                         <button
                                             onClick={() =>
-                                                handleDelete(user.id)
+                                                setDeleteUserId(user.id)
                                             }
                                             className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
                                         >
@@ -206,6 +210,16 @@ export default function UsersClient({ users, tenants }: Props) {
                     </tbody>
                 </table>
             </div>
+
+            <ConfirmDialog
+                open={!!deleteUserId}
+                title="Delete User"
+                message="This will permanently delete this user account. This action cannot be undone."
+                confirmLabel="Delete User"
+                variant="danger"
+                onConfirm={handleDelete}
+                onCancel={() => setDeleteUserId(null)}
+            />
         </div>
     );
 }

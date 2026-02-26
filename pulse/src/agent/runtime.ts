@@ -7,6 +7,7 @@ import { getDefaultModel, getProviderByModel } from "./providers/model-registry.
 import { providerKeyService } from "./providers/provider-key-service.js";
 import { memoryService } from "../memory/memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
+import { hookRegistry } from "../plugins/hooks.js";
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -194,6 +195,19 @@ export class AgentRuntime {
                 } catch (err) {
                     tenantLog.warn({ err }, "Failed to inject delegation context (non-fatal)");
                 }
+            }
+
+            // 3.87 Run before-prompt-build plugin hooks
+            try {
+                const promptCtx = await hookRegistry.run("before-prompt-build", {
+                    tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId,
+                    systemPrompt: activeSystemPrompt,
+                    messages: llmMessages,
+                });
+                activeSystemPrompt = promptCtx.systemPrompt;
+            } catch (err) {
+                tenantLog.warn({ err }, "Plugin before-prompt-build hook failed (non-fatal)");
             }
 
             // 3.9 Pre-Flight: Verify an AI provider key exists before calling the LLM

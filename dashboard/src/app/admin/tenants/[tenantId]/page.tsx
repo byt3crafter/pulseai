@@ -44,7 +44,7 @@ export default async function TenantDetailPage({
     const config = (tenant.config as Record<string, any>) || {};
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-8">
             {/* Header */}
             <div className="mb-8">
                 <Link

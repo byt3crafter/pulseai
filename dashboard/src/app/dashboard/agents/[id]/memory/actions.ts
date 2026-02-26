@@ -4,8 +4,12 @@ import { db } from "../../../../../storage/db";
 import { memoryEntries } from "../../../../../storage/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requireTenant } from "../../../../../utils/tenant-auth";
 
 export async function getAgentMemories(agentId: string, page = 0, pageSize = 30) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { memories: [], total: 0, page, pageSize };
+
     const offset = page * pageSize;
     const memories = await db
         .select({
@@ -33,6 +37,9 @@ export async function getAgentMemories(agentId: string, page = 0, pageSize = 30)
 }
 
 export async function getMemoryStats(agentId: string) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return {};
+
     const result = await db.execute(sql`
         SELECT
             count(*) as total,
@@ -49,6 +56,9 @@ export async function getMemoryStats(agentId: string) {
 }
 
 export async function deleteMemory(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+
     const memoryId = formData.get("memoryId") as string;
     const agentId = formData.get("agentId") as string;
     await db.delete(memoryEntries).where(eq(memoryEntries.id, memoryId));
@@ -56,6 +66,9 @@ export async function deleteMemory(formData: FormData) {
 }
 
 export async function bulkDeleteMemories(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+
     const agentId = formData.get("agentId") as string;
     const category = formData.get("category") as string;
 

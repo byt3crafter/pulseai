@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createAgentProfileAction } from "./actions";
 import { PROVIDERS, DEFAULT_MODEL_ID } from "../../../utils/models";
 
-export default function CreateAgentModal() {
+export default function CreateAgentModal({ connectedProviders }: { connectedProviders: string[] }) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -81,23 +81,34 @@ export default function CreateAgentModal() {
                                 <label htmlFor="modelId" className="block text-sm font-medium text-gray-700 mb-1.5">
                                     Model
                                 </label>
-                                <select
-                                    id="modelId"
-                                    name="modelId"
-                                    defaultValue={DEFAULT_MODEL_ID}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow text-gray-900 bg-white"
-                                >
-                                    {PROVIDERS.map((provider) => (
-                                        <optgroup key={provider.id} label={provider.name}>
-                                            {provider.models.map((model) => (
-                                                <option key={model.id} value={model.id}>
-                                                    {model.displayName} ({model.category})
-                                                </option>
+                                {connectedProviders.length > 0 ? (
+                                    <>
+                                        <select
+                                            id="modelId"
+                                            name="modelId"
+                                            defaultValue={
+                                                PROVIDERS.filter((p) => connectedProviders.includes(p.id))
+                                                    .flatMap((p) => p.models)[0]?.id ?? DEFAULT_MODEL_ID
+                                            }
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow text-gray-900 bg-white"
+                                        >
+                                            {PROVIDERS.filter((p) => connectedProviders.includes(p.id)).map((provider) => (
+                                                <optgroup key={provider.id} label={provider.name}>
+                                                    {provider.models.map((model) => (
+                                                        <option key={model.id} value={model.id}>
+                                                            {model.displayName} ({model.category})
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
                                             ))}
-                                        </optgroup>
-                                    ))}
-                                </select>
-                                <p className="mt-1 text-xs text-gray-500">Select the LLM that powers this agent. Requires a configured API key for the provider.</p>
+                                        </select>
+                                        <p className="mt-1 text-xs text-gray-500">Only models from your connected providers are shown.</p>
+                                    </>
+                                ) : (
+                                    <div className="p-3 text-sm text-amber-700 bg-amber-50 rounded-lg border border-amber-200">
+                                        No AI providers configured. Add an API key in Settings first.
+                                    </div>
+                                )}
                             </div>
 
                             <div>
@@ -145,7 +156,7 @@ export default function CreateAgentModal() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || connectedProviders.length === 0}
                                     className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     {loading ? 'Creating...' : 'Create Persona'}

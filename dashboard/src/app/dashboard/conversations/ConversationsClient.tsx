@@ -25,7 +25,7 @@ export default function ConversationsClient({
     conversations: Conversation[];
 }) {
     return (
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                     Conversations

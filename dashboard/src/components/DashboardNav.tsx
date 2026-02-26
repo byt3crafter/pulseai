@@ -9,6 +9,7 @@ import {
     ServerStackIcon,
     ChartBarSquareIcon,
     Cog6ToothIcon,
+    ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
 const links = [
@@ -20,7 +21,7 @@ const links = [
     { href: "/dashboard/settings", label: "Settings", icon: Cog6ToothIcon, exact: false },
 ];
 
-export default function DashboardNav() {
+export default function DashboardNav({ isAdmin }: { isAdmin?: boolean }) {
     const pathname = usePathname();
 
     return (
@@ -41,6 +42,21 @@ export default function DashboardNav() {
                     </Link>
                 );
             })}
+
+            {isAdmin && (
+                <>
+                    <div className="pt-3 pb-1 px-3">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Administration</span>
+                    </div>
+                    <Link
+                        href="/admin"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    >
+                        <ShieldCheckIcon className="w-4.5 h-4.5 flex-shrink-0 text-slate-400" style={{ width: 18, height: 18 }} />
+                        Admin Panel
+                    </Link>
+                </>
+            )}
         </nav>
     );
 }

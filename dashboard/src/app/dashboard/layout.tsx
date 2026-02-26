@@ -4,7 +4,7 @@ import { users, tenants } from "../../storage/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { CpuChipIcon } from "@heroicons/react/24/outline";
-import LogoutButton from "../../components/LogoutButton";
+import SidebarUserMenu from "../../components/SidebarUserMenu";
 import DashboardNav from "../../components/DashboardNav";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +27,7 @@ export default async function DashboardLayout({
     const workspaceName = tenantRow[0]?.name ?? "Workspace";
     const userName = userRow[0]?.name ?? userRow[0]?.email ?? "User";
     const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+    const isAdmin = session?.user?.role === "ADMIN";
 
     return (
         <div className="flex h-screen bg-slate-50 w-full font-sans">
@@ -45,20 +46,19 @@ export default async function DashboardLayout({
                 </div>
 
                 {/* Nav — dynamic active state via DashboardNav (client component) */}
-                <DashboardNav />
+                <DashboardNav isAdmin={isAdmin} />
 
                 {/* User + logout */}
                 <div className="p-3 border-t border-slate-100">
-                    <div className="flex items-center gap-3 px-2 py-2 mb-2">
-                        <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                            {initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-slate-900 truncate">{userName}</p>
-                            <Link href="/dashboard/settings?tab=account" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">Account settings</Link>
-                        </div>
-                    </div>
-                    <LogoutButton />
+                    <SidebarUserMenu
+                        name={userName}
+                        email={userRow[0]?.email ?? undefined}
+                        role={isAdmin ? "Administrator" : "Workspace Member"}
+                        initials={initials}
+                        callbackUrl="/login"
+                        variant="light"
+                        settingsHref="/dashboard/settings?tab=account"
+                    />
                 </div>
             </aside>
 

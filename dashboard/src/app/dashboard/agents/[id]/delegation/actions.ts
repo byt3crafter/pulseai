@@ -4,9 +4,12 @@ import { db } from "../../../../../storage/db";
 import { agentProfiles, agentDelegations } from "../../../../../storage/schema";
 import { eq, or, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requireTenant } from "../../../../../utils/tenant-auth";
 
 export async function saveDelegationConfig(formData: FormData) {
-    "use server";
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+
     const agentId = formData.get("agentId") as string;
 
     const delegationConfig = {
@@ -32,6 +35,9 @@ export async function saveDelegationConfig(formData: FormData) {
 }
 
 export async function getDelegationHistory(agentId: string, limit = 20) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return [];
+
     return db.query.agentDelegations.findMany({
         where: or(
             eq(agentDelegations.sourceAgentId, agentId),
@@ -43,7 +49,11 @@ export async function getDelegationHistory(agentId: string, limit = 20) {
 }
 
 export async function getTenantAgents(tenantId: string) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return [];
+    if (tenantId !== tenantCheck.tenantId) return [];
+
     return db.query.agentProfiles.findMany({
-        where: eq(agentProfiles.tenantId, tenantId),
+        where: eq(agentProfiles.tenantId, tenantCheck.tenantId),
     });
 }

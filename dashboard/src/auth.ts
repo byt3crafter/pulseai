@@ -15,11 +15,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                console.log("\n[AUTH] === NEXTAUTH LOGIN ATTEMPT ===");
-                console.log("[AUTH] Email received:", credentials?.email);
-
                 if (!credentials?.email || !credentials?.password) {
-                    console.log("[AUTH] -> Rejected: Missing email or password");
                     return null;
                 }
 
@@ -31,14 +27,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         .limit(1);
 
                     if (!userRecord) {
-                        console.log("[AUTH] -> Rejected: User not found in database.");
                         return null;
                     }
 
                     const isValid = await bcrypt.compare(credentials.password as string, userRecord.passwordHash);
 
                     if (!isValid) {
-                        console.log("[AUTH] -> Rejected: Invalid password.");
                         return null;
                     }
 
@@ -47,7 +41,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         .set({ lastLoginAt: new Date() })
                         .where(eq(users.id, userRecord.id));
 
-                    console.log("[AUTH] -> Approved: Login successful for", userRecord.email);
                     return {
                         id: userRecord.id,
                         name: userRecord.name,
@@ -55,9 +48,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         role: userRecord.role,
                         tenantId: userRecord.tenantId,
                         mustChangePassword: userRecord.mustChangePassword,
+                        onboardingComplete: userRecord.onboardingComplete,
                     };
                 } catch (e) {
-                    console.error("[AUTH] -> Exception during database query:", e);
+                    console.error("[AUTH] Login failed due to internal error");
                     return null;
                 }
             },

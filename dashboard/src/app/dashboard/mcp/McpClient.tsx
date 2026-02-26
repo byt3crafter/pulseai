@@ -8,6 +8,7 @@ import {
     unbindAgentFromMcpAction,
 } from "./actions";
 import CreateMcpServerModal from "./CreateMcpServerModal";
+import ConfirmDialog from "../../../components/ConfirmDialog";
 
 interface McpServer {
     id: string;
@@ -37,12 +38,13 @@ interface Props {
 
 export default function McpClient({ servers, agents, bindings }: Props) {
     const router = useRouter();
-    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [deleteServerId, setDeleteServerId] = useState<string | null>(null);
 
-    const handleDelete = async (serverId: string) => {
-        const result = await deleteMcpServerAction(serverId);
+    const handleDelete = async () => {
+        if (!deleteServerId) return;
+        const result = await deleteMcpServerAction(deleteServerId);
+        setDeleteServerId(null);
         if (result.success) {
-            setDeletingId(null);
             router.refresh();
         }
     };
@@ -58,7 +60,7 @@ export default function McpClient({ servers, agents, bindings }: Props) {
     };
 
     return (
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -111,37 +113,14 @@ export default function McpClient({ servers, agents, bindings }: Props) {
                                             {server.name}
                                         </h3>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        {deletingId === server.id ? (
-                                            <>
-                                                <button
-                                                    onClick={() =>
-                                                        handleDelete(server.id)
-                                                    }
-                                                    className="text-xs font-medium text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50"
-                                                >
-                                                    Confirm
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        setDeletingId(null)
-                                                    }
-                                                    className="text-xs font-medium text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-50"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <button
-                                                onClick={() =>
-                                                    setDeletingId(server.id)
-                                                }
-                                                className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
-                                            >
-                                                Delete
-                                            </button>
-                                        )}
-                                    </div>
+                                    <button
+                                        onClick={() =>
+                                            setDeleteServerId(server.id)
+                                        }
+                                        className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                                    >
+                                        Delete
+                                    </button>
                                 </div>
                                 <p className="text-xs text-slate-400 font-mono mt-1 truncate">
                                     {server.url}
@@ -212,6 +191,16 @@ export default function McpClient({ servers, agents, bindings }: Props) {
                     );
                 })}
             </div>
+
+            <ConfirmDialog
+                open={!!deleteServerId}
+                title="Delete MCP Server"
+                message="This will permanently remove this MCP server and unbind it from all agents. This action cannot be undone."
+                confirmLabel="Delete Server"
+                variant="danger"
+                onConfirm={handleDelete}
+                onCancel={() => setDeleteServerId(null)}
+            />
         </div>
     );
 }

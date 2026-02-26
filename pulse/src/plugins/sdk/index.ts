@@ -10,6 +10,7 @@ export function definePlugin(manifest: PluginManifest): PluginManifest {
 
 export type {
     PluginManifest,
+    PluginCredentialField,
     PluginContext,
     PluginHooks,
     PluginRoute,

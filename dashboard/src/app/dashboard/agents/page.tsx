@@ -1,6 +1,6 @@
 import { db } from "../../../storage/db";
-import { agentProfiles } from "../../../storage/schema";
-import { eq } from "drizzle-orm";
+import { agentProfiles, tenantProviderKeys } from "../../../storage/schema";
+import { eq, and } from "drizzle-orm";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -18,21 +18,31 @@ export default async function AgentsPage() {
     const isNextBuild = process.env.npm_lifecycle_event === 'build' || process.env.NEXT_PHASE === 'phase-production-build';
     let agents: any[] = [];
 
+    let connectedProviders: string[] = [];
+
     if (!isNextBuild) {
         agents = await db.select()
             .from(agentProfiles)
             .where(eq(agentProfiles.tenantId, session.user.tenantId));
+
+        const providerRows = await db.select({ provider: tenantProviderKeys.provider })
+            .from(tenantProviderKeys)
+            .where(and(
+                eq(tenantProviderKeys.tenantId, session.user.tenantId),
+                eq(tenantProviderKeys.isActive, true)
+            ));
+        connectedProviders = providerRows.map((r) => r.provider);
     }
 
     return (
-        <div className="min-h-screen bg-transparent flex flex-col p-8">
-            <div className="max-w-6xl w-full mx-auto">
+        <div className="p-8">
+            <div>
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Agent Profiles</h1>
                         <p className="text-sm text-gray-500 mt-1">Manage distinct AI personas, their workspaces, models, and tool access.</p>
                     </div>
-                    <CreateAgentModal />
+                    <CreateAgentModal connectedProviders={connectedProviders} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

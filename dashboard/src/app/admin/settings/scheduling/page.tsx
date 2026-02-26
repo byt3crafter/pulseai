@@ -2,34 +2,43 @@ import { db } from "../../../../storage/db";
 import { globalSettings, scheduledJobs, jobRuns, agentProfiles } from "../../../../storage/schema";
 import { eq, desc, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import SaveButton from "../../../../components/SaveButton";
+import { requireAdmin } from "../../../../utils/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 async function saveSchedulingSettings(formData: FormData) {
     "use server";
-    const currentSettings = await db.query.globalSettings.findFirst({
-        where: (table, { eq }) => eq(table.id, "root"),
-    });
-    const gwConfig: any = currentSettings?.gatewayConfig
-        ? { ...(currentSettings.gatewayConfig as any) }
-        : {};
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return;
 
-    gwConfig.scheduling = {
-        enabled: formData.get("enabled") === "on",
-        max_jobs_per_tenant: parseInt(formData.get("maxJobsPerTenant") as string) || 50,
-        max_jobs_per_agent: parseInt(formData.get("maxJobsPerAgent") as string) || 10,
-        min_interval_seconds: parseInt(formData.get("minInterval") as string) || 300,
-    };
-
-    await db
-        .insert(globalSettings)
-        .values({ id: "root", gatewayConfig: gwConfig, updatedAt: new Date() })
-        .onConflictDoUpdate({
-            target: globalSettings.id,
-            set: { gatewayConfig: gwConfig, updatedAt: new Date() },
+    try {
+        const currentSettings = await db.query.globalSettings.findFirst({
+            where: (table, { eq }) => eq(table.id, "root"),
         });
+        const gwConfig: any = currentSettings?.gatewayConfig
+            ? { ...(currentSettings.gatewayConfig as any) }
+            : {};
 
-    revalidatePath("/admin/settings/scheduling");
+        gwConfig.scheduling = {
+            enabled: formData.get("enabled") === "on",
+            max_jobs_per_tenant: parseInt(formData.get("maxJobsPerTenant") as string) || 50,
+            max_jobs_per_agent: parseInt(formData.get("maxJobsPerAgent") as string) || 10,
+            min_interval_seconds: parseInt(formData.get("minInterval") as string) || 300,
+        };
+
+        await db
+            .insert(globalSettings)
+            .values({ id: "root", gatewayConfig: gwConfig, updatedAt: new Date() })
+            .onConflictDoUpdate({
+                target: globalSettings.id,
+                set: { gatewayConfig: gwConfig, updatedAt: new Date() },
+            });
+
+        revalidatePath("/admin/settings/scheduling");
+    } catch (error) {
+        console.error("Failed to save scheduling settings:", error);
+    }
 }
 
 export default async function SchedulingSettingsPage() {
@@ -65,7 +74,7 @@ export default async function SchedulingSettingsPage() {
     const enabledCount = allJobs.filter((j) => j.enabled).length;
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
                 <a href="/admin/settings" className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
@@ -129,9 +138,7 @@ export default async function SchedulingSettingsPage() {
                         </div>
 
                         <div className="flex justify-end">
-                            <button type="submit" className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">
-                                Save Scheduling Settings
-                            </button>
+                            <SaveButton label="Save Scheduling Settings" />
                         </div>
                     </div>
                 </form>

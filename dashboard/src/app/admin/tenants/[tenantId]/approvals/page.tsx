@@ -65,7 +65,7 @@ export default async function ApprovalsPage({
         );
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
                 <Link
                     href={`/admin/tenants/${tenantId}`}

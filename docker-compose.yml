@@ -8,12 +8,12 @@ services:
     restart: always
     environment:
       POSTGRES_USER: pulseadmin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_pulse_db_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: pulse
     volumes:
       - pulse-db-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U pulseadmin -d pulse" ]
       interval: 10s
@@ -27,13 +27,13 @@ services:
     image: redis:7-alpine
     container_name: pulse-redis
     restart: always
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - pulse-redis-data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,17 +58,17 @@ services:
       - NODE_ENV=production
       - HOST=0.0.0.0
       - PORT=8080
-      - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD:-secure_pulse_db_password}@postgres:5432/pulse
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD}@postgres:5432/pulse
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - WORKSPACE_BASE_DIR=/app/data/workspaces
     volumes:
-      - /app/node_modules
       - pulse-workspace-data:/app/data/workspaces
 
   # -----------------------------------------------------------------
   # Next.js Dashboard (Frontend Admin Panel)
+  # NOTE: NEXTAUTH_URL must be changed for production (e.g. https://yourdomain.com)
   # -----------------------------------------------------------------
   pulse-dashboard:
     build:
@@ -83,9 +83,9 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD:-secure_pulse_db_password}@postgres:5432/pulse
+      - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD}@postgres:5432/pulse
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-d009088af6421528620ba012a6cb8f1e626bb3f9052731c3606a38575083fc3c}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - WORKSPACE_BASE_DIR=/app/data/workspaces
     volumes:

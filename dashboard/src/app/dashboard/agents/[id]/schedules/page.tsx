@@ -18,7 +18,7 @@ export default async function AgentSchedulesPage({ params }: { params: Promise<{
     const schedules = await getAgentSchedules(agentId);
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
                 <a href={`/dashboard/agents/${agentId}`} className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">
                     &larr; Back to {agent.name}

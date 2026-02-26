@@ -1,6 +1,6 @@
 /**
- * Onboarding Layout — bypasses the dashboard sidebar.
- * Renders full-page so the wizard doesn't float over the nav.
+ * Onboarding Layout — full-screen, no sidebar, no navigation.
+ * Users cannot escape until onboarding is complete.
  */
 export default function OnboardingLayout({
     children,

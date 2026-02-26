@@ -3,9 +3,13 @@
 import { db } from "../../../../../storage/db";
 import { execAuditLog, execPolicyRules } from "../../../../../storage/schema";
 import { revalidatePath } from "next/cache";
-import { desc, eq, and, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
+import { requireTenant } from "../../../../../utils/tenant-auth";
 
 export async function getAgentPolicyRules(agentId: string) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return [];
+
     return db
         .select()
         .from(execPolicyRules)
@@ -14,6 +18,9 @@ export async function getAgentPolicyRules(agentId: string) {
 }
 
 export async function getAgentAuditLogs(agentId: string, page = 0, pageSize = 30) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { logs: [], total: 0, page, pageSize };
+
     const offset = page * pageSize;
     const logs = await db
         .select()
@@ -33,9 +40,12 @@ export async function getAgentAuditLogs(agentId: string, page = 0, pageSize = 30
 }
 
 export async function addAgentPolicyRule(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
+
     try {
         const agentId = formData.get("agentId") as string;
-        const tenantId = formData.get("tenantId") as string;
         await db.insert(execPolicyRules).values({
             tenantId,
             agentId,
@@ -51,6 +61,9 @@ export async function addAgentPolicyRule(formData: FormData) {
 }
 
 export async function deleteAgentPolicyRule(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+
     try {
         const ruleId = formData.get("ruleId") as string;
         const agentId = formData.get("agentId") as string;

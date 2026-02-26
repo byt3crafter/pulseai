@@ -4,8 +4,12 @@ import { db } from "../../../../../storage/db";
 import { allowlists, pairingCodes } from "../../../../../storage/schema";
 import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
+import { requireAdmin } from "../../../../../utils/admin-auth";
 
 export async function approvePairingAction(tenantId: string, code: string) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
     try {
         const pairingRecord = await db.query.pairingCodes.findFirst({
             where: and(
@@ -46,6 +50,9 @@ export async function approvePairingAction(tenantId: string, code: string) {
 }
 
 export async function rejectPairingAction(tenantId: string, contactId: string) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
     try {
         await db
             .update(allowlists)
@@ -83,6 +90,9 @@ export async function addGroupToAllowlistAction(
     groupChatId: string,
     groupName: string
 ) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
     try {
         await db.insert(allowlists).values({
             tenantId,
@@ -105,6 +115,9 @@ export async function addGroupToAllowlistAction(
 }
 
 export async function removeFromAllowlistAction(tenantId: string, contactId: string) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
     try {
         await db
             .delete(allowlists)

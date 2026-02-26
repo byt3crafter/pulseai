@@ -297,6 +297,7 @@ export const users = pgTable("users", {
     role: varchar("role", { length: 20 }).notNull().default("TENANT"), // 'ADMIN', 'TENANT'
     tenantId: uuid("tenant_id").references(() => tenants.id), // Nullable for global admins
     mustChangePassword: boolean("must_change_password").notNull().default(false),
+    onboardingComplete: boolean("onboarding_complete").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

@@ -7,6 +7,7 @@ import {
     addPolicyRule,
     deletePolicyRule,
 } from "./actions";
+import SaveButton from "../../../../components/SaveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,9 @@ export default async function ExecSafetyPage() {
     const rules = await getGlobalPolicyRules();
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
+                <a href="/admin/settings" className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
                     <div className="p-2 bg-rose-50 rounded-lg">
                         <ShieldCheckIcon className="w-6 h-6 text-rose-600" />
@@ -91,12 +93,7 @@ export default async function ExecSafetyPage() {
                         </div>
 
                         <div className="flex justify-end">
-                            <button
-                                type="submit"
-                                className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors"
-                            >
-                                Save Policy
-                            </button>
+                            <SaveButton label="Save Policy" />
                         </div>
                     </div>
                 </form>
@@ -141,12 +138,7 @@ export default async function ExecSafetyPage() {
                                     defaultValue="0"
                                     className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900"
                                 />
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-                                >
-                                    Add
-                                </button>
+                                <SaveButton label="Add" className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60" />
                             </div>
                         </div>
                     </form>

@@ -1,10 +1,11 @@
 import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
+import { isRateLimited } from "./utils/rate-limit";
 
-export const { auth: middleware } = NextAuth(authConfig);
+const { auth } = NextAuth(authConfig);
 
-export default middleware((req) => {
+export default auth((req) => {
     const { nextUrl } = req;
     const isLoggedIn = !!req.auth;
     const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth");
@@ -14,16 +15,23 @@ export default middleware((req) => {
     const isLoginRoute = nextUrl.pathname === "/login";
     const isAdminLoginRoute = nextUrl.pathname === "/admin/login";
 
-    // Always allow: API auth callbacks, OAuth popup callback, public landing, tenant login, admin login
-    if (isApiAuthRoute || isOAuthCallbackRoute || isRoot || isLoginRoute || isAdminLoginRoute) {
-        // If already logged in and trying to access a login page, redirect to the right dashboard
-        if (isLoggedIn && (isLoginRoute || isAdminLoginRoute)) {
-            if (req.auth?.user?.role === "ADMIN") {
-                return NextResponse.redirect(new URL("/admin", nextUrl));
-            } else {
-                return NextResponse.redirect(new URL("/dashboard", nextUrl));
-            }
+    // Rate limit POST requests to auth endpoints (login attempts)
+    if (isApiAuthRoute && req.method === "POST") {
+        const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+            || req.headers.get("x-real-ip")
+            || "unknown";
+        if (isRateLimited(ip)) {
+            return new NextResponse("Too many login attempts. Please try again later.", {
+                status: 429,
+                headers: { "Retry-After": "60" },
+            });
         }
+    }
+
+    // Always allow: API auth callbacks, OAuth popup callback, public landing, login pages
+    // Login pages are always accessible — if the user is already logged in and wants
+    // to switch accounts (e.g. admin → tenant), let them. A new signIn overwrites the JWT.
+    if (isApiAuthRoute || isOAuthCallbackRoute || isRoot || isLoginRoute || isAdminLoginRoute) {
         return NextResponse.next();
     }
 
@@ -48,12 +56,22 @@ export default middleware((req) => {
 
     // From here: user IS authenticated
     const userRole = req.auth?.user?.role;
-    const mustChangePassword = req.auth?.user?.mustChangePassword;
+    const onboardingComplete = req.auth?.user?.onboardingComplete;
+    const isOnboardingRoute = nextUrl.pathname.startsWith("/onboarding");
 
-    // Force password change before accessing dashboard (redirect to Settings → Account tab)
-    const isSettingsRoute = nextUrl.pathname.startsWith("/dashboard/settings");
-    if (userRole === "TENANT" && mustChangePassword && !isSettingsRoute) {
-        return NextResponse.redirect(new URL("/dashboard/settings?tab=account&forcePasswordChange=true", nextUrl));
+    // Onboarding enforcement for non-admin users
+    if (userRole !== "ADMIN" && onboardingComplete === false && !isOnboardingRoute) {
+        return NextResponse.redirect(new URL("/onboarding", nextUrl));
+    }
+
+    // Prevent re-entry to onboarding after completion
+    if (isOnboardingRoute && onboardingComplete !== false) {
+        return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    }
+
+    // Allow onboarding route through (no role restriction needed — middleware already checked auth)
+    if (isOnboardingRoute) {
+        return NextResponse.next();
     }
 
     // Tenants cannot access admin panel
@@ -61,10 +79,7 @@ export default middleware((req) => {
         return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
 
-    // Admins are isolated to /admin
-    if (nextUrl.pathname.startsWith("/dashboard") && userRole === "ADMIN") {
-        return NextResponse.redirect(new URL("/admin", nextUrl));
-    }
+    // ADMIN users can access both /dashboard and /admin — no redirect
 
     return NextResponse.next();
 });

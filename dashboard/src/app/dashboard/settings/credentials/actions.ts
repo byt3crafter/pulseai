@@ -2,11 +2,12 @@
 
 import { db } from "../../../../storage/db";
 import { credentials, agentProfiles } from "../../../../storage/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { requireTenant } from "../../../../utils/tenant-auth";
 
 // Re-implement encrypt/decrypt for dashboard (uses same ENCRYPTION_KEY)
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, randomBytes } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
@@ -28,8 +29,12 @@ function encrypt(plaintext: string): string {
 }
 
 export async function getCredentials(tenantId: string) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return [];
+    if (tenantId !== tenantCheck.tenantId) return [];
+
     return db.query.credentials.findMany({
-        where: eq(credentials.tenantId, tenantId),
+        where: eq(credentials.tenantId, tenantCheck.tenantId),
         columns: {
             id: true,
             name: true,
@@ -44,15 +49,22 @@ export async function getCredentials(tenantId: string) {
 }
 
 export async function getTenantAgents(tenantId: string) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return [];
+    if (tenantId !== tenantCheck.tenantId) return [];
+
     return db.query.agentProfiles.findMany({
-        where: eq(agentProfiles.tenantId, tenantId),
+        where: eq(agentProfiles.tenantId, tenantCheck.tenantId),
         columns: { id: true, name: true },
     });
 }
 
 export async function addCredential(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
+
     try {
-        const tenantId = formData.get("tenantId") as string;
         const name = (formData.get("name") as string).toUpperCase().replace(/[^A-Z0-9_]/g, "_");
         const value = formData.get("value") as string;
         const description = formData.get("description") as string;
@@ -93,6 +105,9 @@ export async function addCredential(formData: FormData) {
 }
 
 export async function deleteCredential(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return;
+
     try {
         const credentialId = formData.get("credentialId") as string;
         await db.delete(credentials).where(eq(credentials.id, credentialId));

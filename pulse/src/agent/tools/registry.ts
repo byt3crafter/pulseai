@@ -17,6 +17,7 @@ import { logger } from "../../utils/logger.js";
 import { getMcpClient, getMcpTools } from "./mcp-client.js";
 import { sandboxTool, createSandboxTool } from "./built-in/sandbox.js";
 import { filterTools, ToolPolicy } from "./tool-policy.js";
+import { pluginManager } from "../../plugins/manager.js";
 
 /**
  * Tool Registry - Manages available tools and their execution
@@ -105,7 +106,11 @@ export class ToolRegistry {
                     }
                 }
 
-                // 3. Apply tool policy filtering
+                // 3. Inject plugin-contributed tools
+                const pluginTools = pluginManager.getPluginTools();
+                tools.push(...pluginTools);
+
+                // 4. Apply tool policy filtering
                 if (profile?.toolPolicy) {
                     const policy = profile.toolPolicy as ToolPolicy;
                     if (policy.allow?.length || policy.deny?.length) {

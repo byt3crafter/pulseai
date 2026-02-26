@@ -21,6 +21,7 @@ import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../../utils/pkce";
 import { buildOpenAIAuthUrl, getCallbackUrl } from "../../../utils/openai-oauth";
+import ConfirmDialog from "../../../components/ConfirmDialog";
 
 const TABS = [
     { id: "account", label: "Account" },
@@ -82,7 +83,7 @@ export default function SettingsClient({
     const router = useRouter();
 
     return (
-        <div className="p-8 max-w-5xl">
+        <div className="p-8">
             {/* Page header */}
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Settings</h1>
@@ -150,10 +151,8 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
         setStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
         if (result.success) {
             (e.target as HTMLFormElement).reset();
-            // Redirect to remove the query parameter after successful password change
-            if (forcePasswordChange) {
-                window.location.href = "/dashboard/settings?tab=account";
-            }
+            // For forced password change, the server action re-authenticates
+            // and redirects to /dashboard automatically (fresh JWT)
         }
     };
 
@@ -298,6 +297,7 @@ function TelegramTab({
     const [groupName, setGroupName] = useState("");
     const [addingGroup, setAddingGroup] = useState(false);
     const [groupError, setGroupError] = useState<string | null>(null);
+    const [confirmAction, setConfirmAction] = useState<{ type: "block" | "remove"; contactId: string } | null>(null);
 
     const handleSavePolicies = async () => {
         setSaving(true);
@@ -319,7 +319,6 @@ function TelegramTab({
     };
 
     const handleReject = async (contactId: string) => {
-        if (!confirm("Block this contact?")) return;
         setProcessing(contactId);
         const result = await rejectPairingAction(contactId);
         if (!result.success) alert(result.message);
@@ -327,11 +326,20 @@ function TelegramTab({
     };
 
     const handleRemove = async (contactId: string) => {
-        if (!confirm("Remove from allowlist?")) return;
         setProcessing(contactId);
         const result = await removeFromAllowlistAction(contactId);
         if (!result.success) alert(result.message);
         setProcessing(null);
+    };
+
+    const handleConfirmAction = async () => {
+        if (!confirmAction) return;
+        if (confirmAction.type === "block") {
+            await handleReject(confirmAction.contactId);
+        } else {
+            await handleRemove(confirmAction.contactId);
+        }
+        setConfirmAction(null);
     };
 
     const handleAddGroup = async () => {
@@ -443,7 +451,7 @@ function TelegramTab({
                                         {processing === p.code ? "..." : "Approve"}
                                     </button>
                                     <button
-                                        onClick={() => handleReject(p.contactId)}
+                                        onClick={() => setConfirmAction({ type: "block", contactId: p.contactId })}
                                         disabled={processing === p.contactId}
                                         className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
                                     >
@@ -469,7 +477,7 @@ function TelegramTab({
                                     <div className="text-xs text-slate-500 font-mono">{u.contactId}</div>
                                 </div>
                                 <button
-                                    onClick={() => handleRemove(u.contactId)}
+                                    onClick={() => setConfirmAction({ type: "remove", contactId: u.contactId })}
                                     disabled={processing === u.contactId}
                                     className="text-xs font-medium text-red-600 px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
                                 >
@@ -494,7 +502,7 @@ function TelegramTab({
                                     <div className="text-xs text-slate-500 font-mono">{g.contactId}</div>
                                 </div>
                                 <button
-                                    onClick={() => handleRemove(g.contactId)}
+                                    onClick={() => setConfirmAction({ type: "remove", contactId: g.contactId })}
                                     disabled={processing === g.contactId}
                                     className="text-xs font-medium text-red-600 px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
                                 >
@@ -533,6 +541,20 @@ function TelegramTab({
                     {groupError && <p className="text-xs text-red-500 mt-2">{groupError}</p>}
                 </div>
             </Section>
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                title={confirmAction?.type === "block" ? "Block Contact" : "Remove from Allowlist"}
+                message={
+                    confirmAction?.type === "block"
+                        ? "Block this contact? They will not be able to message the bot."
+                        : "Remove this entry from the allowlist?"
+                }
+                confirmLabel={confirmAction?.type === "block" ? "Block" : "Remove"}
+                variant={confirmAction?.type === "block" ? "danger" : "warning"}
+                onConfirm={handleConfirmAction}
+                onCancel={() => setConfirmAction(null)}
+            />
         </div>
     );
 }
@@ -663,8 +685,8 @@ function ProviderCard({
             // Same-tab redirect: OpenAI auth → :1455 proxy → dashboard :3001
             // sessionStorage persists across same-origin navigations in the same tab.
             window.location.href = authUrl;
-        } catch (err: any) {
-            setStatus({ type: "error", message: err.message || "Failed to start OAuth flow." });
+        } catch {
+            setStatus({ type: "error", message: "Failed to start OAuth flow." });
         }
     };
 
@@ -1065,6 +1087,7 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
     const [generatingToken, setGeneratingToken] = useState(false);
     const [newToken, setNewToken] = useState<string | null>(null);
     const [revoking, setRevoking] = useState<string | null>(null);
+    const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
 
     const router = useRouter();
 
@@ -1117,11 +1140,12 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
         setGeneratingToken(false);
     };
 
-    const handleRevokeToken = async (tokenId: string) => {
-        if (!confirm("Are you sure you want to revoke this token? This action cannot be undone.")) return;
-        setRevoking(tokenId);
+    const handleRevokeToken = async () => {
+        if (!revokeTokenId) return;
+        setRevoking(revokeTokenId);
         const { revokeApiTokenAction } = await import("./actions");
-        const result = await revokeApiTokenAction(tokenId);
+        const result = await revokeApiTokenAction(revokeTokenId);
+        setRevokeTokenId(null);
         if (result.success) {
             router.refresh();
         } else {
@@ -1279,7 +1303,7 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => handleRevokeToken(token.id)}
+                                        onClick={() => setRevokeTokenId(token.id)}
                                         disabled={revoking === token.id}
                                         className="text-xs font-medium text-red-600 px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                                     >
@@ -1316,6 +1340,16 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                     </div>
                 </Section>
             )}
+
+            <ConfirmDialog
+                open={!!revokeTokenId}
+                title="Revoke API Token"
+                message="Are you sure you want to revoke this token? This action cannot be undone. Any applications using this token will lose access."
+                confirmLabel="Revoke Token"
+                variant="danger"
+                onConfirm={handleRevokeToken}
+                onCancel={() => setRevokeTokenId(null)}
+            />
         </div>
     );
 }

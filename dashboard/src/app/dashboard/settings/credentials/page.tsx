@@ -1,7 +1,8 @@
 import { KeyIcon } from "@heroicons/react/24/outline";
-import { getCredentials, getTenantAgents, addCredential, deleteCredential } from "./actions";
+import { getCredentials, getTenantAgents, addCredential } from "./actions";
 import { auth } from "../../../../auth";
 import { redirect } from "next/navigation";
+import DeleteCredentialButton from "./DeleteCredentialButton";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function CredentialsPage() {
     const agents = await getTenantAgents(tenantId);
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-8">
             <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
                     <div className="p-2 bg-amber-50 rounded-lg">
@@ -164,12 +165,7 @@ export default async function CredentialsPage() {
                                             {cred.updatedAt ? new Date(cred.updatedAt).toLocaleDateString() : "—"}
                                         </td>
                                         <td className="px-6 py-3">
-                                            <form action={deleteCredential}>
-                                                <input type="hidden" name="credentialId" value={cred.id} />
-                                                <button type="submit" className="text-xs text-red-600 hover:text-red-800 font-medium">
-                                                    Delete
-                                                </button>
-                                            </form>
+                                            <DeleteCredentialButton credentialId={cred.id} />
                                         </td>
                                     </tr>
                                 ))}

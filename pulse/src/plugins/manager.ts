@@ -9,6 +9,9 @@ import { discoverPlugins } from "./discovery.js";
 import { loadPluginFromPath, LoadedPlugin } from "./loader.js";
 import { logger } from "../utils/logger.js";
 import { Tool } from "../agent/tools/tool.interface.js";
+import { db } from "../storage/db.js";
+import { installedPlugins } from "../storage/schema.js";
+import { eq } from "drizzle-orm";
 
 export class PluginManager {
     private loadedPlugins: Map<string, LoadedPlugin> = new Map();
@@ -27,6 +30,10 @@ export class PluginManager {
             if (loaded) {
                 this.loadedPlugins.set(loaded.manifest.name, loaded);
                 this.registerPlugin(loaded.manifest);
+
+                if (d.source === "local") {
+                    await this.upsertPluginToDB(loaded);
+                }
             }
         }
 
@@ -59,6 +66,47 @@ export class PluginManager {
         }
 
         logger.info({ name: manifest.name, version: manifest.version }, "Plugin registered");
+    }
+
+    /**
+     * Sync a loaded plugin's metadata to the installed_plugins DB table.
+     * Upserts on name — refreshes metadata but never overwrites `enabled`.
+     */
+    private async upsertPluginToDB(loaded: LoadedPlugin): Promise<void> {
+        const { manifest, sourcePath } = loaded;
+        const config = {
+            description: manifest.description || "",
+            author: manifest.author || "",
+            toolCount: manifest.tools?.length || 0,
+            hookNames: manifest.hooks ? Object.keys(manifest.hooks) : [],
+            routeCount: manifest.routes?.length || 0,
+            credentialSchema: manifest.credentialSchema || [],
+        };
+
+        try {
+            await db
+                .insert(installedPlugins)
+                .values({
+                    name: manifest.name,
+                    version: manifest.version,
+                    source: "local",
+                    sourcePath,
+                    config,
+                    enabled: true,
+                })
+                .onConflictDoUpdate({
+                    target: installedPlugins.name,
+                    set: {
+                        version: manifest.version,
+                        sourcePath,
+                        config,
+                    },
+                });
+
+            logger.info({ name: manifest.name }, "Plugin synced to DB");
+        } catch (err) {
+            logger.error({ err, name: manifest.name }, "Failed to sync plugin to DB");
+        }
     }
 
     /**
