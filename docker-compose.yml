@@ -52,8 +52,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       - NODE_ENV=production
       - HOST=0.0.0.0
@@ -79,8 +79,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD}@postgres:5432/pulse
