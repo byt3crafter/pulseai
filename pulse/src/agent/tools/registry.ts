@@ -1,12 +1,22 @@
 import { Tool } from "./tool.interface.js";
 import { timeTool } from "./built-in/time.js";
 import { calculatorTool } from "./built-in/calculator.js";
+import { execTool } from "./built-in/exec.js";
+import { processTool } from "./built-in/process.js";
+import { credentialListTool } from "./built-in/vault.js";
+import { pythonExecuteTool } from "./built-in/python.js";
+import { scriptSaveTool, scriptLoadTool, scriptListTool } from "./built-in/script-store.js";
+import { memoryStoreTool, memorySearchTool, memoryForgetTool } from "./built-in/memory-tools.js";
+import { scheduleJobTool, scheduleOnceTool, listJobsTool, cancelJobTool } from "./built-in/schedule.js";
+import { delegateToAgentTool } from "./built-in/delegate.js";
+import { listAgentsTool } from "./built-in/agent-mgmt.js";
 import { db } from "../../storage/db.js";
 import { tenantSkills, mcpServers, agentProfileMcpBindings, agentProfiles } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
 import { getMcpClient, getMcpTools } from "./mcp-client.js";
-import { sandboxTool } from "./built-in/sandbox.js";
+import { sandboxTool, createSandboxTool } from "./built-in/sandbox.js";
+import { filterTools, ToolPolicy } from "./tool-policy.js";
 
 /**
  * Tool Registry - Manages available tools and their execution
@@ -18,6 +28,22 @@ export class ToolRegistry {
         // Register all built-in tools
         this.builtInTools.set("get_current_time", timeTool);
         this.builtInTools.set("calculator", calculatorTool);
+        this.builtInTools.set("exec", execTool);
+        this.builtInTools.set("process", processTool);
+        this.builtInTools.set("credential_list", credentialListTool);
+        this.builtInTools.set("python_execute", pythonExecuteTool);
+        this.builtInTools.set("script_save", scriptSaveTool);
+        this.builtInTools.set("script_load", scriptLoadTool);
+        this.builtInTools.set("script_list", scriptListTool);
+        this.builtInTools.set("memory_store", memoryStoreTool);
+        this.builtInTools.set("memory_search", memorySearchTool);
+        this.builtInTools.set("memory_forget", memoryForgetTool);
+        this.builtInTools.set("schedule_job", scheduleJobTool);
+        this.builtInTools.set("schedule_once", scheduleOnceTool);
+        this.builtInTools.set("list_jobs", listJobsTool);
+        this.builtInTools.set("cancel_job", cancelJobTool);
+        this.builtInTools.set("delegate_to_agent", delegateToAgentTool);
+        this.builtInTools.set("list_agents", listAgentsTool);
 
         logger.info(
             { toolCount: this.builtInTools.size, tools: Array.from(this.builtInTools.keys()) },
@@ -48,15 +74,18 @@ export class ToolRegistry {
 
             // 2. Fetch MCP tools if agentProfile is specified
             if (agentProfileId) {
-                // Fetch the agent profile to check for special privileges
                 const profile = await db.query.agentProfiles.findFirst({
                     where: eq(agentProfiles.id, agentProfileId)
                 });
 
-                // If the profile has docker sandbox enabled, inject the highly privileged bash tool
-                if (profile?.dockerSandboxEnabled) {
+                // Enhanced sandbox config takes priority over legacy flag
+                const sandboxCfg = profile?.sandboxConfig as any;
+                if (sandboxCfg?.mode && sandboxCfg.mode !== "off") {
+                    tools.push(createSandboxTool(sandboxCfg, profile?.workspacePath || undefined));
+                    logger.warn({ tenantId, agentProfileId, mode: sandboxCfg.mode }, "Enhanced sandbox tool injected.");
+                } else if (profile?.dockerSandboxEnabled) {
                     tools.push(sandboxTool);
-                    logger.warn({ tenantId, agentProfileId }, "Agent Profile has Docker Sandbox Capabilities enabled. Bash tool injected.");
+                    logger.warn({ tenantId, agentProfileId }, "Legacy Docker Sandbox enabled. Bash tool injected.");
                 }
 
                 const bindings = await db.select({
@@ -73,6 +102,21 @@ export class ToolRegistry {
                     if (client) {
                         const mcpTools = await getMcpTools(binding.serverId, client);
                         tools.push(...mcpTools);
+                    }
+                }
+
+                // 3. Apply tool policy filtering
+                if (profile?.toolPolicy) {
+                    const policy = profile.toolPolicy as ToolPolicy;
+                    if (policy.allow?.length || policy.deny?.length) {
+                        const beforeCount = tools.length;
+                        const filtered = filterTools(tools, policy);
+                        tools.length = 0;
+                        tools.push(...filtered);
+                        logger.debug(
+                            { tenantId, agentProfileId, beforeCount, afterCount: tools.length },
+                            "Applied tool policy filter"
+                        );
                     }
                 }
             }

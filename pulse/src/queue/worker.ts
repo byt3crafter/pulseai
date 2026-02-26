@@ -63,8 +63,16 @@ export const worker =
                           return await adapter.sendMessage(msg);
                       };
 
+                      // Build edit callback if the adapter supports it
+                      const editCallback = adapter.editMessage
+                          ? (tenantId: string, chatId: string, messageId: string, content: string, parseMode?: string) =>
+                              adapter.editMessage(tenantId, chatId, messageId, content, parseMode)
+                          : undefined;
+
                       // Process the message
-                      await agentRuntime.processMessage(inbound, sendCallback);
+                      await agentRuntime.processMessage(inbound, sendCallback, {
+                          editMessageCallback: editCallback,
+                      });
 
                       jobLogger.info("Message processed successfully");
                   } catch (err) {

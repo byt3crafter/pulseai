@@ -1,10 +1,12 @@
 import { InboundMessage, OutboundMessage } from "../channels/types.js";
 import { ProviderManager } from "./providers/provider-manager.js";
-import { ToolCall } from "./providers/anthropic.js";
+import { ToolCall, StreamCallbacks } from "./providers/anthropic.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { workspaceService } from "./workspace/workspace-service.js";
 import { getDefaultModel, getProviderByModel } from "./providers/model-registry.js";
 import { providerKeyService } from "./providers/provider-key-service.js";
+import { memoryService } from "../memory/memory-service.js";
+import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -19,7 +21,16 @@ export class AgentRuntime {
 
     async processMessage(
         inbound: InboundMessage,
-        sendMessageCallback: (msg: OutboundMessage) => Promise<{ channelMessageId: string }>
+        sendMessageCallback: (msg: OutboundMessage) => Promise<{ channelMessageId: string }>,
+        options?: {
+            editMessageCallback?: (
+                tenantId: string,
+                chatId: string,
+                messageId: string,
+                content: string,
+                parseMode?: string
+            ) => Promise<void>;
+        }
     ): Promise<void> {
         const tenantLog = logger.child({ tenantId: inbound.tenantId, channel: inbound.channelType });
 
@@ -151,6 +162,40 @@ export class AgentRuntime {
 
             tenantLog.info({ model: activeModelId, agentProfileId: resolvedAgentProfileId ?? "none" }, "Model resolved for request");
 
+            // 3.8 Inject relevant memories into system prompt
+            if (resolvedAgentProfileId) {
+                try {
+                    const memoryContext = await memoryService.getRelevantContext(
+                        inbound.tenantId, resolvedAgentProfileId, inbound.content, 5
+                    );
+                    if (memoryContext) {
+                        activeSystemPrompt += `\n\n## Relevant Memories\n${memoryContext}`;
+                    }
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to inject memory context (non-fatal)");
+                }
+            }
+
+            // 3.85 Inject delegation context into system prompt
+            let delegationActive = false;
+            if (resolvedAgentProfileId) {
+                try {
+                    const delConfig = await getAgentDelegationConfig(resolvedAgentProfileId);
+                    if (delConfig.canDelegate) {
+                        const availableAgents = await getDelegatableAgents(inbound.tenantId, resolvedAgentProfileId);
+                        if (availableAgents.length > 0) {
+                            delegationActive = true;
+                            const agentLines = availableAgents.map(
+                                (a) => `- ${a.name} (${a.id}): ${a.specialization} [Model: ${a.modelId}]`
+                            );
+                            activeSystemPrompt += `\n\n## Available Agents for Delegation\nYou can delegate tasks to these specialized agents:\n${agentLines.join("\n")}\nUse the delegate_to_agent tool to send them a task. Use list_agents to refresh this list.`;
+                        }
+                    }
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to inject delegation context (non-fatal)");
+                }
+            }
+
             // 3.9 Pre-Flight: Verify an AI provider key exists before calling the LLM
             const providerDef = getProviderByModel(activeModelId);
             const providerId = providerDef?.id ?? "anthropic";
@@ -171,17 +216,67 @@ export class AgentRuntime {
 
             // 4. Call LLM with tools — ProviderManager routes to correct provider based on model
             tenantLog.info({ provider: providerId, model: activeModelId }, "Dispatching to LLM Provider");
+
+            // Set up streaming callbacks for progressive message editing
+            let streamCallbacks: StreamCallbacks | undefined;
+            let streamMessageId: string | null = null;
+            let streamAccumulated = "";
+            let lastEditTime = 0;
+            const EDIT_THROTTLE_MS = 1000;
+
+            if (options?.editMessageCallback && toolDefinitions.length === 0) {
+                // Only stream when there are no tools (tool calls need sync handling)
+                streamCallbacks = {
+                    onDelta: (delta: string) => {
+                        streamAccumulated += delta;
+                        const now = Date.now();
+
+                        // Send initial message on first content
+                        if (!streamMessageId && streamAccumulated.length > 20) {
+                            // Will be sent asynchronously below
+                        }
+
+                        // Throttle edits to 1 per second
+                        if (streamMessageId && now - lastEditTime >= EDIT_THROTTLE_MS) {
+                            lastEditTime = now;
+                            options.editMessageCallback!(
+                                inbound.tenantId,
+                                inbound.channelContactId,
+                                streamMessageId,
+                                streamAccumulated + " ..."
+                            ).catch(() => {});
+                        }
+                    },
+                    onComplete: () => {
+                        // Final edit happens after the full response is built
+                    },
+                };
+
+                // Start a "typing" placeholder and capture the message ID for edits
+                const placeholder = await sendMessageCallback({
+                    conversationId: conversation.id,
+                    tenantId: inbound.tenantId,
+                    channelType: inbound.channelType,
+                    channelContactId: inbound.channelContactId,
+                    content: "...",
+                    replyToMessageId: inbound.isGroup ? (inbound.raw as any)?.message_id?.toString() : undefined,
+                });
+                streamMessageId = placeholder.channelMessageId;
+                lastEditTime = Date.now();
+            }
+
             let llmResponse = await this.providerManager.chat({
                 model: activeModelId,
                 tenantId: inbound.tenantId,
                 systemPrompt: activeSystemPrompt,
                 messages: llmMessages,
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+                stream: streamCallbacks,
             });
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
             let toolUseCount = 0;
-            const maxToolIterations = 5; // Prevent infinite loops
+            const maxToolIterations = delegationActive ? 10 : 5; // Higher limit when delegation is active
             let totalInputTokens = llmResponse.usage.inputTokens;
             let totalOutputTokens = llmResponse.usage.outputTokens;
 
@@ -330,24 +425,35 @@ export class AgentRuntime {
             });
 
             // 7. Dispatch Response to Channel Adapter
-            const outbound: OutboundMessage = {
-                conversationId: conversation.id,
-                tenantId: inbound.tenantId,
-                channelType: inbound.channelType,
-                channelContactId: inbound.channelContactId,
-                content: llmResponse.content,
-                format: "markdown",
-            };
+            if (streamMessageId && options?.editMessageCallback) {
+                // Streaming was active — do final edit with fully formatted content
+                await options.editMessageCallback(
+                    inbound.tenantId,
+                    inbound.channelContactId,
+                    streamMessageId,
+                    llmResponse.content,
+                    "markdown"
+                ).catch((e) => tenantLog.error({ e }, "Failed final streaming edit"));
+            } else {
+                const outbound: OutboundMessage = {
+                    conversationId: conversation.id,
+                    tenantId: inbound.tenantId,
+                    channelType: inbound.channelType,
+                    channelContactId: inbound.channelContactId,
+                    content: llmResponse.content,
+                    format: "markdown",
+                };
 
-            // For group messages, reply in-thread to the original message
-            if (inbound.isGroup && inbound.raw) {
-                const rawMsg = inbound.raw as any;
-                if (rawMsg.message_id) {
-                    outbound.replyToMessageId = rawMsg.message_id.toString();
+                // For group messages, reply in-thread to the original message
+                if (inbound.isGroup && inbound.raw) {
+                    const rawMsg = inbound.raw as any;
+                    if (rawMsg.message_id) {
+                        outbound.replyToMessageId = rawMsg.message_id.toString();
+                    }
                 }
-            }
 
-            await sendMessageCallback(outbound);
+                await sendMessageCallback(outbound);
+            }
 
         } catch (err: any) {
             tenantLog.error({ err }, "Agent Runtime failed to process message");
@@ -357,7 +463,7 @@ export class AgentRuntime {
             const errMsg = err?.message || "";
 
             if (errMsg.includes("All LLM providers failed") || errMsg.includes("No fallback available")) {
-                userMessage = "AI service is currently unavailable. Your administrator needs to check the API key configuration in Settings > AI Providers.";
+                userMessage = `AI service error: ${errMsg.substring(0, 200)}. Check your provider keys in Settings > AI Providers.`;
             } else if (errMsg.includes("401") || errMsg.includes("authentication") || errMsg.includes("invalid_api_key")) {
                 userMessage = "AI authentication failed. The API key may be invalid or expired. Please update it in Settings > AI Providers.";
             } else if (errMsg.includes("rate") || errMsg.includes("429")) {

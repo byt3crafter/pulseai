@@ -7,6 +7,12 @@ import { channelConnections, tenants } from "./storage/schema.js";
 import { eq } from "drizzle-orm";
 import { worker, channelAdapters } from "./queue/worker.js";
 import { messageQueue } from "./queue/message-queue.js";
+import { startOAuthCallbackProxy, stopOAuthCallbackProxy } from "./gateway/oauth-callback-proxy.js";
+import { heartbeatScheduler } from "./infra/heartbeat-scheduler.js";
+import { cronScheduler } from "./cron/scheduler.js";
+import { setJobRunnerDeps } from "./cron/job-runner.js";
+import { setDelegationRuntime } from "./agent/orchestration/agent-delegation.js";
+import { pluginManager } from "./plugins/manager.js";
 
 async function start() {
     try {
@@ -51,17 +57,63 @@ async function start() {
                 }
             } else {
                 // Dev Fallback: Run synchronously on main thread
-                await agentRuntime.processMessage(inbound, async (outbound) => {
-                    return await telegramAdapter.sendMessage(outbound);
-                });
+                await agentRuntime.processMessage(
+                    inbound,
+                    async (outbound) => {
+                        return await telegramAdapter.sendMessage(outbound);
+                    },
+                    {
+                        editMessageCallback: (tenantId, chatId, messageId, content, parseMode) =>
+                            telegramAdapter.editMessage(tenantId, chatId, messageId, content, parseMode),
+                    }
+                );
             }
         });
 
         // Register Telegram adapter with server for webhook access
         server.decorate("telegramAdapter", telegramAdapter);
 
-        // Register AgentRuntime so MCP route can access it
+        // Register AgentRuntime so MCP route and delegation can access it
         server.decorate("agentRuntime", agentRuntime);
+        setDelegationRuntime(agentRuntime);
+
+        // Initialize Heartbeat Scheduler
+        heartbeatScheduler.setRuntime(agentRuntime);
+        heartbeatScheduler.setSendCallback(async (tenantId, channelContactId, content) => {
+            // Route heartbeat messages through Telegram if available
+            if (telegramAdapter) {
+                await telegramAdapter.sendMessage({
+                    conversationId: "heartbeat",
+                    tenantId,
+                    channelType: "telegram",
+                    channelContactId,
+                    content,
+                    format: "markdown",
+                });
+            }
+        });
+        await heartbeatScheduler.start();
+
+        // Initialize Cron Scheduler
+        setJobRunnerDeps(agentRuntime, async (tenantId: string, channelContactId: string, content: string) => {
+            if (telegramAdapter) {
+                await telegramAdapter.sendMessage({
+                    conversationId: "cron",
+                    tenantId,
+                    channelType: "telegram",
+                    channelContactId,
+                    content,
+                    format: "markdown",
+                });
+            }
+        });
+        await cronScheduler.init();
+        server.log.info("Cron scheduler initialized");
+
+        // Initialize Plugin System
+        await pluginManager.init();
+        await pluginManager.onGatewayStart(server);
+        server.log.info("Plugin system initialized");
 
         // Log queue status
         if (messageQueue) {
@@ -71,6 +123,9 @@ async function start() {
                 "Message queue disabled (REDIS_URL not configured) - using synchronous processing"
             );
         }
+
+        // Start OAuth callback proxy on port 1455 (matches Codex CLI client registration)
+        startOAuthCallbackProxy();
 
         // Start the server
         await server.listen({ port: config.PORT, host: "0.0.0.0" });
@@ -108,6 +163,18 @@ async function start() {
         // Graceful shutdown
         const shutdown = async () => {
             server.log.info("Shutting down gracefully...");
+
+            // Stop OAuth callback proxy
+            stopOAuthCallbackProxy();
+
+            // Stop heartbeat scheduler
+            heartbeatScheduler.stop();
+
+            // Stop cron scheduler
+            cronScheduler.shutdown();
+
+            // Stop plugin system
+            await pluginManager.shutdown();
 
             // Stop accepting new messages
             await telegramAdapter.shutdown();

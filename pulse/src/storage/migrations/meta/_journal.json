@@ -64,6 +64,13 @@
       "when": 1771940000000,
       "tag": "0008_telegram_groups_and_pairing",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772046426879,
+      "tag": "0009_shocking_mantis",
+      "breakpoints": true
     }
   ]
 }

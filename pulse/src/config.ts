@@ -27,6 +27,11 @@ const envSchema = z.object({
     DASHBOARD_URL: z.string().url().optional(), // e.g., http://localhost:3001
     TELEGRAM_WEBHOOK_SECRET: z.string().optional(), // For webhook validation
     WORKSPACE_BASE_DIR: z.string().default("../data/workspaces"),
+    GATEWAY_WS_ENABLED: z.coerce.boolean().default(false),
+    TRUSTED_PROXY_IPS: z.string().optional(), // Comma-separated CIDR list
+    TRUSTED_PROXY_USER_HEADER: z.string().default("X-Forwarded-User"),
+    BONJOUR_ENABLED: z.coerce.boolean().default(false),
+    PYTHON_SANDBOX_IMAGE: z.string().default("pulse-python-sandbox:latest"),
 });
 
 const _env = envSchema.safeParse(process.env);

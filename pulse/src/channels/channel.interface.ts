@@ -1,4 +1,5 @@
 import { InboundMessage, OutboundMessage } from "./types.js";
+import type { MessageIR } from "./formatting/ir.js";
 
 // We don't have the ChannelConnection schema full-typing mapped here yet, 
 // using generic shape until we import it from zod/drizzle.
@@ -27,4 +28,7 @@ export interface ChannelAdapter {
 
     // Format the raw LLM output into whatever the channel requires (MarkdownV2 for TG, etc)
     formatResponse(content: string): string;
+
+    // Optional: Format using the IR pipeline (channel-agnostic → channel-specific)
+    formatIR?(ir: MessageIR): string;
 }

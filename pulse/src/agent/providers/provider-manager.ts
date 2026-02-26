@@ -1,4 +1,4 @@
-import { AnthropicProvider, ProviderResponse } from "./anthropic.js";
+import { AnthropicProvider, ProviderResponse, StreamCallbacks } from "./anthropic.js";
 import { OpenAIProvider } from "./openai.js";
 import { providerKeyService } from "./provider-key-service.js";
 import { getModelById, getProviderByModel, getFallbackModelId, getDefaultModel } from "./model-registry.js";
@@ -26,6 +26,7 @@ export class ProviderManager {
             description: string;
             input_schema: any;
         }>;
+        stream?: StreamCallbacks;
     }): Promise<ProviderResponse & { provider: string; canonicalModel: string; wasFallback: boolean }> {
         const modelDef = getModelById(params.model);
         const providerDef = getProviderByModel(params.model);
@@ -35,6 +36,17 @@ export class ProviderManager {
         const resolved = await providerKeyService.resolveKey(params.tenantId, providerId);
         const apiKey = resolved?.key;
         const authMethod = resolved?.authMethod;
+
+        logger.debug(
+            {
+                provider: providerId,
+                model: params.model,
+                hasKey: !!apiKey,
+                authMethod,
+                keyPrefix: apiKey ? apiKey.substring(0, 8) + "..." : "none",
+            },
+            "Provider key resolved for primary"
+        );
 
         const primaryProvider = this.getProviderInstance(providerId);
 
@@ -47,6 +59,7 @@ export class ProviderManager {
                 tenantApiKey: apiKey,
                 authMethod,
                 tools: params.tools,
+                stream: params.stream,
             });
             return {
                 ...response,
@@ -57,8 +70,10 @@ export class ProviderManager {
         } catch (err: any) {
             logger.warn(
                 {
-                    err: { message: err.message, status: err.status, type: err.type },
+                    err: { message: err.message, status: err.status, type: err.type, code: err.code },
                     provider: providerId,
+                    model: params.model,
+                    authMethod,
                 },
                 "Primary provider failed, attempting fallback"
             );
@@ -76,6 +91,16 @@ export class ProviderManager {
 
             const fallbackResolved = await providerKeyService.resolveKey(params.tenantId, fallbackProvider.id);
             const fallbackInstance = this.getProviderInstance(fallbackProvider.id);
+
+            logger.debug(
+                {
+                    fallbackProvider: fallbackProvider.id,
+                    fallbackModel: fallbackModelId,
+                    hasKey: !!fallbackResolved?.key,
+                    authMethod: fallbackResolved?.authMethod,
+                },
+                "Fallback provider key resolved"
+            );
 
             try {
                 logger.info(

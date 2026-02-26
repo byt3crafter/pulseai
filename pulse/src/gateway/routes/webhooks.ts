@@ -3,6 +3,7 @@ import { db } from "../../storage/db.js";
 import { tenants } from "../../storage/schema.js";
 import { eq } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
+import { config } from "../../config.js";
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
     // POST /webhooks/telegram/:tenantSlug
@@ -20,6 +21,15 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         if (!tenant) {
             logger.warn({ tenantSlug }, "Tenant not found for webhook");
             return reply.code(404).send({ error: "Tenant not found" });
+        }
+
+        // Validate Telegram webhook secret token
+        if (config.TELEGRAM_WEBHOOK_SECRET) {
+            const secretHeader = request.headers["x-telegram-bot-api-secret-token"] as string | undefined;
+            if (secretHeader !== config.TELEGRAM_WEBHOOK_SECRET) {
+                logger.warn({ tenantSlug }, "Webhook secret mismatch");
+                return reply.code(401).send({ error: "Unauthorized" });
+            }
         }
 
         // Get Telegram adapter and process update

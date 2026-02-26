@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   # -----------------------------------------------------------------
   # Postgres Database (Persistence)
   # -----------------------------------------------------------------
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:0.8.0-pg15
     container_name: pulse-postgres
     restart: always
     environment:
@@ -92,6 +90,17 @@ services:
       - WORKSPACE_BASE_DIR=/app/data/workspaces
     volumes:
       - pulse-workspace-data:/app/data/workspaces
+
+  # -----------------------------------------------------------------
+  # Python Sandbox Image (Agent Code Execution)
+  # -----------------------------------------------------------------
+  python-sandbox:
+    build:
+      context: ./pulse/docker/python-sandbox
+      dockerfile: Dockerfile
+    image: pulse-python-sandbox:latest
+    profiles:
+      - build-only
 
 volumes:
   pulse-db-data:

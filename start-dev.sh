@@ -29,11 +29,9 @@ kill_port() {
 kill_port $API_PORT
 kill_port $DASHBOARD_PORT
 
-# 2. Cleanup Next.js lockfiles
-if [ -d "dashboard/.next/dev" ]; then
-    echo "🧹 Cleaning Next.js compiler locks..."
-    rm -rf dashboard/.next/dev/lock
-fi
+# 2. Cleanup Next.js build cache and lockfiles
+echo "🧹 Cleaning Next.js build cache..."
+rm -rf dashboard/.next
 
 # 3. Wipe out Next.js / tsx zombies that got stuck
 echo "🧹 Reaping zombie processes..."
@@ -44,7 +42,16 @@ pkill -9 -f "tsx watch" || true
 echo "📦 Starting PostgreSQL & Redis Containers..."
 docker compose up -d postgres redis
 
-# 5. Connect the servers using explicitly passed ports
+# 5. Type-check both projects before launching
+echo "🔍 Type-checking Pulse API..."
+(cd pulse && npx tsc --noEmit) || { echo "❌ Pulse type-check failed"; exit 1; }
+echo "✅ Pulse API — clean"
+
+echo "🔍 Building Dashboard..."
+(cd dashboard && NODE_ENV=production npx next build) || { echo "❌ Dashboard build failed"; exit 1; }
+echo "✅ Dashboard — clean"
+
+# 6. Connect the servers using explicitly passed ports
 echo "🌐 Launching Servers..."
 npx concurrently -n "API,WEB" -c "blue,green" \
   "cd pulse && npm run dev" \

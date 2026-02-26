@@ -1,0 +1,23 @@
+# Workspace data
+data/workspaces/
+dashboard/data/
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+.next/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

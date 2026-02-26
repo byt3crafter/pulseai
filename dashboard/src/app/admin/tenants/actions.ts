@@ -8,6 +8,7 @@ import { z } from "zod";
 import * as crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { generateSecurePassword } from "../../../utils/password";
+import { auth } from "../../../auth";
 
 const createTenantSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -17,6 +18,11 @@ const createTenantSchema = z.object({
 });
 
 export async function createTenantAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.role || session.user.role !== "ADMIN") {
+        return { success: false, message: "Unauthorized" };
+    }
+
     try {
         const rawData = {
             name: formData.get("name") as string,
@@ -90,6 +96,11 @@ export async function createTenantAction(formData: FormData) {
 }
 
 export async function deleteTenantAction(tenantId: string) {
+    const session = await auth();
+    if (!session?.user?.role || session.user.role !== "ADMIN") {
+        return { success: false, message: "Unauthorized" };
+    }
+
     try {
         // Drizzle will handle cascading deletes if foreign keys are set up correctly,
         // otherwise we must transactionally delete child records first.
@@ -116,6 +127,11 @@ export async function deleteTenantAction(tenantId: string) {
 }
 
 export async function toggleTenantStatusAction(tenantId: string, currentStatus: string) {
+    const session = await auth();
+    if (!session?.user?.role || session.user.role !== "ADMIN") {
+        return { success: false, message: "Unauthorized" };
+    }
+
     try {
         const newStatus = currentStatus === "active" ? "inactive" : "active";
 

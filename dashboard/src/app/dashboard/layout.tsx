@@ -7,6 +7,8 @@ import { CpuChipIcon } from "@heroicons/react/24/outline";
 import LogoutButton from "../../components/LogoutButton";
 import DashboardNav from "../../components/DashboardNav";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
     children,
 }: {

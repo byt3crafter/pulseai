@@ -10,6 +10,7 @@ import {
     integer,
     index,
     unique,
+    AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -19,6 +20,7 @@ export const globalSettings = pgTable("global_settings", {
     config: jsonb("config").notNull().default({}),
     anthropicApiKeyHash: varchar("anthropic_api_key_hash", { length: 255 }),
     openaiApiKeyHash: varchar("openai_api_key_hash", { length: 255 }),
+    gatewayConfig: jsonb("gateway_config").notNull().default({}), // Hot-reloadable gateway configuration
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -45,6 +47,10 @@ export const agentProfiles = pgTable("agent_profiles", {
     modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),
     workspacePath: varchar("workspace_path", { length: 512 }),
     dockerSandboxEnabled: boolean("docker_sandbox_enabled").default(false), // WARNING: Grants raw bash execution
+    heartbeatConfig: jsonb("heartbeat_config").notNull().default({}), // Heartbeat scheduling config
+    sandboxConfig: jsonb("sandbox_config").notNull().default({}), // Enhanced sandbox settings
+    toolPolicy: jsonb("tool_policy").notNull().default({}), // Tool allow/deny lists
+    delegationConfig: jsonb("delegation_config").notNull().default({}), // Multi-agent delegation settings
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 }, (table) => [
@@ -342,6 +348,260 @@ export const pairingCodes = pgTable(
     (table) => [
         index("idx_pairing_code").on(table.code),
         index("idx_pairing_tenant").on(table.tenantId, table.status),
+    ]
+);
+
+// -- API Tokens (for OpenAI-compatible HTTP API) --
+export const apiTokens = pgTable(
+    "api_tokens",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id, { onDelete: "cascade" })
+            .notNull(),
+        tokenHash: text("token_hash").notNull(),
+        name: text("name").notNull().default("API Token"),
+        scopes: text("scopes").array().default(["chat", "responses"]),
+        expiresAt: timestamp("expires_at", { withTimezone: true }),
+        lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_api_tokens_hash").on(table.tokenHash),
+        index("idx_api_tokens_tenant").on(table.tenantId),
+    ]
+);
+
+// -- Scheduled Jobs (Phase 14 - Cron / Scheduled Jobs) --
+export const scheduledJobs = pgTable(
+    "scheduled_jobs",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        agentId: uuid("agent_id")
+            .references(() => agentProfiles.id)
+            .notNull(),
+        name: varchar("name", { length: 255 }).notNull(),
+        scheduleType: varchar("schedule_type", { length: 10 }).notNull(), // 'cron', 'interval', 'once'
+        cronExpression: varchar("cron_expression", { length: 100 }),
+        intervalSeconds: integer("interval_seconds"),
+        runAt: timestamp("run_at", { withTimezone: true }),
+        message: text("message").notNull(),
+        timezone: varchar("timezone", { length: 50 }).default("UTC"),
+        enabled: boolean("enabled").default(true),
+        maxRetries: integer("max_retries").default(3),
+        lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+        nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+        webhookToken: varchar("webhook_token", { length: 64 }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_jobs_next_run").on(table.nextRunAt),
+        index("idx_jobs_tenant").on(table.tenantId),
+    ]
+);
+
+export const jobRuns = pgTable(
+    "job_runs",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        jobId: uuid("job_id")
+            .references(() => scheduledJobs.id, { onDelete: "cascade" })
+            .notNull(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        status: varchar("status", { length: 20 }).notNull(), // 'running', 'completed', 'failed'
+        startedAt: timestamp("started_at", { withTimezone: true }).defaultNow(),
+        completedAt: timestamp("completed_at", { withTimezone: true }),
+        result: text("result"),
+        error: text("error"),
+        tokensUsed: integer("tokens_used").default(0),
+    },
+    (table) => [
+        index("idx_job_runs_job").on(table.jobId, table.startedAt),
+    ]
+);
+
+// -- Memory Entries (Phase 13 - Memory & Vector Search) --
+export const memoryEntries = pgTable(
+    "memory_entries",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        agentId: uuid("agent_id")
+            .references(() => agentProfiles.id)
+            .notNull(),
+        content: text("content").notNull(),
+        embedding: text("embedding"), // Stored as text, cast to vector in queries
+        category: varchar("category", { length: 50 }).default("general"),
+        importance: decimal("importance", { precision: 3, scale: 2 }).default("0.5"),
+        metadata: jsonb("metadata").default({}),
+        accessCount: integer("access_count").default(0),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        accessedAt: timestamp("accessed_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_memory_agent").on(table.agentId, table.createdAt),
+    ]
+);
+
+// -- Agent Scripts (Phase 12 - Python Sandbox & Script Persistence) --
+export const agentScripts = pgTable(
+    "agent_scripts",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        agentId: uuid("agent_id")
+            .references(() => agentProfiles.id)
+            .notNull(),
+        filename: varchar("filename", { length: 255 }).notNull(),
+        description: text("description"),
+        language: varchar("language", { length: 20 }).default("python"),
+        code: text("code").notNull(),
+        lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+        useCount: integer("use_count").default(0),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        unique("idx_unique_agent_script").on(table.agentId, table.filename),
+        index("idx_scripts_agent").on(table.agentId),
+    ]
+);
+
+// -- Credentials Vault (Phase 11 - Credential Vault) --
+export const credentials = pgTable(
+    "credentials",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id), // NULL = available to all agents
+        name: varchar("name", { length: 100 }).notNull(), // e.g., "ERPNEXT_API_KEY"
+        description: text("description"),
+        credentialType: varchar("credential_type", { length: 20 }).default("api_key"), // 'api_key', 'oauth2', 'basic', 'bearer'
+        encryptedValue: text("encrypted_value").notNull(), // AES-256-GCM encrypted
+        oauthClientId: text("oauth_client_id"),
+        oauthEncryptedRefreshToken: text("oauth_encrypted_refresh_token"),
+        oauthTokenUrl: text("oauth_token_url"),
+        oauthScopes: text("oauth_scopes"),
+        oauthExpiresAt: timestamp("oauth_expires_at", { withTimezone: true }),
+        metadata: jsonb("metadata").default({}), // e.g., { baseUrl: "https://erp.company.com" }
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        unique("idx_unique_credential").on(table.tenantId, table.name),
+        index("idx_credentials_tenant").on(table.tenantId),
+    ]
+);
+
+// -- Agent Delegations (Phase 15 - Multi-Agent Orchestration) --
+export const agentDelegations = pgTable(
+    "agent_delegations",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        sourceAgentId: uuid("source_agent_id")
+            .references(() => agentProfiles.id)
+            .notNull(),
+        targetAgentId: uuid("target_agent_id")
+            .references(() => agentProfiles.id)
+            .notNull(),
+        conversationId: uuid("conversation_id").references(() => conversations.id),
+        task: text("task").notNull(),
+        result: text("result"),
+        status: varchar("status", { length: 20 }).notNull(), // 'pending', 'running', 'completed', 'failed'
+        tokensUsed: integer("tokens_used").default(0),
+        startedAt: timestamp("started_at", { withTimezone: true }).defaultNow(),
+        completedAt: timestamp("completed_at", { withTimezone: true }),
+    },
+    (table) => [
+        index("idx_delegations_source").on(table.sourceAgentId, table.startedAt),
+        index("idx_delegations_tenant").on(table.tenantId, table.startedAt),
+    ]
+);
+
+// -- Exec Audit Log (Phase 10 - Exec Safety) --
+export const execAuditLog = pgTable(
+    "exec_audit_log",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id),
+        conversationId: uuid("conversation_id").references(() => conversations.id),
+        command: text("command").notNull(),
+        decision: varchar("decision", { length: 20 }).notNull(), // 'allowed', 'denied', 'sandboxed'
+        reason: text("reason"),
+        executedAt: timestamp("executed_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_exec_audit_tenant").on(table.tenantId, table.executedAt),
+    ]
+);
+
+// -- Exec Policy Rules (Phase 10 - Exec Safety) --
+export const execPolicyRules = pgTable(
+    "exec_policy_rules",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id), // NULL = global default
+        agentId: uuid("agent_id").references(() => agentProfiles.id), // NULL = tenant-wide
+        ruleType: varchar("rule_type", { length: 10 }).notNull(), // 'allow' or 'deny'
+        pattern: text("pattern").notNull(), // glob or regex pattern
+        description: text("description"),
+        priority: integer("priority").default(0),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_exec_policy_tenant").on(table.tenantId),
+    ]
+);
+
+// -- Installed Plugins (Phase 16 - Plugin System) --
+export const installedPlugins = pgTable(
+    "installed_plugins",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        name: varchar("name", { length: 255 }).notNull().unique(),
+        version: varchar("version", { length: 50 }),
+        source: varchar("source", { length: 20 }).notNull(), // 'local', 'builtin'
+        sourcePath: text("source_path"),
+        config: jsonb("config").default({}),
+        enabled: boolean("enabled").default(true),
+        installedAt: timestamp("installed_at", { withTimezone: true }).defaultNow(),
+    }
+);
+
+export const tenantPluginConfigs = pgTable(
+    "tenant_plugin_configs",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        pluginId: uuid("plugin_id")
+            .references(() => installedPlugins.id)
+            .notNull(),
+        enabled: boolean("enabled").default(true),
+        config: jsonb("config").default({}),
+    },
+    (table) => [
+        unique("idx_unique_tenant_plugin").on(table.tenantId, table.pluginId),
+        index("idx_tenant_plugin_tenant").on(table.tenantId),
     ]
 );
 

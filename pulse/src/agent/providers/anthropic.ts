@@ -17,6 +17,11 @@ export interface ToolResult {
     content: string;
 }
 
+export interface StreamCallbacks {
+    onDelta?: (delta: string) => void;
+    onComplete?: () => void;
+}
+
 export interface ProviderResponse {
     content: string;
     usage: {
@@ -50,28 +55,65 @@ export class AnthropicProvider {
             description: string;
             input_schema: any;
         }>;
+        stream?: StreamCallbacks;
     }): Promise<ProviderResponse> {
         const client = this.getClient(params.tenantApiKey, params.authMethod);
 
-        // Map internal 'system' messages into standard user/assistant chain if any, or pass as system string to Claude API.
         const mappedMessages = params.messages.filter((m) => m.role !== "system").map((m) => ({
             role: m.role as "user" | "assistant",
             content: m.content,
         }));
 
-        const response = await client.messages.create({
+        const createParams = {
             model: params.model || "claude-sonnet-4-20250514",
             max_tokens: 2048,
             system: params.systemPrompt,
             messages: mappedMessages,
             tools: params.tools,
-        });
+        };
 
-        // Extract text content
+        // Streaming path
+        if (params.stream?.onDelta) {
+            const stream = client.messages.stream(createParams);
+            let replyContent = "";
+            const toolCalls: ToolCall[] = [];
+
+            stream.on("text", (text) => {
+                replyContent += text;
+                params.stream!.onDelta!(text);
+            });
+
+            const finalMessage = await stream.finalMessage();
+            params.stream.onComplete?.();
+
+            for (const block of finalMessage.content) {
+                if (block.type === "tool_use") {
+                    toolCalls.push({
+                        id: block.id,
+                        name: block.name,
+                        input: block.input as Record<string, any>,
+                    });
+                }
+            }
+
+            return {
+                content: replyContent,
+                usage: {
+                    inputTokens: finalMessage.usage?.input_tokens || 0,
+                    outputTokens: finalMessage.usage?.output_tokens || 0,
+                },
+                model: finalMessage.model,
+                toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                stopReason: finalMessage.stop_reason || undefined,
+            };
+        }
+
+        // Non-streaming path
+        const response = await client.messages.create(createParams);
+
         const textContent = response.content.find((c) => c.type === "text");
         const replyContent = textContent?.type === "text" ? textContent.text : "";
 
-        // Extract tool calls if any
         const toolCalls: ToolCall[] = [];
         for (const block of response.content) {
             if (block.type === "tool_use") {
