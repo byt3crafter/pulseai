@@ -16,6 +16,146 @@ import { logger } from "../../utils/logger.js";
 
 const CHATGPT_CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
 
+/**
+ * Convert Anthropic-format messages to OpenAI Chat Completions format.
+ *
+ * The runtime builds content as arrays with `tool_use` / `tool_result` blocks
+ * (Anthropic's native format). OpenAI expects:
+ * - Assistant tool calls in `tool_calls` field (not inline content blocks)
+ * - Tool results as separate messages with role "tool"
+ */
+function convertToOpenAIMessages(
+    messages: Array<{ role: string; content: any }>
+): OpenAI.Chat.ChatCompletionMessageParam[] {
+    const result: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+
+    for (const msg of messages) {
+        // Skip system messages (handled separately)
+        if (msg.role === "system") continue;
+
+        // If content is a string, pass through directly
+        if (typeof msg.content === "string") {
+            result.push({
+                role: msg.role as "user" | "assistant",
+                content: msg.content,
+            });
+            continue;
+        }
+
+        // If content is an array, it's Anthropic-format content blocks
+        if (Array.isArray(msg.content)) {
+            const blocks = msg.content as Array<{ type: string; [key: string]: any }>;
+
+            // Check what types of blocks we have
+            const hasToolUse = blocks.some((b) => b.type === "tool_use");
+            const hasToolResult = blocks.some((b) => b.type === "tool_result");
+
+            if (hasToolUse && msg.role === "assistant") {
+                // Assistant message with tool calls → OpenAI format
+                const textParts = blocks.filter((b) => b.type === "text").map((b) => b.text);
+                const toolUseBlocks = blocks.filter((b) => b.type === "tool_use");
+
+                const toolCalls: OpenAI.Chat.ChatCompletionMessageToolCall[] = toolUseBlocks.map((tc) => ({
+                    id: tc.id,
+                    type: "function" as const,
+                    function: {
+                        name: tc.name,
+                        arguments: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
+                    },
+                }));
+
+                result.push({
+                    role: "assistant",
+                    content: textParts.join("\n") || null,
+                    tool_calls: toolCalls,
+                });
+            } else if (hasToolResult) {
+                // Tool result blocks → separate "tool" role messages (OpenAI format)
+                const toolResultBlocks = blocks.filter((b) => b.type === "tool_result");
+                for (const tr of toolResultBlocks) {
+                    result.push({
+                        role: "tool",
+                        tool_call_id: tr.tool_use_id,
+                        content: typeof tr.content === "string" ? tr.content : JSON.stringify(tr.content),
+                    });
+                }
+            } else {
+                // Other array content — convert text blocks to string
+                const textParts = blocks
+                    .filter((b) => b.type === "text")
+                    .map((b) => b.text);
+                result.push({
+                    role: msg.role as "user" | "assistant",
+                    content: textParts.join("\n") || "",
+                });
+            }
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Convert Anthropic-format messages to OpenAI Responses API format.
+ * The Responses API uses a different structure than Chat Completions.
+ */
+function convertToResponsesAPIInput(
+    messages: Array<{ role: string; content: any }>
+): Array<Record<string, any>> {
+    const result: Array<Record<string, any>> = [];
+
+    for (const msg of messages) {
+        if (msg.role === "system") continue;
+
+        if (typeof msg.content === "string") {
+            result.push({
+                role: msg.role,
+                content: msg.content,
+            });
+            continue;
+        }
+
+        if (Array.isArray(msg.content)) {
+            const blocks = msg.content as Array<{ type: string; [key: string]: any }>;
+            const hasToolUse = blocks.some((b) => b.type === "tool_use");
+            const hasToolResult = blocks.some((b) => b.type === "tool_result");
+
+            if (hasToolUse && msg.role === "assistant") {
+                // For Responses API: tool calls become function_call output items
+                const textParts = blocks.filter((b) => b.type === "text").map((b) => b.text);
+                if (textParts.length > 0) {
+                    result.push({ type: "message", role: "assistant", content: textParts.join("\n") });
+                }
+                for (const tc of blocks.filter((b) => b.type === "tool_use")) {
+                    result.push({
+                        type: "function_call",
+                        call_id: tc.id,
+                        name: tc.name,
+                        arguments: typeof tc.input === "string" ? tc.input : JSON.stringify(tc.input),
+                    });
+                }
+            } else if (hasToolResult) {
+                // Tool results become function_call_output items
+                for (const tr of blocks.filter((b) => b.type === "tool_result")) {
+                    result.push({
+                        type: "function_call_output",
+                        call_id: tr.tool_use_id,
+                        output: typeof tr.content === "string" ? tr.content : JSON.stringify(tr.content),
+                    });
+                }
+            } else {
+                const textParts = blocks.filter((b) => b.type === "text").map((b) => b.text);
+                result.push({
+                    role: msg.role,
+                    content: textParts.join("\n") || "",
+                });
+            }
+        }
+    }
+
+    return result;
+}
+
 export class OpenAIProvider {
     readonly name = "openai";
 
@@ -75,14 +215,10 @@ export class OpenAIProvider {
             },
         }));
 
+        // Convert Anthropic-format content blocks to OpenAI format
         const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
             { role: "system", content: params.systemPrompt },
-            ...params.messages
-                .filter((m) => m.role !== "system")
-                .map((m) => ({
-                    role: m.role as "user" | "assistant",
-                    content: m.content,
-                })),
+            ...convertToOpenAIMessages(params.messages),
         ];
 
         logger.debug(
@@ -247,13 +383,8 @@ export class OpenAIProvider {
         // Extract chatgpt_account_id from JWT claims (required header)
         const accountId = this.extractAccountId(token);
 
-        // Build input messages (Responses API format)
-        const input = params.messages
-            .filter((m) => m.role !== "system")
-            .map((m) => ({
-                role: m.role as "user" | "assistant",
-                content: m.content,
-            }));
+        // Convert Anthropic-format content blocks to Responses API format
+        const input = convertToResponsesAPIInput(params.messages);
 
         // Build tools in Responses API format
         const tools = params.tools?.map((tool) => ({
