@@ -46,6 +46,7 @@ export const agentProfiles = pgTable("agent_profiles", {
     modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),
     workspacePath: varchar("workspace_path", { length: 512 }),
     dockerSandboxEnabled: boolean("docker_sandbox_enabled").default(false), // WARNING: Grants raw bash execution
+    selfConfigEnabled: boolean("self_config_enabled").notNull().default(false), // Allow agent to edit its own workspace files
     heartbeatConfig: jsonb("heartbeat_config").default({}),
     sandboxConfig: jsonb("sandbox_config").default({}),
     toolPolicy: jsonb("tool_policy").default({}),

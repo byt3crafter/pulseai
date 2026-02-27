@@ -73,6 +73,7 @@ export default async function AgentDetailPage({
                 name: agent.name,
                 modelId: agent.modelId ?? "claude-sonnet-4-20250514",
                 dockerSandboxEnabled: agent.dockerSandboxEnabled ?? false,
+                selfConfigEnabled: agent.selfConfigEnabled ?? false,
                 hasWorkspace,
                 toolPolicy: agent.toolPolicy,
                 sandboxConfig: agent.sandboxConfig,

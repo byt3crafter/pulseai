@@ -373,3 +373,28 @@ export async function updateHeartbeatConfigAction(formData: FormData) {
     return { success: true, message: "Heartbeat configuration saved. Note: It may take up to 60 seconds to reload the scheduler." };
 }
 
+export async function updateSelfConfigAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.tenantId) {
+        return { success: false, message: "Unauthorized." };
+    }
+
+    const agentId = formData.get("agentId") as string;
+    const enabled = formData.get("enabled") === "true";
+
+    if (!agentId) return { success: false, message: "Missing required fields." };
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, session.user.tenantId))
+    });
+
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    await db.update(agentProfiles)
+        .set({ selfConfigEnabled: enabled, updatedAt: new Date() })
+        .where(eq(agentProfiles.id, agentId));
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    return { success: true, message: enabled ? "Self-config enabled." : "Self-config disabled." };
+}
+

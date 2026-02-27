@@ -356,10 +356,15 @@ export class AgentRuntime {
                             result = { result: `Error: Tool '${toolCall.name}' not found` };
                         } else {
                             try {
+                                // Inject _agentId so tools can identify the calling agent
+                                const toolArgs = { ...(toolCall.input as Record<string, any>) };
+                                if (resolvedAgentProfileId) {
+                                    toolArgs._agentId = resolvedAgentProfileId;
+                                }
                                 result = await tool.execute({
                                     tenantId: inbound.tenantId,
                                     conversationId: conversation.id,
-                                    args: toolCall.input as Record<string, any>,
+                                    args: toolArgs,
                                 });
                             } catch (err: any) {
                                 tenantLog.error({ err, toolName: toolCall.name }, "Tool execution failed");

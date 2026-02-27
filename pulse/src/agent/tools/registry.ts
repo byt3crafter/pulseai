@@ -16,6 +16,7 @@ import { eq, and } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
 import { getMcpClient, getMcpTools } from "./mcp-client.js";
 import { sandboxTool, createSandboxTool } from "./built-in/sandbox.js";
+import { workspaceUpdateTool } from "./built-in/workspace-update.js";
 import { filterTools, ToolPolicy } from "./tool-policy.js";
 import { pluginManager } from "../../plugins/manager.js";
 
@@ -87,6 +88,12 @@ export class ToolRegistry {
                 } else if (profile?.dockerSandboxEnabled) {
                     tools.push(sandboxTool);
                     logger.warn({ tenantId, agentProfileId }, "Legacy Docker Sandbox enabled. Bash tool injected.");
+                }
+
+                // Inject workspace_update tool if self-config is enabled for this agent
+                if (profile?.selfConfigEnabled) {
+                    tools.push(workspaceUpdateTool);
+                    logger.info({ tenantId, agentProfileId }, "workspace_update tool injected (self-config enabled).");
                 }
 
                 const bindings = await db.select({

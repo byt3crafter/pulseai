@@ -9,6 +9,7 @@ import {
     getRevisionsAction,
     restoreRevisionAction,
     deleteAgentAction,
+    updateSelfConfigAction,
 } from "./actions";
 import { PROVIDERS, getModelDisplayName, getProviderName } from "../../../../utils/models";
 import ToolPolicyEditor from "./ToolPolicyEditor";
@@ -20,6 +21,7 @@ interface AgentData {
     name: string;
     modelId: string;
     dockerSandboxEnabled: boolean;
+    selfConfigEnabled: boolean;
     hasWorkspace: boolean;
     toolPolicy: any;
     sandboxConfig: any;
@@ -400,6 +402,9 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                 </div>
             </div>
 
+            {/* Self-Config Toggle */}
+            <SelfConfigToggle agentId={agent.id} initialEnabled={agent.selfConfigEnabled} />
+
             {/* Danger Zone */}
             <div className="bg-white border border-red-200 rounded-xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-red-100">
@@ -431,6 +436,67 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                         </div>
                     )}
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Self-Config Toggle ──────────────────────────────────────────────────────
+
+function SelfConfigToggle({ agentId, initialEnabled }: { agentId: string; initialEnabled: boolean }) {
+    const [enabled, setEnabled] = useState(initialEnabled);
+    const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
+        type: "idle",
+        message: "",
+    });
+
+    const handleToggle = async () => {
+        const newValue = !enabled;
+        setEnabled(newValue);
+        setStatus({ type: "saving", message: "" });
+
+        const fd = new FormData();
+        fd.set("agentId", agentId);
+        fd.set("enabled", String(newValue));
+
+        const result = await updateSelfConfigAction(fd);
+        setStatus({
+            type: result.success ? "success" : "error",
+            message: result.message ?? "",
+        });
+        if (!result.success) setEnabled(!newValue); // revert on failure
+    };
+
+    return (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100">
+                <h2 className="text-sm font-semibold text-slate-900">Agent Self-Config</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Allow the agent to edit its own workspace files via a tool.</p>
+            </div>
+            <div className="px-6 py-5">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-sm text-slate-700">
+                            {enabled
+                                ? "Enabled — agent can modify its SOUL.md, IDENTITY.md, TOOLS.md, USER.md, MEMORY.md, and HEARTBEAT.md files."
+                                : "Disabled — workspace files can only be edited from this dashboard."}
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleToggle}
+                        disabled={status.type === "saving"}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? "bg-indigo-600" : "bg-slate-300"} ${status.type === "saving" ? "opacity-50" : ""}`}
+                    >
+                        <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? "translate-x-6" : "translate-x-1"}`}
+                        />
+                    </button>
+                </div>
+                {status.type !== "idle" && status.type !== "saving" && (
+                    <p className={`text-xs mt-2 ${status.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+                        {status.message}
+                    </p>
+                )}
             </div>
         </div>
     );
