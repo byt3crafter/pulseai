@@ -41,9 +41,11 @@ export async function discoverPlugins(): Promise<DiscoveredPlugin[]> {
             });
         }
 
-        // 2. Scan local plugins directory
-        const pluginsDir = resolve(process.cwd(), "plugins");
-        if (existsSync(pluginsDir)) {
+        // 2. Scan local plugins directory (source or compiled)
+        const sourceDir = resolve(process.cwd(), "plugins");
+        const compiledDir = resolve(process.cwd(), "dist", "plugins");
+        const pluginsDir = existsSync(sourceDir) ? sourceDir : existsSync(compiledDir) ? compiledDir : null;
+        if (pluginsDir) {
             const entries = readdirSync(pluginsDir, { withFileTypes: true });
             for (const entry of entries) {
                 if (entry.isDirectory()) {

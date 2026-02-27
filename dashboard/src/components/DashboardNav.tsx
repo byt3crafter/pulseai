@@ -10,11 +10,13 @@ import {
     ChartBarSquareIcon,
     Cog6ToothIcon,
     ShieldCheckIcon,
+    ArrowsRightLeftIcon,
 } from "@heroicons/react/24/outline";
 
 const links = [
     { href: "/dashboard", label: "Overview", icon: HomeIcon, exact: true },
-    { href: "/dashboard/agents", label: "Agent Profiles", icon: CpuChipIcon, exact: false },
+    { href: "/dashboard/agents", label: "Agent Profiles", icon: CpuChipIcon, exact: false, exclude: "/dashboard/agents/routing" },
+    { href: "/dashboard/agents/routing", label: "Routing", icon: ArrowsRightLeftIcon, exact: false },
     { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },
     { href: "/dashboard/mcp", label: "MCP Servers", icon: ServerStackIcon, exact: false },
     { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, exact: false },
@@ -26,8 +28,9 @@ export default function DashboardNav({ isAdmin }: { isAdmin?: boolean }) {
 
     return (
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-            {links.map(({ href, label, icon: Icon, exact }) => {
-                const isActive = exact ? pathname === href : pathname.startsWith(href);
+            {links.map(({ href, label, icon: Icon, exact, exclude }) => {
+                let isActive = exact ? pathname === href : pathname.startsWith(href);
+                if (isActive && exclude && pathname.startsWith(exclude)) isActive = false;
                 return (
                     <Link
                         key={href}

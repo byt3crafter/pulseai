@@ -11,6 +11,7 @@ RUN npm ci
 # Source files
 COPY pulse/tsconfig.json .
 COPY pulse/src ./src
+COPY pulse/plugins ./plugins
 COPY pulse/drizzle.config.ts .
 
 # Build TS to JS
@@ -43,4 +44,4 @@ EXPOSE 8080
 
 # Exécute the server (no tsx watcher needed)
 # Using 'node' directly for performance 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]

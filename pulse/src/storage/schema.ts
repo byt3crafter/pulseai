@@ -606,6 +606,30 @@ export const tenantPluginConfigs = pgTable(
     ]
 );
 
+// -- Routing Rules (Multi-Agent Routing) --
+export const routingRules = pgTable(
+    "routing_rules",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        agentProfileId: uuid("agent_profile_id")
+            .references(() => agentProfiles.id)
+            .notNull(),
+        ruleType: varchar("rule_type", { length: 30 }).notNull(), // 'contact', 'group', 'keyword', 'channel_default'
+        matchValue: varchar("match_value", { length: 500 }).notNull(),
+        priority: integer("priority").notNull().default(100),
+        enabled: boolean("enabled").notNull().default(true),
+        description: varchar("description", { length: 255 }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_routing_rules_tenant").on(table.tenantId),
+    ]
+);
+
 // -- Tenant Provider Keys (BYOK - encrypted at rest) --
 export const tenantProviderKeys = pgTable(
     "tenant_provider_keys",

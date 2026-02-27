@@ -124,6 +124,7 @@ export async function deleteTenantAction(tenantId: string) {
             await tx.execute(sql`DELETE FROM oauth_tokens WHERE tenant_id = ${tenantId}::uuid`);
             await tx.execute(sql`DELETE FROM oauth_codes WHERE tenant_id = ${tenantId}::uuid`);
             await tx.execute(sql`DELETE FROM channel_connections WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM routing_rules WHERE tenant_id = ${tenantId}::uuid`);
             // MCP bindings reference agent_profiles, so delete before agents
             await tx.execute(sql`DELETE FROM agent_profile_mcp_bindings WHERE agent_profile_id IN (SELECT id FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid)`);
             await tx.execute(sql`DELETE FROM agent_profiles WHERE tenant_id = ${tenantId}::uuid`);

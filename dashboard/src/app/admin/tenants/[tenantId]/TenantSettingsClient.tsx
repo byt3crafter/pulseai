@@ -24,6 +24,7 @@ export default function TenantSettingsClient({
     const [enableCli, setEnableCli] = useState(config.enable_third_party_cli ?? false);
     const [heartbeatEnabled, setHeartbeatEnabled] = useState(config.heartbeat_enabled ?? false);
     const [heartbeatInterval, setHeartbeatInterval] = useState((config.heartbeat_default_interval || 3600).toString());
+    const [routingEnabled, setRoutingEnabled] = useState(config.multi_agent_routing_enabled ?? false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -35,6 +36,7 @@ export default function TenantSettingsClient({
             enable_third_party_cli: enableCli,
             heartbeat_enabled: heartbeatEnabled,
             heartbeat_default_interval: parseInt(heartbeatInterval, 10) || 3600,
+            multi_agent_routing_enabled: routingEnabled,
         });
 
         if (result.success) {
@@ -103,6 +105,24 @@ export default function TenantSettingsClient({
                         />
                     </div>
                 </div>
+            </section>
+
+            {/* Multi-Agent Routing */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">Multi-Agent Routing</h2>
+                <p className="text-xs text-gray-500 mb-4">Allow this tenant to create routing rules that dispatch messages to different agents based on contact, group, keywords, or channel.</p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={routingEnabled}
+                        onChange={(e) => setRoutingEnabled(e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                    <div>
+                        <span className="text-sm font-medium text-gray-900">Enable Multi-Agent Routing</span>
+                        <p className="text-xs text-gray-500">When disabled, all messages go to the channel&apos;s assigned agent</p>
+                    </div>
+                </label>
             </section>
 
             <section className="bg-blue-50 border border-blue-200 rounded-xl p-4">

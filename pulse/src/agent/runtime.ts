@@ -7,6 +7,7 @@ import { getDefaultModel, getProviderByModel } from "./providers/model-registry.
 import { providerKeyService } from "./providers/provider-key-service.js";
 import { memoryService } from "../memory/memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
+import { resolveAgent } from "./orchestration/agent-router.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
@@ -107,20 +108,20 @@ export class AgentRuntime {
                 content: m.content,
             }));
 
-            // 3.5. Resolve agentProfileId: use from inbound, or fall back to tenant's first agent profile
-            let resolvedAgentProfileId = inbound.agentProfileId;
+            // 3.5. Resolve agentProfileId via routing rules (or channel default / tenant fallback)
+            let resolvedAgentProfileId = await resolveAgent(inbound);
             if (!resolvedAgentProfileId) {
                 const fallbackProfile = await db.query.agentProfiles.findFirst({
                     where: eq(agentProfiles.tenantId, inbound.tenantId),
                 });
                 if (fallbackProfile) {
                     resolvedAgentProfileId = fallbackProfile.id;
-                    tenantLog.warn({ agentProfileId: resolvedAgentProfileId }, "agentProfileId missing from channel connection, using tenant fallback");
+                    tenantLog.warn({ agentProfileId: resolvedAgentProfileId }, "No routing rule matched, using tenant fallback");
                 }
             }
 
             // 3.6. Get enabled tools for tenant and agent profile
-            const enabledTools = await this.toolRegistry.getEnabledTools(inbound.tenantId, resolvedAgentProfileId);
+            const enabledTools = await this.toolRegistry.getEnabledTools(inbound.tenantId, resolvedAgentProfileId ?? undefined);
             const toolDefinitions = enabledTools.map((t) => ({
                 name: t.name,
                 description: t.description,
