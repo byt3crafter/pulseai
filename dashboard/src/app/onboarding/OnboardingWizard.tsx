@@ -12,6 +12,7 @@ import {
     saveProviderKeyOnboardingAction,
     exchangeOpenAICodeOnboardingAction,
     saveTelegramOnboardingAction,
+    saveTelegramConfigOnboardingAction,
     savePluginCredentialsOnboardingAction,
     createFirstAgentAction,
     completeOnboardingAction,
@@ -81,6 +82,14 @@ export default function OnboardingWizard({
 
     const supportsOAuth = selectedProvider === "openai";
     const isOAuth = authMethod === "oauth" && supportsOAuth;
+
+    // Telegram config state
+    const [botMode, setBotMode] = useState<"private" | "group" | "both">("private");
+    const [telegramUserId, setTelegramUserId] = useState("");
+    const [telegramUserName, setTelegramUserName] = useState("");
+    const [groupChatId, setGroupChatId] = useState("");
+    const [groupName, setGroupName] = useState("");
+    const [telegramConfigured, setTelegramConfigured] = useState(false);
 
     // Determine effective step (skip password if not needed)
     const effectiveStep = !needsPassword && step === 1 ? 2 : step;
@@ -306,6 +315,39 @@ export default function OnboardingWizard({
             setSuccess(result.message ?? "Connected.");
             setHasTelegram(true);
             router.refresh();
+        });
+    };
+
+    const handleTelegramConfigAndContinue = async () => {
+        clearMessages();
+
+        // Validate required fields based on mode
+        if ((botMode === "private" || botMode === "both") && !telegramUserId.trim()) {
+            setError("Enter your Telegram User ID for private chat access.");
+            return;
+        }
+        if ((botMode === "group" || botMode === "both") && !groupChatId.trim()) {
+            setError("Enter the Group Chat ID for group access.");
+            return;
+        }
+
+        startTransition(async () => {
+            const result = await saveTelegramConfigOnboardingAction({
+                botMode,
+                userId: telegramUserId.trim() || undefined,
+                userName: telegramUserName.trim() || undefined,
+                groupChatId: groupChatId.trim() || undefined,
+                groupName: groupName.trim() || undefined,
+            });
+
+            if (!result.success) {
+                setError(result.message ?? "Failed to configure Telegram.");
+                return;
+            }
+
+            setTelegramConfigured(true);
+            router.refresh();
+            goNext();
         });
     };
 
@@ -664,57 +706,29 @@ export default function OnboardingWizard({
                         <StepHeader
                             stepLabel="Step 3"
                             title="Connect Telegram"
-                            description="Connect a Telegram bot so your clients can talk to your agent. Create a bot via @BotFather, copy the token, paste it here."
+                            description="Connect a Telegram bot so your clients can talk to your agent. Create a bot via @BotFather, copy the token, then configure how it will be used."
                         />
-                        {hasTelegram ? (
-                            <div className="px-8 py-6">
-                                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
-                                    <svg
-                                        className="w-5 h-5 flex-shrink-0"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        strokeWidth={2}
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        <div className="px-8 py-6 space-y-5">
+                            {/* Phase 1: Bot Token */}
+                            {!hasTelegram ? (
+                                <>
+                                    <form onSubmit={handleTelegramSubmit} className="space-y-4">
+                                        <InputField
+                                            label="Bot API Token"
+                                            name="botToken"
+                                            type="password"
+                                            placeholder="123456789:ABCdef..."
+                                            required
+                                            mono
                                         />
-                                    </svg>
-                                    Telegram bot connected!
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={goNext}
-                                    className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
-                                >
-                                    Continue
-                                </button>
-                            </div>
-                        ) : (
-                            <>
-                                <form
-                                    onSubmit={handleTelegramSubmit}
-                                    className="px-8 py-6 space-y-4"
-                                >
-                                    <InputField
-                                        label="Bot API Token"
-                                        name="botToken"
-                                        type="password"
-                                        placeholder="123456789:ABCdef..."
-                                        required
-                                        mono
-                                    />
-                                    <ErrorMessage message={error} />
-                                    <SuccessMessage message={success} />
-                                    <SubmitButton
-                                        loading={pending}
-                                        label="Connect & Continue"
-                                        loadingLabel="Validating..."
-                                    />
-                                </form>
-                                <div className="px-8 pb-6">
+                                        <ErrorMessage message={error} />
+                                        <SuccessMessage message={success} />
+                                        <SubmitButton
+                                            loading={pending}
+                                            label="Connect Bot"
+                                            loadingLabel="Validating..."
+                                        />
+                                    </form>
                                     <button
                                         type="button"
                                         onClick={goNext}
@@ -722,9 +736,106 @@ export default function OnboardingWizard({
                                     >
                                         Skip for now
                                     </button>
-                                </div>
-                            </>
-                        )}
+                                </>
+                            ) : (
+                                <>
+                                    {/* Bot connected badge */}
+                                    <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
+                                        <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Telegram bot connected!
+                                    </div>
+
+                                    {/* Phase 2: Bot Mode Configuration */}
+                                    <div className="border-t border-slate-100 pt-5 space-y-4">
+                                        <h3 className="text-sm font-semibold text-slate-900">How will this bot be used?</h3>
+
+                                        {/* Mode selector */}
+                                        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                                            {(["private", "group", "both"] as const).map((mode) => (
+                                                <button
+                                                    key={mode}
+                                                    type="button"
+                                                    onClick={() => { setBotMode(mode); clearMessages(); }}
+                                                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                                                        botMode === mode
+                                                            ? "bg-slate-900 text-white"
+                                                            : "bg-white text-slate-600 hover:bg-slate-50"
+                                                    }`}
+                                                >
+                                                    {mode === "private" ? "Private DM" : mode === "group" ? "Group Chat" : "Both"}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Private DM fields */}
+                                        {(botMode === "private" || botMode === "both") && (
+                                            <div className="space-y-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                                <p className="text-xs font-semibold text-slate-700">Private Chat Access</p>
+                                                <p className="text-[11px] text-slate-500 leading-tight">
+                                                    Enter your Telegram User ID to pre-approve yourself. Send <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px] font-mono">/start</code> to <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px] font-mono">@userinfobot</code> on Telegram to find your ID.
+                                                </p>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={telegramUserId}
+                                                        onChange={(e) => setTelegramUserId(e.target.value)}
+                                                        placeholder="e.g. 123456789"
+                                                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-900 placeholder:font-sans"
+                                                    />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={telegramUserName}
+                                                    onChange={(e) => setTelegramUserName(e.target.value)}
+                                                    placeholder="Your name (optional)"
+                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-900"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Group fields */}
+                                        {(botMode === "group" || botMode === "both") && (
+                                            <div className="space-y-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                                                <p className="text-xs font-semibold text-slate-700">Group Chat Access</p>
+                                                <p className="text-[11px] text-slate-500 leading-tight">
+                                                    Add the bot to your group first, then enter the Group Chat ID below. The bot will respond when @mentioned in the group.
+                                                    To find the group ID, add <code className="bg-slate-200 px-1 py-0.5 rounded text-[10px] font-mono">@RawDataBot</code> to the group — it will display the chat ID.
+                                                </p>
+                                                <input
+                                                    type="text"
+                                                    value={groupChatId}
+                                                    onChange={(e) => setGroupChatId(e.target.value)}
+                                                    placeholder="e.g. -1001234567890"
+                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-900 placeholder:font-sans"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={groupName}
+                                                    onChange={(e) => setGroupName(e.target.value)}
+                                                    placeholder="Group name (optional)"
+                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-900"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <ErrorMessage message={error} />
+                                        <SuccessMessage message={success} />
+
+                                        {/* Save config & continue */}
+                                        <button
+                                            type="button"
+                                            onClick={handleTelegramConfigAndContinue}
+                                            disabled={pending}
+                                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm disabled:opacity-60"
+                                        >
+                                            {pending ? "Saving..." : "Save & Continue"}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </>
                 )}
 

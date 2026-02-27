@@ -125,6 +125,10 @@ export class TelegramAdapter implements ChannelAdapter {
             try {
                 const bot = new Bot(botToken);
 
+                // Fetch bot info (username, id) — required for ctx.me in all modes.
+                // Without this, hasBotMention() and isReplyToBot() fail in webhook mode.
+                await bot.init();
+
                 // Pre-load tenant config
                 await this.loadTenantConfig(conn.tenantId);
 

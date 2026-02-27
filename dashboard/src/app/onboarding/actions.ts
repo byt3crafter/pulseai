@@ -8,8 +8,9 @@ import {
     credentials,
     agentProfiles,
     workspaceRevisions,
+    allowlists,
 } from "../../storage/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { encrypt } from "../../utils/crypto";
@@ -310,6 +311,107 @@ export async function saveTelegramOnboardingAction(formData: FormData) {
         return { success: true, message: `Connected to @${data.result.username}` };
     } catch {
         return { success: false, message: "Failed to reach Telegram. Check your connection." };
+    }
+}
+
+// ─── Step 3b: Configure Telegram Bot Mode & Allowlist ────────────────────────
+
+export async function saveTelegramConfigOnboardingAction(config: {
+    botMode: "private" | "group" | "both";
+    userId?: string;
+    userName?: string;
+    groupChatId?: string;
+    groupName?: string;
+}) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        // Set telegram policies based on bot mode
+        let telegramConfig: Record<string, unknown>;
+        switch (config.botMode) {
+            case "private":
+                telegramConfig = {
+                    telegram_dm_policy: "open",
+                    telegram_group_policy: "disabled",
+                    telegram_require_mention: true,
+                };
+                break;
+            case "group":
+                telegramConfig = {
+                    telegram_dm_policy: "disabled",
+                    telegram_group_policy: "allowlist",
+                    telegram_require_mention: true,
+                };
+                break;
+            case "both":
+                telegramConfig = {
+                    telegram_dm_policy: "open",
+                    telegram_group_policy: "allowlist",
+                    telegram_require_mention: true,
+                };
+                break;
+        }
+
+        // Update tenant config with telegram policies
+        await db.execute(
+            sql`UPDATE tenants SET config = COALESCE(config, '{}'::jsonb) || ${JSON.stringify(telegramConfig)}::jsonb, updated_at = now() WHERE id = ${tenantId}::uuid`
+        );
+
+        // Add user to allowlist if provided (pre-approve for DM access)
+        if (config.userId && (config.botMode === "private" || config.botMode === "both")) {
+            const existingUser = await db.query.allowlists.findFirst({
+                where: and(
+                    eq(allowlists.tenantId, tenantId),
+                    eq(allowlists.channelType, "telegram"),
+                    eq(allowlists.contactId, config.userId)
+                ),
+            });
+
+            if (existingUser) {
+                await db.update(allowlists)
+                    .set({ status: "approved", contactName: config.userName || existingUser.contactName })
+                    .where(eq(allowlists.id, existingUser.id));
+            } else {
+                await db.insert(allowlists).values({
+                    tenantId,
+                    channelType: "telegram",
+                    contactId: config.userId,
+                    contactName: config.userName || "Owner",
+                    contactType: "user",
+                    status: "approved",
+                });
+            }
+        }
+
+        // Add group to allowlist if provided
+        if (config.groupChatId && (config.botMode === "group" || config.botMode === "both")) {
+            const existingGroup = await db.query.allowlists.findFirst({
+                where: and(
+                    eq(allowlists.tenantId, tenantId),
+                    eq(allowlists.channelType, "telegram"),
+                    eq(allowlists.contactId, config.groupChatId)
+                ),
+            });
+
+            if (!existingGroup) {
+                await db.insert(allowlists).values({
+                    tenantId,
+                    channelType: "telegram",
+                    contactId: config.groupChatId,
+                    contactName: config.groupName || "Group",
+                    contactType: "group",
+                    status: "approved",
+                });
+            }
+        }
+
+        revalidatePath("/onboarding");
+        return { success: true, message: "Telegram configured." };
+    } catch (error) {
+        console.error("Failed to save telegram config:", error);
+        return { success: false, message: "Failed to save Telegram configuration." };
     }
 }
 
