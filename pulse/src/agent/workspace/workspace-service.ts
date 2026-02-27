@@ -242,8 +242,17 @@ export class WorkspaceService {
             return null;
         }
 
-        // Extract the authoritative name from IDENTITY.md
-        const agentName = identity ? this.extractName(identity) : null;
+        // Extract the authoritative name from IDENTITY.md, fallback to SOUL.md
+        let agentName = identity ? this.extractName(identity) : null;
+
+        // If IDENTITY.md has the default name, try to extract from SOUL.md
+        // (e.g. "You are Sentinel Voss, Head of IT..." → "Sentinel Voss")
+        if ((!agentName || agentName === "AI Assistant") && soul) {
+            const soulNameMatch = soul.match(/^You are ([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)*)/m);
+            if (soulNameMatch) {
+                agentName = soulNameMatch[1];
+            }
+        }
 
         const parts: string[] = [];
 

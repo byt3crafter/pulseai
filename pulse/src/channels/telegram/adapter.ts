@@ -219,6 +219,10 @@ export class TelegramAdapter implements ChannelAdapter {
             content = stripBotMention(content, ctx.me.username);
         }
 
+        // Intercept bot commands that arrive via mention (e.g. "@bot /pair")
+        const handled = await this.handleBotCommand(ctx, conn, content.trim());
+        if (handled) return;
+
         const inbound: InboundMessage = {
             id: randomUUID(),
             tenantId: conn.tenantId,
@@ -274,6 +278,10 @@ export class TelegramAdapter implements ChannelAdapter {
             }
         }
 
+        // Intercept bot commands in DMs too
+        const handled = await this.handleBotCommand(ctx, conn, (ctx.message!.text ?? "").trim());
+        if (handled) return;
+
         const inbound: InboundMessage = {
             id: randomUUID(),
             tenantId: conn.tenantId,
@@ -289,6 +297,43 @@ export class TelegramAdapter implements ChannelAdapter {
 
         ctx.replyWithChatAction("typing").catch(() => {});
         await this.dispatchMessage(inbound, conn.tenantId);
+    }
+
+    /**
+     * Unified command handler — catches /start, /pair, /help regardless of
+     * whether they arrive as native Telegram commands or via mention stripping.
+     * Returns true if the command was handled (caller should stop processing).
+     */
+    private async handleBotCommand(
+        ctx: Context,
+        conn: ChannelConnectionConfig,
+        text: string
+    ): Promise<boolean> {
+        // Extract command: "/pair@botname" or "/pair" or "/pair arg1 arg2"
+        const match = text.match(/^\/(\w+)(?:@\S+)?\s*$/);
+        if (!match) return false;
+
+        const cmd = match[1].toLowerCase();
+
+        switch (cmd) {
+            case "start":
+                await this.handleStartCommand(ctx, conn);
+                return true;
+            case "pair":
+                await this.handlePairCommand(ctx, conn);
+                return true;
+            case "help":
+                await ctx.reply(
+                    "Available commands:\n" +
+                    "/start — Start the bot\n" +
+                    "/pair — Get a pairing code (DM only)\n" +
+                    "/help — Show this message\n\n" +
+                    "Or just send me a message and I'll respond!"
+                );
+                return true;
+            default:
+                return false;
+        }
     }
 
     private async handleStartCommand(ctx: Context, conn: ChannelConnectionConfig): Promise<void> {
