@@ -79,12 +79,14 @@ fi
 echo -e "${BOLD}${CYAN}━━━ Pulse AI Push ━━━${NC}"
 echo ""
 
-# ─── Pre-flight: type check ──────────────────────────────────────────────────
+# ─── Pre-flight: full validation ─────────────────────────────────────────────
 
-echo -e "${YELLOW}[1/4] Running type check...${NC}"
-cd "$ROOT_DIR/dashboard" && npx tsc --noEmit 2>&1
-cd "$ROOT_DIR"
-echo -e "${GREEN}  Passed.${NC}"
+echo -e "${YELLOW}[1/4] Running pre-deploy checks...${NC}"
+if ! bash "$SCRIPT_DIR/pre-deploy-check.sh"; then
+    echo -e "${RED}Pre-deploy checks failed. Aborting push.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}  All checks passed.${NC}"
 
 # ─── Stage + Commit ──────────────────────────────────────────────────────────
 

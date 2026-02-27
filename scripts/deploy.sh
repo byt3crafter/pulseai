@@ -50,10 +50,13 @@ done
 echo -e "${BOLD}${CYAN}━━━ Pulse AI Deploy ━━━${NC}"
 echo ""
 
-# Type check before deploying
-echo -e "${YELLOW}[1/5] Running type check...${NC}"
-cd "$ROOT_DIR/dashboard" && npx tsc --noEmit 2>&1
-echo -e "${GREEN}  Type check passed.${NC}"
+# Full validation before deploying
+echo -e "${YELLOW}[1/5] Running pre-deploy checks...${NC}"
+if ! bash "$SCRIPT_DIR/pre-deploy-check.sh"; then
+    echo -e "${RED}Pre-deploy checks failed. Aborting deploy.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}  All checks passed.${NC}"
 
 # ─── Sync files ──────────────────────────────────────────────────────────────
 

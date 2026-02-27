@@ -872,18 +872,8 @@ pulse/
 | 5.5 | Webhook triggers (generic inbound) | 2 days |
 | 5.6 | Agent scheduling tools | 1 day |
 
-### Phase 6 — Safety + Polish (Weeks 10–12)
 
-**Goal:** Production hardening and safety.
 
-| Step | Task | Effort |
-|------|------|--------|
-| 6.1 | Exec safety system (whitelist/blacklist) | 2 days |
-| 6.2 | Obfuscation detection | 1 day |
-| 6.3 | Human approval flow for risky commands | 2 days |
-| 6.4 | Audit logging | 1 day |
-| 6.5 | Voice/TTS plugin (ElevenLabs) | 2 days |
-| 6.6 | Voice/STT plugin (Whisper) | 1 day |
 
 ---
 
