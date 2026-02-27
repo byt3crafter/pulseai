@@ -7,7 +7,7 @@ import { mkdir, readFile, writeFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { config } from "../config";
 
-const ALLOWED_FILE_NAMES = new Set(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md"]);
+const ALLOWED_FILE_NAMES = new Set(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md", "TOOLS.md", "USER.md"]);
 
 function sanitizeFileName(fileName: string): string {
     if (!ALLOWED_FILE_NAMES.has(fileName)) {
