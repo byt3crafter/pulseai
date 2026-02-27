@@ -132,6 +132,24 @@ export class TelegramAdapter implements ChannelAdapter {
                 // Pre-load tenant config
                 await this.loadTenantConfig(conn.tenantId);
 
+                // Handle /start command
+                bot.command("start", async (ctx) => {
+                    try {
+                        await this.handleStartCommand(ctx, conn);
+                    } catch (err) {
+                        logger.error({ err, tenantId: conn.tenantId }, "Error handling /start command");
+                    }
+                });
+
+                // Handle /pair command
+                bot.command("pair", async (ctx) => {
+                    try {
+                        await this.handlePairCommand(ctx, conn);
+                    } catch (err) {
+                        logger.error({ err, tenantId: conn.tenantId }, "Error handling /pair command");
+                    }
+                });
+
                 bot.on("message:text", async (ctx) => {
                     try {
                         await this.handleTextMessage(ctx, conn);
@@ -271,6 +289,89 @@ export class TelegramAdapter implements ChannelAdapter {
 
         ctx.replyWithChatAction("typing").catch(() => {});
         await this.dispatchMessage(inbound, conn.tenantId);
+    }
+
+    private async handleStartCommand(ctx: Context, conn: ChannelConnectionConfig): Promise<void> {
+        if (isGroupChat(ctx)) {
+            // In groups, just send a brief intro — don't trigger pairing
+            await ctx.reply("Hello! Mention me or reply to my messages and I'll help you out.");
+            return;
+        }
+
+        // In DMs, trigger the pairing flow if policy requires it
+        const tenantConfig = await this.loadTenantConfig(conn.tenantId);
+        const dmPolicy = tenantConfig.telegram_dm_policy ?? "open";
+
+        if (dmPolicy === "disabled") {
+            await ctx.reply("DMs are currently disabled. Please contact the administrator.");
+            return;
+        }
+
+        if (dmPolicy === "pairing") {
+            const contactId = ctx.from!.id.toString();
+            const contactName = ctx.from!.first_name + (ctx.from!.last_name ? ` ${ctx.from!.last_name}` : "");
+            const accessStatus = await checkDmAccess(conn.tenantId, contactId);
+
+            if (accessStatus === "blocked") {
+                await ctx.reply("Access denied. Please contact the administrator.");
+                return;
+            }
+
+            if (accessStatus === "approved") {
+                await ctx.reply("You're already paired! Go ahead and send me a message.");
+                return;
+            }
+
+            const code = await getOrCreatePairingCode(conn.tenantId, contactId, contactName);
+            await ctx.reply(
+                `Welcome! To start chatting, share this pairing code with your administrator:\n\n` +
+                `🔑 *${code}*\n\n` +
+                `Once approved, you can send me messages directly. This code expires in 1 hour.`,
+                { parse_mode: "Markdown" }
+            );
+            return;
+        }
+
+        // Open policy — just greet
+        await ctx.reply("Hello! I'm your AI assistant. How can I help you?");
+    }
+
+    private async handlePairCommand(ctx: Context, conn: ChannelConnectionConfig): Promise<void> {
+        if (isGroupChat(ctx)) {
+            await ctx.reply("Pairing is only available in direct messages. Send me a DM to pair.");
+            return;
+        }
+
+        // In DMs, same as /start pairing flow
+        const tenantConfig = await this.loadTenantConfig(conn.tenantId);
+        const dmPolicy = tenantConfig.telegram_dm_policy ?? "open";
+
+        if (dmPolicy !== "pairing") {
+            await ctx.reply("Pairing is not required — you can message me directly!");
+            return;
+        }
+
+        const contactId = ctx.from!.id.toString();
+        const contactName = ctx.from!.first_name + (ctx.from!.last_name ? ` ${ctx.from!.last_name}` : "");
+        const accessStatus = await checkDmAccess(conn.tenantId, contactId);
+
+        if (accessStatus === "blocked") {
+            await ctx.reply("Access denied. Please contact the administrator.");
+            return;
+        }
+
+        if (accessStatus === "approved") {
+            await ctx.reply("You're already paired! Go ahead and send me a message.");
+            return;
+        }
+
+        const code = await getOrCreatePairingCode(conn.tenantId, contactId, contactName);
+        await ctx.reply(
+            `Here's your pairing code:\n\n` +
+            `🔑 *${code}*\n\n` +
+            `Share this with your administrator. Once approved, you can chat with me. Expires in 1 hour.`,
+            { parse_mode: "Markdown" }
+        );
     }
 
     private async dispatchMessage(inbound: InboundMessage, tenantId: string): Promise<void> {
