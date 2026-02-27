@@ -50,6 +50,12 @@ export default async function AgentDetailPage({
     const userPrefsContent = hasWorkspace
         ? await readWorkspaceFile(session.user.tenantId, agent.id, "USER.md")
         : null;
+    const bootstrapContent = hasWorkspace
+        ? await readWorkspaceFile(session.user.tenantId, agent.id, "BOOTSTRAP.md")
+        : null;
+    const agentsContent = hasWorkspace
+        ? await readWorkspaceFile(session.user.tenantId, agent.id, "AGENTS.md")
+        : null;
 
     // Get revision counts and active providers in parallel
     const [revisions, activeProviders] = await Promise.all([
@@ -65,6 +71,8 @@ export default async function AgentDetailPage({
     const heartbeatRevisionCount = revisions.filter(r => r.fileName === "HEARTBEAT.md").length;
     const toolsGuidanceRevisionCount = revisions.filter(r => r.fileName === "TOOLS.md").length;
     const userPrefsRevisionCount = revisions.filter(r => r.fileName === "USER.md").length;
+    const bootstrapRevisionCount = revisions.filter(r => r.fileName === "BOOTSTRAP.md").length;
+    const agentsRevisionCount = revisions.filter(r => r.fileName === "AGENTS.md").length;
 
     return (
         <AgentWorkspaceClient
@@ -85,12 +93,16 @@ export default async function AgentDetailPage({
             heartbeatContent={heartbeatContent ?? ""}
             toolsGuidanceContent={toolsGuidanceContent ?? ""}
             userPrefsContent={userPrefsContent ?? ""}
+            bootstrapContent={bootstrapContent ?? ""}
+            agentsContent={agentsContent ?? ""}
             soulRevisionCount={soulRevisionCount}
             identityRevisionCount={identityRevisionCount}
             memoryRevisionCount={memoryRevisionCount}
             heartbeatRevisionCount={heartbeatRevisionCount}
             toolsGuidanceRevisionCount={toolsGuidanceRevisionCount}
             userPrefsRevisionCount={userPrefsRevisionCount}
+            bootstrapRevisionCount={bootstrapRevisionCount}
+            agentsRevisionCount={agentsRevisionCount}
             activeProviders={activeProviders}
         />
     );

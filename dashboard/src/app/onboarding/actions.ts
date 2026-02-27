@@ -17,7 +17,7 @@ import bcrypt from "bcryptjs";
 import { encrypt } from "../../utils/crypto";
 import { requireTenant } from "../../utils/tenant-auth";
 import { auth } from "../../auth";
-import { initializeWorkspace } from "../../utils/workspace";
+import { initializeWorkspace, WORKSPACE_DEFAULTS } from "../../utils/workspace";
 
 // ─── Step 1: Change Password ─────────────────────────────────────────────────
 
@@ -572,21 +572,22 @@ export async function createFirstAgentAction(formData: FormData) {
             systemPrompt || undefined
         );
 
-        const soulContent =
-            systemPrompt ||
-            `# Soul\n\nYou are a helpful, professional AI assistant.\n`;
+        const files = { ...WORKSPACE_DEFAULTS };
+        if (systemPrompt) {
+            files["SOUL.md"] = systemPrompt;
+        }
 
-        await db.insert(workspaceRevisions).values([
-            {
+        await db.insert(workspaceRevisions).values(
+            Object.entries(files).map(([fileName, content]) => ({
                 agentProfileId: agent.id,
                 tenantId,
-                fileName: "SOUL.md",
-                content: soulContent,
+                fileName,
+                content,
                 changeSummary: "Initial workspace creation",
                 changedBy: session.user.id,
                 revisionNumber: 1,
-            },
-        ]);
+            }))
+        );
 
         await db
             .update(agentProfiles)

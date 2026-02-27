@@ -15,14 +15,15 @@ export const workspaceUpdateTool: Tool = {
         "Update one of your own workspace configuration files. " +
         "Use this to evolve your personality (SOUL.md), identity (IDENTITY.md), " +
         "tool usage notes (TOOLS.md), user preferences (USER.md), " +
-        "persistent memory notes (MEMORY.md), or heartbeat instructions (HEARTBEAT.md). " +
+        "persistent memory notes (MEMORY.md), heartbeat instructions (HEARTBEAT.md), " +
+        "workspace operating manual (AGENTS.md), or delete the bootstrap script (BOOTSTRAP.md) after onboarding. " +
         "Changes take effect on the next message.",
     parameters: {
         type: "object",
         properties: {
             fileName: {
                 type: "string",
-                enum: ["SOUL.md", "IDENTITY.md", "TOOLS.md", "USER.md", "MEMORY.md", "HEARTBEAT.md"],
+                enum: ["SOUL.md", "IDENTITY.md", "TOOLS.md", "USER.md", "MEMORY.md", "HEARTBEAT.md", "AGENTS.md", "BOOTSTRAP.md"],
                 description: "Which workspace file to update.",
             },
             content: {

@@ -5,7 +5,7 @@ import { db } from "../../../storage/db";
 import { agentProfiles, workspaceRevisions } from "../../../storage/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { initializeWorkspace } from "../../../utils/workspace";
+import { initializeWorkspace, WORKSPACE_DEFAULTS } from "../../../utils/workspace";
 
 export async function createAgentProfileAction(formData: FormData) {
     try {
@@ -39,69 +39,25 @@ export async function createAgentProfileAction(formData: FormData) {
             systemPrompt || undefined
         );
 
-        // Record initial revisions in DB
-        const soulContent = systemPrompt || `# Soul
+        // Record initial revisions in DB for all workspace files
+        const tenantId = session.user.tenantId;
+        const userId = session.user.id;
+        const files = { ...WORKSPACE_DEFAULTS };
+        if (systemPrompt) {
+            files["SOUL.md"] = systemPrompt;
+        }
 
-You are a helpful, professional AI assistant. You communicate clearly and concisely.
-
-## Personality
-- Friendly and approachable
-- Thorough but not verbose
-- Honest when uncertain
-
-## Communication Style
-- Use clear, simple language
-- Break complex topics into digestible parts
-- Ask clarifying questions when needed
-`;
-
-        const identityContent = `# Identity
-
-- **Name**: AI Assistant
-- **Role**: General Purpose Assistant
-- **Background**: A versatile AI designed to help with a wide range of tasks
-`;
-
-        const memoryContent = `# Memory
-
-This file stores persistent memory for the agent across conversations.
-
-## Key Facts
-
-## Learned Preferences
-
-## Important Context
-`;
-
-        await db.insert(workspaceRevisions).values([
-            {
+        await db.insert(workspaceRevisions).values(
+            Object.entries(files).map(([fileName, content]) => ({
                 agentProfileId: agent.id,
-                tenantId: session.user.tenantId,
-                fileName: "SOUL.md",
-                content: soulContent,
+                tenantId,
+                fileName,
+                content,
                 changeSummary: "Initial workspace creation",
-                changedBy: session.user.id,
+                changedBy: userId,
                 revisionNumber: 1,
-            },
-            {
-                agentProfileId: agent.id,
-                tenantId: session.user.tenantId,
-                fileName: "IDENTITY.md",
-                content: identityContent,
-                changeSummary: "Initial workspace creation",
-                changedBy: session.user.id,
-                revisionNumber: 1,
-            },
-            {
-                agentProfileId: agent.id,
-                tenantId: session.user.tenantId,
-                fileName: "MEMORY.md",
-                content: memoryContent,
-                changeSummary: "Initial workspace creation",
-                changedBy: session.user.id,
-                revisionNumber: 1,
-            },
-        ]);
+            }))
+        );
 
         // Update agent with workspace path
         await db.update(agentProfiles)
