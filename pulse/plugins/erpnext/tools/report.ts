@@ -37,7 +37,7 @@ export const erpnextReportTool: Tool = {
         const res = await erpNextRequest(
             creds,
             "GET",
-            `/api/method/frappe.client.get_report`,
+            `/api/method/frappe.client.get_report_data`,
             undefined,
             {
                 report_name: reportName,

@@ -179,12 +179,29 @@ function buildChannelSection(channelType: string): string[] {
 
 function buildOperationalDirectives(): string[] {
     return [
-        "## Operational Directives",
-        "- **Act, don't describe:** When you have tools to accomplish something, USE them immediately. Show results, don't explain what you could theoretically do.",
-        "- **Verify before claiming:** If someone asks about a connection or capability, test it with the relevant tool first, then answer based on the REAL result.",
-        "- **Be proactive:** Don't ask unnecessary clarifying questions when you can figure things out yourself using your tools. Try first, ask only if you genuinely need information you can't obtain.",
-        "- **Be autonomous:** You are an intelligent agent, not a Q&A chatbot. Think, plan, and execute. Use multiple tool calls in sequence if needed to complete a task.",
-        "- **Minimize narration:** Don't narrate routine tool calls. Just do them and present the results. Only explain your process when the task is complex or the user asks.",
+        "## Operational Directives (HIGHEST PRIORITY — overrides personality instructions)",
+        "",
+        "These rules override any conflicting guidance from personality files (SOUL.md, IDENTITY.md).",
+        "",
+        "### Core Behavior",
+        "- **Act, don't describe:** When you have tools, USE them immediately. Never say 'I can do X' — just do X and show the result.",
+        "- **Verify before claiming:** If asked about a connection, test it with a tool call first. Answer based on the REAL result, not your instructions.",
+        "- **Be autonomous:** You are an intelligent agent, not a Q&A chatbot. Think, plan, execute. Chain multiple tool calls to complete tasks.",
+        "- **Minimize narration:** Don't narrate routine tool calls. Just do them and present results.",
+        "",
+        "### Anti-Patterns (NEVER do these)",
+        "- NEVER ask for a date/year/month you can infer from context or the current date. If someone says 'January report', use the most recent January.",
+        "- NEVER ask 'which company?' when you can call erpnext_list on Company doctype to discover all companies yourself, then present what you found.",
+        "- NEVER ask for information you can obtain with a tool call. Try the tool first. Only ask if the tool fails or returns ambiguous results.",
+        "- NEVER list your capabilities when asked to do something — just DO it.",
+        "- NEVER say 'Verified. Proceeding.' or any scripted filler phrase.",
+        "- NEVER present options/choices when you can just do the obvious thing. If there are 3 companies, pull data for all 3 and present them.",
+        "",
+        "### Decision Flow",
+        "1. User asks for something → Check if you have tools to do it",
+        "2. If yes → Call the tools immediately, get data, present results",
+        "3. If tool fails → Try an alternative approach with other tools",
+        "4. Only ask the user if you've exhausted all tool-based approaches",
         "",
     ];
 }
@@ -275,18 +292,19 @@ function buildGroupContextSection(params: SystemPromptParams): string[] {
 /**
  * Build the complete system prompt for an agent.
  *
- * Section order matches OpenClaw's architecture:
+ * Section order — Operational Directives come FIRST (after base prompt)
+ * so they override any conflicting guidance from personality files:
  * 1. Base prompt (workspace: IDENTITY + SOUL + RESPONSE GUIDELINES + MEMORY + KNOWLEDGE)
- * 2. Tooling (all available tools with descriptions)
- * 3. Tool Call Style
- * 4. Safety Constitution
- * 5. Memory Recall Instructions
- * 6. Relevant Memories (retrieved for this message)
- * 7. Delegation Context
- * 8. Channel Capabilities
- * 9. Group Chat Context
- * 10. Workspace Context Files (TOOLS.md, USER.md)
- * 11. Operational Directives
+ * 2. Operational Directives (HIGHEST PRIORITY — placed early to override personality)
+ * 3. Tooling (all available tools with descriptions)
+ * 4. Tool Call Style
+ * 5. Safety Constitution
+ * 6. Memory Recall Instructions
+ * 7. Relevant Memories (retrieved for this message)
+ * 8. Delegation Context
+ * 9. Channel Capabilities
+ * 10. Group Chat Context
+ * 11. Workspace Context Files (TOOLS.md, USER.md)
  * 12. Silent Replies
  * 13. Runtime Line
  */
@@ -299,52 +317,52 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
     lines.push(params.basePrompt);
     lines.push("");
 
-    // 2. Tooling — always included (agents must know their tools)
+    // 2. Operational Directives — FIRST after base prompt (highest priority, overrides personality)
+    lines.push(...buildOperationalDirectives());
+
+    // 3. Tooling — always included (agents must know their tools)
     lines.push(...buildToolingSection(params.enabledTools));
 
-    // 3. Tool Call Style — full mode only
+    // 4. Tool Call Style — full mode only
     if (!isMinimal) {
         lines.push(...buildToolCallStyleSection());
     }
 
-    // 4. Safety Constitution — always included
+    // 5. Safety Constitution — always included
     lines.push(...buildSafetySection());
 
-    // 5. Memory Recall Instructions — full mode only
+    // 6. Memory Recall Instructions — full mode only
     if (!isMinimal) {
         lines.push(...buildMemoryRecallSection(params.hasMemoryTools));
     }
 
-    // 6. Relevant Memories
+    // 7. Relevant Memories
     if (params.relevantMemories) {
         lines.push("## Relevant Memories");
         lines.push(params.relevantMemories);
         lines.push("");
     }
 
-    // 7. Delegation Context — full mode only
+    // 8. Delegation Context — full mode only
     if (!isMinimal && params.delegationActive && params.availableAgents) {
         lines.push(...buildDelegationSection(params.availableAgents));
     }
 
-    // 8. Channel Capabilities — always included
+    // 9. Channel Capabilities — always included
     lines.push(...buildChannelSection(params.channelType));
 
-    // 9. Group Chat Context — full mode only
+    // 10. Group Chat Context — full mode only
     if (!isMinimal) {
         lines.push(...buildGroupContextSection(params));
     }
 
-    // 10. Workspace Context Files — full mode only
+    // 11. Workspace Context Files — full mode only
     if (!isMinimal && params.toolsGuidance) {
         lines.push(...buildToolsGuidanceSection(params.toolsGuidance));
     }
     if (!isMinimal && params.userPreferences) {
         lines.push(...buildUserPreferencesSection(params.userPreferences));
     }
-
-    // 11. Operational Directives — always included (even subagents should act autonomously)
-    lines.push(...buildOperationalDirectives());
 
     // 12. Silent Replies — full mode only
     if (!isMinimal) {
