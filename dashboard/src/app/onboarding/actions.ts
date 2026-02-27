@@ -9,6 +9,7 @@ import {
     agentProfiles,
     workspaceRevisions,
     allowlists,
+    pairingCodes,
 } from "../../storage/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -412,6 +413,81 @@ export async function saveTelegramConfigOnboardingAction(config: {
     } catch (error) {
         console.error("Failed to save telegram config:", error);
         return { success: false, message: "Failed to save Telegram configuration." };
+    }
+}
+
+// ─── Step 3c: Telegram Pairing (fetch + approve) ─────────────────────────────
+
+export async function fetchPendingPairingsOnboardingAction() {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, pairings: [] };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const rows = await db.select({
+            id: pairingCodes.id,
+            code: pairingCodes.code,
+            contactId: pairingCodes.contactId,
+            contactName: allowlists.contactName,
+            createdAt: pairingCodes.createdAt,
+        })
+            .from(pairingCodes)
+            .leftJoin(allowlists, and(
+                eq(allowlists.tenantId, pairingCodes.tenantId),
+                eq(allowlists.channelType, "telegram"),
+                eq(allowlists.contactId, pairingCodes.contactId)
+            ))
+            .where(and(
+                eq(pairingCodes.tenantId, tenantId),
+                eq(pairingCodes.status, "pending")
+            ))
+            .orderBy(pairingCodes.createdAt);
+
+        return {
+            success: true,
+            pairings: rows.map(r => ({
+                id: r.id,
+                code: r.code,
+                contactId: r.contactId,
+                contactName: r.contactName ?? null,
+                createdAt: r.createdAt?.toISOString() ?? "",
+            })),
+        };
+    } catch {
+        return { success: false, pairings: [] };
+    }
+}
+
+export async function approvePairingOnboardingAction(code: string) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const record = await db.query.pairingCodes.findFirst({
+            where: and(
+                eq(pairingCodes.tenantId, tenantId),
+                eq(pairingCodes.code, code),
+                eq(pairingCodes.status, "pending")
+            ),
+        });
+
+        if (!record) return { success: false, message: "Pairing code not found or already processed." };
+
+        await db.update(pairingCodes).set({ status: "approved" }).where(eq(pairingCodes.id, record.id));
+
+        await db.update(allowlists).set({ status: "approved" }).where(
+            and(
+                eq(allowlists.tenantId, tenantId),
+                eq(allowlists.channelType, "telegram"),
+                eq(allowlists.contactId, record.contactId)
+            )
+        );
+
+        revalidatePath("/onboarding");
+        return { success: true };
+    } catch {
+        return { success: false, message: "Failed to approve pairing." };
     }
 }
 

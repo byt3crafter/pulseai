@@ -8,6 +8,33 @@ import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     ...authConfig,
+    callbacks: {
+        ...authConfig.callbacks,
+        async jwt({ token, user, trigger }) {
+            // Delegate to base callback for initial sign-in (sets all token fields)
+            const result = authConfig.callbacks!.jwt!({ token, user, trigger } as any);
+            const tok = result instanceof Promise ? await result : result;
+
+            // After onboarding completes, the DB has onboardingComplete=true but the
+            // JWT still has false. Re-check the DB so the user doesn't need to re-login.
+            if (tok.onboardingComplete === false && tok.id) {
+                try {
+                    const [row] = await db
+                        .select({ onboardingComplete: users.onboardingComplete })
+                        .from(users)
+                        .where(eq(users.id, tok.id as string))
+                        .limit(1);
+                    if (row?.onboardingComplete === true) {
+                        tok.onboardingComplete = true;
+                    }
+                } catch {
+                    // Ignore — will re-check next request
+                }
+            }
+
+            return tok;
+        },
+    },
     providers: [
         Credentials({
             credentials: {

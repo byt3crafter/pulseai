@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, signOut } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { PROVIDERS, DEFAULT_MODEL_ID } from "../../utils/models";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../utils/pkce";
 import { buildOpenAIAuthUrl, getCallbackUrl } from "../../utils/openai-oauth";
@@ -13,6 +13,8 @@ import {
     exchangeOpenAICodeOnboardingAction,
     saveTelegramOnboardingAction,
     saveTelegramConfigOnboardingAction,
+    fetchPendingPairingsOnboardingAction,
+    approvePairingOnboardingAction,
     savePluginCredentialsOnboardingAction,
     createFirstAgentAction,
     completeOnboardingAction,
@@ -92,6 +94,10 @@ export default function OnboardingWizard({
     const [groupChatId, setGroupChatId] = useState("");
     const [groupName, setGroupName] = useState("");
     const [telegramConfigured, setTelegramConfigured] = useState(false);
+
+    // Telegram pairing state
+    const [pendingPairings, setPendingPairings] = useState<Array<{ id: string; code: string; contactId: string; contactName: string | null; createdAt: string }>>([]);
+    const [pairingLoading, setPairingLoading] = useState(false);
 
     // Determine effective step (skip password if not needed)
     const effectiveStep = !needsPassword && step === 1 ? 2 : step;
@@ -345,6 +351,24 @@ export default function OnboardingWizard({
         });
     };
 
+    // ─── Step 3c: Telegram Pairing ─────────────────────────────────────
+
+    const refreshPairings = async () => {
+        setPairingLoading(true);
+        const result = await fetchPendingPairingsOnboardingAction();
+        if (result.success) setPendingPairings(result.pairings);
+        setPairingLoading(false);
+    };
+
+    const handleApprovePairing = async (code: string) => {
+        const result = await approvePairingOnboardingAction(code);
+        if (result.success) {
+            setPendingPairings((prev) => prev.filter((p) => p.code !== code));
+        } else {
+            setError(result.message ?? "Failed to approve.");
+        }
+    };
+
     // ─── Step 4: Plugin Credentials ──────────────────────────────────────
 
     const handlePluginCredentialSubmit = async (
@@ -389,8 +413,8 @@ export default function OnboardingWizard({
     const handleComplete = async () => {
         startTransition(async () => {
             await completeOnboardingAction();
-            // Sign out and re-login for clean JWT with onboardingComplete=true
-            await signOut({ callbackUrl: "/login" });
+            // JWT callback re-checks onboardingComplete from DB, so just redirect
+            router.push("/dashboard");
         });
     };
 
@@ -858,6 +882,45 @@ export default function OnboardingWizard({
                                         >
                                             {pending ? "Saving..." : "Save & Continue"}
                                         </button>
+                                    </div>
+
+                                    {/* Pairing section — for users who DM the bot */}
+                                    <div className="border-t border-slate-100 pt-5 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-sm font-semibold text-slate-900">Pending Pairing Requests</h3>
+                                            <button
+                                                type="button"
+                                                onClick={refreshPairings}
+                                                disabled={pairingLoading}
+                                                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                                            >
+                                                {pairingLoading ? "Checking..." : "Refresh"}
+                                            </button>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 leading-tight">
+                                            If DM policy is set to &quot;Pairing&quot; in Settings, users who message the bot will appear here for approval. Click Refresh to check for new requests.
+                                        </p>
+                                        {pendingPairings.length === 0 ? (
+                                            <p className="text-xs text-slate-400 italic">No pending requests.</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {pendingPairings.map((p) => (
+                                                    <div key={p.id} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                                        <div>
+                                                            <p className="text-sm font-medium text-slate-900">{p.contactName || "Unknown User"}</p>
+                                                            <p className="text-xs text-slate-500">ID: {p.contactId} &middot; Code: <code className="bg-amber-100 px-1 rounded font-mono">{p.code}</code></p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleApprovePairing(p.code)}
+                                                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded transition-colors"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}
