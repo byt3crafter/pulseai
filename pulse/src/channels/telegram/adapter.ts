@@ -537,6 +537,49 @@ export class TelegramAdapter implements ChannelAdapter {
         // 2. Code blocks (```lang\n...\n```) — protect content inside
         result = result.replace(/```(?:\w*)\n?([\s\S]*?)```/g, (_, code) => `<pre>${code.trim()}</pre>`);
 
+        // 2.5. Markdown tables → monospace <pre> blocks
+        // Detects consecutive lines starting with | and converts to aligned code block
+        result = result.replace(
+            /(?:^|\n)((?:\|[^\n]+\|\n?)+)/g,
+            (match) => {
+                const lines = match.trim().split("\n").filter(l => l.trim());
+                // Skip separator rows (|---|---|) and parse data
+                const dataLines = lines.filter(l => !/^\|[\s:]*[-]+/.test(l));
+                if (dataLines.length === 0) return match;
+
+                // Parse cells from each row
+                const rows = dataLines.map(line =>
+                    line.split("|").slice(1, -1).map(c => c.trim())
+                );
+                if (rows.length === 0 || rows[0].length === 0) return match;
+
+                // Calculate max width per column
+                const colCount = Math.max(...rows.map(r => r.length));
+                const widths: number[] = [];
+                for (let c = 0; c < colCount; c++) {
+                    widths[c] = Math.max(...rows.map(r => (r[c] || "").length), 1);
+                }
+
+                // Build aligned monospace table
+                const formatted = rows.map((row, i) => {
+                    const cells = [];
+                    for (let c = 0; c < colCount; c++) {
+                        const val = row[c] || "";
+                        cells.push(val.padEnd(widths[c]));
+                    }
+                    const line = "| " + cells.join(" | ") + " |";
+                    // Add separator after header row
+                    if (i === 0) {
+                        const sep = "| " + widths.map(w => "-".repeat(w)).join(" | ") + " |";
+                        return line + "\n" + sep;
+                    }
+                    return line;
+                });
+
+                return "\n<pre>" + formatted.join("\n") + "</pre>\n";
+            }
+        );
+
         // 3. Inline code (`...`)
         result = result.replace(/`([^`]+)`/g, "<code>$1</code>");
 
