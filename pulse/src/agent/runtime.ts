@@ -13,6 +13,7 @@ import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
+import { sanitizeToolSchema } from "./tools/schema-sanitizer.js";
 import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
@@ -125,7 +126,7 @@ export class AgentRuntime {
             const toolDefinitions = enabledTools.map((t) => ({
                 name: t.name,
                 description: t.description,
-                input_schema: t.parameters,
+                input_schema: sanitizeToolSchema(t.name, structuredClone(t.parameters)),
             }));
 
             tenantLog.debug(
