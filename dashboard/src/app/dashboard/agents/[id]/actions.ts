@@ -19,7 +19,7 @@ export async function updateWorkspaceFileAction(formData: FormData) {
     const content = formData.get("content") as string;
     const summary = formData.get("summary") as string;
 
-    const ALLOWED_FILES = new Set(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md"]);
+    const ALLOWED_FILES = new Set(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md", "TOOLS.md", "USER.md"]);
     if (!agentId || !fileName || content === null) {
         return { success: false, message: "Missing required fields." };
     }

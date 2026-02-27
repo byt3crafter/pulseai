@@ -44,6 +44,12 @@ export default async function AgentDetailPage({
     const heartbeatContent = hasWorkspace
         ? await readWorkspaceFile(session.user.tenantId, agent.id, "HEARTBEAT.md")
         : null;
+    const toolsGuidanceContent = hasWorkspace
+        ? await readWorkspaceFile(session.user.tenantId, agent.id, "TOOLS.md")
+        : null;
+    const userPrefsContent = hasWorkspace
+        ? await readWorkspaceFile(session.user.tenantId, agent.id, "USER.md")
+        : null;
 
     // Get revision counts and active providers in parallel
     const [revisions, activeProviders] = await Promise.all([
@@ -57,6 +63,8 @@ export default async function AgentDetailPage({
     const identityRevisionCount = revisions.filter(r => r.fileName === "IDENTITY.md").length;
     const memoryRevisionCount = revisions.filter(r => r.fileName === "MEMORY.md").length;
     const heartbeatRevisionCount = revisions.filter(r => r.fileName === "HEARTBEAT.md").length;
+    const toolsGuidanceRevisionCount = revisions.filter(r => r.fileName === "TOOLS.md").length;
+    const userPrefsRevisionCount = revisions.filter(r => r.fileName === "USER.md").length;
 
     return (
         <AgentWorkspaceClient
@@ -74,10 +82,14 @@ export default async function AgentDetailPage({
             identityContent={identityContent ?? ""}
             memoryContent={memoryContent ?? ""}
             heartbeatContent={heartbeatContent ?? ""}
+            toolsGuidanceContent={toolsGuidanceContent ?? ""}
+            userPrefsContent={userPrefsContent ?? ""}
             soulRevisionCount={soulRevisionCount}
             identityRevisionCount={identityRevisionCount}
             memoryRevisionCount={memoryRevisionCount}
             heartbeatRevisionCount={heartbeatRevisionCount}
+            toolsGuidanceRevisionCount={toolsGuidanceRevisionCount}
+            userPrefsRevisionCount={userPrefsRevisionCount}
             activeProviders={activeProviders}
         />
     );

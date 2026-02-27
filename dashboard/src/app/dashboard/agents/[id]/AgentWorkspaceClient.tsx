@@ -40,10 +40,14 @@ interface Props {
     identityContent: string;
     memoryContent: string;
     heartbeatContent: string;
+    toolsGuidanceContent: string;
+    userPrefsContent: string;
     soulRevisionCount: number;
     identityRevisionCount: number;
     memoryRevisionCount: number;
     heartbeatRevisionCount: number;
+    toolsGuidanceRevisionCount: number;
+    userPrefsRevisionCount: number;
     activeProviders: string[];
 }
 
@@ -52,7 +56,9 @@ const TABS = [
     { id: "identity", label: "Identity" },
     { id: "memory", label: "Memory" },
     { id: "heartbeat", label: "Heartbeat" },
-    { id: "tools", label: "Tools" },
+    { id: "tools-guidance", label: "Tools" },
+    { id: "user-prefs", label: "User" },
+    { id: "tool-policy", label: "Tool Policy" },
     { id: "sandbox", label: "Sandbox" },
     { id: "config", label: "Config" },
     { id: "revisions", label: "Revisions" },
@@ -64,10 +70,14 @@ export default function AgentWorkspaceClient({
     identityContent,
     memoryContent,
     heartbeatContent,
+    toolsGuidanceContent,
+    userPrefsContent,
     soulRevisionCount,
     identityRevisionCount,
     memoryRevisionCount,
     heartbeatRevisionCount,
+    toolsGuidanceRevisionCount,
+    userPrefsRevisionCount,
     activeProviders,
 }: Props) {
     const [activeTab, setActiveTab] = useState("soul");
@@ -114,9 +124,9 @@ export default function AgentWorkspaceClient({
                                 }`}
                         >
                             {t.label}
-                            {t.id === "revisions" && (soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount) > 0 && (
+                            {t.id === "revisions" && (soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount + toolsGuidanceRevisionCount + userPrefsRevisionCount) > 0 && (
                                 <span className="ml-1.5 text-xs text-slate-400">
-                                    ({soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount})
+                                    ({soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount + toolsGuidanceRevisionCount + userPrefsRevisionCount})
                                 </span>
                             )}
                         </button>
@@ -164,7 +174,25 @@ export default function AgentWorkspaceClient({
                     />
                 </div>
             )}
-            {activeTab === "tools" && (
+            {activeTab === "tools-guidance" && (
+                <FileEditor
+                    agentId={agent.id}
+                    fileName="TOOLS.md"
+                    initialContent={toolsGuidanceContent}
+                    title="Tools Guidance"
+                    description="User-written notes on how the agent should use specific tools and integrations. This does NOT control which tools are available — use the Tool Policy tab for that."
+                />
+            )}
+            {activeTab === "user-prefs" && (
+                <FileEditor
+                    agentId={agent.id}
+                    fileName="USER.md"
+                    initialContent={userPrefsContent}
+                    title="User Preferences"
+                    description="Tell the agent about yourself — who you are, how to address you, preferred formats, language, timezone, or any other context the agent should know."
+                />
+            )}
+            {activeTab === "tool-policy" && (
                 <ToolPolicyEditor agentId={agent.id} initialPolicy={agent.toolPolicy} />
             )}
             {activeTab === "sandbox" && (
@@ -411,14 +439,15 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
 // ─── Revisions Tab ───────────────────────────────────────────────────────────
 
 function RevisionsTab({ agentId }: { agentId: string }) {
-    const [selectedFile, setSelectedFile] = useState<"SOUL.md" | "IDENTITY.md" | "MEMORY.md" | "HEARTBEAT.md">("SOUL.md");
+    type WorkspaceFile = "SOUL.md" | "IDENTITY.md" | "MEMORY.md" | "HEARTBEAT.md" | "TOOLS.md" | "USER.md";
+    const [selectedFile, setSelectedFile] = useState<WorkspaceFile>("SOUL.md");
     const [revisions, setRevisions] = useState<Revision[]>([]);
     const [loading, setLoading] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [restoreStatus, setRestoreStatus] = useState<string>("");
     const router = useRouter();
 
-    const loadRevisions = async (file: "SOUL.md" | "IDENTITY.md" | "MEMORY.md" | "HEARTBEAT.md") => {
+    const loadRevisions = async (file: WorkspaceFile) => {
         setSelectedFile(file);
         setLoading(true);
         const result = await getRevisionsAction(agentId, file);
@@ -444,7 +473,7 @@ function RevisionsTab({ agentId }: { agentId: string }) {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
                 <h2 className="text-sm font-semibold text-slate-900">Revision History</h2>
                 <div className="flex gap-2 ml-auto">
-                    {(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md"] as const).map((f) => (
+                    {(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md", "TOOLS.md", "USER.md"] as const).map((f) => (
                         <button
                             key={f}
                             onClick={() => loadRevisions(f)}
