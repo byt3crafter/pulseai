@@ -112,7 +112,7 @@ describe("Workspace Prompt Building", () => {
         const result = await service.buildSystemPrompt("tenant-1", "agent-1");
 
         expect(result).toContain("RESPONSE GUIDELINES");
-        expect(result).toContain("Be natural and conversational");
+        expect(result).toContain("Be genuinely helpful");
     });
 
     it("should include memory section when MEMORY.md exists", async () => {
