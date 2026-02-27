@@ -153,6 +153,117 @@ export async function saveProviderKeyOnboardingAction(formData: FormData) {
     }
 }
 
+// ─── Step 2b: Exchange OpenAI OAuth Code ─────────────────────────────────────
+
+export async function exchangeOpenAICodeOnboardingAction({
+    code,
+    codeVerifier,
+    redirectUri,
+}: {
+    code: string;
+    codeVerifier: string;
+    redirectUri: string;
+}) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const OPENAI_TOKEN_URL = "https://auth.openai.com/oauth/token";
+    const OPENAI_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
+
+    try {
+        // Exchange authorization code for tokens
+        const tokenRes = await fetch(OPENAI_TOKEN_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                grant_type: "authorization_code",
+                code,
+                redirect_uri: redirectUri,
+                client_id: OPENAI_CLIENT_ID,
+                code_verifier: codeVerifier,
+            }),
+        });
+
+        const tokenData = await tokenRes.json();
+
+        if (!tokenRes.ok || !tokenData.access_token) {
+            const detail = tokenData.error_description
+                || (typeof tokenData.error === "object" ? tokenData.error?.message : tokenData.error)
+                || "Token exchange failed";
+            return { success: false, message: String(detail) };
+        }
+
+        const { access_token, refresh_token } = tokenData;
+        const openaiApiKey = access_token;
+
+        // Validate the access token against OpenAI
+        const validateRes = await fetch("https://api.openai.com/v1/models", {
+            headers: { Authorization: `Bearer ${openaiApiKey}` },
+        });
+
+        if (validateRes.status === 401) {
+            return { success: false, message: "The access token was rejected by OpenAI. Your ChatGPT subscription may not include API access." };
+        }
+
+        // Encrypt and store
+        const encryptedApiKey = encrypt(openaiApiKey);
+        const encryptedRefreshToken = refresh_token ? encrypt(refresh_token) : null;
+
+        // Parse JWT claims
+        let expiresAt: Date | null = null;
+        let chatgptAccountId: string | null = null;
+        try {
+            const payload = access_token.split(".")[1];
+            const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8"));
+            if (claims.exp) expiresAt = new Date(claims.exp * 1000);
+            const authClaim = claims["https://api.openai.com/auth"];
+            if (authClaim?.chatgpt_account_id) {
+                chatgptAccountId = authClaim.chatgpt_account_id;
+            }
+        } catch { /* ignore parse errors */ }
+
+        const existing = await db.query.tenantProviderKeys.findFirst({
+            where: and(
+                eq(tenantProviderKeys.tenantId, tenantId),
+                eq(tenantProviderKeys.provider, "openai")
+            ),
+        });
+
+        const values = {
+            authMethod: "oauth",
+            encryptedApiKey,
+            oauthAccessTokenEnc: encrypt(access_token),
+            oauthRefreshTokenEnc: encryptedRefreshToken,
+            oauthTokenExpiresAt: expiresAt,
+            oauthClientId: OPENAI_CLIENT_ID,
+            keyAlias: chatgptAccountId
+                ? `ChatGPT (${chatgptAccountId.substring(0, 8)})`
+                : "ChatGPT Subscription",
+            isActive: true,
+            updatedAt: new Date(),
+        };
+
+        if (existing) {
+            await db.update(tenantProviderKeys)
+                .set(values)
+                .where(eq(tenantProviderKeys.id, existing.id));
+        } else {
+            await db.insert(tenantProviderKeys).values({
+                tenantId,
+                provider: "openai",
+                ...values,
+            });
+        }
+
+        revalidatePath("/onboarding");
+        return { success: true, message: "ChatGPT account connected successfully." };
+    } catch (error) {
+        console.error("OpenAI OAuth exchange failed:", error);
+        return { success: false, message: "OAuth exchange failed." };
+    }
+}
+
 // ─── Step 3: Save Telegram ───────────────────────────────────────────────────
 
 export async function saveTelegramOnboardingAction(formData: FormData) {

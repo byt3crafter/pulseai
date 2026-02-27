@@ -682,6 +682,9 @@ function ProviderCard({
 
             const authUrl = buildOpenAIAuthUrl({ codeChallenge: challenge, state, redirectUri });
 
+            // Set origin cookie so callback routes back to settings
+            document.cookie = "openai_oauth_from=settings; path=/; max-age=600; SameSite=Lax";
+
             // Same-tab redirect: OpenAI auth → :1455 proxy → dashboard :3001
             // sessionStorage persists across same-origin navigations in the same tab.
             window.location.href = authUrl;

@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, signOut } from "next-auth/react";
 import { PROVIDERS, DEFAULT_MODEL_ID } from "../../utils/models";
+import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../utils/pkce";
+import { buildOpenAIAuthUrl, getCallbackUrl } from "../../utils/openai-oauth";
 import {
     changePasswordOnboardingAction,
     validateProviderKeyOnboardingAction,
     saveProviderKeyOnboardingAction,
+    exchangeOpenAICodeOnboardingAction,
     saveTelegramOnboardingAction,
     savePluginCredentialsOnboardingAction,
     createFirstAgentAction,
@@ -50,6 +53,7 @@ export default function OnboardingWizard({
     hasAgent: initialHasAgent,
 }: Props) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [pending, startTransition] = useTransition();
 
     // Track step — start from server-calculated step
@@ -69,6 +73,14 @@ export default function OnboardingWizard({
     const [selectedProvider, setSelectedProvider] = useState("anthropic");
     const [apiKeyInput, setApiKeyInput] = useState("");
     const [validating, setValidating] = useState(false);
+
+    // OAuth state for OpenAI
+    const [authMethod, setAuthMethod] = useState<"api_key" | "oauth">("api_key");
+    const [oauthStatus, setOauthStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+    const [manualUrl, setManualUrl] = useState("");
+
+    const supportsOAuth = selectedProvider === "openai";
+    const isOAuth = authMethod === "oauth" && supportsOAuth;
 
     // Determine effective step (skip password if not needed)
     const effectiveStep = !needsPassword && step === 1 ? 2 : step;
@@ -148,6 +160,136 @@ export default function OnboardingWizard({
         setApiKeyInput("");
         router.refresh();
     };
+
+    // ─── Step 2b: OpenAI OAuth Sign-in ─────────────────────────────────
+
+    const handleOpenAISignIn = async () => {
+        try {
+            const verifier = generateCodeVerifier();
+            const challenge = await generateCodeChallenge(verifier);
+            const state = generateState();
+            const redirectUri = getCallbackUrl();
+
+            sessionStorage.setItem("openai_pkce_verifier", verifier);
+            sessionStorage.setItem("openai_pkce_state", state);
+            sessionStorage.setItem("openai_redirect_uri", redirectUri);
+
+            // Set origin cookie so callback routes back to onboarding
+            document.cookie = "openai_oauth_from=onboarding; path=/; max-age=600; SameSite=Lax";
+
+            const authUrl = buildOpenAIAuthUrl({ codeChallenge: challenge, state, redirectUri });
+            window.location.href = authUrl;
+        } catch {
+            setOauthStatus({ type: "error", message: "Failed to start OAuth flow." });
+        }
+    };
+
+    const handleManualPaste = () => {
+        if (!manualUrl.trim()) return;
+        try {
+            const url = new URL(manualUrl);
+            const code = url.searchParams.get("code");
+            const returnedState = url.searchParams.get("state");
+            const urlError = url.searchParams.get("error");
+            const errorDesc = url.searchParams.get("error_description");
+
+            if (urlError) {
+                setOauthStatus({ type: "error", message: errorDesc || "Authorization was denied." });
+                return;
+            }
+
+            const savedState = sessionStorage.getItem("openai_pkce_state");
+            if (returnedState !== savedState) {
+                setOauthStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
+                return;
+            }
+
+            const savedVerifier = sessionStorage.getItem("openai_pkce_verifier");
+            const savedRedirectUri = sessionStorage.getItem("openai_redirect_uri");
+
+            if (!code || !savedVerifier || !savedRedirectUri) {
+                setOauthStatus({ type: "error", message: "Missing OAuth data. Please try again." });
+                return;
+            }
+
+            setOauthStatus({ type: "saving", message: "Exchanging token..." });
+            exchangeOpenAICodeOnboardingAction({
+                code,
+                codeVerifier: savedVerifier,
+                redirectUri: savedRedirectUri,
+            }).then((result) => {
+                sessionStorage.removeItem("openai_pkce_verifier");
+                sessionStorage.removeItem("openai_pkce_state");
+                sessionStorage.removeItem("openai_redirect_uri");
+                setOauthStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
+                if (result.success) {
+                    setConnectedProviders((prev) => prev.includes("openai") ? prev : [...prev, "openai"]);
+                    setManualUrl("");
+                    router.refresh();
+                }
+            });
+        } catch {
+            setOauthStatus({ type: "error", message: "Invalid URL." });
+        }
+    };
+
+    // Handle OAuth callback redirect from OpenAI → /onboarding?openai_code=...
+    useEffect(() => {
+        const code = searchParams.get("openai_code");
+        const returnedState = searchParams.get("openai_state");
+        const oauthError = searchParams.get("openai_error");
+        const errorDesc = searchParams.get("openai_error_desc");
+
+        if (!code && !oauthError) return;
+
+        // Clean URL immediately
+        const url = new URL(window.location.href);
+        url.searchParams.delete("openai_code");
+        url.searchParams.delete("openai_state");
+        url.searchParams.delete("openai_error");
+        url.searchParams.delete("openai_error_desc");
+        window.history.replaceState({}, "", url.toString());
+
+        // Make sure we're on step 2 with OpenAI selected
+        setStep(2);
+        setSelectedProvider("openai");
+        setAuthMethod("oauth");
+
+        if (oauthError) {
+            setOauthStatus({ type: "error", message: errorDesc || "Authorization was denied." });
+            return;
+        }
+
+        const savedState = sessionStorage.getItem("openai_pkce_state");
+        if (returnedState !== savedState) {
+            setOauthStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
+            return;
+        }
+
+        const savedVerifier = sessionStorage.getItem("openai_pkce_verifier");
+        const savedRedirectUri = sessionStorage.getItem("openai_redirect_uri");
+
+        if (!code || !savedVerifier || !savedRedirectUri) {
+            setOauthStatus({ type: "error", message: "Missing OAuth data. Please try again." });
+            return;
+        }
+
+        setOauthStatus({ type: "saving", message: "Exchanging token..." });
+        exchangeOpenAICodeOnboardingAction({
+            code,
+            codeVerifier: savedVerifier,
+            redirectUri: savedRedirectUri,
+        }).then((result) => {
+            sessionStorage.removeItem("openai_pkce_verifier");
+            sessionStorage.removeItem("openai_pkce_state");
+            sessionStorage.removeItem("openai_redirect_uri");
+            setOauthStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
+            if (result.success) {
+                setConnectedProviders((prev) => prev.includes("openai") ? prev : [...prev, "openai"]);
+                router.refresh();
+            }
+        });
+    }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ─── Step 3: Telegram ────────────────────────────────────────────────
 
@@ -357,6 +499,8 @@ export default function OnboardingWizard({
                                     value={selectedProvider}
                                     onChange={(e) => {
                                         setSelectedProvider(e.target.value);
+                                        setAuthMethod("api_key");
+                                        setOauthStatus({ type: "idle", message: "" });
                                         clearMessages();
                                     }}
                                     className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-900 bg-white"
@@ -372,34 +516,124 @@ export default function OnboardingWizard({
                                 </select>
                             </div>
 
-                            <InputField
-                                label="API Key"
-                                name="apiKey"
-                                type="password"
-                                placeholder={
-                                    selectedProvider === "anthropic"
-                                        ? "sk-ant-..."
-                                        : selectedProvider === "openai"
-                                        ? "sk-..."
-                                        : "Enter your API key"
-                                }
-                                value={apiKeyInput}
-                                onChange={(e) => setApiKeyInput(e.target.value)}
-                                required
-                            />
+                            {/* Auth method toggle — only for OpenAI */}
+                            {supportsOAuth && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Authentication Method</label>
+                                    <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setAuthMethod("api_key"); setApiKeyInput(""); setOauthStatus({ type: "idle", message: "" }); clearMessages(); }}
+                                            className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${authMethod === "api_key"
+                                                ? "bg-slate-900 text-white"
+                                                : "bg-white text-slate-600 hover:bg-slate-50"
+                                            }`}
+                                        >
+                                            API Key
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setAuthMethod("oauth"); setApiKeyInput(""); setOauthStatus({ type: "idle", message: "" }); clearMessages(); }}
+                                            className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${authMethod === "oauth"
+                                                ? "bg-slate-900 text-white"
+                                                : "bg-white text-slate-600 hover:bg-slate-50"
+                                            }`}
+                                        >
+                                            ChatGPT Subscription
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
-                            <ErrorMessage message={error} />
-                            <SuccessMessage message={success} />
+                            {/* OAuth sign-in for OpenAI */}
+                            {isOAuth && (
+                                <div className="space-y-3">
+                                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                                        <p className="text-xs text-emerald-800">
+                                            <span className="font-semibold">Use your ChatGPT Plus/Pro/Team subscription.</span>{" "}
+                                            Sign in with your OpenAI account to connect automatically — no API key needed.
+                                        </p>
+                                    </div>
 
-                            <SubmitButton
-                                loading={validating}
-                                label={
-                                    connectedProviders.includes(selectedProvider)
-                                        ? "Update Key"
-                                        : "Validate & Save"
-                                }
-                                loadingLabel="Validating..."
-                            />
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenAISignIn}
+                                        disabled={oauthStatus.type === "saving"}
+                                        className="w-full px-4 py-2.5 bg-[#10a37f] hover:bg-[#0e8c6b] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z" /></svg>
+                                        {oauthStatus.type === "saving" ? (oauthStatus.message || "Connecting...") : "Sign in with ChatGPT"}
+                                    </button>
+
+                                    {/* Remote access fallback */}
+                                    <div className="border-t border-slate-100 pt-3">
+                                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                            Remote Access Fallback
+                                        </label>
+                                        <p className="text-[11px] text-slate-500 mb-2 leading-tight">
+                                            If the sign-in redirect fails to load, copy the URL from the failed page and paste it below.
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={manualUrl}
+                                                onChange={(e) => setManualUrl(e.target.value)}
+                                                placeholder="http://localhost:1455/auth/callback?code=..."
+                                                className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500 outline-none"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleManualPaste}
+                                                disabled={!manualUrl.trim() || oauthStatus.type === "saving"}
+                                                className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded hover:bg-slate-800 disabled:opacity-50"
+                                            >
+                                                Submit
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {oauthStatus.type === "error" && (
+                                        <p className="text-sm text-red-500">{oauthStatus.message}</p>
+                                    )}
+                                    {oauthStatus.type === "success" && (
+                                        <p className="text-sm text-emerald-600">{oauthStatus.message}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* API Key input — hidden when OAuth is active */}
+                            {!isOAuth && (
+                                <>
+                                    <InputField
+                                        label="API Key"
+                                        name="apiKey"
+                                        type="password"
+                                        placeholder={
+                                            selectedProvider === "anthropic"
+                                                ? "sk-ant-..."
+                                                : selectedProvider === "openai"
+                                                ? "sk-..."
+                                                : "Enter your API key"
+                                        }
+                                        value={apiKeyInput}
+                                        onChange={(e) => setApiKeyInput(e.target.value)}
+                                        required
+                                    />
+
+                                    <ErrorMessage message={error} />
+                                    <SuccessMessage message={success} />
+
+                                    <SubmitButton
+                                        loading={validating}
+                                        label={
+                                            connectedProviders.includes(selectedProvider)
+                                                ? "Update Key"
+                                                : "Validate & Save"
+                                        }
+                                        loadingLabel="Validating..."
+                                    />
+                                </>
+                            )}
                         </form>
 
                         <div className="px-8 pb-6">
