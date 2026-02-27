@@ -63,6 +63,8 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - WORKSPACE_BASE_DIR=/app/data/workspaces
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
+      - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
     volumes:
       - pulse-workspace-data:/app/data/workspaces
 
