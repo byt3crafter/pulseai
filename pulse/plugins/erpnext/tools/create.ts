@@ -16,6 +16,7 @@ export const erpnextCreateTool: Tool = {
             },
             data: {
                 type: "object",
+                additionalProperties: true,
                 description:
                     "Document field values as JSON. Include child table rows as arrays. " +
                     'Example for Sales Invoice: {"customer":"CUST-001","items":[{"item_code":"ITEM-001","qty":1,"rate":100}]}',

@@ -41,6 +41,7 @@ export const erpnextMethodTool: Tool = {
             },
             args: {
                 type: "object",
+                additionalProperties: true,
                 description:
                     'Method arguments as JSON. For submit/cancel: {"doctype":"Sales Invoice","name":"SINV-00001"}. ' +
                     'For get_balance_on: {"account":"Debtors - TC","date":"2025-12-31"}',

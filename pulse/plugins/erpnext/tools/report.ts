@@ -18,6 +18,7 @@ export const erpnextReportTool: Tool = {
             },
             filters: {
                 type: "object",
+                additionalProperties: true,
                 description:
                     "Report filters as JSON. Common filters: company, from_date, to_date, cost_center, account. " +
                     'Dates must be in YYYY-MM-DD format. Example: {"company":"My Company","from_date":"2025-01-01","to_date":"2025-12-31"}',

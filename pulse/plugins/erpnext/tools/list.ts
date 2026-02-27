@@ -15,6 +15,11 @@ export const erpnextListTool: Tool = {
             },
             filters: {
                 type: "array",
+                items: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "A filter tuple: [field, operator, value]",
+                },
                 description:
                     'Filter array — each element is [field, operator, value]. ' +
                     'Operators: =, !=, >, <, >=, <=, like, not like, in, not in, between. ' +
@@ -22,6 +27,7 @@ export const erpnextListTool: Tool = {
             },
             fields: {
                 type: "array",
+                items: { type: "string" },
                 description:
                     'Fields to return (default: ["name"]). Use ["*"] for all fields. ' +
                     'Example: ["name","customer","grand_total","status"]',

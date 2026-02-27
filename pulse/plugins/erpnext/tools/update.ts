@@ -19,6 +19,7 @@ export const erpnextUpdateTool: Tool = {
             },
             data: {
                 type: "object",
+                additionalProperties: true,
                 description: 'Fields to update as JSON. Example: {"status":"Closed","notes":"Updated by agent"}',
             },
         },
