@@ -7,7 +7,7 @@ services:
 
   pulse-dashboard:
     ports:
-      - "3002:3000"    # Avoids runstate-web on port 3000
+      - "3003:3000"    # Avoids runstate-web (3000) and postOrbit (3002)
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgres://pulseadmin:${POSTGRES_PASSWORD}@postgres:5432/pulse
