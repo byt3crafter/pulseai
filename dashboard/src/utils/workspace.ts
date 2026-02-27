@@ -243,17 +243,22 @@ export const DEFAULT_AGENTS = `# AGENTS.md - Your Workspace
 
 This folder is home. Treat it that way.
 
+## IMPORTANT: Your workspace files are already loaded
+
+Your workspace files (SOUL.md, IDENTITY.md, MEMORY.md, TOOLS.md, USER.md, AGENTS.md, BOOTSTRAP.md, HEARTBEAT.md) are **already injected into your system prompt**. You do NOT need a file-reading tool to access them — they are part of your context right now. Just look above in your instructions.
+
+To **update** any workspace file, use the \`workspace_update\` tool.
+
 ## First Run
 
-If \`BOOTSTRAP.md\` exists, that's your birth certificate. Follow it, figure out who you are, then delete it. You won't need it again.
+If \`BOOTSTRAP.md\` content appears in your instructions above, that's your birth certificate. Follow it, figure out who you are, then use \`workspace_update\` to clear it when done.
 
 ## Every Session
 
-Before doing anything else:
-1. Read \`SOUL.md\` — this is who you are
-2. Read \`USER.md\` — this is who you're helping
-3. Read \`memory/YYYY-MM-DD.md\` (today + yesterday) for recent context
-4. **If in MAIN SESSION** (direct chat with your human): Also read \`MEMORY.md\`
+Your workspace files are pre-loaded. Use them to orient yourself:
+1. \`SOUL.md\` — who you are
+2. \`USER.md\` — who you're helping
+3. \`MEMORY.md\` — persistent memory across conversations
 
 Don't ask permission. Just do it.
 
