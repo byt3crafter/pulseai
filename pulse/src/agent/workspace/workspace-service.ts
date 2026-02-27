@@ -15,8 +15,35 @@ import { eq, and, desc } from "drizzle-orm";
 import { config } from "../../config.js";
 import { logger } from "../../utils/logger.js";
 
-const ALLOWED_FILE_NAMES = new Set(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md"]);
+const ALLOWED_FILE_NAMES = new Set(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md", "TOOLS.md", "USER.md"]);
 const KNOWLEDGE_FILE_PATTERN = /^KNOWLEDGE_[A-Z0-9_]+\.md$/;
+
+/** Per-file size limit (bytes) — files larger than this get truncated */
+const PER_FILE_MAX_BYTES = 20 * 1024; // 20KB
+/** Total budget for all workspace content injected into system prompt */
+const TOTAL_BUDGET_BYTES = 150 * 1024; // 150KB
+
+/**
+ * Smart content truncation — keeps head (70%) + tail (20%) of large files.
+ * Modeled after OpenClaw's bootstrap-files.ts truncation strategy.
+ */
+function truncateContent(content: string, maxBytes: number): string {
+    if (Buffer.byteLength(content, "utf-8") <= maxBytes) return content;
+
+    const headRatio = 0.7;
+    const tailRatio = 0.2;
+    const headBytes = Math.floor(maxBytes * headRatio);
+    const tailBytes = Math.floor(maxBytes * tailRatio);
+
+    // Simple char-based approximation (good enough for markdown)
+    const headChars = Math.floor(content.length * (headBytes / Buffer.byteLength(content, "utf-8")));
+    const tailChars = Math.floor(content.length * (tailBytes / Buffer.byteLength(content, "utf-8")));
+
+    const head = content.slice(0, headChars);
+    const tail = content.slice(-tailChars);
+
+    return `${head}\n\n--- [TRUNCATED: content exceeds ${Math.round(maxBytes / 1024)}KB limit — showing head + tail] ---\n\n${tail}`;
+}
 
 function isAllowedFileName(fileName: string): boolean {
     return ALLOWED_FILE_NAMES.has(fileName) || KNOWLEDGE_FILE_PATTERN.test(fileName);
@@ -255,10 +282,17 @@ export class WorkspaceService {
         }
 
         const parts: string[] = [];
+        let budgetRemaining = TOTAL_BUDGET_BYTES;
+
+        const addPart = (content: string) => {
+            const truncated = truncateContent(content, Math.min(PER_FILE_MAX_BYTES, budgetRemaining));
+            budgetRemaining -= Buffer.byteLength(truncated, "utf-8");
+            parts.push(truncated);
+        };
 
         // Identity directive comes first — this is the single source of truth
         if (identity) {
-            parts.push(identity);
+            addPart(identity);
         }
 
         // If IDENTITY.md specifies a name, inject a strong identity override.
@@ -274,7 +308,7 @@ export class WorkspaceService {
         }
 
         if (soul) {
-            parts.push(soul);
+            addPart(soul);
         }
 
         // Dynamic behavior directive — prevents robotic, scripted responses
@@ -288,7 +322,7 @@ export class WorkspaceService {
         );
 
         if (memory) {
-            parts.push(`# Persistent Memory\n\nThe following is your persistent memory — facts, preferences, and context you've accumulated. Use this information when relevant to conversations.\n\n${memory}`);
+            addPart(`# Persistent Memory\n\nThe following is your persistent memory — facts, preferences, and context you've accumulated. Use this information when relevant to conversations.\n\n${memory}`);
         }
 
         // Load knowledge files (KNOWLEDGE_*.md)
@@ -297,8 +331,10 @@ export class WorkspaceService {
             const knowledgeParts: string[] = [];
             for (const kf of knowledgeFiles) {
                 const content = await this.readFile(tenantId, agentId, kf);
-                if (content) {
-                    knowledgeParts.push(content);
+                if (content && budgetRemaining > 0) {
+                    const truncated = truncateContent(content, Math.min(PER_FILE_MAX_BYTES, budgetRemaining));
+                    budgetRemaining -= Buffer.byteLength(truncated, "utf-8");
+                    knowledgeParts.push(truncated);
                 }
             }
             if (knowledgeParts.length > 0) {
@@ -307,8 +343,28 @@ export class WorkspaceService {
         }
 
         const prompt = parts.join("\n\n---\n\n");
-        logger.info({ tenantId, agentId, promptLength: prompt.length, fileCount: parts.length, agentName: agentName ?? "unset" }, "Workspace system prompt built successfully");
+        logger.info({ tenantId, agentId, promptLength: prompt.length, fileCount: parts.length, agentName: agentName ?? "unset", budgetRemaining }, "Workspace system prompt built successfully");
         return prompt;
+    }
+
+    /**
+     * Read TOOLS.md — user guidance for how to use external tools.
+     * This is NOT tool definitions — it's human-written guidance injected into system prompt.
+     */
+    async readToolsGuidance(tenantId: string, agentId: string): Promise<string | null> {
+        const content = await this.readFile(tenantId, agentId, "TOOLS.md");
+        if (!content) return null;
+        return truncateContent(content, PER_FILE_MAX_BYTES);
+    }
+
+    /**
+     * Read USER.md — user preferences and notes.
+     * Injected into system prompt so the agent knows how the user likes to work.
+     */
+    async readUserPreferences(tenantId: string, agentId: string): Promise<string | null> {
+        const content = await this.readFile(tenantId, agentId, "USER.md");
+        if (!content) return null;
+        return truncateContent(content, PER_FILE_MAX_BYTES);
     }
 
     /**

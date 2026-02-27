@@ -23,11 +23,16 @@ import {
 } from "./tools/index.js";
 
 const ERPNEXT_PROMPT_CONTEXT = `
-## ERPNext Integration
+## ERPNext Integration — ACTIVE
 
-You have access to ERPNext tools for managing business data. Here are guidelines:
+Your ERPNext connection is configured and credentials are loaded. You have LIVE access to this tenant's ERPNext instance.
 
-### Available Tools
+### Behavior Rules
+- **When asked "do you have access to ERPNext?" or similar:** Don't just say yes. PROVE it — call \`erpnext_list\` with doctype "Company" and limit 1 to verify the connection is live, then tell the user what company/instance you're connected to.
+- **When asked to fetch data or run a report:** Just DO it. Don't ask "which company?" if you can call \`erpnext_list\` on the Company doctype first to discover it yourself. Only ask when there's genuine ambiguity you can't resolve.
+- **When asked for a report:** Pick the right report type and run it. If the user says "report for January", infer the current year unless told otherwise. Use \`erpnext_report\` directly.
+
+### Available ERPNext Tools
 - **erpnext_list** — Search/list documents with filters, fields, pagination
 - **erpnext_get** — Get a single document with all details
 - **erpnext_create** — Create a new document (saved as Draft)

@@ -9,6 +9,8 @@ import { memoryService } from "../memory/memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
 import { resolveAgent } from "./orchestration/agent-router.js";
 import { hookRegistry } from "../plugins/hooks.js";
+import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
+import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -135,8 +137,10 @@ export class AgentRuntime {
             );
 
             // 3.75 Resolve per-agent model and system prompt (workspace-first, DB fallback)
-            let activeSystemPrompt = defaultSystemPrompt;
+            let basePrompt = defaultSystemPrompt;
             let activeModelId = getDefaultModel().id;
+            // Determine prompt mode — delegated calls use minimal mode
+            const promptMode: PromptMode = inbound.channelType === "heartbeat" ? "minimal" : "full";
 
             if (resolvedAgentProfileId) {
                 const profile = await db.query.agentProfiles.findFirst({
@@ -156,50 +160,85 @@ export class AgentRuntime {
                     );
 
                     if (workspacePrompt) {
-                        activeSystemPrompt = workspacePrompt;
+                        basePrompt = workspacePrompt;
                     } else if (profile.systemPrompt) {
-                        activeSystemPrompt = profile.systemPrompt;
+                        basePrompt = profile.systemPrompt;
                     }
                 }
             }
 
-            tenantLog.info({ model: activeModelId, agentProfileId: resolvedAgentProfileId ?? "none" }, "Model resolved for request");
+            tenantLog.info({ model: activeModelId, agentProfileId: resolvedAgentProfileId ?? "none", promptMode }, "Model resolved for request");
 
-            // 3.8 Inject relevant memories into system prompt
+            // 3.8 Gather all context for the system prompt builder
+            let relevantMemories: string | undefined;
             if (resolvedAgentProfileId) {
                 try {
                     const memoryContext = await memoryService.getRelevantContext(
                         inbound.tenantId, resolvedAgentProfileId, inbound.content, 5
                     );
                     if (memoryContext) {
-                        activeSystemPrompt += `\n\n## Relevant Memories\n${memoryContext}`;
+                        relevantMemories = memoryContext;
                     }
                 } catch (err) {
-                    tenantLog.warn({ err }, "Failed to inject memory context (non-fatal)");
+                    tenantLog.warn({ err }, "Failed to retrieve memory context (non-fatal)");
                 }
             }
 
-            // 3.85 Inject delegation context into system prompt
+            // 3.85 Gather delegation context
             let delegationActive = false;
+            let availableAgents: DelegatableAgent[] = [];
             if (resolvedAgentProfileId) {
                 try {
                     const delConfig = await getAgentDelegationConfig(resolvedAgentProfileId);
                     if (delConfig.canDelegate) {
-                        const availableAgents = await getDelegatableAgents(inbound.tenantId, resolvedAgentProfileId);
-                        if (availableAgents.length > 0) {
+                        const agents = await getDelegatableAgents(inbound.tenantId, resolvedAgentProfileId);
+                        if (agents.length > 0) {
                             delegationActive = true;
-                            const agentLines = availableAgents.map(
-                                (a) => `- ${a.name} (${a.id}): ${a.specialization} [Model: ${a.modelId}]`
-                            );
-                            activeSystemPrompt += `\n\n## Available Agents for Delegation\nYou can delegate tasks to these specialized agents:\n${agentLines.join("\n")}\nUse the delegate_to_agent tool to send them a task. Use list_agents to refresh this list.`;
+                            availableAgents = agents;
                         }
                     }
                 } catch (err) {
-                    tenantLog.warn({ err }, "Failed to inject delegation context (non-fatal)");
+                    tenantLog.warn({ err }, "Failed to gather delegation context (non-fatal)");
                 }
             }
 
-            // 3.87 Run before-prompt-build plugin hooks
+            // 3.86 Gather workspace context files (TOOLS.md, USER.md)
+            let toolsGuidance: string | undefined;
+            let userPreferences: string | undefined;
+            if (resolvedAgentProfileId) {
+                try {
+                    toolsGuidance = (await workspaceService.readToolsGuidance(inbound.tenantId, resolvedAgentProfileId)) ?? undefined;
+                    userPreferences = (await workspaceService.readUserPreferences(inbound.tenantId, resolvedAgentProfileId)) ?? undefined;
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to read workspace context files (non-fatal)");
+                }
+            }
+
+            // 3.87 Check if memory tools are available
+            const hasMemoryTools = enabledTools.some(
+                (t) => t.name === "memory_store" || t.name === "memory_search"
+            );
+
+            // 3.88 Build the complete system prompt via the builder
+            let activeSystemPrompt = buildAgentSystemPrompt({
+                basePrompt,
+                enabledTools: enabledTools.map((t) => ({ name: t.name, description: t.description })),
+                agentProfileId: resolvedAgentProfileId ?? undefined,
+                modelId: activeModelId,
+                channelType: inbound.channelType,
+                relevantMemories,
+                hasMemoryTools,
+                delegationActive,
+                availableAgents,
+                toolsGuidance,
+                userPreferences,
+                promptMode,
+                contactName: inbound.contactName,
+                isGroup: inbound.isGroup,
+                groupTitle: inbound.groupTitle,
+            });
+
+            // 3.89 Run before-prompt-build plugin hooks (plugins can append/modify)
             try {
                 const promptCtx = await hookRegistry.run("before-prompt-build", {
                     tenantId: inbound.tenantId,
@@ -382,13 +421,18 @@ export class AgentRuntime {
             llmResponse.usage.inputTokens = totalInputTokens;
             llmResponse.usage.outputTokens = totalOutputTokens;
 
-            // 5. Store LLM Assistant response in Database
-            await db.insert(messages).values({
-                conversationId: conversation.id,
-                tenantId: inbound.tenantId,
-                role: "assistant",
-                content: llmResponse.content,
-            });
+            // 4.6 Check for silent reply token — suppress empty/ack responses
+            const isSilentReply = llmResponse.content.trim() === SILENT_REPLY_TOKEN;
+
+            // 5. Store LLM Assistant response in Database (skip silent replies)
+            if (!isSilentReply) {
+                await db.insert(messages).values({
+                    conversationId: conversation.id,
+                    tenantId: inbound.tenantId,
+                    role: "assistant",
+                    content: llmResponse.content,
+                });
+            }
 
             // 6. Record Cost/Usage for Billing Tracking
             // Use canonical model ID (from our registry) for accurate pricing
@@ -440,8 +484,10 @@ export class AgentRuntime {
                 referenceId: usageRecord.id,
             });
 
-            // 7. Dispatch Response to Channel Adapter
-            if (streamMessageId && options?.editMessageCallback) {
+            // 7. Dispatch Response to Channel Adapter (skip silent replies)
+            if (isSilentReply) {
+                tenantLog.debug("Silent reply token detected — suppressing response");
+            } else if (streamMessageId && options?.editMessageCallback) {
                 // Streaming was active — do final edit with fully formatted content
                 await options.editMessageCallback(
                     inbound.tenantId,
