@@ -1,20 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
-/**
- * OAuth bridge page — handles popup ↔ parent communication.
- *
- * If opened as a popup (window.opener exists):
- *   → sends code/state back to the parent via postMessage, then closes
- *
- * If opened in the same tab (no opener):
- *   → redirects to onboarding or settings based on state prefix
- *     - state starting with "ob_" → came from onboarding
- *     - anything else → came from settings
- */
-export default function OAuthCompletePage() {
+function OAuthBridge() {
     const searchParams = useSearchParams();
 
     useEffect(() => {
@@ -48,12 +37,30 @@ export default function OAuthCompletePage() {
         }
     }, [searchParams]);
 
+    return null;
+}
+
+/**
+ * OAuth bridge page — handles popup ↔ parent communication.
+ *
+ * If opened as a popup (window.opener exists):
+ *   → sends code/state back to the parent via postMessage, then closes
+ *
+ * If opened in the same tab (no opener):
+ *   → redirects to onboarding or settings based on state prefix
+ *     - state starting with "ob_" → came from onboarding
+ *     - anything else → came from settings
+ */
+export default function OAuthCompletePage() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="text-center">
-                <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-sm text-slate-600">Completing sign-in...</p>
+        <Suspense fallback={null}>
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-center">
+                    <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-sm text-slate-600">Completing sign-in...</p>
+                </div>
             </div>
-        </div>
+            <OAuthBridge />
+        </Suspense>
     );
 }
