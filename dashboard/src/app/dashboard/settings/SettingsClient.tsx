@@ -672,28 +672,50 @@ function ProviderCard({
             // Generate PKCE pair
             const verifier = generateCodeVerifier();
             const challenge = await generateCodeChallenge(verifier);
-            const state = generateState();
+            const state = generateState(); // No prefix — settings is the default
             const redirectUri = getCallbackUrl();
 
-            // Store PKCE data in sessionStorage — survives the redirect round-trip
-            sessionStorage.setItem("openai_pkce_verifier", verifier);
-            sessionStorage.setItem("openai_pkce_state", state);
-            sessionStorage.setItem("openai_redirect_uri", redirectUri);
+            // Use localStorage (shared across tabs/popups on same origin)
+            localStorage.setItem("openai_pkce_verifier", verifier);
+            localStorage.setItem("openai_pkce_state", state);
+            localStorage.setItem("openai_redirect_uri", redirectUri);
 
             const authUrl = buildOpenAIAuthUrl({ codeChallenge: challenge, state, redirectUri });
 
-            // Set origin cookie so callback routes back to settings
-            document.cookie = "openai_oauth_from=settings; path=/; max-age=600; SameSite=Lax";
+            // Open in popup window
+            const popup = window.open(authUrl, "openai_auth", "width=600,height=700,scrollbars=yes");
 
-            // Same-tab redirect: OpenAI auth → :1455 proxy → dashboard :3001
-            // sessionStorage persists across same-origin navigations in the same tab.
-            window.location.href = authUrl;
+            if (!popup || popup.closed) {
+                // Popup blocked — fall back to same-tab redirect
+                window.location.href = authUrl;
+            }
         } catch {
             setStatus({ type: "error", message: "Failed to start OAuth flow." });
         }
     };
 
     const [manualUrl, setManualUrl] = useState("");
+
+    const exchangeSettingsOAuthCode = (code: string, verifier: string, redirectUri: string) => {
+        setAuthMethod("oauth");
+        setStatus({ type: "saving", message: "Exchanging token..." });
+
+        exchangeOpenAICodeAction({ code, codeVerifier: verifier, redirectUri }).then((result) => {
+            localStorage.removeItem("openai_pkce_verifier");
+            localStorage.removeItem("openai_pkce_state");
+            localStorage.removeItem("openai_redirect_uri");
+
+            setStatus({
+                type: result.success ? "success" : "error",
+                message: result.message ?? "",
+            });
+
+            if (result.success) {
+                setShowForm(false);
+                router.refresh();
+            }
+        });
+    };
 
     const handleManualPaste = () => {
         if (!manualUrl.trim()) return;
@@ -709,50 +731,64 @@ function ProviderCard({
                 return;
             }
 
-            const savedState = sessionStorage.getItem("openai_pkce_state");
+            const savedState = localStorage.getItem("openai_pkce_state");
             if (returnedState !== savedState) {
                 setStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
                 return;
             }
 
-            const savedVerifier = sessionStorage.getItem("openai_pkce_verifier");
-            const savedRedirectUri = sessionStorage.getItem("openai_redirect_uri");
+            const savedVerifier = localStorage.getItem("openai_pkce_verifier");
+            const savedRedirectUri = localStorage.getItem("openai_redirect_uri");
 
             if (!code || !savedVerifier || !savedRedirectUri) {
                 setStatus({ type: "error", message: "Missing OAuth data. Please start the flow again." });
                 return;
             }
 
-            setAuthMethod("oauth");
-            setStatus({ type: "saving", message: "Exchanging token..." });
-
-            exchangeOpenAICodeAction({
-                code,
-                codeVerifier: savedVerifier,
-                redirectUri: savedRedirectUri,
-            }).then((result) => {
-                sessionStorage.removeItem("openai_pkce_verifier");
-                sessionStorage.removeItem("openai_pkce_state");
-                sessionStorage.removeItem("openai_redirect_uri");
-                setManualUrl("");
-
-                setStatus({
-                    type: result.success ? "success" : "error",
-                    message: result.message ?? "",
-                });
-
-                if (result.success) {
-                    setShowForm(false);
-                    router.refresh();
-                }
-            });
+            setManualUrl("");
+            exchangeSettingsOAuthCode(code, savedVerifier, savedRedirectUri);
         } catch (err) {
             setStatus({ type: "error", message: "Invalid URL format." });
         }
     };
 
-    // ── Handle OAuth callback code from URL (after redirect back) ──
+    // ── Listen for postMessage from OAuth popup window ──
     const searchParams = useSearchParams();
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data?.type !== "openai_oauth_callback") return;
+            // Ignore messages meant for onboarding (state prefixed with ob_)
+            if (event.data.state?.startsWith("ob_")) return;
+
+            const { code, state, error, errorDesc } = event.data;
+
+            if (error) {
+                setStatus({ type: "error", message: errorDesc || "Authorization was denied." });
+                return;
+            }
+
+            const savedState = localStorage.getItem("openai_pkce_state");
+            if (state !== savedState) {
+                setStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
+                return;
+            }
+
+            const savedVerifier = localStorage.getItem("openai_pkce_verifier");
+            const savedRedirectUri = localStorage.getItem("openai_redirect_uri");
+
+            if (!code || !savedVerifier || !savedRedirectUri) {
+                setStatus({ type: "error", message: "Missing OAuth data. Please try again." });
+                return;
+            }
+
+            exchangeSettingsOAuthCode(code, savedVerifier, savedRedirectUri);
+        };
+
+        window.addEventListener("message", handleMessage);
+        return () => window.removeEventListener("message", handleMessage);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ── Handle same-tab fallback (when popup was blocked) ──
     useEffect(() => {
         if (providerId !== "openai") return;
 
@@ -776,45 +812,21 @@ function ProviderCard({
             return;
         }
 
-        // Verify state
-        const savedState = sessionStorage.getItem("openai_pkce_state");
+        const savedState = localStorage.getItem("openai_pkce_state");
         if (returnedState !== savedState) {
             setStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
             return;
         }
 
-        const savedVerifier = sessionStorage.getItem("openai_pkce_verifier");
-        const savedRedirectUri = sessionStorage.getItem("openai_redirect_uri");
+        const savedVerifier = localStorage.getItem("openai_pkce_verifier");
+        const savedRedirectUri = localStorage.getItem("openai_redirect_uri");
 
         if (!code || !savedVerifier || !savedRedirectUri) {
             setStatus({ type: "error", message: "Missing OAuth data. Please try again." });
             return;
         }
 
-        // Exchange code for tokens
-        setAuthMethod("oauth");
-        setStatus({ type: "saving", message: "Exchanging token..." });
-
-        exchangeOpenAICodeAction({
-            code,
-            codeVerifier: savedVerifier,
-            redirectUri: savedRedirectUri,
-        }).then((result) => {
-            // Clean up sessionStorage
-            sessionStorage.removeItem("openai_pkce_verifier");
-            sessionStorage.removeItem("openai_pkce_state");
-            sessionStorage.removeItem("openai_redirect_uri");
-
-            setStatus({
-                type: result.success ? "success" : "error",
-                message: result.message ?? "",
-            });
-
-            if (result.success) {
-                setShowForm(false);
-                router.refresh();
-            }
-        });
+        exchangeSettingsOAuthCode(code, savedVerifier, savedRedirectUri);
     }, [searchParams, providerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const displayAuthMethods = authMethods

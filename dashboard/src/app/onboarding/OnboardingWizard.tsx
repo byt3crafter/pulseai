@@ -172,22 +172,42 @@ export default function OnboardingWizard({
 
     // ─── Step 2b: OpenAI OAuth Sign-in ─────────────────────────────────
 
+    const exchangeOAuthCode = (code: string, verifier: string, redirectUri: string) => {
+        setOauthStatus({ type: "saving", message: "Exchanging token..." });
+        exchangeOpenAICodeOnboardingAction({ code, codeVerifier: verifier, redirectUri }).then((result) => {
+            localStorage.removeItem("openai_pkce_verifier");
+            localStorage.removeItem("openai_pkce_state");
+            localStorage.removeItem("openai_redirect_uri");
+            setOauthStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
+            if (result.success) {
+                setConnectedProviders((prev) => prev.includes("openai") ? prev : [...prev, "openai"]);
+                router.refresh();
+            }
+        });
+    };
+
     const handleOpenAISignIn = async () => {
         try {
             const verifier = generateCodeVerifier();
             const challenge = await generateCodeChallenge(verifier);
-            const state = generateState();
+            const rawState = generateState();
+            const state = `ob_${rawState}`; // Prefix so callback knows this is from onboarding
             const redirectUri = getCallbackUrl();
 
-            sessionStorage.setItem("openai_pkce_verifier", verifier);
-            sessionStorage.setItem("openai_pkce_state", state);
-            sessionStorage.setItem("openai_redirect_uri", redirectUri);
-
-            // Set origin cookie so callback routes back to onboarding
-            document.cookie = "openai_oauth_from=onboarding; path=/; max-age=600; SameSite=Lax";
+            // Use localStorage (shared across tabs/popups on same origin)
+            localStorage.setItem("openai_pkce_verifier", verifier);
+            localStorage.setItem("openai_pkce_state", state);
+            localStorage.setItem("openai_redirect_uri", redirectUri);
 
             const authUrl = buildOpenAIAuthUrl({ codeChallenge: challenge, state, redirectUri });
-            window.location.href = authUrl;
+
+            // Open in popup window
+            const popup = window.open(authUrl, "openai_auth", "width=600,height=700,scrollbars=yes");
+
+            if (!popup || popup.closed) {
+                // Popup blocked — fall back to same-tab redirect
+                window.location.href = authUrl;
+            }
         } catch {
             setOauthStatus({ type: "error", message: "Failed to start OAuth flow." });
         }
@@ -207,42 +227,65 @@ export default function OnboardingWizard({
                 return;
             }
 
-            const savedState = sessionStorage.getItem("openai_pkce_state");
+            const savedState = localStorage.getItem("openai_pkce_state");
             if (returnedState !== savedState) {
                 setOauthStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
                 return;
             }
 
-            const savedVerifier = sessionStorage.getItem("openai_pkce_verifier");
-            const savedRedirectUri = sessionStorage.getItem("openai_redirect_uri");
+            const savedVerifier = localStorage.getItem("openai_pkce_verifier");
+            const savedRedirectUri = localStorage.getItem("openai_redirect_uri");
 
             if (!code || !savedVerifier || !savedRedirectUri) {
                 setOauthStatus({ type: "error", message: "Missing OAuth data. Please try again." });
                 return;
             }
 
-            setOauthStatus({ type: "saving", message: "Exchanging token..." });
-            exchangeOpenAICodeOnboardingAction({
-                code,
-                codeVerifier: savedVerifier,
-                redirectUri: savedRedirectUri,
-            }).then((result) => {
-                sessionStorage.removeItem("openai_pkce_verifier");
-                sessionStorage.removeItem("openai_pkce_state");
-                sessionStorage.removeItem("openai_redirect_uri");
-                setOauthStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
-                if (result.success) {
-                    setConnectedProviders((prev) => prev.includes("openai") ? prev : [...prev, "openai"]);
-                    setManualUrl("");
-                    router.refresh();
-                }
-            });
+            setManualUrl("");
+            exchangeOAuthCode(code, savedVerifier, savedRedirectUri);
         } catch {
             setOauthStatus({ type: "error", message: "Invalid URL." });
         }
     };
 
-    // Handle OAuth callback redirect from OpenAI → /onboarding?openai_code=...
+    // Listen for postMessage from OAuth popup window
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data?.type !== "openai_oauth_callback") return;
+
+            const { code, state, error, errorDesc } = event.data;
+
+            setStep(2);
+            setSelectedProvider("openai");
+            setAuthMethod("oauth");
+
+            if (error) {
+                setOauthStatus({ type: "error", message: errorDesc || "Authorization was denied." });
+                return;
+            }
+
+            const savedState = localStorage.getItem("openai_pkce_state");
+            if (state !== savedState) {
+                setOauthStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
+                return;
+            }
+
+            const savedVerifier = localStorage.getItem("openai_pkce_verifier");
+            const savedRedirectUri = localStorage.getItem("openai_redirect_uri");
+
+            if (!code || !savedVerifier || !savedRedirectUri) {
+                setOauthStatus({ type: "error", message: "Missing OAuth data. Please try again." });
+                return;
+            }
+
+            exchangeOAuthCode(code, savedVerifier, savedRedirectUri);
+        };
+
+        window.addEventListener("message", handleMessage);
+        return () => window.removeEventListener("message", handleMessage);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Handle same-tab fallback redirect (when popup was blocked)
     useEffect(() => {
         const code = searchParams.get("openai_code");
         const returnedState = searchParams.get("openai_state");
@@ -259,7 +302,6 @@ export default function OnboardingWizard({
         url.searchParams.delete("openai_error_desc");
         window.history.replaceState({}, "", url.toString());
 
-        // Make sure we're on step 2 with OpenAI selected
         setStep(2);
         setSelectedProvider("openai");
         setAuthMethod("oauth");
@@ -269,35 +311,21 @@ export default function OnboardingWizard({
             return;
         }
 
-        const savedState = sessionStorage.getItem("openai_pkce_state");
+        const savedState = localStorage.getItem("openai_pkce_state");
         if (returnedState !== savedState) {
             setOauthStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
             return;
         }
 
-        const savedVerifier = sessionStorage.getItem("openai_pkce_verifier");
-        const savedRedirectUri = sessionStorage.getItem("openai_redirect_uri");
+        const savedVerifier = localStorage.getItem("openai_pkce_verifier");
+        const savedRedirectUri = localStorage.getItem("openai_redirect_uri");
 
         if (!code || !savedVerifier || !savedRedirectUri) {
             setOauthStatus({ type: "error", message: "Missing OAuth data. Please try again." });
             return;
         }
 
-        setOauthStatus({ type: "saving", message: "Exchanging token..." });
-        exchangeOpenAICodeOnboardingAction({
-            code,
-            codeVerifier: savedVerifier,
-            redirectUri: savedRedirectUri,
-        }).then((result) => {
-            sessionStorage.removeItem("openai_pkce_verifier");
-            sessionStorage.removeItem("openai_pkce_state");
-            sessionStorage.removeItem("openai_redirect_uri");
-            setOauthStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
-            if (result.success) {
-                setConnectedProviders((prev) => prev.includes("openai") ? prev : [...prev, "openai"]);
-                router.refresh();
-            }
-        });
+        exchangeOAuthCode(code, savedVerifier, savedRedirectUri);
     }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ─── Step 3: Telegram ────────────────────────────────────────────────
