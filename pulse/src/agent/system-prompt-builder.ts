@@ -2,16 +2,20 @@
  * System Prompt Builder — Constructs the complete system prompt for an agent.
  *
  * Modeled after OpenClaw's system-prompt.ts architecture:
+ * - Identity line (agent knows what platform it runs on)
+ * - Current date & time (prominent, human-readable — not buried in runtime)
+ * - Operational directives (HIGHEST PRIORITY — override personality)
  * - Tool awareness (agents know what tools they have)
- * - Runtime context (agent ID, model, channel, date)
- * - Memory recall instructions (proactive, not passive)
- * - Safety constitution (no self-preservation, no power-seeking)
- * - Channel capabilities (what the channel supports)
  * - Tool call style guidance (act, don't narrate)
- * - Operational directives (be an agent, not a chatbot)
- * - Silent reply support (suppress empty responses)
- * - PromptMode (full for main agents, minimal for subagents)
+ * - Safety constitution (no self-preservation, no power-seeking)
+ * - Memory recall instructions (proactive, not passive)
+ * - Channel capabilities (what the channel supports)
+ * - Messaging guidance (system messages, routing)
  * - Delegation orchestration guidance
+ * - Silent reply support (NO_REPLY token)
+ * - PromptMode (full for main agents, minimal for subagents)
+ * - Runtime context (agent ID, model, channel)
+ * - Prompt sanitization (strip Unicode control chars)
  */
 
 /**
@@ -22,10 +26,11 @@
 export type PromptMode = "full" | "minimal";
 
 /**
- * Silent reply token — when the agent has nothing to say (e.g., system message processed,
+ * Silent reply token — matches OpenClaw's NO_REPLY convention.
+ * When the agent has nothing to say (e.g., system message processed,
  * cron job acknowledged), it responds with this token which gets suppressed by the runtime.
  */
-export const SILENT_REPLY_TOKEN = "···";
+export const SILENT_REPLY_TOKEN = "NO_REPLY";
 
 /** Channel capability descriptors */
 const CHANNEL_CAPABILITIES: Record<string, string[]> = {
@@ -112,9 +117,66 @@ export interface SystemPromptParams {
 
     /** Group chat title */
     groupTitle?: string;
+
+    /** Agent display name (from SOUL.md or profile) */
+    agentName?: string;
+}
+
+// ─── Utilities ───────────────────────────────────────────────────────
+
+/**
+ * Sanitize strings for prompt injection safety.
+ * Strips Unicode control characters (Cc), format characters (Cf),
+ * and line/paragraph separators (U+2028/U+2029).
+ * Matches OpenClaw's sanitizeForPromptLiteral().
+ */
+function sanitize(value: string): string {
+    // eslint-disable-next-line no-control-regex
+    return value.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, "");
+}
+
+/**
+ * Format current date/time in a human-readable way.
+ * Matches OpenClaw's formatUserTime() — "Thursday, February 27th, 2026 — 3:26 PM"
+ */
+function formatCurrentDateTime(): string {
+    const now = new Date();
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ];
+
+    const dayName = days[now.getDay()];
+    const monthName = months[now.getMonth()];
+    const date = now.getDate();
+    const year = now.getFullYear();
+
+    // Ordinal suffix
+    const suffix = (date === 1 || date === 21 || date === 31) ? "st"
+        : (date === 2 || date === 22) ? "nd"
+        : (date === 3 || date === 23) ? "rd"
+        : "th";
+
+    // 12-hour format
+    let hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+
+    return `${dayName}, ${monthName} ${date}${suffix}, ${year} — ${hours}:${minutes} ${ampm}`;
 }
 
 // ─── Section Builders ────────────────────────────────────────────────
+
+function buildCurrentDateTimeSection(): string[] {
+    return [
+        "## Current Date & Time",
+        formatCurrentDateTime(),
+        "Use this to infer dates from relative references. If someone says 'January report', use the most recent January relative to today.",
+        "",
+    ];
+}
 
 function buildToolingSection(tools: ToolInfo[]): string[] {
     if (tools.length === 0) return [];
@@ -125,9 +187,10 @@ function buildToolingSection(tools: ToolInfo[]): string[] {
         "Tool availability (filtered by policy). Tool names are case-sensitive — call tools exactly as listed.",
         ...toolLines,
         "",
-        "When asked about your capabilities, refer to this list. " +
-            "If asked whether you can do something, check if you have a relevant tool. " +
-            "When you have the tools to do something, USE them — don't just describe what you could do.",
+        "TOOLS.md does not control tool availability; it is user guidance for how to use external tools.",
+        "When asked about your capabilities, refer to this list.",
+        "If asked whether you can do something, check if you have a relevant tool.",
+        "When you have the tools to do something, USE them — don't just describe what you could do.",
         "",
     ];
 }
@@ -206,6 +269,17 @@ function buildOperationalDirectives(): string[] {
     ];
 }
 
+function buildMessagingSection(): string[] {
+    return [
+        "## Messaging",
+        "- Reply in the current session → automatically routes to the source channel (Telegram, WhatsApp, etc.)",
+        "- `[System Message] ...` blocks are internal context and are not user-visible by default.",
+        "- If a `[System Message]` reports completed work and asks for a user update, rewrite it in your normal voice and send that update (do not forward raw system text or respond with NO_REPLY).",
+        "- Never use tool calls for provider messaging; the platform handles all routing internally.",
+        "",
+    ];
+}
+
 function buildDelegationSection(agents: DelegatableAgent[]): string[] {
     if (agents.length === 0) return [];
 
@@ -234,19 +308,22 @@ function buildSilentReplySection(): string[] {
         "",
         "Rules:",
         "- It must be your ENTIRE message — nothing else",
-        `- Never append it to an actual response`,
+        `- Never append it to an actual response (never include "${SILENT_REPLY_TOKEN}" in real replies)`,
         "- Never wrap it in markdown or code blocks",
+        "",
+        `Wrong: "Here's the data... ${SILENT_REPLY_TOKEN}"`,
+        `Wrong: "${SILENT_REPLY_TOKEN}"`,
+        `Right: ${SILENT_REPLY_TOKEN}`,
         "",
     ];
 }
 
 function buildRuntimeLine(params: SystemPromptParams): string[] {
     const parts = [
-        params.agentProfileId ? `agent=${params.agentProfileId}` : "",
-        `model=${params.modelId}`,
-        `channel=${params.channelType}`,
+        params.agentProfileId ? `agent=${sanitize(params.agentProfileId)}` : "",
+        `model=${sanitize(params.modelId)}`,
+        `channel=${sanitize(params.channelType)}`,
         `tools=${params.enabledTools.length}`,
-        `date=${new Date().toISOString().split("T")[0]}`,
     ].filter(Boolean);
 
     return ["## Runtime", parts.join(" | "), ""];
@@ -277,7 +354,7 @@ function buildGroupContextSection(params: SystemPromptParams): string[] {
 
     const lines = ["## Group Chat Context"];
     if (params.groupTitle) {
-        lines.push(`You are in a group chat: "${params.groupTitle}".`);
+        lines.push(`You are in a group chat: "${sanitize(params.groupTitle)}".`);
     }
     lines.push(
         "In group chats, only respond when directly @mentioned or when a message replies to one of yours.",
@@ -287,26 +364,36 @@ function buildGroupContextSection(params: SystemPromptParams): string[] {
     return lines;
 }
 
+function buildSoulInstruction(): string[] {
+    return [
+        "",
+        "If SOUL.md content is present above, embody its persona and tone. Avoid stiff, generic replies; follow its guidance unless higher-priority instructions (Operational Directives) override it.",
+        "",
+    ];
+}
+
 // ─── Main Builder ────────────────────────────────────────────────────
 
 /**
  * Build the complete system prompt for an agent.
  *
- * Section order — Operational Directives come FIRST (after base prompt)
- * so they override any conflicting guidance from personality files:
+ * Section order — designed so the most important behavioral rules come first:
  * 1. Base prompt (workspace: IDENTITY + SOUL + RESPONSE GUIDELINES + MEMORY + KNOWLEDGE)
- * 2. Operational Directives (HIGHEST PRIORITY — placed early to override personality)
- * 3. Tooling (all available tools with descriptions)
- * 4. Tool Call Style
- * 5. Safety Constitution
- * 6. Memory Recall Instructions
- * 7. Relevant Memories (retrieved for this message)
- * 8. Delegation Context
- * 9. Channel Capabilities
- * 10. Group Chat Context
- * 11. Workspace Context Files (TOOLS.md, USER.md)
- * 12. Silent Replies
- * 13. Runtime Line
+ * 2. SOUL.md instruction (embody persona)
+ * 3. Current Date & Time (prominent, human-readable)
+ * 4. Operational Directives (HIGHEST PRIORITY — override personality)
+ * 5. Tooling (all available tools with descriptions)
+ * 6. Tool Call Style
+ * 7. Safety Constitution
+ * 8. Memory Recall Instructions
+ * 9. Relevant Memories (retrieved for this message)
+ * 10. Channel Capabilities
+ * 11. Messaging Guidance
+ * 12. Group Chat Context
+ * 13. Delegation Context
+ * 14. Workspace Context Files (TOOLS.md, USER.md)
+ * 15. Silent Replies
+ * 16. Runtime Line
  */
 export function buildAgentSystemPrompt(params: SystemPromptParams): string {
     const mode = params.promptMode ?? "full";
@@ -315,48 +402,60 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
 
     // 1. Base prompt (IDENTITY + SOUL + RESPONSE GUIDELINES + MEMORY + KNOWLEDGE)
     lines.push(params.basePrompt);
-    lines.push("");
 
-    // 2. Operational Directives — FIRST after base prompt (highest priority, overrides personality)
+    // 2. SOUL.md instruction — tell the agent to embody the persona
+    if (!isMinimal) {
+        lines.push(...buildSoulInstruction());
+    }
+
+    // 3. Current Date & Time — prominent, human-readable (not buried in runtime)
+    lines.push(...buildCurrentDateTimeSection());
+
+    // 4. Operational Directives — HIGHEST PRIORITY, overrides personality
     lines.push(...buildOperationalDirectives());
 
-    // 3. Tooling — always included (agents must know their tools)
+    // 5. Tooling — always included (agents must know their tools)
     lines.push(...buildToolingSection(params.enabledTools));
 
-    // 4. Tool Call Style — full mode only
+    // 6. Tool Call Style — full mode only
     if (!isMinimal) {
         lines.push(...buildToolCallStyleSection());
     }
 
-    // 5. Safety Constitution — always included
+    // 7. Safety Constitution — always included
     lines.push(...buildSafetySection());
 
-    // 6. Memory Recall Instructions — full mode only
+    // 8. Memory Recall Instructions — full mode only
     if (!isMinimal) {
         lines.push(...buildMemoryRecallSection(params.hasMemoryTools));
     }
 
-    // 7. Relevant Memories
+    // 9. Relevant Memories
     if (params.relevantMemories) {
         lines.push("## Relevant Memories");
         lines.push(params.relevantMemories);
         lines.push("");
     }
 
-    // 8. Delegation Context — full mode only
-    if (!isMinimal && params.delegationActive && params.availableAgents) {
-        lines.push(...buildDelegationSection(params.availableAgents));
-    }
-
-    // 9. Channel Capabilities — always included
+    // 10. Channel Capabilities — always included
     lines.push(...buildChannelSection(params.channelType));
 
-    // 10. Group Chat Context — full mode only
+    // 11. Messaging Guidance — full mode only
+    if (!isMinimal) {
+        lines.push(...buildMessagingSection());
+    }
+
+    // 12. Group Chat Context — full mode only
     if (!isMinimal) {
         lines.push(...buildGroupContextSection(params));
     }
 
-    // 11. Workspace Context Files — full mode only
+    // 13. Delegation Context — full mode only
+    if (!isMinimal && params.delegationActive && params.availableAgents) {
+        lines.push(...buildDelegationSection(params.availableAgents));
+    }
+
+    // 14. Workspace Context Files — full mode only
     if (!isMinimal && params.toolsGuidance) {
         lines.push(...buildToolsGuidanceSection(params.toolsGuidance));
     }
@@ -364,12 +463,12 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
         lines.push(...buildUserPreferencesSection(params.userPreferences));
     }
 
-    // 12. Silent Replies — full mode only
+    // 15. Silent Replies — full mode only
     if (!isMinimal) {
         lines.push(...buildSilentReplySection());
     }
 
-    // 13. Runtime Line — always included
+    // 16. Runtime Line — always included
     lines.push(...buildRuntimeLine(params));
 
     return lines.filter(Boolean).join("\n");
