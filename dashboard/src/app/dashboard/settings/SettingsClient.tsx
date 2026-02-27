@@ -666,35 +666,37 @@ function ProviderCard({
         });
     };
 
-    // ── OpenAI browser-based OAuth sign-in (same-tab redirect with PKCE) ──
+    // ── OpenAI OAuth sign-in (generate URL + paste callback) ──
     const handleOpenAISignIn = async () => {
         try {
-            // Generate PKCE pair
             const verifier = generateCodeVerifier();
             const challenge = await generateCodeChallenge(verifier);
             const state = generateState(); // No prefix — settings is the default
             const redirectUri = getCallbackUrl();
 
-            // Use localStorage (shared across tabs/popups on same origin)
             localStorage.setItem("openai_pkce_verifier", verifier);
             localStorage.setItem("openai_pkce_state", state);
             localStorage.setItem("openai_redirect_uri", redirectUri);
 
-            const authUrl = buildOpenAIAuthUrl({ codeChallenge: challenge, state, redirectUri });
+            const url = buildOpenAIAuthUrl({ codeChallenge: challenge, state, redirectUri });
+            setAuthUrl(url);
 
-            // Open in popup window
-            const popup = window.open(authUrl, "openai_auth", "width=600,height=700,scrollbars=yes");
-
-            if (!popup || popup.closed) {
-                // Popup blocked — fall back to same-tab redirect
-                window.location.href = authUrl;
+            // Copy to clipboard
+            try {
+                await navigator.clipboard.writeText(url);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 3000);
+            } catch {
+                // Clipboard may fail — URL is still displayed
             }
         } catch {
-            setStatus({ type: "error", message: "Failed to start OAuth flow." });
+            setStatus({ type: "error", message: "Failed to generate sign-in URL." });
         }
     };
 
     const [manualUrl, setManualUrl] = useState("");
+    const [authUrl, setAuthUrl] = useState("");
+    const [copied, setCopied] = useState(false);
 
     const exchangeSettingsOAuthCode = (code: string, verifier: string, redirectUri: string) => {
         setAuthMethod("oauth");
@@ -752,43 +754,8 @@ function ProviderCard({
         }
     };
 
-    // ── Listen for postMessage from OAuth popup window ──
+    // ── Handle same-tab fallback (if callback somehow resolves locally) ──
     const searchParams = useSearchParams();
-    useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            if (event.data?.type !== "openai_oauth_callback") return;
-            // Ignore messages meant for onboarding (state prefixed with ob_)
-            if (event.data.state?.startsWith("ob_")) return;
-
-            const { code, state, error, errorDesc } = event.data;
-
-            if (error) {
-                setStatus({ type: "error", message: errorDesc || "Authorization was denied." });
-                return;
-            }
-
-            const savedState = localStorage.getItem("openai_pkce_state");
-            if (state !== savedState) {
-                setStatus({ type: "error", message: "Invalid response (state mismatch). Please try again." });
-                return;
-            }
-
-            const savedVerifier = localStorage.getItem("openai_pkce_verifier");
-            const savedRedirectUri = localStorage.getItem("openai_redirect_uri");
-
-            if (!code || !savedVerifier || !savedRedirectUri) {
-                setStatus({ type: "error", message: "Missing OAuth data. Please try again." });
-                return;
-            }
-
-            exchangeSettingsOAuthCode(code, savedVerifier, savedRedirectUri);
-        };
-
-        window.addEventListener("message", handleMessage);
-        return () => window.removeEventListener("message", handleMessage);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // ── Handle same-tab fallback (when popup was blocked) ──
     useEffect(() => {
         if (providerId !== "openai") return;
 
@@ -948,16 +915,17 @@ function ProviderCard({
                             </div>
                         )}
 
-                        {/* OpenAI OAuth: browser-based sign-in button */}
+                        {/* OpenAI OAuth: generate URL + paste callback */}
                         {isOAuth && isOpenAIOAuth && (
                             <>
                                 <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
                                     <p className="text-xs text-emerald-800">
                                         <span className="font-semibold">Use your ChatGPT Plus/Pro/Team subscription.</span>{" "}
-                                        Sign in with your OpenAI account to connect automatically — no API key or CLI needed.
+                                        Click the button below to generate a sign-in link, then open it in your browser.
                                     </p>
                                 </div>
 
+                                {/* Step 1: Generate the auth URL */}
                                 <button
                                     type="button"
                                     onClick={handleOpenAISignIn}
@@ -965,34 +933,66 @@ function ProviderCard({
                                     className="w-full px-4 py-2.5 bg-[#10a37f] hover:bg-[#0e8c6b] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z" /></svg>
-                                    {status.type === "saving" ? (status.message || "Connecting...") : "Sign in with ChatGPT"}
+                                    {status.type === "saving"
+                                        ? (status.message || "Connecting...")
+                                        : authUrl
+                                        ? (copied ? "Copied! Generate New Link" : "Generate New Link")
+                                        : "Generate Sign-in Link"}
                                 </button>
 
-                                <div className="mt-4 border-t border-slate-100 pt-3">
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                        Remote Access Fallback
-                                    </label>
-                                    <p className="text-[11px] text-slate-500 mb-2 leading-tight">
-                                        If the sign-in redirect fails to load, copy the URL from the failed page and paste it below.
-                                    </p>
-                                    <div className="flex gap-2">
+                                {/* Step 2: Show the generated URL for user to copy */}
+                                {authUrl && (
+                                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-semibold text-slate-700">Sign-in Link {copied && <span className="text-emerald-600 font-normal">(copied to clipboard)</span>}</label>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try { await navigator.clipboard.writeText(authUrl); setCopied(true); setTimeout(() => setCopied(false), 3000); } catch {}
+                                                }}
+                                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
                                         <input
                                             type="text"
-                                            value={manualUrl}
-                                            onChange={(e) => setManualUrl(e.target.value)}
-                                            placeholder="http://localhost:3001/auth/callback?code=..."
-                                            className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500 outline-none"
+                                            readOnly
+                                            value={authUrl}
+                                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-[11px] font-mono bg-white text-slate-700 cursor-text"
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={handleManualPaste}
-                                            disabled={!manualUrl.trim() || status.type === "saving"}
-                                            className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded hover:bg-slate-800 disabled:opacity-50"
-                                        >
-                                            Submit
-                                        </button>
+                                        <p className="text-[11px] text-slate-500 leading-tight">
+                                            Open this link in your browser. After signing in, the page will redirect to a <code className="bg-slate-200 px-1 rounded">localhost</code> URL that won&apos;t load — that&apos;s expected. Copy that full URL and paste it below.
+                                        </p>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Step 3: Paste the callback URL */}
+                                {authUrl && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                            Paste Callback URL
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={manualUrl}
+                                                onChange={(e) => setManualUrl(e.target.value)}
+                                                placeholder="http://localhost:1455/auth/callback?code=..."
+                                                className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500 outline-none"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleManualPaste}
+                                                disabled={!manualUrl.trim() || status.type === "saving"}
+                                                className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded hover:bg-slate-800 disabled:opacity-50"
+                                            >
+                                                Connect
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
 
