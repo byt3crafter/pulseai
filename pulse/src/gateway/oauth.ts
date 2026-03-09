@@ -120,6 +120,17 @@ export const oauthRoutes: FastifyPluginAsync = async (server) => {
             return reply.code(400).send({ error: "invalid_client" });
         }
 
+        // Validate redirect URI against registered URIs
+        if (redirectUri) {
+            const registeredUris = client.redirectUris as string[];
+            if (!registeredUris || !registeredUris.includes(redirectUri)) {
+                return reply.code(400).send({
+                    error: "invalid_request",
+                    error_description: "redirect_uri does not match any registered URI for this client",
+                });
+            }
+        }
+
         const code = randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -165,6 +176,15 @@ export const oauthRoutes: FastifyPluginAsync = async (server) => {
 
             if (!authCode || authCode.expiresAt < new Date()) {
                 return reply.code(400).send({ error: "invalid_grant" });
+            }
+
+            // Validate redirect URI matches what was used during authorization
+            const redirect_uri = body.redirect_uri;
+            if (authCode.redirectUri && redirect_uri !== authCode.redirectUri) {
+                return reply.code(400).send({
+                    error: "invalid_grant",
+                    error_description: "redirect_uri does not match the URI used during authorization",
+                });
             }
 
             // PKCE verification

@@ -9,7 +9,7 @@ const envSchema = z.object({
     PORT: z.coerce.number().default(3000),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
     DATABASE_URL: z.string().url(),
-    REDIS_URL: z.string().url().refine(
+    REDIS_URL: z.string().url().optional().refine(
         (val) => {
             if (process.env.NODE_ENV === "production" && !val) {
                 return false;
@@ -19,8 +19,8 @@ const envSchema = z.object({
         {
             message: "REDIS_URL is required in production mode",
         }
-    ).optional(),
-    ANTHROPIC_API_KEY: z.string().min(1, "Anthropic API key is required"),
+    ),
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().optional(),
     ENCRYPTION_KEY: z.string().length(64, "Encryption key must be a 32-byte hex string (64 characters)"),
     WEBHOOK_BASE_URL: z.string().url().optional(), // e.g., https://pulse.runstate.mu

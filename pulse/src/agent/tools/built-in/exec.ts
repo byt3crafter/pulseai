@@ -28,7 +28,7 @@ export const execTool: Tool = {
     },
     execute: async ({ args, tenantId, conversationId }) => {
         const { command, yieldMs = 10000, background = false, timeout = 1800, workdir } = args;
-        const agentId = conversationId; // Use conversationId as scoping key
+        const agentId = args._agentId || conversationId; // Prefer injected agentProfileId for policy matching
         const sessionId = randomUUID();
 
         // Exec safety check
