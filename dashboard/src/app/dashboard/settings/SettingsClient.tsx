@@ -16,6 +16,8 @@ import {
     addGroupToAllowlistAction,
     removeFromAllowlistAction,
     exchangeOpenAICodeAction,
+    saveEmailConfigAction,
+    testEmailConnectionAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
@@ -28,6 +30,7 @@ const TABS = [
     { id: "integrations", label: "Integrations" },
     { id: "telegram", label: "Telegram" },
     { id: "providers", label: "AI Providers" },
+    { id: "email", label: "Email" },
     { id: "plugins", label: "Plugins" },
     { id: "api", label: "API & Developer" },
     { id: "billing", label: "Billing" },
@@ -100,6 +103,7 @@ interface Props {
     approvedGroups: AllowlistInfo[];
     plugins: PluginData[];
     savePluginCredentials: (formData: FormData) => Promise<void>;
+    emailConfig: { smtp?: any; imap?: any } | null;
 }
 
 export default function SettingsClient({
@@ -107,6 +111,7 @@ export default function SettingsClient({
     enableThirdPartyCli, apiBaseUrl,
     telegramConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
+    emailConfig,
 }: Props) {
     const router = useRouter();
 
@@ -155,6 +160,7 @@ export default function SettingsClient({
                             approvedGroups={approvedGroups}
                         />
                     )}
+                    {tab === "email" && <EmailTab config={emailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
@@ -1625,6 +1631,170 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
                     })}
                 </div>
             )}
+        </div>
+    );
+}
+
+/* ─── Email Tab ──────────────────────────────────────────────────── */
+function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
+    const router = useRouter();
+    const [pending, startTransition] = useTransition();
+
+    const [smtpHost, setSmtpHost] = useState(config?.smtp?.host ?? "");
+    const [smtpPort, setSmtpPort] = useState(config?.smtp?.port?.toString() ?? "587");
+    const [smtpUsername, setSmtpUsername] = useState(config?.smtp?.username ?? "");
+    const [smtpPassword, setSmtpPassword] = useState("");
+    const [smtpTls, setSmtpTls] = useState(config?.smtp?.tls ?? true);
+    const [smtpFrom, setSmtpFrom] = useState(config?.smtp?.fromAddress ?? "");
+
+    const [imapHost, setImapHost] = useState(config?.imap?.host ?? "");
+    const [imapPort, setImapPort] = useState(config?.imap?.port?.toString() ?? "993");
+    const [imapUsername, setImapUsername] = useState(config?.imap?.username ?? "");
+    const [imapPassword, setImapPassword] = useState("");
+    const [imapTls, setImapTls] = useState(config?.imap?.tls ?? true);
+
+    const [status, setStatus] = useState<{ type: "idle" | "success" | "error"; message: string }>({
+        type: "idle",
+        message: "",
+    });
+    const [testResult, setTestResult] = useState<{ type: "idle" | "testing" | "success" | "error"; message: string }>({
+        type: "idle",
+        message: "",
+    });
+
+    const hasExistingSmtpPass = !!config?.smtp?.encryptedPassword;
+    const hasExistingImapPass = !!config?.imap?.encryptedPassword;
+
+    function handleSave() {
+        const fd = new FormData();
+        fd.set("smtpHost", smtpHost);
+        fd.set("smtpPort", smtpPort);
+        fd.set("smtpUsername", smtpUsername);
+        fd.set("smtpPassword", smtpPassword);
+        fd.set("smtpTls", smtpTls.toString());
+        fd.set("smtpFrom", smtpFrom);
+        fd.set("imapHost", imapHost);
+        fd.set("imapPort", imapPort);
+        fd.set("imapUsername", imapUsername);
+        fd.set("imapPassword", imapPassword);
+        fd.set("imapTls", imapTls.toString());
+
+        startTransition(async () => {
+            const result = await saveEmailConfigAction(fd);
+            setStatus({
+                type: result.success ? "success" : "error",
+                message: result.message ?? "",
+            });
+            if (result.success) router.refresh();
+        });
+    }
+
+    function handleTest() {
+        setTestResult({ type: "testing", message: "" });
+        const fd = new FormData();
+        fd.set("smtpHost", smtpHost);
+        fd.set("smtpPort", smtpPort);
+        fd.set("smtpUsername", smtpUsername);
+        fd.set("smtpPassword", smtpPassword || "__existing__");
+        fd.set("smtpTls", smtpTls.toString());
+        fd.set("smtpFrom", smtpFrom);
+        fd.set("imapHost", imapHost);
+        fd.set("imapPort", imapPort);
+        fd.set("imapUsername", imapUsername);
+        fd.set("imapPassword", imapPassword || "__existing__");
+        fd.set("imapTls", imapTls.toString());
+
+        testEmailConnectionAction(fd).then((result) => {
+            setTestResult({
+                type: result.success ? "success" : "error",
+                message: result.message ?? "",
+            });
+        });
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* SMTP */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-200">
+                    <h2 className="text-lg font-semibold text-slate-900">SMTP (Outgoing Email)</h2>
+                    <p className="text-sm text-slate-500 mt-1">Configure SMTP for sending emails from your agents.</p>
+                </div>
+                <div className="p-6 grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Host</label>
+                        <input type="text" value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Port</label>
+                        <input type="number" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                        <input type="text" value={smtpUsername} onChange={(e) => setSmtpUsername(e.target.value)} placeholder="user@company.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                        <input type="password" value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} placeholder={hasExistingSmtpPass ? "••••••••" : "App password"} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">From Address</label>
+                        <input type="email" value={smtpFrom} onChange={(e) => setSmtpFrom(e.target.value)} placeholder="agent@company.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div className="flex items-end">
+                        <label className="flex items-center gap-2 text-sm text-slate-700">
+                            <input type="checkbox" checked={smtpTls} onChange={(e) => setSmtpTls(e.target.checked)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            Use TLS
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            {/* IMAP */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-200">
+                    <h2 className="text-lg font-semibold text-slate-900">IMAP (Incoming Email)</h2>
+                    <p className="text-sm text-slate-500 mt-1">Configure IMAP for reading emails. Optional — needed for email_read and email_list tools.</p>
+                </div>
+                <div className="p-6 grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Host</label>
+                        <input type="text" value={imapHost} onChange={(e) => setImapHost(e.target.value)} placeholder="imap.gmail.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Port</label>
+                        <input type="number" value={imapPort} onChange={(e) => setImapPort(e.target.value)} placeholder="993" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                        <input type="text" value={imapUsername} onChange={(e) => setImapUsername(e.target.value)} placeholder="user@company.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                        <input type="password" value={imapPassword} onChange={(e) => setImapPassword(e.target.value)} placeholder={hasExistingImapPass ? "••••••••" : "App password"} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                    </div>
+                    <div className="flex items-end">
+                        <label className="flex items-center gap-2 text-sm text-slate-700">
+                            <input type="checkbox" checked={imapTls} onChange={(e) => setImapTls(e.target.checked)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            Use TLS
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3">
+                <button onClick={handleSave} disabled={pending} className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                    {pending ? "Saving..." : "Save Email Config"}
+                </button>
+                <button onClick={handleTest} disabled={testResult.type === "testing"} className="px-6 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50">
+                    {testResult.type === "testing" ? "Testing..." : "Test Connection"}
+                </button>
+                {status.type === "success" && <span className="text-sm text-emerald-600">{status.message}</span>}
+                {status.type === "error" && <span className="text-sm text-red-600">{status.message}</span>}
+                {testResult.type === "success" && <span className="text-sm text-emerald-600">{testResult.message}</span>}
+                {testResult.type === "error" && <span className="text-sm text-red-600">{testResult.message}</span>}
+            </div>
         </div>
     );
 }

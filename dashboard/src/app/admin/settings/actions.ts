@@ -206,3 +206,43 @@ export async function getScheduledJobs() {
         .orderBy(desc(scheduledJobs.createdAt))
         .limit(50);
 }
+
+export async function saveDefaultSkillsAction(formData: FormData) {
+    "use server";
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
+    const skillsRaw = formData.get("defaultSkills") as string;
+    if (!skillsRaw) return { success: false, message: "Missing skills data." };
+
+    let defaultSkills: string[];
+    try {
+        defaultSkills = JSON.parse(skillsRaw);
+        if (!Array.isArray(defaultSkills)) throw new Error("Not an array");
+    } catch {
+        return { success: false, message: "Invalid skills data." };
+    }
+
+    try {
+        const existing = await db.query.globalSettings.findFirst({
+            where: eq(globalSettings.id, "root"),
+        });
+
+        const currentGatewayConfig = (existing?.gatewayConfig as any) ?? {};
+        const updatedGatewayConfig = { ...currentGatewayConfig, defaultSkills };
+
+        await db
+            .insert(globalSettings)
+            .values({ id: "root", gatewayConfig: updatedGatewayConfig })
+            .onConflictDoUpdate({
+                target: globalSettings.id,
+                set: { gatewayConfig: updatedGatewayConfig },
+            });
+
+        revalidatePath("/admin/settings");
+        return { success: true, message: "Default skills saved." };
+    } catch (err) {
+        console.error("Failed to save default skills:", err);
+        return { success: false, message: "Failed to save default skills." };
+    }
+}

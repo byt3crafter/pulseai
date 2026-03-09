@@ -120,6 +120,9 @@ export interface SystemPromptParams {
 
     /** Agent display name (from SOUL.md or profile) */
     agentName?: string;
+
+    /** Resolved skills for this agent (detailed tool usage guidance) */
+    skills?: string;
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────
@@ -193,6 +196,11 @@ function buildToolingSection(tools: ToolInfo[]): string[] {
         "When you have the tools to do something, USE them — don't just describe what you could do.",
         "",
     ];
+}
+
+function buildSkillsSection(skillsContent: string): string[] {
+    if (!skillsContent) return [];
+    return [skillsContent, ""];
 }
 
 function buildToolCallStyleSection(): string[] {
@@ -383,6 +391,7 @@ function buildSoulInstruction(): string[] {
  * 3. Current Date & Time (prominent, human-readable)
  * 4. Operational Directives (HIGHEST PRIORITY — override personality)
  * 5. Tooling (all available tools with descriptions)
+ * 5.5 Skills (detailed tool usage guidance)
  * 6. Tool Call Style
  * 7. Safety Constitution
  * 8. Memory Recall Instructions
@@ -416,6 +425,11 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
 
     // 5. Tooling — always included (agents must know their tools)
     lines.push(...buildToolingSection(params.enabledTools));
+
+    // 5.5. Skills — detailed tool usage guidance (full mode only)
+    if (!isMinimal && params.skills) {
+        lines.push(...buildSkillsSection(params.skills));
+    }
 
     // 6. Tool Call Style — full mode only
     if (!isMinimal) {

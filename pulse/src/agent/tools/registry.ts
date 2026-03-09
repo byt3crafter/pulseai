@@ -10,6 +10,7 @@ import { memoryStoreTool, memorySearchTool, memoryForgetTool } from "./built-in/
 import { scheduleJobTool, scheduleOnceTool, listJobsTool, cancelJobTool } from "./built-in/schedule.js";
 import { delegateToAgentTool } from "./built-in/delegate.js";
 import { listAgentsTool } from "./built-in/agent-mgmt.js";
+import { emailSendTool, emailReadTool, emailListTool } from "./built-in/email.js";
 import { db } from "../../storage/db.js";
 import { tenantSkills, mcpServers, agentProfileMcpBindings, agentProfiles } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
@@ -46,6 +47,9 @@ export class ToolRegistry {
         this.builtInTools.set("cancel_job", cancelJobTool);
         this.builtInTools.set("delegate_to_agent", delegateToAgentTool);
         this.builtInTools.set("list_agents", listAgentsTool);
+        this.builtInTools.set("email_send", emailSendTool);
+        this.builtInTools.set("email_read", emailReadTool);
+        this.builtInTools.set("email_list", emailListTool);
 
         logger.info(
             { toolCount: this.builtInTools.size, tools: Array.from(this.builtInTools.keys()) },

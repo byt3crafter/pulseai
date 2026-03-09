@@ -92,6 +92,7 @@ export default async function SettingsPage({
 
     const credits = Number(balances[0]?.balance ?? 0);
     const telegramChannel = channels.find(c => c.channelType === "telegram");
+    const emailChannel = channels.find(c => c.channelType === "email");
 
     // ─── Plugin data ─────────────────────────────────────────────────────────
     const allPlugins = tenantId
@@ -225,6 +226,7 @@ export default async function SettingsPage({
             }))}
             plugins={enabledPlugins}
             savePluginCredentials={savePluginCredentials}
+            emailConfig={emailChannel ? (emailChannel.channelConfig as any) : null}
         />
     );
 }

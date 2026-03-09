@@ -398,3 +398,65 @@ export async function updateSelfConfigAction(formData: FormData) {
     return { success: true, message: enabled ? "Self-config enabled." : "Self-config disabled." };
 }
 
+export async function updateAgentSkillConfigAction(formData: FormData) {
+    "use server";
+    const session = await auth();
+    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+
+    const agentId = formData.get("agentId") as string;
+    const skillConfigRaw = formData.get("skillConfig") as string;
+
+    if (!agentId || !skillConfigRaw) return { success: false, message: "Missing required fields." };
+
+    let skillConfig: any;
+    try {
+        skillConfig = JSON.parse(skillConfigRaw);
+    } catch {
+        return { success: false, message: "Invalid skill configuration." };
+    }
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, session.user.tenantId))
+    });
+
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    await db.update(agentProfiles)
+        .set({ skillConfig, updatedAt: new Date() })
+        .where(eq(agentProfiles.id, agentId));
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    return { success: true, message: "Skill configuration saved." };
+}
+
+export async function updateAgentEmailConfigAction(formData: FormData) {
+    "use server";
+    const session = await auth();
+    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+
+    const agentId = formData.get("agentId") as string;
+    const emailConfigRaw = formData.get("emailConfig") as string;
+
+    if (!agentId || !emailConfigRaw) return { success: false, message: "Missing required fields." };
+
+    let emailConfig: any;
+    try {
+        emailConfig = JSON.parse(emailConfigRaw);
+    } catch {
+        return { success: false, message: "Invalid email configuration." };
+    }
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, session.user.tenantId))
+    });
+
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    await db.update(agentProfiles)
+        .set({ emailConfig, updatedAt: new Date() })
+        .where(eq(agentProfiles.id, agentId));
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    return { success: true, message: "Email configuration saved." };
+}
+

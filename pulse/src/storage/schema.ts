@@ -52,6 +52,8 @@ export const agentProfiles = pgTable("agent_profiles", {
     sandboxConfig: jsonb("sandbox_config").notNull().default({}), // Enhanced sandbox settings
     toolPolicy: jsonb("tool_policy").notNull().default({}), // Tool allow/deny lists
     delegationConfig: jsonb("delegation_config").notNull().default({}), // Multi-agent delegation settings
+    skillConfig: jsonb("skill_config").notNull().default({}), // Per-agent skill overrides
+    emailConfig: jsonb("email_config").notNull().default({}), // Per-agent email configuration
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 }, (table) => [

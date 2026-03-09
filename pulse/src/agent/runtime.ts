@@ -11,6 +11,7 @@ import { resolveAgent } from "./orchestration/agent-router.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
+import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader.js";
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -214,6 +215,20 @@ export class AgentRuntime {
                 }
             }
 
+            // 3.865 Resolve agent skills (detailed tool usage guidance)
+            let skillsContent: string | undefined;
+            if (resolvedAgentProfileId) {
+                try {
+                    const skills = await resolveAgentSkills(inbound.tenantId, resolvedAgentProfileId);
+                    if (skills.length > 0) {
+                        skillsContent = formatSkillsForPrompt(skills);
+                        tenantLog.debug({ skillCount: skills.length, skills: skills.map(s => s.name) }, "Resolved agent skills");
+                    }
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to resolve agent skills (non-fatal)");
+                }
+            }
+
             // 3.87 Check if memory tools are available
             const hasMemoryTools = enabledTools.some(
                 (t) => t.name === "memory_store" || t.name === "memory_search"
@@ -232,6 +247,7 @@ export class AgentRuntime {
                 availableAgents,
                 toolsGuidance,
                 userPreferences,
+                skills: skillsContent,
                 promptMode,
                 contactName: inbound.contactName,
                 isGroup: inbound.isGroup,
@@ -463,30 +479,30 @@ export class AgentRuntime {
             );
 
             // Record canonical model ID (matches registry) with provider prefix for clarity
-            const [usageRecord] = await db.insert(usageRecords).values({
-                tenantId: inbound.tenantId,
-                conversationId: conversation.id,
-                model: usedModel,
-                inputTokens: llmResponse.usage.inputTokens.toString(),
-                outputTokens: llmResponse.usage.outputTokens.toString(),
-                costUsd: costUsd.toFixed(6),
-                creditsUsed: creditsUsed.toFixed(4),
-            }).returning();
+            // Wrap usage + balance + ledger in a transaction to prevent race conditions
+            await db.transaction(async (tx) => {
+                const [usageRecord] = await tx.insert(usageRecords).values({
+                    tenantId: inbound.tenantId,
+                    conversationId: conversation.id,
+                    model: usedModel,
+                    inputTokens: llmResponse.usage.inputTokens.toString(),
+                    outputTokens: llmResponse.usage.outputTokens.toString(),
+                    costUsd: costUsd.toFixed(6),
+                    creditsUsed: creditsUsed.toFixed(4),
+                }).returning();
 
-            // 6.b Deduct from Balance and Record Ledger
-            await db.update(tenantBalances)
-                .set({
-                    balance: sql`${tenantBalances.balance} - ${creditsUsed}`,
-                    updatedAt: new Date(),
-                })
-                .where(eq(tenantBalances.tenantId, inbound.tenantId));
+                // 6.b Deduct from Balance with row-level lock and Record Ledger
+                await tx.execute(
+                    sql`UPDATE tenant_balances SET balance = balance - ${creditsUsed}, updated_at = NOW() WHERE tenant_id = ${inbound.tenantId}`
+                );
 
-            await db.insert(ledgerTransactions).values({
-                tenantId: inbound.tenantId,
-                amount: (-creditsUsed).toFixed(4),
-                type: "usage",
-                description: `${llmResponse.provider}/${usedModel}${llmResponse.wasFallback ? " (fallback)" : ""}`,
-                referenceId: usageRecord.id,
+                await tx.insert(ledgerTransactions).values({
+                    tenantId: inbound.tenantId,
+                    amount: (-creditsUsed).toFixed(4),
+                    type: "usage",
+                    description: `${llmResponse.provider}/${usedModel}${llmResponse.wasFallback ? " (fallback)" : ""}`,
+                    referenceId: usageRecord.id,
+                });
             });
 
             // 7. Dispatch Response to Channel Adapter (skip silent replies)

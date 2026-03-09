@@ -596,3 +596,149 @@ export async function revokeApiTokenAction(tokenId: string) {
     revalidatePath("/dashboard/settings");
     return { success: true, message: "Token revoked." };
 }
+
+export async function saveEmailConfigAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+
+    const smtpHost = formData.get("smtpHost") as string;
+    const smtpPort = formData.get("smtpPort") as string;
+    const smtpUsername = formData.get("smtpUsername") as string;
+    const smtpPassword = formData.get("smtpPassword") as string;
+    const smtpTls = formData.get("smtpTls") === "true";
+    const smtpFrom = formData.get("smtpFrom") as string;
+
+    const imapHost = formData.get("imapHost") as string;
+    const imapPort = formData.get("imapPort") as string;
+    const imapUsername = formData.get("imapUsername") as string;
+    const imapPassword = formData.get("imapPassword") as string;
+    const imapTls = formData.get("imapTls") === "true";
+
+    if (!smtpHost) return { success: false, message: "SMTP host is required." };
+
+    try {
+        const config: any = {
+            smtp: {
+                host: smtpHost,
+                port: parseInt(smtpPort) || 587,
+                username: smtpUsername,
+                tls: smtpTls,
+                fromAddress: smtpFrom,
+            },
+        };
+
+        if (smtpPassword) {
+            config.smtp.encryptedPassword = encrypt(smtpPassword);
+        }
+
+        if (imapHost) {
+            config.imap = {
+                host: imapHost,
+                port: parseInt(imapPort) || 993,
+                username: imapUsername,
+                tls: imapTls,
+            };
+            if (imapPassword) {
+                config.imap.encryptedPassword = encrypt(imapPassword);
+            }
+        }
+
+        // Check if email connection already exists
+        const existing = await db.query.channelConnections.findFirst({
+            where: and(
+                eq(channelConnections.tenantId, session.user.tenantId),
+                eq(channelConnections.channelType, "email")
+            ),
+        });
+
+        if (existing) {
+            // Preserve existing encrypted passwords if not updating
+            const existingConfig = existing.channelConfig as any;
+            if (!smtpPassword && existingConfig?.smtp?.encryptedPassword) {
+                config.smtp.encryptedPassword = existingConfig.smtp.encryptedPassword;
+            }
+            if (imapHost && !imapPassword && existingConfig?.imap?.encryptedPassword) {
+                config.imap.encryptedPassword = existingConfig.imap.encryptedPassword;
+            }
+
+            await db.update(channelConnections)
+                .set({ channelConfig: config })
+                .where(eq(channelConnections.id, existing.id));
+        } else {
+            await db.insert(channelConnections).values({
+                tenantId: session.user.tenantId,
+                channelType: "email",
+                channelConfig: config,
+            });
+        }
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Email configuration saved." };
+    } catch (err) {
+        console.error("Failed to save email config:", err);
+        return { success: false, message: "Failed to save email configuration." };
+    }
+}
+
+export async function testEmailConnectionAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+
+    const smtpHost = formData.get("smtpHost") as string;
+    const smtpPort = formData.get("smtpPort") as string;
+    const smtpUsername = formData.get("smtpUsername") as string;
+    const smtpTls = formData.get("smtpTls") === "true";
+
+    if (!smtpHost) return { success: false, message: "SMTP host is required." };
+
+    // For testing, we need the actual password
+    let smtpPassword = formData.get("smtpPassword") as string;
+    if (smtpPassword === "__existing__") {
+        // Try to load from existing config
+        const existing = await db.query.channelConnections.findFirst({
+            where: and(
+                eq(channelConnections.tenantId, session.user.tenantId),
+                eq(channelConnections.channelType, "email")
+            ),
+        });
+        const existingConfig = existing?.channelConfig as any;
+        if (existingConfig?.smtp?.encryptedPassword) {
+            const { decrypt } = await import("../../../utils/crypto");
+            smtpPassword = decrypt(existingConfig.smtp.encryptedPassword);
+        } else {
+            return { success: false, message: "No saved SMTP password found. Enter the password and save first." };
+        }
+    }
+
+    try {
+        // Dynamic import nodemailer for test — it's only in pulse, but for dashboard
+        // we'll do a simple TCP test approach
+        const results: string[] = [];
+
+        // Test SMTP via TCP connection check
+        const net = await import("net");
+        await new Promise<void>((resolve, reject) => {
+            const socket = net.createConnection({
+                host: smtpHost,
+                port: parseInt(smtpPort) || 587,
+                timeout: 5000,
+            });
+            socket.on("connect", () => {
+                results.push("SMTP: Connected successfully");
+                socket.destroy();
+                resolve();
+            });
+            socket.on("timeout", () => {
+                socket.destroy();
+                reject(new Error("SMTP connection timed out"));
+            });
+            socket.on("error", (err) => {
+                reject(new Error(`SMTP: ${err.message}`));
+            });
+        });
+
+        return { success: true, message: results.join("; ") || "Connection successful." };
+    } catch (err: any) {
+        return { success: false, message: err.message || "Connection test failed." };
+    }
+}

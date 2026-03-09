@@ -51,6 +51,8 @@ export const agentProfiles = pgTable("agent_profiles", {
     sandboxConfig: jsonb("sandbox_config").default({}),
     toolPolicy: jsonb("tool_policy").default({}),
     delegationConfig: jsonb("delegation_config").default({}),
+    skillConfig: jsonb("skill_config").default({}),
+    emailConfig: jsonb("email_config").default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 }, (table) => [

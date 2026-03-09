@@ -9,7 +9,9 @@ import {
     saveMemorySettingsAction,
     saveSandboxSettingsAction,
     saveSchedulingSettingsAction,
+    saveDefaultSkillsAction,
 } from "./actions";
+import { BUILTIN_SKILLS } from "../../../utils/skills-registry";
 import {
     saveExecSafetySettings,
     addPolicyRule,
@@ -23,6 +25,7 @@ const TABS = [
     { id: "memory", label: "Memory" },
     { id: "sandbox", label: "Sandbox" },
     { id: "scheduling", label: "Scheduling" },
+    { id: "skills", label: "Skills" },
     { id: "database", label: "Database & Security" },
 ];
 
@@ -36,6 +39,7 @@ interface Props {
     sandboxConfig: any;
     schedulingConfig: any;
     allJobs: any[];
+    defaultSkills: string[];
 }
 
 export default function AdminSettingsClient({
@@ -48,6 +52,7 @@ export default function AdminSettingsClient({
     sandboxConfig,
     schedulingConfig,
     allJobs,
+    defaultSkills,
 }: Props) {
     return (
         <div className="p-8">
@@ -93,6 +98,7 @@ export default function AdminSettingsClient({
                     {tab === "memory" && <MemoryTab config={memoryConfig} />}
                     {tab === "sandbox" && <SandboxTab config={sandboxConfig} />}
                     {tab === "scheduling" && <SchedulingTab config={schedulingConfig} allJobs={allJobs} />}
+                    {tab === "skills" && <SkillsDefaultsTab defaultSkills={defaultSkills} />}
                     {tab === "database" && <DatabaseTab />}
                 </div>
             </div>
@@ -654,6 +660,137 @@ function DatabaseTab() {
                         <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">Valid (64-byte Hex)</span>
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─── Skills Defaults Tab ────────────────────────────────────────── */
+function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
+    const [enabled, setEnabled] = useState<string[]>(defaultSkills);
+    const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
+        type: "idle",
+        message: "",
+    });
+
+    const allSkillNames = BUILTIN_SKILLS.map((s) => s.name);
+    const noDefaultsSet = defaultSkills.length === 0;
+
+    function toggle(name: string) {
+        setEnabled((prev) =>
+            prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+        );
+    }
+
+    function selectAll() {
+        setEnabled([...allSkillNames]);
+    }
+
+    function clearAll() {
+        setEnabled([]);
+    }
+
+    async function handleSave() {
+        setStatus({ type: "saving", message: "" });
+        const fd = new FormData();
+        fd.set("defaultSkills", JSON.stringify(enabled));
+        const result = await saveDefaultSkillsAction(fd);
+        setStatus({
+            type: result.success ? "success" : "error",
+            message: result.message ?? "",
+        });
+    }
+
+    const categories = [
+        { id: "core" as const, label: "Core" },
+        { id: "productivity" as const, label: "Productivity" },
+        { id: "meta" as const, label: "Meta" },
+    ];
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 border-b border-slate-200">
+                    <h2 className="text-lg font-semibold text-slate-900">Default Skills</h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                        Select which built-in skills are enabled by default for all agents.
+                        Individual agents can override these settings.
+                    </p>
+                    {noDefaultsSet && (
+                        <p className="text-xs text-amber-600 mt-2">
+                            No defaults configured yet — all skills are enabled for all agents. Save to set explicit defaults.
+                        </p>
+                    )}
+                </div>
+                <div className="p-6 space-y-6">
+                    <div className="flex gap-2">
+                        <button onClick={selectAll} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                            Select All
+                        </button>
+                        <span className="text-xs text-slate-300">|</span>
+                        <button onClick={clearAll} className="text-xs text-slate-500 hover:text-slate-700 font-medium">
+                            Clear All
+                        </button>
+                    </div>
+
+                    {categories.map((cat) => {
+                        const skills = BUILTIN_SKILLS.filter((s) => s.category === cat.id);
+                        if (skills.length === 0) return null;
+                        return (
+                            <div key={cat.id}>
+                                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">{cat.label}</h3>
+                                <div className="grid gap-3">
+                                    {skills.map((skill) => {
+                                        const isEnabled = enabled.includes(skill.name);
+                                        return (
+                                            <div
+                                                key={skill.name}
+                                                className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
+                                                    isEnabled
+                                                        ? "border-indigo-200 bg-indigo-50/50"
+                                                        : "border-slate-200 bg-slate-50/50"
+                                                }`}
+                                            >
+                                                <div>
+                                                    <span className="text-sm font-medium text-slate-900">{skill.name}</span>
+                                                    <p className="text-xs text-slate-500 mt-0.5">{skill.description}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => toggle(skill.name)}
+                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                        isEnabled ? "bg-indigo-600" : "bg-slate-300"
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                            isEnabled ? "translate-x-6" : "translate-x-1"
+                                                        }`}
+                                                    />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={handleSave}
+                    disabled={status.type === "saving"}
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                    {status.type === "saving" ? "Saving..." : "Save Defaults"}
+                </button>
+                {status.type === "success" && (
+                    <span className="text-sm text-emerald-600">{status.message}</span>
+                )}
+                {status.type === "error" && (
+                    <span className="text-sm text-red-600">{status.message}</span>
+                )}
             </div>
         </div>
     );

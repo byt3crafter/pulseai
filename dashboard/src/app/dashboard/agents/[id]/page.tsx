@@ -1,5 +1,5 @@
 import { db } from "../../../../storage/db";
-import { agentProfiles, workspaceRevisions } from "../../../../storage/schema";
+import { agentProfiles, workspaceRevisions, globalSettings, channelConnections } from "../../../../storage/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "../../../../auth";
 import { redirect, notFound } from "next/navigation";
@@ -57,13 +57,23 @@ export default async function AgentDetailPage({
         ? await readWorkspaceFile(session.user.tenantId, agent.id, "AGENTS.md")
         : null;
 
-    // Get revision counts and active providers in parallel
-    const [revisions, activeProviders] = await Promise.all([
+    // Get revision counts, active providers, and default skills in parallel
+    const [revisions, activeProviders, globalSettingsRow, tenantEmailConn] = await Promise.all([
         db.select()
             .from(workspaceRevisions)
             .where(eq(workspaceRevisions.agentProfileId, agent.id)),
         getActiveProvidersAction(),
+        db.query.globalSettings.findFirst({ where: eq(globalSettings.id, "root") }),
+        db.query.channelConnections.findFirst({
+            where: and(
+                eq(channelConnections.tenantId, session.user.tenantId),
+                eq(channelConnections.channelType, "email")
+            ),
+        }),
     ]);
+
+    const gatewayConfig = globalSettingsRow?.gatewayConfig as any;
+    const defaultSkills: string[] = Array.isArray(gatewayConfig?.defaultSkills) ? gatewayConfig.defaultSkills : [];
 
     const soulRevisionCount = revisions.filter(r => r.fileName === "SOUL.md").length;
     const identityRevisionCount = revisions.filter(r => r.fileName === "IDENTITY.md").length;
@@ -86,6 +96,8 @@ export default async function AgentDetailPage({
                 toolPolicy: agent.toolPolicy,
                 sandboxConfig: agent.sandboxConfig,
                 heartbeatConfig: agent.heartbeatConfig,
+                skillConfig: agent.skillConfig,
+                emailConfig: agent.emailConfig,
             }}
             soulContent={soulContent ?? ""}
             identityContent={identityContent ?? ""}
@@ -104,6 +116,8 @@ export default async function AgentDetailPage({
             bootstrapRevisionCount={bootstrapRevisionCount}
             agentsRevisionCount={agentsRevisionCount}
             activeProviders={activeProviders}
+            defaultSkills={defaultSkills}
+            hasTenantEmail={!!tenantEmailConn}
         />
     );
 }

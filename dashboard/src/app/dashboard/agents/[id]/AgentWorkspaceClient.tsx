@@ -15,6 +15,8 @@ import { PROVIDERS, getModelDisplayName, getProviderName } from "../../../../uti
 import ToolPolicyEditor from "./ToolPolicyEditor";
 import SandboxConfigEditor from "./SandboxConfigEditor";
 import HeartbeatEditor from "./HeartbeatEditor";
+import SkillsEditor from "./SkillsEditor";
+import EmailConfigEditor from "./EmailConfigEditor";
 
 interface AgentData {
     id: string;
@@ -26,6 +28,8 @@ interface AgentData {
     toolPolicy: any;
     sandboxConfig: any;
     heartbeatConfig: any;
+    skillConfig: any;
+    emailConfig: any;
 }
 
 interface Revision {
@@ -55,6 +59,8 @@ interface Props {
     bootstrapRevisionCount: number;
     agentsRevisionCount: number;
     activeProviders: string[];
+    defaultSkills: string[];
+    hasTenantEmail: boolean;
 }
 
 const TABS = [
@@ -66,6 +72,8 @@ const TABS = [
     { id: "user-prefs", label: "User" },
     { id: "bootstrap", label: "Bootstrap" },
     { id: "agents", label: "Agents" },
+    { id: "skills", label: "Skills" },
+    { id: "email", label: "Email" },
     { id: "tool-policy", label: "Tool Policy" },
     { id: "sandbox", label: "Sandbox" },
     { id: "config", label: "Config" },
@@ -91,6 +99,8 @@ export default function AgentWorkspaceClient({
     bootstrapRevisionCount,
     agentsRevisionCount,
     activeProviders,
+    defaultSkills,
+    hasTenantEmail,
 }: Props) {
     const [activeTab, setActiveTab] = useState("soul");
     const router = useRouter();
@@ -221,6 +231,12 @@ export default function AgentWorkspaceClient({
                     title="Agents"
                     description="Workspace operating manual. Tells the agent how to use its files, manage memory, handle safety, and behave in different contexts."
                 />
+            )}
+            {activeTab === "skills" && (
+                <SkillsEditor agentId={agent.id} skillConfig={agent.skillConfig ?? {}} defaultSkills={defaultSkills} />
+            )}
+            {activeTab === "email" && (
+                <EmailConfigEditor agentId={agent.id} emailConfig={agent.emailConfig ?? {}} hasTenantEmail={hasTenantEmail} />
             )}
             {activeTab === "tool-policy" && (
                 <ToolPolicyEditor agentId={agent.id} initialPolicy={agent.toolPolicy} />

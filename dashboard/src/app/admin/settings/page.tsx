@@ -36,6 +36,7 @@ export default async function AdminSettingsPage({
             sandboxConfig={gwConfig.python_sandbox || {}}
             schedulingConfig={gwConfig.scheduling || {}}
             allJobs={allJobs}
+            defaultSkills={Array.isArray(gwConfig.defaultSkills) ? gwConfig.defaultSkills : []}
         />
     );
 }
