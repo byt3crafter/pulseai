@@ -2,6 +2,7 @@ import { AnthropicProvider, ProviderResponse, StreamCallbacks } from "./anthropi
 import { OpenAIProvider } from "./openai.js";
 import { providerKeyService } from "./provider-key-service.js";
 import { getModelById, getProviderByModel, getFallbackModelId, getDefaultModel } from "./model-registry.js";
+import { getModelPricing, ResolvedPricing } from "./model-pricing-service.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -144,17 +145,10 @@ export class ProviderManager {
     }
 
     /**
-     * Get pricing from model registry for cost tracking
+     * Get pricing from DB (with hardcoded fallback) for cost tracking.
+     * Returns both base (real) and customer (markup) pricing.
      */
-    getPricing(model: string, provider: string): { input: number; output: number } {
-        const modelDef = getModelById(model);
-        if (modelDef) {
-            return {
-                input: modelDef.pricing.inputPerMillion,
-                output: modelDef.pricing.outputPerMillion,
-            };
-        }
-        // Default fallback pricing
-        return { input: 3.0, output: 15.0 };
+    async getPricing(model: string, provider: string): Promise<ResolvedPricing> {
+        return getModelPricing(model);
     }
 }

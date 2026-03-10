@@ -458,10 +458,18 @@ export class AgentRuntime {
             // 6. Record Cost/Usage for Billing Tracking
             // Use canonical model ID (from our registry) for accurate pricing
             const usedModel = llmResponse.canonicalModel;
-            const pricing = this.providerManager.getPricing(usedModel, llmResponse.provider);
+            const pricing = await this.providerManager.getPricing(usedModel, llmResponse.provider);
+
+            // Base cost = real provider cost (what we pay)
+            const baseCostUsd =
+                (llmResponse.usage.inputTokens * pricing.baseInput) / 1000000 +
+                (llmResponse.usage.outputTokens * pricing.baseOutput) / 1000000;
+
+            // Customer cost = what we charge (includes markup)
             const costUsd =
-                (llmResponse.usage.inputTokens * pricing.input) / 1000000 +
-                (llmResponse.usage.outputTokens * pricing.output) / 1000000;
+                (llmResponse.usage.inputTokens * pricing.customerInput) / 1000000 +
+                (llmResponse.usage.outputTokens * pricing.customerOutput) / 1000000;
+
             const creditsUsed = costUsd * 100; // 1 credit = $0.01
 
             tenantLog.info(
@@ -472,8 +480,10 @@ export class AgentRuntime {
                     wasFallback: llmResponse.wasFallback,
                     inputTokens: llmResponse.usage.inputTokens,
                     outputTokens: llmResponse.usage.outputTokens,
+                    baseCostUsd: baseCostUsd.toFixed(6),
                     costUsd: costUsd.toFixed(6),
                     creditsUsed: creditsUsed.toFixed(4),
+                    profit: (costUsd - baseCostUsd).toFixed(6),
                 },
                 "Usage calculated"
             );
@@ -488,6 +498,7 @@ export class AgentRuntime {
                     inputTokens: llmResponse.usage.inputTokens.toString(),
                     outputTokens: llmResponse.usage.outputTokens.toString(),
                     costUsd: costUsd.toFixed(6),
+                    baseCostUsd: baseCostUsd.toFixed(6),
                     creditsUsed: creditsUsed.toFixed(4),
                 }).returning();
 

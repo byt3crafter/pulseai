@@ -10,6 +10,9 @@ import {
     saveSandboxSettingsAction,
     saveSchedulingSettingsAction,
     saveDefaultSkillsAction,
+    saveModelPricingAction,
+    deleteModelPricingAction,
+    syncProviderModelsAction,
 } from "./actions";
 import { BUILTIN_SKILLS } from "../../../utils/skills-registry";
 import {
@@ -20,6 +23,7 @@ import {
 
 const TABS = [
     { id: "providers", label: "AI Providers" },
+    { id: "model-pricing", label: "Model Pricing" },
     { id: "system", label: "System Services" },
     { id: "exec-safety", label: "Exec Safety" },
     { id: "memory", label: "Memory" },
@@ -40,6 +44,21 @@ interface Props {
     schedulingConfig: any;
     allJobs: any[];
     defaultSkills: string[];
+    modelPricing: ModelPricingEntry[];
+}
+
+interface ModelPricingEntry {
+    id: string;
+    provider: string;
+    modelId: string;
+    displayName: string;
+    category: string;
+    baseInputPerMillion: number;
+    baseOutputPerMillion: number;
+    customerInputPerMillion: number;
+    customerOutputPerMillion: number;
+    maxTokens: number;
+    isActive: boolean;
 }
 
 export default function AdminSettingsClient({
@@ -53,6 +72,7 @@ export default function AdminSettingsClient({
     schedulingConfig,
     allJobs,
     defaultSkills,
+    modelPricing,
 }: Props) {
     return (
         <div className="p-8">
@@ -99,6 +119,7 @@ export default function AdminSettingsClient({
                     {tab === "sandbox" && <SandboxTab config={sandboxConfig} />}
                     {tab === "scheduling" && <SchedulingTab config={schedulingConfig} allJobs={allJobs} />}
                     {tab === "skills" && <SkillsDefaultsTab defaultSkills={defaultSkills} />}
+                    {tab === "model-pricing" && <ModelPricingTab models={modelPricing} />}
                     {tab === "database" && <DatabaseTab />}
                 </div>
             </div>
@@ -621,6 +642,312 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                     </table>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/* ─── Model Pricing Tab ──────────────────────────────────────── */
+function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [syncStatus, setSyncStatus] = useState<string>("");
+    const [showAddForm, setShowAddForm] = useState(false);
+
+    // Group models by provider
+    const grouped: Record<string, ModelPricingEntry[]> = {};
+    for (const m of models) {
+        if (!grouped[m.provider]) grouped[m.provider] = [];
+        grouped[m.provider].push(m);
+    }
+
+    const providers = Object.keys(grouped).sort();
+
+    const handleSync = async (provider: string) => {
+        setSyncStatus(`Syncing ${provider}...`);
+        const fd = new FormData();
+        fd.set("provider", provider);
+        const result = await syncProviderModelsAction(fd);
+        setSyncStatus(result.message || "Done");
+        setTimeout(() => setSyncStatus(""), 5000);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Remove this model from pricing?")) return;
+        const fd = new FormData();
+        fd.set("id", id);
+        await deleteModelPricingAction(fd);
+    };
+
+    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        const result = await saveModelPricingAction(fd);
+        if (result.success) {
+            setEditingId(null);
+            setShowAddForm(false);
+        }
+    };
+
+    const formatPrice = (n: number) => {
+        if (n < 1) return `$${n.toFixed(3)}`;
+        return `$${n.toFixed(2)}`;
+    };
+
+    const calcMarkup = (base: number, customer: number) => {
+        if (base === 0) return "N/A";
+        const pct = ((customer - base) / base) * 100;
+        if (pct === 0) return "0%";
+        return `${pct > 0 ? "+" : ""}${pct.toFixed(0)}%`;
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Model Pricing</h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                        Set base cost (what you pay) and customer price (what you charge). The difference is your profit.
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    {["anthropic", "openai", "openrouter"].map((p) => (
+                        <button
+                            key={p}
+                            onClick={() => handleSync(p)}
+                            className="px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100"
+                        >
+                            Sync {p.charAt(0).toUpperCase() + p.slice(1)}
+                        </button>
+                    ))}
+                    <button
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        className="px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 rounded-lg hover:bg-green-100"
+                    >
+                        + Add Model
+                    </button>
+                </div>
+            </div>
+
+            {syncStatus && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 text-sm">
+                    {syncStatus}
+                </div>
+            )}
+
+            {showAddForm && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h4 className="text-sm font-semibold text-slate-900 mb-4">Add New Model</h4>
+                    <form onSubmit={handleSave} className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Provider</label>
+                            <select name="provider" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required>
+                                <option value="anthropic">Anthropic</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="google">Google</option>
+                                <option value="openrouter">OpenRouter</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Model ID</label>
+                            <input name="modelId" type="text" placeholder="claude-sonnet-4-6" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Display Name</label>
+                            <input name="displayName" type="text" placeholder="Claude Sonnet 4.6" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Category</label>
+                            <select name="category" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                                <option value="flagship">Flagship</option>
+                                <option value="fast">Fast</option>
+                                <option value="reasoning">Reasoning</option>
+                                <option value="passthrough">Passthrough</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Base Input $/1M tokens</label>
+                            <input name="baseInputPerMillion" type="number" step="0.001" defaultValue="3.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Base Output $/1M tokens</label>
+                            <input name="baseOutputPerMillion" type="number" step="0.001" defaultValue="15.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Customer Input $/1M tokens</label>
+                            <input name="customerInputPerMillion" type="number" step="0.001" defaultValue="3.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Customer Output $/1M tokens</label>
+                            <input name="customerOutputPerMillion" type="number" step="0.001" defaultValue="15.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Max Tokens</label>
+                            <input name="maxTokens" type="number" defaultValue="8192" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
+                                Save
+                            </button>
+                            <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {providers.map((provider) => (
+                <div key={provider} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-200 bg-slate-50">
+                        <h4 className="text-sm font-semibold text-slate-900 capitalize">{provider}</h4>
+                        <p className="text-xs text-slate-500">{grouped[provider].length} models</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-slate-100">
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-slate-500">Model</th>
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-slate-500">Category</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Base In/Out</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Customer In/Out</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Markup</th>
+                                    <th className="text-center px-4 py-2 text-xs font-medium text-slate-500">Active</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {grouped[provider].map((model) => (
+                                    editingId === model.id ? (
+                                        <tr key={model.id} className="border-b border-slate-50">
+                                            <td colSpan={7} className="p-4">
+                                                <form onSubmit={handleSave} className="grid grid-cols-4 gap-3">
+                                                    <input type="hidden" name="provider" value={model.provider} />
+                                                    <input type="hidden" name="modelId" value={model.modelId} />
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-1">Display Name</label>
+                                                        <input name="displayName" defaultValue={model.displayName} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-1">Category</label>
+                                                        <select name="category" defaultValue={model.category} className="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                                                            <option value="flagship">Flagship</option>
+                                                            <option value="fast">Fast</option>
+                                                            <option value="reasoning">Reasoning</option>
+                                                            <option value="passthrough">Passthrough</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-1">Base Input $/1M</label>
+                                                        <input name="baseInputPerMillion" type="number" step="0.001" defaultValue={model.baseInputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-1">Base Output $/1M</label>
+                                                        <input name="baseOutputPerMillion" type="number" step="0.001" defaultValue={model.baseOutputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-1">Customer Input $/1M</label>
+                                                        <input name="customerInputPerMillion" type="number" step="0.001" defaultValue={model.customerInputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-1">Customer Output $/1M</label>
+                                                        <input name="customerOutputPerMillion" type="number" step="0.001" defaultValue={model.customerOutputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-slate-500 mb-1">Max Tokens</label>
+                                                        <input name="maxTokens" type="number" defaultValue={model.maxTokens} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                    </div>
+                                                    <div className="flex items-end gap-2">
+                                                        <button type="submit" className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">Save</button>
+                                                        <button type="button" onClick={() => setEditingId(null)} className="px-3 py-1 bg-slate-100 text-slate-700 text-xs rounded hover:bg-slate-200">Cancel</button>
+                                                    </div>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        <tr key={model.id} className="border-b border-slate-50 hover:bg-slate-50">
+                                            <td className="px-4 py-2.5">
+                                                <div className="font-medium text-slate-900">{model.displayName}</div>
+                                                <div className="text-xs text-slate-400 font-mono">{model.modelId}</div>
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                                    model.category === "flagship" ? "bg-indigo-50 text-indigo-700" :
+                                                    model.category === "fast" ? "bg-green-50 text-green-700" :
+                                                    model.category === "reasoning" ? "bg-amber-50 text-amber-700" :
+                                                    "bg-slate-100 text-slate-600"
+                                                }`}>
+                                                    {model.category}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-slate-600">
+                                                {formatPrice(model.baseInputPerMillion)} / {formatPrice(model.baseOutputPerMillion)}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-slate-900 font-medium">
+                                                {formatPrice(model.customerInputPerMillion)} / {formatPrice(model.customerOutputPerMillion)}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right">
+                                                <span className={`text-xs font-medium ${
+                                                    model.customerInputPerMillion > model.baseInputPerMillion ? "text-green-600" : "text-slate-400"
+                                                }`}>
+                                                    {calcMarkup(model.baseInputPerMillion, model.customerInputPerMillion)}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <span className={`w-2 h-2 rounded-full inline-block ${model.isActive ? "bg-green-500" : "bg-slate-300"}`} />
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right">
+                                                <button
+                                                    onClick={() => setEditingId(model.id)}
+                                                    className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(model.id)}
+                                                    className="text-xs text-red-500 hover:text-red-700"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ))}
+
+            {models.length === 0 && (
+                <div className="text-center py-12 text-slate-500">
+                    <p className="text-lg font-medium">No models configured</p>
+                    <p className="text-sm mt-1">Click &quot;Sync&quot; to auto-discover models from your connected providers, or add them manually.</p>
+                </div>
+            )}
+
+            {/* Profit Summary */}
+            {models.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Pricing Summary</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-slate-50 rounded-lg p-4">
+                            <p className="text-xs text-slate-500 mb-1">Total Models</p>
+                            <p className="text-2xl font-bold text-slate-900">{models.length}</p>
+                        </div>
+                        <div className="bg-green-50 rounded-lg p-4">
+                            <p className="text-xs text-green-600 mb-1">Models with Markup</p>
+                            <p className="text-2xl font-bold text-green-700">
+                                {models.filter((m) => m.customerInputPerMillion > m.baseInputPerMillion || m.customerOutputPerMillion > m.baseOutputPerMillion).length}
+                            </p>
+                        </div>
+                        <div className="bg-indigo-50 rounded-lg p-4">
+                            <p className="text-xs text-indigo-600 mb-1">Active Models</p>
+                            <p className="text-2xl font-bold text-indigo-700">
+                                {models.filter((m) => m.isActive).length}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -93,22 +93,6 @@ const openaiProvider: ProviderDefinition = {
     envKeyName: "OPENAI_API_KEY",
     models: [
         {
-            id: "gpt-5.2",
-            provider: "openai",
-            displayName: "GPT-5.2",
-            category: "flagship",
-            pricing: { inputPerMillion: 5.0, outputPerMillion: 15.0 },
-            maxTokens: 32768,
-        },
-        {
-            id: "gpt-5.3-codex",
-            provider: "openai",
-            displayName: "GPT-5.3 Codex",
-            category: "flagship",
-            pricing: { inputPerMillion: 5.0, outputPerMillion: 15.0 },
-            maxTokens: 32768,
-        },
-        {
             id: "gpt-4.1",
             provider: "openai",
             displayName: "GPT-4.1",
@@ -247,15 +231,13 @@ export function getFallbackModelId(modelId: string): string | undefined {
 
     const fallbackMap: Record<string, string> = {
         // Anthropic -> OpenAI fallbacks
-        "claude-opus-4-6": "gpt-5.2",
+        "claude-opus-4-6": "gpt-4.1",
         "claude-sonnet-4-6": "gpt-4.1",
         "claude-sonnet-4-20250514": "gpt-4o",
         "claude-haiku-4-5-20251001": "gpt-4o-mini",
         "claude-3-5-sonnet-20241022": "gpt-4o",
         "claude-3-haiku-20240307": "gpt-4o-mini",
         // OpenAI -> Anthropic fallbacks
-        "gpt-5.2": "claude-sonnet-4-6",
-        "gpt-5.3-codex": "claude-sonnet-4-6",
         "gpt-4.1": "claude-sonnet-4-6",
         "gpt-4o": "claude-sonnet-4-20250514",
         "gpt-4o-mini": "claude-haiku-4-5-20251001",
