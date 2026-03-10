@@ -159,12 +159,12 @@ function convertToResponsesAPIInput(
 export class OpenAIProvider {
     readonly name = "openai";
 
-    private getClient(apiKey?: string) {
+    private getClient(apiKey?: string, baseURL?: string) {
         const key = apiKey || config.OPENAI_API_KEY;
         if (!key) {
             throw new Error("OPENAI_API_KEY not configured");
         }
-        return new OpenAI({ apiKey: key });
+        return new OpenAI({ apiKey: key, ...(baseURL ? { baseURL } : {}) });
     }
 
     async chat(params: {
@@ -179,6 +179,7 @@ export class OpenAIProvider {
             input_schema: any;
         }>;
         stream?: StreamCallbacks;
+        baseURL?: string;
     }): Promise<ProviderResponse> {
         // OAuth tokens use ChatGPT backend Codex Responses API;
         // standard API keys use Chat Completions
@@ -203,8 +204,9 @@ export class OpenAIProvider {
             input_schema: any;
         }>;
         stream?: StreamCallbacks;
+        baseURL?: string;
     }): Promise<ProviderResponse> {
-        const client = this.getClient(params.tenantApiKey);
+        const client = this.getClient(params.tenantApiKey, params.baseURL);
 
         const tools = params.tools?.map((tool) => ({
             type: "function" as const,

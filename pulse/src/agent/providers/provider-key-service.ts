@@ -55,9 +55,13 @@ export class ProviderKeyService {
         });
 
         if (rootSettings) {
+            const providerConfig = (rootSettings as any).config ?? {};
             const globalKeyMap: Record<string, string | null | undefined> = {
                 anthropic: rootSettings.anthropicApiKeyHash,
                 openai: rootSettings.openaiApiKeyHash,
+                google: providerConfig.googleApiKey,
+                openrouter: providerConfig.openrouterApiKey,
+                minimax: providerConfig.minimaxApiKey,
             };
             const globalKey = globalKeyMap[provider];
             if (globalKey) {
@@ -214,6 +218,15 @@ export class ProviderKeyService {
                         headers: { Authorization: `Bearer ${apiKey}` },
                     });
                     if (res.status === 401) {
+                        return { valid: false, error: "Invalid API key" };
+                    }
+                    return { valid: true };
+                }
+                case "minimax": {
+                    const res = await fetch("https://api.minimax.io/v1/models", {
+                        headers: { Authorization: `Bearer ${apiKey}` },
+                    });
+                    if (res.status === 401 || res.status === 403) {
                         return { valid: false, error: "Invalid API key" };
                     }
                     return { valid: true };

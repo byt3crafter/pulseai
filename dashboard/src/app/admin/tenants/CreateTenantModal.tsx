@@ -11,6 +11,7 @@ export default function CreateTenantModal() {
     const [companyName, setCompanyName] = useState("");
     const [slug, setSlug] = useState("");
     const [slugEdited, setSlugEdited] = useState(false);
+    const [apiMode, setApiMode] = useState<"platform" | "byok">("platform");
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     const copy = (text: string, id: string) => {
@@ -48,6 +49,7 @@ export default function CreateTenantModal() {
             setCompanyName("");
             setSlug("");
             setSlugEdited(false);
+            setApiMode("platform");
         }, 300);
     };
 
@@ -267,6 +269,27 @@ export default function CreateTenantModal() {
                                         />
                                     </div>
                                     <p className="mt-1.5 text-xs text-gray-500">1 credit = $0.01 USD equivalent</p>
+                                </div>
+
+                                <div>
+                                    <label htmlFor="apiMode" className="block text-sm font-medium text-gray-700 mb-1.5">
+                                        API Mode
+                                    </label>
+                                    <select
+                                        id="apiMode"
+                                        name="apiMode"
+                                        value={apiMode}
+                                        onChange={(e) => setApiMode(e.target.value as "platform" | "byok")}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-gray-900 bg-white"
+                                    >
+                                        <option value="platform">Platform API (uses global keys)</option>
+                                        <option value="byok">Bring Your Own Key (tenant provides keys)</option>
+                                    </select>
+                                    <p className="mt-1.5 text-xs text-gray-500">
+                                        {apiMode === "platform"
+                                            ? "Tenant uses your global API keys. AI Provider onboarding step is skipped."
+                                            : "Tenant must configure their own API keys during onboarding."}
+                                    </p>
                                 </div>
 
                                 <div className="pt-5 flex gap-3 justify-end border-t border-gray-100">

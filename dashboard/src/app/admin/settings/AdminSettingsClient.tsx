@@ -13,6 +13,8 @@ import {
     saveModelPricingAction,
     deleteModelPricingAction,
     syncProviderModelsAction,
+    saveProviderKeyAction,
+    testProviderKeyAction,
 } from "./actions";
 import { BUILTIN_SKILLS } from "../../../utils/skills-registry";
 import {
@@ -45,6 +47,7 @@ interface Props {
     allJobs: any[];
     defaultSkills: string[];
     modelPricing: ModelPricingEntry[];
+    providerStatuses: Array<{ provider: string; hasKey: boolean }>;
 }
 
 interface ModelPricingEntry {
@@ -73,6 +76,7 @@ export default function AdminSettingsClient({
     allJobs,
     defaultSkills,
     modelPricing,
+    providerStatuses,
 }: Props) {
     return (
         <div className="p-8">
@@ -112,7 +116,7 @@ export default function AdminSettingsClient({
 
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
-                    {tab === "providers" && <ProvidersTab settings={settings} />}
+                    {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} />}
                     {tab === "system" && <SystemTab settings={settings} />}
                     {tab === "exec-safety" && <ExecSafetyTab execSafety={execSafety} auditLogs={auditLogs} policyRules={policyRules} />}
                     {tab === "memory" && <MemoryTab config={memoryConfig} />}
@@ -128,55 +132,133 @@ export default function AdminSettingsClient({
 }
 
 /* ─── Providers Tab ───────────────────────────────────────────── */
-function ProvidersTab({ settings }: { settings: any }) {
+
+const PROVIDER_CARDS = [
+    { id: "anthropic", name: "Anthropic", description: "Claude models", placeholder: "sk-ant-api03-...", required: true },
+    { id: "openai", name: "OpenAI", description: "GPT-4o, o1, o3 models", placeholder: "sk-proj-..." },
+    { id: "google", name: "Google", description: "Gemini models", placeholder: "AIza..." },
+    { id: "openrouter", name: "OpenRouter", description: "Multi-provider routing", placeholder: "sk-or-..." },
+    { id: "minimax", name: "MiniMax", description: "MiniMax Text & M1 models", placeholder: "eyJ..." },
+];
+
+function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider: string; hasKey: boolean }> }) {
+    const statusMap = Object.fromEntries(providerStatuses.map(s => [s.provider, s.hasKey]));
+
     return (
         <div className="space-y-6">
-            <form action={saveGlobalSettingsAction} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <input type="hidden" name="section" value="providers" />
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-6 border-b border-slate-200">
                     <h2 className="text-lg font-semibold text-slate-900">AI Model Providers</h2>
-                    <p className="text-sm text-slate-500 mt-1">Configure the master API keys used by all tenant agents.</p>
+                    <p className="text-sm text-slate-500 mt-1">Configure global API keys. Platform-mode tenants use these keys automatically.</p>
                 </div>
-                <div className="p-6 space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Anthropic API Key (Claude)</label>
-                        <div className="flex">
-                            <input
-                                type="password"
-                                name="anthropicApiKey"
-                                placeholder={settings.anthropicApiKeyHash ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "sk-ant-api03-..."}
-                                className="w-full px-4 py-2 border border-slate-300 rounded-l-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400"
-                            />
-                            <SaveButton label="Update" className="px-4 py-2 bg-indigo-50 text-indigo-600 border border-l-0 border-indigo-200 rounded-r-lg font-medium hover:bg-indigo-100 transition-colors disabled:opacity-60" />
-                        </div>
-                        <p className="text-xs flex items-center mt-2">
-                            <span className={`w-2 h-2 rounded-full mr-2 ${settings.anthropicApiKeyHash ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-                            <span className={settings.anthropicApiKeyHash ? 'text-emerald-600' : 'text-slate-500'}>
-                                {settings.anthropicApiKeyHash ? 'Active in Database' : 'Missing (Agents will fail)'}
-                            </span>
-                        </p>
-                    </div>
+                <div className="p-6 space-y-4">
+                    {PROVIDER_CARDS.map(pc => (
+                        <ProviderKeyCard
+                            key={pc.id}
+                            provider={pc.id}
+                            name={pc.name}
+                            description={pc.description}
+                            placeholder={pc.placeholder}
+                            hasKey={statusMap[pc.id] ?? false}
+                            required={pc.required}
+                        />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">OpenAI API Key (GPT-4o)</label>
-                        <div className="flex">
-                            <input
-                                type="password"
-                                name="openaiApiKey"
-                                placeholder={settings.openaiApiKeyHash ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "sk-proj-..."}
-                                className="w-full px-4 py-2 border border-slate-300 rounded-l-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400"
-                            />
-                            <SaveButton label="Save" className="px-4 py-2 bg-slate-900 text-white rounded-r-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-60" />
-                        </div>
-                        <p className="text-xs flex items-center mt-2">
-                            <span className={`w-2 h-2 rounded-full mr-2 ${settings.openaiApiKeyHash ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-                            <span className={settings.openaiApiKeyHash ? 'text-emerald-600' : 'text-slate-500'}>
-                                {settings.openaiApiKeyHash ? 'Active in Database' : 'Optional fallback provider'}
-                            </span>
-                        </p>
-                    </div>
+function ProviderKeyCard({ provider, name, description, placeholder, hasKey, required }: {
+    provider: string;
+    name: string;
+    description: string;
+    placeholder: string;
+    hasKey: boolean;
+    required?: boolean;
+}) {
+    const [apiKey, setApiKey] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    const handleSave = async () => {
+        if (!apiKey.trim()) return;
+        setSaving(true);
+        setMessage(null);
+        const fd = new FormData();
+        fd.set("provider", provider);
+        fd.set("apiKey", apiKey.trim());
+        const result = await saveProviderKeyAction(fd);
+        setSaving(false);
+        if (result.success) {
+            setMessage({ type: "success", text: "Key saved" });
+            setApiKey("");
+        } else {
+            setMessage({ type: "error", text: result.message || "Failed to save" });
+        }
+    };
+
+    const handleTest = async () => {
+        if (!apiKey.trim()) return;
+        setTesting(true);
+        setMessage(null);
+        const fd = new FormData();
+        fd.set("provider", provider);
+        fd.set("apiKey", apiKey.trim());
+        const result = await testProviderKeyAction(fd);
+        setTesting(false);
+        setMessage(result.success
+            ? { type: "success", text: "Key is valid" }
+            : { type: "error", text: result.message || "Invalid key" }
+        );
+    };
+
+    return (
+        <div className="border border-slate-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+                <div>
+                    <span className="text-sm font-semibold text-slate-900">{name}</span>
+                    <span className="text-xs text-slate-500 ml-2">{description}</span>
+                    {required && <span className="text-xs text-red-500 ml-1">*</span>}
                 </div>
-            </form>
+                <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <span className={`text-xs ${hasKey ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {hasKey ? "Active" : "Not configured"}
+                    </span>
+                </div>
+            </div>
+            <div className="flex gap-2">
+                <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => { setApiKey(e.target.value); setMessage(null); }}
+                    placeholder={hasKey ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (enter new key to replace)" : placeholder}
+                    className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400"
+                />
+                <button
+                    type="button"
+                    onClick={handleTest}
+                    disabled={!apiKey.trim() || testing}
+                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40 text-slate-700"
+                >
+                    {testing ? "Testing..." : "Test"}
+                </button>
+                <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={!apiKey.trim() || saving}
+                    className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                >
+                    {saving ? "Saving..." : "Save"}
+                </button>
+            </div>
+            {message && (
+                <p className={`text-xs mt-2 ${message.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
+                    {message.text}
+                </p>
+            )}
         </div>
     );
 }
