@@ -3,7 +3,7 @@
 A complete reference for setting up, configuring, and using every feature of the Pulse AI multi-tenant gateway platform.
 
 **Version:** 1.0.0
-**Last Updated:** February 2026
+**Last Updated:** March 2026
 
 ---
 
@@ -43,7 +43,7 @@ Create a `.env` file in the `pulse/` directory. Here is the complete list:
 | `LOG_LEVEL` | `fatal` \| `error` \| `warn` \| `info` \| `debug` \| `trace` | `info` | No | Pino log level |
 | `DATABASE_URL` | URL | — | **Yes** | PostgreSQL connection string |
 | `REDIS_URL` | URL | — | No (required in production) | Redis for rate limiting + BullMQ queue |
-| `ANTHROPIC_API_KEY` | String | — | **Yes** | Anthropic Claude API key |
+| `ANTHROPIC_API_KEY` | String | — | No | Anthropic Claude API key (optional if tenants provide their own keys) |
 | `OPENAI_API_KEY` | String | — | No | OpenAI key for memory embeddings (`text-embedding-3-small`) |
 | `ENCRYPTION_KEY` | String (64 hex chars) | — | **Yes** | 32-byte AES-256-GCM key for encrypting credentials and provider keys |
 | `WEBHOOK_BASE_URL` | URL | — | No | Public URL for webhooks (e.g., `https://pulse.runstate.mu`) |
@@ -500,6 +500,8 @@ Each file has:
 | Tool Policy | Allow/deny specific tools (JSON configuration) |
 | Sandbox Config | Per-agent sandbox overrides (mode, image, limits) |
 | Heartbeat Config | Schedule for automatic heartbeat messages |
+| Skills | Enable/disable built-in skills and add custom skills (see 3.10) |
+| Email | Configure per-agent email (SMTP/IMAP) or use tenant-level email (see 3.11) |
 
 ## 3.5 Agent Safety (`/dashboard/agents/{id}/safety`)
 
@@ -627,7 +629,90 @@ Each script card shows:
 
 Scripts are created by agents during conversations using the `script_save` tool and can be reloaded by the agent with `script_load`.
 
-## 3.10 Agent Knowledge (`/dashboard/agents/{id}/knowledge`)
+## 3.10 Agent Skills (`/dashboard/agents/{id}` — Skills tab)
+
+Configure which built-in skills are enabled for this agent and add custom skills.
+
+### Built-in Skills
+
+Skills are detailed behavioral guides that teach the agent how to use its tools effectively. They are grouped by category:
+
+| Category | Skills |
+|---|---|
+| Core | `memory`, `scheduling`, `workspace`, `delegation`, `email` |
+| Productivity | `scripts`, `python`, `formatting` |
+| Meta | `skill-creator` |
+
+Each skill has a toggle switch. Skills inherit from admin defaults (shown with a gray background). Per-agent overrides take priority over admin defaults.
+
+- **Toggle on/off** — Enable or disable a skill for this agent
+- **Reset** — Clear agent overrides and revert to admin defaults
+
+### Custom Skills
+
+Add agent-specific skills beyond the built-in set:
+
+1. Click **Add Custom Skill**
+2. Enter a name (e.g., `erp-lookup`)
+3. Enter a description (shown in the skill list)
+4. Write the skill body in markdown — this is injected into the agent's system prompt
+5. Click **Save**
+
+Custom skills are stored in the agent's `skillConfig` JSONB column.
+
+### How Skills Work at Runtime
+
+1. Admin sets global default skills in **Admin Settings → Skills**
+2. Per-agent overrides (enable/disable) are applied on top
+3. The skill loader reads `.skill.md` files and formats them for prompt injection
+4. Skills appear in the system prompt under a `## Skills` section between tooling and tool call style
+
+## 3.11 Agent Email (`/dashboard/agents/{id}` — Email tab)
+
+Configure per-agent email sending and reading capabilities.
+
+### Mode Selection
+
+- **Use Company Email** — Uses the tenant-level email config (set in Settings → Email)
+- **Use Custom Email** — Configure agent-specific SMTP/IMAP credentials
+
+### SMTP Configuration (Sending)
+
+| Field | Description |
+|---|---|
+| Host | SMTP server (e.g., `smtp.gmail.com`) |
+| Port | SMTP port (587 for TLS, 465 for SSL) |
+| Username | SMTP auth username |
+| Password | SMTP auth password (encrypted at rest) |
+| TLS | Enable TLS (recommended) |
+| From Address | Sender email address |
+
+### IMAP Configuration (Reading — Optional)
+
+| Field | Description |
+|---|---|
+| Host | IMAP server (e.g., `imap.gmail.com`) |
+| Port | IMAP port (993 for TLS) |
+| Username | IMAP auth username |
+| Password | IMAP auth password (encrypted at rest) |
+| TLS | Enable TLS (recommended) |
+
+### Email Resolution Chain
+
+When the agent uses `email_send` or `email_read` tools:
+1. Agent-level config is checked first (if SMTP host is set)
+2. Falls back to tenant-level config (from Settings → Email)
+3. Returns an error if neither is configured
+
+### Related Tools
+
+| Tool | Description |
+|---|---|
+| `email_send` | Send an email (to, subject, body, optional HTML) |
+| `email_read` | Read recent emails from inbox (configurable count) |
+| `email_list` | List email folders/labels |
+
+## 3.12 Agent Knowledge (`/dashboard/agents/{id}/knowledge`)
 
 Manage API reference templates that are injected into the agent's system prompt.
 
@@ -658,7 +743,7 @@ Manage API reference templates that are injected into the agent's system prompt.
 
 All knowledge files are automatically included in the agent's system prompt under a `## API Knowledge` section.
 
-## 3.11 Orchestration Overview (`/dashboard/agents/orchestration`)
+## 3.13 Orchestration Overview (`/dashboard/agents/orchestration`)
 
 Cross-agent view of multi-agent delegation activity.
 
@@ -687,7 +772,7 @@ All agents with their delegation config:
 | Status | completed / failed / pending (badge) |
 | Started | Timestamp |
 
-## 3.12 Conversations (`/dashboard/conversations`)
+## 3.14 Conversations (`/dashboard/conversations`)
 
 View all conversations for this tenant, ordered by most recent activity.
 
@@ -699,7 +784,7 @@ Each conversation shows:
 
 Click to view the full message thread with user messages, assistant responses, and tool call results (including metadata like token usage).
 
-## 3.13 MCP Servers (`/dashboard/mcp`)
+## 3.15 MCP Servers (`/dashboard/mcp`)
 
 Connect external API services via the Model Context Protocol (MCP).
 
@@ -723,9 +808,9 @@ MCP exposes three built-in tools to connected clients:
 - `list_conversations` — List tenant conversations
 - `get_conversation` — Get conversation messages
 
-## 3.14 Settings (`/dashboard/settings`)
+## 3.16 Settings (`/dashboard/settings`)
 
-The settings page has six tabs:
+The settings page has seven tabs:
 
 ### Account Tab
 
@@ -785,13 +870,27 @@ When a tenant has their own provider key, it takes priority over the global plat
   - Expiry date
   - Revoke tokens
 
+### Email Tab
+
+Configure tenant-wide email credentials used by all agents (unless overridden per-agent).
+
+**SMTP (Sending):**
+- Host, port, username, password, TLS toggle, from address
+
+**IMAP (Reading — Optional):**
+- Host, port, username, password, TLS toggle
+
+**Test Connection** — Tests TCP connectivity to the SMTP server (5-second timeout).
+
+Passwords are encrypted at rest with AES-256-GCM. When editing, existing passwords are preserved unless you enter a new value.
+
 ### Billing Tab
 
 - Current credit balance display
 - Link to top up
 - Ledger overview showing recent debit/credit transactions
 
-## 3.15 Credentials (`/dashboard/settings/credentials`)
+## 3.17 Credentials (`/dashboard/settings/credentials`)
 
 Secure credential vault for storing API keys and secrets that agents can use as environment variables.
 
@@ -823,7 +922,7 @@ Secure credential vault for storing API keys and secrets that agents can use as 
 | Updated | Last modification date |
 | Actions | Delete button |
 
-## 3.16 Plugins (`/dashboard/settings/plugins`)
+## 3.18 Plugins (`/dashboard/settings/plugins`)
 
 Enable or disable admin-installed plugins for this tenant workspace.
 
@@ -837,7 +936,7 @@ Enable or disable admin-installed plugins for this tenant workspace.
 
 Plugins are installed by platform admins. Tenants can only toggle them on/off for their workspace.
 
-## 3.17 Usage (`/dashboard/usage`)
+## 3.19 Usage (`/dashboard/usage`)
 
 Tenant-specific usage analytics.
 
