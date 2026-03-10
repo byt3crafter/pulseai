@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.0] - 2026-03-10
+
+### Features
+- add MiniMax provider, dynamic admin providers tab, and tenant API mode
+
 ## [0.9.2] - 2026-03-10
 
 ### Bug Fixes
