@@ -162,7 +162,8 @@ export const usageRecords = pgTable(
         model: varchar("model", { length: 100 }).notNull(),
         inputTokens: decimal("input_tokens").default("0"),
         outputTokens: decimal("output_tokens").default("0"),
-        costUsd: decimal("cost_usd", { precision: 10, scale: 6 }).default("0"),
+        costUsd: decimal("cost_usd", { precision: 10, scale: 6 }).default("0"), // Customer-facing cost
+        baseCostUsd: decimal("base_cost_usd", { precision: 10, scale: 6 }).default("0"), // Real provider cost
         creditsUsed: decimal("credits_used", { precision: 12, scale: 4 }).default("0"),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     },
@@ -608,6 +609,31 @@ export const routingRules = pgTable(
     },
     (table) => [
         index("idx_routing_rules_tenant").on(table.tenantId),
+    ]
+);
+
+// -- Model Pricing (Dynamic, DB-driven pricing) --
+export const modelPricing = pgTable(
+    "model_pricing",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        provider: varchar("provider", { length: 50 }).notNull(),
+        modelId: varchar("model_id", { length: 100 }).notNull(),
+        displayName: varchar("display_name", { length: 255 }).notNull(),
+        category: varchar("category", { length: 20 }).notNull().default("flagship"),
+        baseInputPerMillion: decimal("base_input_per_million", { precision: 10, scale: 4 }).notNull().default("0"),
+        baseOutputPerMillion: decimal("base_output_per_million", { precision: 10, scale: 4 }).notNull().default("0"),
+        customerInputPerMillion: decimal("customer_input_per_million", { precision: 10, scale: 4 }).notNull().default("0"),
+        customerOutputPerMillion: decimal("customer_output_per_million", { precision: 10, scale: 4 }).notNull().default("0"),
+        maxTokens: integer("max_tokens").notNull().default(8192),
+        isActive: boolean("is_active").notNull().default(true),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        unique("idx_unique_model_pricing").on(table.provider, table.modelId),
+        index("idx_model_pricing_provider").on(table.provider),
+        index("idx_model_pricing_active").on(table.isActive),
     ]
 );
 

@@ -36,8 +36,6 @@ export const PROVIDERS: ProviderInfo[] = [
         name: "OpenAI",
         authMethods: ["api_key", "oauth"],
         models: [
-            { id: "gpt-5.2", provider: "openai", displayName: "GPT-5.2", category: "flagship" },
-            { id: "gpt-5.3-codex", provider: "openai", displayName: "GPT-5.3 Codex", category: "flagship" },
             { id: "gpt-4.1", provider: "openai", displayName: "GPT-4.1", category: "flagship" },
             { id: "gpt-4o", provider: "openai", displayName: "GPT-4o", category: "flagship" },
             { id: "gpt-4o-mini", provider: "openai", displayName: "GPT-4o Mini", category: "fast" },

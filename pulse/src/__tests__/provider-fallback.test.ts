@@ -136,9 +136,9 @@ describe("Provider Fallback Chain", () => {
         expect(result.canonicalModel).toBe("gpt-4o");
     });
 
-    it("should return correct pricing for known models", () => {
-        const pricing = manager.getPricing("claude-sonnet-4-20250514", "anthropic");
-        expect(pricing.input).toBe(3.0);
-        expect(pricing.output).toBe(15.0);
+    it("should return correct pricing for known models", async () => {
+        const pricing = await manager.getPricing("claude-sonnet-4-20250514", "anthropic");
+        expect(pricing.customerInput).toBe(3.0);
+        expect(pricing.customerOutput).toBe(15.0);
     });
 });

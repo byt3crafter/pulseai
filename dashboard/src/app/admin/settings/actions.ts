@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { globalSettings, scheduledJobs, agentProfiles } from "../../../storage/schema";
+import { globalSettings, scheduledJobs, agentProfiles, modelPricing } from "../../../storage/schema";
 import { revalidatePath } from "next/cache";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin } from "../../../utils/admin-auth";
 
@@ -244,5 +244,135 @@ export async function saveDefaultSkillsAction(formData: FormData) {
     } catch (err) {
         console.error("Failed to save default skills:", err);
         return { success: false, message: "Failed to save default skills." };
+    }
+}
+
+// ─── Model Pricing Actions ─────────────────────────────────────────────────
+
+export async function getModelPricingList() {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return [];
+
+    const rows = await db.select().from(modelPricing);
+    return rows.map((r) => ({
+        id: r.id,
+        provider: r.provider,
+        modelId: r.modelId,
+        displayName: r.displayName,
+        category: r.category,
+        baseInputPerMillion: parseFloat(r.baseInputPerMillion as string),
+        baseOutputPerMillion: parseFloat(r.baseOutputPerMillion as string),
+        customerInputPerMillion: parseFloat(r.customerInputPerMillion as string),
+        customerOutputPerMillion: parseFloat(r.customerOutputPerMillion as string),
+        maxTokens: r.maxTokens,
+        isActive: r.isActive,
+    }));
+}
+
+export async function saveModelPricingAction(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
+    const provider = formData.get("provider") as string;
+    const modelId = formData.get("modelId") as string;
+    const displayName = formData.get("displayName") as string;
+
+    if (!provider || !modelId || !displayName) {
+        return { success: false, message: "Provider, model ID, and display name are required." };
+    }
+
+    const category = (formData.get("category") as string) || "flagship";
+    const baseInput = parseFloat(formData.get("baseInputPerMillion") as string) || 0;
+    const baseOutput = parseFloat(formData.get("baseOutputPerMillion") as string) || 0;
+    const customerInput = parseFloat(formData.get("customerInputPerMillion") as string) || 0;
+    const customerOutput = parseFloat(formData.get("customerOutputPerMillion") as string) || 0;
+    const maxTokens = parseInt(formData.get("maxTokens") as string) || 8192;
+    const isActive = formData.get("isActive") !== "false";
+
+    try {
+        await db.insert(modelPricing)
+            .values({
+                provider,
+                modelId,
+                displayName,
+                category,
+                baseInputPerMillion: baseInput.toString(),
+                baseOutputPerMillion: baseOutput.toString(),
+                customerInputPerMillion: customerInput.toString(),
+                customerOutputPerMillion: customerOutput.toString(),
+                maxTokens,
+                isActive,
+            })
+            .onConflictDoUpdate({
+                target: [modelPricing.provider, modelPricing.modelId],
+                set: {
+                    displayName,
+                    category,
+                    baseInputPerMillion: baseInput.toString(),
+                    baseOutputPerMillion: baseOutput.toString(),
+                    customerInputPerMillion: customerInput.toString(),
+                    customerOutputPerMillion: customerOutput.toString(),
+                    maxTokens,
+                    isActive,
+                    updatedAt: new Date(),
+                },
+            });
+
+        revalidatePath("/admin/settings");
+        return { success: true, message: "Model pricing saved." };
+    } catch (err) {
+        console.error("Failed to save model pricing:", err);
+        return { success: false, message: "Failed to save model pricing." };
+    }
+}
+
+export async function deleteModelPricingAction(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
+    const id = formData.get("id") as string;
+    if (!id) return { success: false, message: "Model ID is required." };
+
+    try {
+        await db.delete(modelPricing).where(eq(modelPricing.id, id));
+        revalidatePath("/admin/settings");
+        return { success: true, message: "Model deleted." };
+    } catch (err) {
+        console.error("Failed to delete model pricing:", err);
+        return { success: false, message: "Failed to delete model." };
+    }
+}
+
+export async function syncProviderModelsAction(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
+    const provider = formData.get("provider") as string;
+    if (!provider) return { success: false, message: "Provider is required." };
+
+    // Get the gateway URL from env or default
+    const gatewayUrl = process.env.GATEWAY_INTERNAL_URL || "http://localhost:3000";
+
+    try {
+        const res = await fetch(`${gatewayUrl}/api/admin/models/discover`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer admin",
+            },
+            body: JSON.stringify({ provider }),
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            return { success: false, message: err.error || "Discovery failed." };
+        }
+
+        const data = await res.json();
+        revalidatePath("/admin/settings");
+        return { success: true, message: data.message || `Discovered ${data.models?.length || 0} models.` };
+    } catch (err) {
+        console.error("Failed to sync provider models:", err);
+        return { success: false, message: "Failed to connect to gateway for model discovery." };
     }
 }
