@@ -138,7 +138,7 @@ const PROVIDER_CARDS = [
     { id: "openai", name: "OpenAI", description: "GPT-4o, o1, o3 models", placeholder: "sk-proj-..." },
     { id: "google", name: "Google", description: "Gemini models", placeholder: "AIza..." },
     { id: "openrouter", name: "OpenRouter", description: "Multi-provider routing", placeholder: "sk-or-..." },
-    { id: "minimax", name: "MiniMax", description: "MiniMax Text & M1 models", placeholder: "eyJ..." },
+    { id: "minimax", name: "MiniMax", description: "MiniMax M2.5 models", placeholder: "eyJ..." },
 ];
 
 function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider: string; hasKey: boolean }> }) {
@@ -791,7 +791,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {["anthropic", "openai", "openrouter"].map((p) => (
+                    {["anthropic", "openai", "google", "openrouter", "minimax"].map((p) => (
                         <button
                             key={p}
                             onClick={() => handleSync(p)}
