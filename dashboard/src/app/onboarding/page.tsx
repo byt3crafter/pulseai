@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "../../storage/db";
 import {
     users,
+    tenants,
     tenantProviderKeys,
     channelConnections,
     installedPlugins,
@@ -29,6 +30,14 @@ export default async function OnboardingPage() {
 
     const tenantId = user.tenantId as string;
     if (!tenantId) return redirect("/login");
+
+    // Fetch tenant config to check apiMode
+    const tenant = await db.query.tenants.findFirst({
+        where: eq(tenants.id, tenantId),
+        columns: { config: true },
+    });
+    const tenantConfig = (tenant?.config ?? {}) as Record<string, unknown>;
+    const isPlatformMode = tenantConfig.apiMode === "platform";
 
     // Fetch current user record for mustChangePassword
     const [userRecord] = await db
@@ -110,7 +119,7 @@ export default async function OnboardingPage() {
 
     // Determine current step based on DB state
     const needsPassword = userRecord?.mustChangePassword ?? false;
-    const hasProvider = providerKeys.length > 0;
+    const hasProvider = isPlatformMode || providerKeys.length > 0;
     const hasTelegram = telegramConnections.length > 0;
     const allPluginsConfigured =
         pluginsWithCredentials.length === 0 ||
@@ -141,6 +150,7 @@ export default async function OnboardingPage() {
             plugins={pluginsWithCredentials}
             allPluginsConfigured={allPluginsConfigured}
             hasAgent={hasAgent}
+            skipProviderStep={isPlatformMode}
         />
     );
 }

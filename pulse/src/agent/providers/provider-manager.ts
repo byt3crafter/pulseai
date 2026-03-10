@@ -50,6 +50,7 @@ export class ProviderManager {
         );
 
         const primaryProvider = this.getProviderInstance(providerId);
+        const baseURL = this.getBaseURL(providerId);
 
         try {
             logger.debug({ provider: providerId, model: params.model }, "Attempting primary provider");
@@ -61,6 +62,7 @@ export class ProviderManager {
                 authMethod,
                 tools: params.tools,
                 stream: params.stream,
+                baseURL,
             });
             return {
                 ...response,
@@ -114,6 +116,7 @@ export class ProviderManager {
                     model: fallbackModelId,
                     tenantApiKey: fallbackResolved?.key,
                     authMethod: fallbackResolved?.authMethod,
+                    baseURL: this.getBaseURL(fallbackProvider.id),
                 });
 
                 return {
@@ -137,10 +140,23 @@ export class ProviderManager {
     private getProviderInstance(providerId: string): AnthropicProvider | OpenAIProvider {
         switch (providerId) {
             case "openai":
+            case "openrouter":
+            case "minimax": // MiniMax and OpenRouter use OpenAI-compatible APIs
                 return this.openai;
             case "anthropic":
             default:
                 return this.anthropic;
+        }
+    }
+
+    private getBaseURL(providerId: string): string | undefined {
+        switch (providerId) {
+            case "minimax":
+                return "https://api.minimax.io/v1";
+            case "openrouter":
+                return "https://openrouter.ai/api/v1";
+            default:
+                return undefined;
         }
     }
 

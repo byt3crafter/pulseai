@@ -12,15 +12,146 @@ const settingsSchema = z.object({
     openaiApiKey: z.string().optional(),
 });
 
+export interface ProviderKeyStatus {
+    provider: string;
+    hasKey: boolean;
+}
+
 export async function getGlobalSettings() {
     const adminCheck = await requireAdmin();
-    if (!adminCheck.authorized) return { anthropicApiKeyHash: null, openaiApiKeyHash: null, gatewayConfig: {} };
+    if (!adminCheck.authorized) return { anthropicApiKeyHash: null, openaiApiKeyHash: null, gatewayConfig: {}, config: {} };
 
     const settings = await db.query.globalSettings.findFirst({
         where: (table, { eq }) => eq(table.id, "root")
     });
 
-    return settings || { anthropicApiKeyHash: null, openaiApiKeyHash: null, gatewayConfig: {} };
+    return settings || { anthropicApiKeyHash: null, openaiApiKeyHash: null, gatewayConfig: {}, config: {} };
+}
+
+export async function getProviderKeyStatuses(): Promise<ProviderKeyStatus[]> {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return [];
+
+    const settings = await db.query.globalSettings.findFirst({
+        where: (table, { eq }) => eq(table.id, "root")
+    }) as any;
+
+    const cfg = settings?.config ?? {};
+
+    return [
+        { provider: "anthropic", hasKey: !!settings?.anthropicApiKeyHash },
+        { provider: "openai", hasKey: !!settings?.openaiApiKeyHash },
+        { provider: "google", hasKey: !!cfg.googleApiKey },
+        { provider: "openrouter", hasKey: !!cfg.openrouterApiKey },
+        { provider: "minimax", hasKey: !!cfg.minimaxApiKey },
+    ];
+}
+
+export async function saveProviderKeyAction(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+
+    const provider = formData.get("provider") as string;
+    const apiKey = formData.get("apiKey") as string;
+    if (!provider || !apiKey) return { success: false, message: "Provider and API key are required." };
+
+    try {
+        const currentSettings = await db.query.globalSettings.findFirst({
+            where: (table, { eq: e }) => e(table.id, "root")
+        }) as any;
+
+        const updates: any = { updatedAt: new Date() };
+
+        // Anthropic and OpenAI have dedicated columns; others go in config.
+        if (provider === "anthropic") {
+            updates.anthropicApiKeyHash = apiKey;
+        } else if (provider === "openai") {
+            updates.openaiApiKeyHash = apiKey;
+        } else {
+            const cfg = currentSettings?.config ? { ...currentSettings.config } : {};
+            const keyMap: Record<string, string> = {
+                google: "googleApiKey",
+                openrouter: "openrouterApiKey",
+                minimax: "minimaxApiKey",
+            };
+            const configKey = keyMap[provider];
+            if (!configKey) return { success: false, message: "Unknown provider." };
+            cfg[configKey] = apiKey;
+            updates.config = cfg;
+        }
+
+        await db.insert(globalSettings)
+            .values({ id: "root", ...updates })
+            .onConflictDoUpdate({ target: globalSettings.id, set: updates });
+
+        revalidatePath("/admin/settings");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to save provider key:", error);
+        return { success: false, message: "Failed to save provider key." };
+    }
+}
+
+export async function testProviderKeyAction(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+
+    const provider = formData.get("provider") as string;
+    const apiKey = formData.get("apiKey") as string;
+    if (!provider || !apiKey) return { success: false, message: "Provider and API key are required." };
+
+    try {
+        let valid = false;
+        let error = "";
+
+        switch (provider) {
+            case "anthropic": {
+                const res = await fetch("https://api.anthropic.com/v1/models", {
+                    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+                });
+                valid = res.status !== 401 && res.status !== 403;
+                if (!valid) error = "Invalid API key";
+                break;
+            }
+            case "openai": {
+                const res = await fetch("https://api.openai.com/v1/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                valid = res.status !== 401;
+                if (!valid) error = "Invalid API key";
+                break;
+            }
+            case "google": {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                valid = res.status !== 400 && res.status !== 403;
+                if (!valid) error = "Invalid API key";
+                break;
+            }
+            case "openrouter": {
+                const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                valid = res.status !== 401;
+                if (!valid) error = "Invalid API key";
+                break;
+            }
+            case "minimax": {
+                const res = await fetch("https://api.minimax.io/v1/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                valid = res.status !== 401 && res.status !== 403;
+                if (!valid) error = "Invalid API key";
+                break;
+            }
+            default:
+                return { success: false, message: "Unknown provider." };
+        }
+
+        return valid ? { success: true } : { success: false, message: error || "Invalid API key" };
+    } catch (error) {
+        console.error("Failed to test provider key:", error);
+        return { success: false, message: "Connection failed." };
+    }
 }
 
 export async function saveGlobalSettingsAction(formData: FormData) {
@@ -356,9 +487,13 @@ export async function syncProviderModelsAction(formData: FormData) {
             where: eq(globalSettings.id, "root"),
         });
 
+        const cfg = (rootSettings as any)?.config ?? {};
         const keyMap: Record<string, string | null | undefined> = {
             anthropic: (rootSettings as any)?.anthropicApiKeyHash,
             openai: (rootSettings as any)?.openaiApiKeyHash,
+            google: cfg.googleApiKey,
+            openrouter: cfg.openrouterApiKey,
+            minimax: cfg.minimaxApiKey,
         };
         let apiKey = keyMap[provider] || undefined;
 
@@ -369,6 +504,7 @@ export async function syncProviderModelsAction(formData: FormData) {
                 openai: process.env.OPENAI_API_KEY,
                 openrouter: process.env.OPENROUTER_API_KEY,
                 google: process.env.GOOGLE_API_KEY,
+                minimax: process.env.MINIMAX_API_KEY,
             };
             apiKey = envMap[provider];
         }
@@ -465,6 +601,8 @@ const KNOWN_PRICING: Record<string, { input: number; output: number; maxTokens?:
     "o4-mini": { input: 1.1, output: 4.4, maxTokens: 16384, category: "reasoning" },
     "gemini-2.0-flash": { input: 0.1, output: 0.4, maxTokens: 8192, category: "fast" },
     "gemini-1.5-pro": { input: 1.25, output: 5.0, maxTokens: 8192 },
+    "MiniMax-M2.5": { input: 0.3, output: 1.2, maxTokens: 8192 },
+    "MiniMax-M2.5-highspeed": { input: 0.3, output: 1.2, maxTokens: 8192, category: "fast" },
 };
 
 function categorizeModel(modelId: string): string {
@@ -489,6 +627,7 @@ async function discoverProviderModels(provider: string, apiKey: string): Promise
         case "anthropic": return discoverAnthropic(apiKey);
         case "openai": return discoverOpenAI(apiKey);
         case "openrouter": return discoverOpenRouter(apiKey);
+        case "minimax": return discoverMiniMax(apiKey);
         default: return [];
     }
 }
@@ -560,6 +699,29 @@ async function discoverOpenRouter(apiKey: string): Promise<DiscoveredModel[]> {
             baseInputPerMillion: inputPrice,
             baseOutputPerMillion: outputPrice,
             maxTokens: m.context_length ? Math.min(m.context_length, 32768) : 8192,
+        });
+    }
+    return models;
+}
+
+async function discoverMiniMax(apiKey: string): Promise<DiscoveredModel[]> {
+    const res = await fetch("https://api.minimax.io/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const models: DiscoveredModel[] = [];
+    for (const m of data.data || []) {
+        if (/embed|speech|voice|video|image/i.test(m.id)) continue;
+        const known = KNOWN_PRICING[m.id];
+        models.push({
+            modelId: m.id,
+            displayName: m.id || prettifyModelId(m.id),
+            provider: "minimax",
+            category: categorizeModel(m.id),
+            baseInputPerMillion: known?.input ?? 1.1,
+            baseOutputPerMillion: known?.output ?? 4.4,
+            maxTokens: known?.maxTokens ?? 8192,
         });
     }
     return models;

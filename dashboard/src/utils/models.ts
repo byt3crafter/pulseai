@@ -60,6 +60,15 @@ export const PROVIDERS: ProviderInfo[] = [
             { id: "openrouter/auto", provider: "openrouter", displayName: "OpenRouter (Auto)", category: "passthrough" },
         ],
     },
+    {
+        id: "minimax",
+        name: "MiniMax",
+        authMethods: ["api_key"],
+        models: [
+            { id: "MiniMax-M2.5", provider: "minimax", displayName: "MiniMax M2.5", category: "flagship" },
+            { id: "MiniMax-M2.5-highspeed", provider: "minimax", displayName: "MiniMax M2.5 Highspeed", category: "fast" },
+        ],
+    },
 ];
 
 export const ALL_MODELS: ModelInfo[] = PROVIDERS.flatMap((p) => p.models);

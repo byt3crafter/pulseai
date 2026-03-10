@@ -48,6 +48,9 @@ const KNOWN_PRICING: Record<string, { input: number; output: number; maxTokens?:
     "gemini-2.5-flash-preview-05-20": { input: 0.15, output: 0.6, maxTokens: 8192, category: "fast" },
     "gemini-2.5-pro-preview-05-06": { input: 1.25, output: 10.0, maxTokens: 8192 },
     "gemini-1.5-pro": { input: 1.25, output: 5.0, maxTokens: 8192 },
+    // MiniMax
+    "MiniMax-M2.5": { input: 0.3, output: 1.2, maxTokens: 8192 },
+    "MiniMax-M2.5-highspeed": { input: 0.3, output: 1.2, maxTokens: 8192, category: "fast" },
 };
 
 function prettifyModelId(modelId: string): string {
@@ -75,6 +78,8 @@ export async function discoverModels(provider: string, apiKey: string): Promise<
             return discoverOpenAI(apiKey);
         case "openrouter":
             return discoverOpenRouter(apiKey);
+        case "minimax":
+            return discoverMiniMax(apiKey);
         default:
             logger.warn({ provider }, "Model discovery not supported for this provider");
             return [];
@@ -204,6 +209,45 @@ async function discoverOpenRouter(apiKey: string): Promise<DiscoveredModel[]> {
         return models;
     } catch (err) {
         logger.error({ err }, "Failed to discover OpenRouter models");
+        return [];
+    }
+}
+
+async function discoverMiniMax(apiKey: string): Promise<DiscoveredModel[]> {
+    try {
+        const res = await fetch("https://api.minimax.io/v1/models", {
+            headers: { Authorization: `Bearer ${apiKey}` },
+        });
+
+        if (!res.ok) {
+            logger.warn({ status: res.status }, "MiniMax models API failed");
+            return [];
+        }
+
+        const data = await res.json();
+        const models: DiscoveredModel[] = [];
+
+        for (const m of data.data || []) {
+            const id = m.id;
+            // Skip non-chat models
+            if (/embed|speech|voice|video|image/i.test(id)) continue;
+
+            const known = KNOWN_PRICING[id];
+            models.push({
+                modelId: id,
+                displayName: m.id || prettifyModelId(id),
+                provider: "minimax",
+                category: categorize(id),
+                baseInputPerMillion: known?.input ?? 1.1,
+                baseOutputPerMillion: known?.output ?? 4.4,
+                maxTokens: known?.maxTokens ?? 8192,
+            });
+        }
+
+        logger.info({ count: models.length }, "Discovered MiniMax models");
+        return models;
+    } catch (err) {
+        logger.error({ err }, "Failed to discover MiniMax models");
         return [];
     }
 }

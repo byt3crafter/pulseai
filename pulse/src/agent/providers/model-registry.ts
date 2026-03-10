@@ -177,6 +177,31 @@ const openrouterProvider: ProviderDefinition = {
     ],
 };
 
+const minimaxProvider: ProviderDefinition = {
+    id: "minimax",
+    name: "MiniMax",
+    authMethods: ["api_key"],
+    envKeyName: "MINIMAX_API_KEY",
+    models: [
+        {
+            id: "MiniMax-M2.5",
+            provider: "minimax",
+            displayName: "MiniMax M2.5",
+            category: "flagship",
+            pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+            maxTokens: 8192,
+        },
+        {
+            id: "MiniMax-M2.5-highspeed",
+            provider: "minimax",
+            displayName: "MiniMax M2.5 Highspeed",
+            category: "fast",
+            pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+            maxTokens: 8192,
+        },
+    ],
+};
+
 // ─── Registry ────────────────────────────────────────────────────────────────
 
 const ALL_PROVIDERS: ProviderDefinition[] = [
@@ -184,6 +209,7 @@ const ALL_PROVIDERS: ProviderDefinition[] = [
     openaiProvider,
     googleProvider,
     openrouterProvider,
+    minimaxProvider,
 ];
 
 const MODEL_MAP = new Map<string, ModelDefinition>();

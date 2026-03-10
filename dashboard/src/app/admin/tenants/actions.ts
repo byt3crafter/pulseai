@@ -15,6 +15,7 @@ const createTenantSchema = z.object({
     customerEmail: z.string().email("Please enter a valid customer email address"),
     slug: z.string().min(2, "Slug must be at least 2 characters").regex(/^[-a-z0-9]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
     initialBalance: z.coerce.number().min(0, "Balance cannot be negative").default(0),
+    apiMode: z.enum(["platform", "byok"]).default("platform"),
 });
 
 export async function createTenantAction(formData: FormData) {
@@ -29,6 +30,7 @@ export async function createTenantAction(formData: FormData) {
             customerEmail: formData.get("customerEmail") as string,
             slug: formData.get("slug") as string,
             initialBalance: formData.get("initialBalance"),
+            apiMode: formData.get("apiMode") as string || "platform",
         };
 
         const validatedData = createTenantSchema.parse(rawData);
@@ -38,6 +40,7 @@ export async function createTenantAction(formData: FormData) {
                 name: validatedData.name,
                 slug: validatedData.slug,
                 status: "active",
+                config: { apiMode: validatedData.apiMode },
             }).returning();
 
             await tx.insert(tenantBalances).values({

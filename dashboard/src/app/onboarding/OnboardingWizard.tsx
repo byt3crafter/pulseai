@@ -42,6 +42,7 @@ interface Props {
     plugins: PluginInfo[];
     allPluginsConfigured: boolean;
     hasAgent: boolean;
+    skipProviderStep?: boolean;
 }
 
 const STEP_LABELS = ["Password", "AI Provider", "Telegram", "Integrations", "Create Agent", "Done"];
@@ -54,6 +55,7 @@ export default function OnboardingWizard({
     plugins,
     allPluginsConfigured: initialPluginsConfigured,
     hasAgent: initialHasAgent,
+    skipProviderStep = false,
 }: Props) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -99,8 +101,10 @@ export default function OnboardingWizard({
     const [pendingPairings, setPendingPairings] = useState<Array<{ id: string; code: string; contactId: string; contactName: string | null; createdAt: string }>>([]);
     const [pairingLoading, setPairingLoading] = useState(false);
 
-    // Determine effective step (skip password if not needed)
-    const effectiveStep = !needsPassword && step === 1 ? 2 : step;
+    // Determine effective step (skip password if not needed, skip provider if platform mode)
+    let effectiveStep = step;
+    if (!needsPassword && effectiveStep === 1) effectiveStep = 2;
+    if (skipProviderStep && effectiveStep === 2) effectiveStep = 3;
 
     // Skip plugins step if no plugins need credentials
     const skipPlugins = plugins.length === 0;
@@ -113,6 +117,8 @@ export default function OnboardingWizard({
     const goNext = () => {
         clearMessages();
         let next = effectiveStep + 1;
+        // Skip provider step if platform mode
+        if (next === 2 && skipProviderStep) next = 3;
         // Skip plugins step if none need configuration
         if (next === 4 && skipPlugins) next = 5;
         setStep(next);
@@ -138,7 +144,7 @@ export default function OnboardingWizard({
             });
             // Just refresh server state and advance
             router.refresh();
-            setStep(2);
+            setStep(skipProviderStep ? 3 : 2);
         });
     };
 
@@ -452,6 +458,8 @@ export default function OnboardingWizard({
                     const stepNum = i + 1;
                     // Skip password dot if not needed
                     if (stepNum === 1 && !needsPassword) return null;
+                    // Skip provider dot if platform mode
+                    if (stepNum === 2 && skipProviderStep) return null;
                     // Skip plugins dot if no plugins
                     if (stepNum === 4 && skipPlugins) return null;
 
