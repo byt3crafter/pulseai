@@ -350,29 +350,217 @@ export async function syncProviderModelsAction(formData: FormData) {
     const provider = formData.get("provider") as string;
     if (!provider) return { success: false, message: "Provider is required." };
 
-    // Get the gateway URL from env or default
-    const gatewayUrl = process.env.GATEWAY_INTERNAL_URL || "http://localhost:3000";
-
     try {
-        const res = await fetch(`${gatewayUrl}/api/admin/models/discover`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer admin",
-            },
-            body: JSON.stringify({ provider }),
+        // Resolve API key from global_settings or env
+        const rootSettings = await db.query.globalSettings.findFirst({
+            where: eq(globalSettings.id, "root"),
         });
 
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            return { success: false, message: err.error || "Discovery failed." };
+        const keyMap: Record<string, string | null | undefined> = {
+            anthropic: (rootSettings as any)?.anthropicApiKeyHash,
+            openai: (rootSettings as any)?.openaiApiKeyHash,
+        };
+        let apiKey = keyMap[provider] || undefined;
+
+        // Fallback to env vars
+        if (!apiKey) {
+            const envMap: Record<string, string | undefined> = {
+                anthropic: process.env.ANTHROPIC_API_KEY,
+                openai: process.env.OPENAI_API_KEY,
+                openrouter: process.env.OPENROUTER_API_KEY,
+                google: process.env.GOOGLE_API_KEY,
+            };
+            apiKey = envMap[provider];
         }
 
-        const data = await res.json();
+        if (!apiKey) {
+            return { success: false, message: `No API key configured for ${provider}. Add one in AI Providers tab first.` };
+        }
+
+        // Call provider API directly to discover models
+        const discovered = await discoverProviderModels(provider, apiKey);
+
+        if (discovered.length === 0) {
+            return { success: false, message: `No models discovered from ${provider}. Check your API key.` };
+        }
+
+        // Upsert discovered models into DB (preserve existing customer pricing)
+        let inserted = 0;
+        let updated = 0;
+
+        for (const model of discovered) {
+            const existing = await db.query.modelPricing.findFirst({
+                where: and(
+                    eq(modelPricing.provider, model.provider),
+                    eq(modelPricing.modelId, model.modelId),
+                ),
+            });
+
+            if (existing) {
+                await db.update(modelPricing)
+                    .set({
+                        displayName: model.displayName,
+                        category: model.category,
+                        baseInputPerMillion: model.baseInputPerMillion.toString(),
+                        baseOutputPerMillion: model.baseOutputPerMillion.toString(),
+                        maxTokens: model.maxTokens,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(modelPricing.id, existing.id));
+                updated++;
+            } else {
+                await db.insert(modelPricing).values({
+                    provider: model.provider,
+                    modelId: model.modelId,
+                    displayName: model.displayName,
+                    category: model.category,
+                    baseInputPerMillion: model.baseInputPerMillion.toString(),
+                    baseOutputPerMillion: model.baseOutputPerMillion.toString(),
+                    customerInputPerMillion: model.baseInputPerMillion.toString(),
+                    customerOutputPerMillion: model.baseOutputPerMillion.toString(),
+                    maxTokens: model.maxTokens,
+                });
+                inserted++;
+            }
+        }
+
         revalidatePath("/admin/settings");
-        return { success: true, message: data.message || `Discovered ${data.models?.length || 0} models.` };
+        return { success: true, message: `Discovered ${discovered.length} models. ${inserted} new, ${updated} updated.` };
     } catch (err) {
         console.error("Failed to sync provider models:", err);
-        return { success: false, message: "Failed to connect to gateway for model discovery." };
+        return { success: false, message: "Failed to discover models." };
     }
+}
+
+// ─── Provider Model Discovery (inline) ─────────────────────────────────────
+
+interface DiscoveredModel {
+    modelId: string;
+    displayName: string;
+    provider: string;
+    category: string;
+    baseInputPerMillion: number;
+    baseOutputPerMillion: number;
+    maxTokens: number;
+}
+
+// Known pricing for common models (real provider costs, USD per 1M tokens)
+const KNOWN_PRICING: Record<string, { input: number; output: number; maxTokens?: number; category?: string }> = {
+    "claude-opus-4-6": { input: 15.0, output: 75.0, maxTokens: 32768 },
+    "claude-sonnet-4-6": { input: 3.0, output: 15.0, maxTokens: 16384 },
+    "claude-sonnet-4-20250514": { input: 3.0, output: 15.0, maxTokens: 8192 },
+    "claude-haiku-4-5-20251001": { input: 0.8, output: 4.0, maxTokens: 8192, category: "fast" },
+    "claude-3-5-sonnet-20241022": { input: 3.0, output: 15.0, maxTokens: 8192, category: "fast" },
+    "claude-3-haiku-20240307": { input: 0.25, output: 1.25, maxTokens: 4096, category: "fast" },
+    "gpt-4.1": { input: 2.0, output: 8.0, maxTokens: 32768 },
+    "gpt-4.1-mini": { input: 0.4, output: 1.6, maxTokens: 32768, category: "fast" },
+    "gpt-4.1-nano": { input: 0.1, output: 0.4, maxTokens: 32768, category: "fast" },
+    "gpt-4o": { input: 2.5, output: 10.0, maxTokens: 16384 },
+    "gpt-4o-mini": { input: 0.15, output: 0.6, maxTokens: 16384, category: "fast" },
+    "gpt-4-turbo": { input: 10.0, output: 30.0, maxTokens: 4096 },
+    "o1": { input: 15.0, output: 60.0, maxTokens: 32768, category: "reasoning" },
+    "o1-mini": { input: 1.1, output: 4.4, maxTokens: 16384, category: "reasoning" },
+    "o3": { input: 10.0, output: 40.0, maxTokens: 32768, category: "reasoning" },
+    "o3-mini": { input: 1.1, output: 4.4, maxTokens: 16384, category: "reasoning" },
+    "o4-mini": { input: 1.1, output: 4.4, maxTokens: 16384, category: "reasoning" },
+    "gemini-2.0-flash": { input: 0.1, output: 0.4, maxTokens: 8192, category: "fast" },
+    "gemini-1.5-pro": { input: 1.25, output: 5.0, maxTokens: 8192 },
+};
+
+function categorizeModel(modelId: string): string {
+    const known = KNOWN_PRICING[modelId];
+    if (known?.category) return known.category;
+    if (/haiku|mini|nano|flash/i.test(modelId)) return "fast";
+    if (/o1|o3|o4|reasoning/i.test(modelId)) return "reasoning";
+    return "flagship";
+}
+
+function prettifyModelId(modelId: string): string {
+    return modelId
+        .replace(/^models\//, "")
+        .split("-")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
+        .replace(/(\d) (\d)/g, "$1.$2");
+}
+
+async function discoverProviderModels(provider: string, apiKey: string): Promise<DiscoveredModel[]> {
+    switch (provider) {
+        case "anthropic": return discoverAnthropic(apiKey);
+        case "openai": return discoverOpenAI(apiKey);
+        case "openrouter": return discoverOpenRouter(apiKey);
+        default: return [];
+    }
+}
+
+async function discoverAnthropic(apiKey: string): Promise<DiscoveredModel[]> {
+    const res = await fetch("https://api.anthropic.com/v1/models", {
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const models: DiscoveredModel[] = [];
+    for (const m of data.data || []) {
+        if (/embed|instant/i.test(m.id)) continue;
+        const known = KNOWN_PRICING[m.id];
+        models.push({
+            modelId: m.id,
+            displayName: m.display_name || prettifyModelId(m.id),
+            provider: "anthropic",
+            category: categorizeModel(m.id),
+            baseInputPerMillion: known?.input ?? 3.0,
+            baseOutputPerMillion: known?.output ?? 15.0,
+            maxTokens: known?.maxTokens ?? 8192,
+        });
+    }
+    return models;
+}
+
+async function discoverOpenAI(apiKey: string): Promise<DiscoveredModel[]> {
+    const res = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const models: DiscoveredModel[] = [];
+    const chatPatterns = /^(gpt-4|gpt-3\.5|o1|o3|o4|chatgpt)/;
+    const skipPatterns = /audio|realtime|tts|dall-e|whisper|embed|davinci|babbage|moderation|search/i;
+    for (const m of data.data || []) {
+        if (!chatPatterns.test(m.id) || skipPatterns.test(m.id)) continue;
+        const known = KNOWN_PRICING[m.id];
+        models.push({
+            modelId: m.id,
+            displayName: prettifyModelId(m.id),
+            provider: "openai",
+            category: categorizeModel(m.id),
+            baseInputPerMillion: known?.input ?? 2.0,
+            baseOutputPerMillion: known?.output ?? 8.0,
+            maxTokens: known?.maxTokens ?? 16384,
+        });
+    }
+    return models;
+}
+
+async function discoverOpenRouter(apiKey: string): Promise<DiscoveredModel[]> {
+    const res = await fetch("https://openrouter.ai/api/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const models: DiscoveredModel[] = [];
+    for (const m of data.data || []) {
+        const inputPrice = parseFloat(m.pricing?.prompt || "0") * 1_000_000;
+        const outputPrice = parseFloat(m.pricing?.completion || "0") * 1_000_000;
+        if (inputPrice === 0 && outputPrice === 0) continue;
+        models.push({
+            modelId: m.id,
+            displayName: m.name || prettifyModelId(m.id),
+            provider: "openrouter",
+            category: categorizeModel(m.id),
+            baseInputPerMillion: inputPrice,
+            baseOutputPerMillion: outputPrice,
+            maxTokens: m.context_length ? Math.min(m.context_length, 32768) : 8192,
+        });
+    }
+    return models;
 }

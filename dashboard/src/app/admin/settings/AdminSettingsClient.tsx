@@ -807,8 +807,8 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                 <tr className="border-b border-slate-100">
                                     <th className="text-left px-4 py-2 text-xs font-medium text-slate-500">Model</th>
                                     <th className="text-left px-4 py-2 text-xs font-medium text-slate-500">Category</th>
-                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Base In/Out</th>
-                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Customer In/Out</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Base $/1M tokens (In/Out)</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Customer $/1M tokens (In/Out)</th>
                                     <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Markup</th>
                                     <th className="text-center px-4 py-2 text-xs font-medium text-slate-500">Active</th>
                                     <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Actions</th>
