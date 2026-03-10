@@ -67,6 +67,9 @@ export const PROVIDERS: ProviderInfo[] = [
         models: [
             { id: "MiniMax-M2.5", provider: "minimax", displayName: "MiniMax M2.5", category: "flagship" },
             { id: "MiniMax-M2.5-highspeed", provider: "minimax", displayName: "MiniMax M2.5 Highspeed", category: "fast" },
+            { id: "MiniMax-M2.1", provider: "minimax", displayName: "MiniMax M2.1", category: "flagship" },
+            { id: "MiniMax-M2.1-lightning", provider: "minimax", displayName: "MiniMax M2.1 Lightning", category: "fast" },
+            { id: "MiniMax-M2", provider: "minimax", displayName: "MiniMax M2", category: "flagship" },
         ],
     },
 ];

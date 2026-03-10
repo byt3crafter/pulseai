@@ -603,6 +603,9 @@ const KNOWN_PRICING: Record<string, { input: number; output: number; maxTokens?:
     "gemini-1.5-pro": { input: 1.25, output: 5.0, maxTokens: 8192 },
     "MiniMax-M2.5": { input: 0.3, output: 1.2, maxTokens: 8192 },
     "MiniMax-M2.5-highspeed": { input: 0.3, output: 1.2, maxTokens: 8192, category: "fast" },
+    "MiniMax-M2.1": { input: 0.3, output: 1.2, maxTokens: 8192 },
+    "MiniMax-M2.1-lightning": { input: 0.3, output: 1.2, maxTokens: 8192, category: "fast" },
+    "MiniMax-M2": { input: 0.2, output: 0.8, maxTokens: 8192 },
 };
 
 function categorizeModel(modelId: string): string {
@@ -704,25 +707,26 @@ async function discoverOpenRouter(apiKey: string): Promise<DiscoveredModel[]> {
     return models;
 }
 
-async function discoverMiniMax(apiKey: string): Promise<DiscoveredModel[]> {
-    const res = await fetch("https://api.minimax.io/v1/models", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const models: DiscoveredModel[] = [];
-    for (const m of data.data || []) {
-        if (/embed|speech|voice|video|image/i.test(m.id)) continue;
+async function discoverMiniMax(_apiKey: string): Promise<DiscoveredModel[]> {
+    // MiniMax doesn't have a /models discovery endpoint.
+    // Return known models from our registry instead.
+    const knownModels = [
+        { id: "MiniMax-M2.5", name: "MiniMax M2.5" },
+        { id: "MiniMax-M2.5-highspeed", name: "MiniMax M2.5 Highspeed" },
+        { id: "MiniMax-M2.1", name: "MiniMax M2.1" },
+        { id: "MiniMax-M2.1-lightning", name: "MiniMax M2.1 Lightning" },
+        { id: "MiniMax-M2", name: "MiniMax M2" },
+    ];
+    return knownModels.map((m) => {
         const known = KNOWN_PRICING[m.id];
-        models.push({
+        return {
             modelId: m.id,
-            displayName: m.id || prettifyModelId(m.id),
+            displayName: m.name,
             provider: "minimax",
             category: categorizeModel(m.id),
-            baseInputPerMillion: known?.input ?? 1.1,
-            baseOutputPerMillion: known?.output ?? 4.4,
+            baseInputPerMillion: known?.input ?? 0.3,
+            baseOutputPerMillion: known?.output ?? 1.2,
             maxTokens: known?.maxTokens ?? 8192,
-        });
-    }
-    return models;
+        };
+    });
 }

@@ -51,6 +51,9 @@ const KNOWN_PRICING: Record<string, { input: number; output: number; maxTokens?:
     // MiniMax
     "MiniMax-M2.5": { input: 0.3, output: 1.2, maxTokens: 8192 },
     "MiniMax-M2.5-highspeed": { input: 0.3, output: 1.2, maxTokens: 8192, category: "fast" },
+    "MiniMax-M2.1": { input: 0.3, output: 1.2, maxTokens: 8192 },
+    "MiniMax-M2.1-lightning": { input: 0.3, output: 1.2, maxTokens: 8192, category: "fast" },
+    "MiniMax-M2": { input: 0.2, output: 0.8, maxTokens: 8192 },
 };
 
 function prettifyModelId(modelId: string): string {
@@ -213,41 +216,30 @@ async function discoverOpenRouter(apiKey: string): Promise<DiscoveredModel[]> {
     }
 }
 
-async function discoverMiniMax(apiKey: string): Promise<DiscoveredModel[]> {
-    try {
-        const res = await fetch("https://api.minimax.io/v1/models", {
-            headers: { Authorization: `Bearer ${apiKey}` },
-        });
+async function discoverMiniMax(_apiKey: string): Promise<DiscoveredModel[]> {
+    // MiniMax doesn't have a /models discovery endpoint.
+    // Return known models from our registry instead.
+    const knownModels = [
+        { id: "MiniMax-M2.5", name: "MiniMax M2.5" },
+        { id: "MiniMax-M2.5-highspeed", name: "MiniMax M2.5 Highspeed" },
+        { id: "MiniMax-M2.1", name: "MiniMax M2.1" },
+        { id: "MiniMax-M2.1-lightning", name: "MiniMax M2.1 Lightning" },
+        { id: "MiniMax-M2", name: "MiniMax M2" },
+    ];
 
-        if (!res.ok) {
-            logger.warn({ status: res.status }, "MiniMax models API failed");
-            return [];
-        }
+    const models: DiscoveredModel[] = knownModels.map((m) => {
+        const known = KNOWN_PRICING[m.id];
+        return {
+            modelId: m.id,
+            displayName: m.name,
+            provider: "minimax",
+            category: categorize(m.id),
+            baseInputPerMillion: known?.input ?? 0.3,
+            baseOutputPerMillion: known?.output ?? 1.2,
+            maxTokens: known?.maxTokens ?? 8192,
+        };
+    });
 
-        const data = await res.json();
-        const models: DiscoveredModel[] = [];
-
-        for (const m of data.data || []) {
-            const id = m.id;
-            // Skip non-chat models
-            if (/embed|speech|voice|video|image/i.test(id)) continue;
-
-            const known = KNOWN_PRICING[id];
-            models.push({
-                modelId: id,
-                displayName: m.id || prettifyModelId(id),
-                provider: "minimax",
-                category: categorize(id),
-                baseInputPerMillion: known?.input ?? 1.1,
-                baseOutputPerMillion: known?.output ?? 4.4,
-                maxTokens: known?.maxTokens ?? 8192,
-            });
-        }
-
-        logger.info({ count: models.length }, "Discovered MiniMax models");
-        return models;
-    } catch (err) {
-        logger.error({ err }, "Failed to discover MiniMax models");
-        return [];
-    }
+    logger.info({ count: models.length }, "Loaded MiniMax known models");
+    return models;
 }

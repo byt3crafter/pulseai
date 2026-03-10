@@ -199,6 +199,30 @@ const minimaxProvider: ProviderDefinition = {
             pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
             maxTokens: 8192,
         },
+        {
+            id: "MiniMax-M2.1",
+            provider: "minimax",
+            displayName: "MiniMax M2.1",
+            category: "flagship",
+            pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+            maxTokens: 8192,
+        },
+        {
+            id: "MiniMax-M2.1-lightning",
+            provider: "minimax",
+            displayName: "MiniMax M2.1 Lightning",
+            category: "fast",
+            pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+            maxTokens: 8192,
+        },
+        {
+            id: "MiniMax-M2",
+            provider: "minimax",
+            displayName: "MiniMax M2",
+            category: "flagship",
+            pricing: { inputPerMillion: 0.2, outputPerMillion: 0.8 },
+            maxTokens: 8192,
+        },
     ],
 };
 
