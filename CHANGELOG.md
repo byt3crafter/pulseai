@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.2] - 2026-03-10
+
+### Bug Fixes
+- MiniMax sync uses known models since API has no /models endpoint
+
 ## [0.10.1] - 2026-03-10
 
 ### Bug Fixes
