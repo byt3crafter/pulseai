@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.9.2] - 2026-03-10
+
+### Bug Fixes
+- model sync calls provider APIs directly and add price labels
+
 ## [0.9.1] - 2026-03-10
 
 ### Features
