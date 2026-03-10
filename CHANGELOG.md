@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.9.1] - 2026-03-10
+
+### Features
+- add dynamic model pricing with admin UI and profit tracking
+
+### Documentation
+- add deployment howto guide
+
 ## [0.9.0] - 2026-03-10
 
 Initial versioned release.
