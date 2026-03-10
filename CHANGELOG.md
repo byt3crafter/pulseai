@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.1] - 2026-03-10
+
+### Bug Fixes
+- add missing sync buttons for Google and MiniMax in Model Pricing tab
+
 ## [0.10.0] - 2026-03-10
 
 ### Features
