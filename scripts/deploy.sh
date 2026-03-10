@@ -30,6 +30,8 @@ NC='\033[0m'
 
 REBUILD_TARGET="all"  # all | dashboard | gateway | none
 DO_MIGRATE=true
+DEPLOY_TAG=""
+DEPLOY_LATEST=false
 
 for arg in "$@"; do
     case "$arg" in
@@ -37,13 +39,43 @@ for arg in "$@"; do
         --gateway)    REBUILD_TARGET="gateway" ;;
         --sync-only)  REBUILD_TARGET="none" ;;
         --no-migrate) DO_MIGRATE=false ;;
+        --tag=*)      DEPLOY_TAG="${arg#*=}" ;;
+        --latest)     DEPLOY_LATEST=true ;;
         -h|--help)
-            echo "Usage: $0 [--dashboard|--gateway|--sync-only] [--no-migrate]"
+            echo "Usage: $0 [--dashboard|--gateway|--sync-only] [--no-migrate] [--tag=vX.Y.Z] [--latest]"
+            echo ""
+            echo "  --tag=vX.Y.Z   Deploy a specific tagged version (default: latest tag)"
+            echo "  --latest       Deploy HEAD instead of latest tag"
             exit 0
             ;;
         *) echo -e "${RED}Unknown argument: $arg${NC}"; exit 1 ;;
     esac
 done
+
+# ─── Resolve deploy version ─────────────────────────────────────────────────
+
+if [[ "$DEPLOY_LATEST" == true ]]; then
+    DEPLOY_VERSION="dev-$(git rev-parse --short HEAD)"
+    echo -e "${YELLOW}Deploying HEAD (${DEPLOY_VERSION})${NC}"
+elif [[ -n "$DEPLOY_TAG" ]]; then
+    if ! git rev-parse "$DEPLOY_TAG" >/dev/null 2>&1; then
+        echo -e "${RED}Tag '$DEPLOY_TAG' not found.${NC}"
+        echo "Available tags:"
+        git tag -l --sort=-v:refname | head -10
+        exit 1
+    fi
+    DEPLOY_VERSION="${DEPLOY_TAG#v}"
+    echo -e "${YELLOW}Deploying tag: ${DEPLOY_TAG}${NC}"
+    # Checkout the tag for rsync
+    ORIGINAL_REF=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+    git stash --include-untracked -q 2>/dev/null || true
+    git checkout "$DEPLOY_TAG" --quiet
+    trap 'git checkout "$ORIGINAL_REF" --quiet 2>/dev/null; git stash pop -q 2>/dev/null || true' EXIT
+else
+    # Default: use VERSION file
+    DEPLOY_VERSION=$(cat VERSION 2>/dev/null || echo "dev")
+    echo -e "${YELLOW}Deploying version: ${DEPLOY_VERSION}${NC}"
+fi
 
 # ─── Pre-flight checks ───────────────────────────────────────────────────────
 
@@ -94,13 +126,20 @@ echo -e "${YELLOW}[5/5] Rebuilding containers...${NC}"
 
 case "$REBUILD_TARGET" in
     all)
-        ssh "$VPS_HOST" "cd $VPS_PROJECT && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build pulse-gateway pulse-dashboard" 2>&1
+        ssh "$VPS_HOST" "cd $VPS_PROJECT && \
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build pulse-gateway pulse-dashboard && \
+            docker tag pulse-ai-pulse-gateway:latest pulse-ai-pulse-gateway:${DEPLOY_VERSION} 2>/dev/null || true && \
+            docker tag pulse-ai-pulse-dashboard:latest pulse-ai-pulse-dashboard:${DEPLOY_VERSION} 2>/dev/null || true" 2>&1
         ;;
     dashboard)
-        ssh "$VPS_HOST" "cd $VPS_PROJECT && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build pulse-dashboard" 2>&1
+        ssh "$VPS_HOST" "cd $VPS_PROJECT && \
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build pulse-dashboard && \
+            docker tag pulse-ai-pulse-dashboard:latest pulse-ai-pulse-dashboard:${DEPLOY_VERSION} 2>/dev/null || true" 2>&1
         ;;
     gateway)
-        ssh "$VPS_HOST" "cd $VPS_PROJECT && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build pulse-gateway" 2>&1
+        ssh "$VPS_HOST" "cd $VPS_PROJECT && \
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build pulse-gateway && \
+            docker tag pulse-ai-pulse-gateway:latest pulse-ai-pulse-gateway:${DEPLOY_VERSION} 2>/dev/null || true" 2>&1
         ;;
     none)
         echo -e "  Skipped (--sync-only)"
@@ -112,7 +151,7 @@ echo -e "${GREEN}  Containers rebuilt.${NC}"
 # ─── Done ─────────────────────────────────────────────────────────────────────
 
 echo ""
-echo -e "${BOLD}${GREEN}Deploy complete!${NC}"
+echo -e "${BOLD}${GREEN}Deploy complete! (${DEPLOY_VERSION})${NC}"
 echo -e "  Dashboard: https://pulse.runstate.mu"
 echo -e "  Gateway:   https://pulse.runstate.mu:8082"
 

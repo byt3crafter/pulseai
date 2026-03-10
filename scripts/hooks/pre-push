@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# pre-push hook — Run full test suite before code reaches remote
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+echo -e "${YELLOW}[pre-push] Running test suite...${NC}"
+
+(cd "$ROOT_DIR/pulse" && npx vitest run) || {
+    echo -e "${RED}Tests failed. Push blocked.${NC}"
+    exit 1
+}
+
+echo -e "${GREEN}[pre-push] All tests passed.${NC}"

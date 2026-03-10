@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# pre-commit hook — Block direct commits to main + run typechecks
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "detached")
+
+# ─── Block direct commits to main ────────────────────────────────────────────
+if [[ "$BRANCH" == "main" ]]; then
+    # Allow merge commits (git merge creates a commit on main)
+    MERGE_HEAD="$ROOT_DIR/.git/MERGE_HEAD"
+    if [[ ! -f "$MERGE_HEAD" ]]; then
+        echo -e "${RED}ERROR: Direct commits to 'main' are not allowed.${NC}"
+        echo -e "${YELLOW}Create a feature branch first:${NC}"
+        echo -e "  git checkout -b feat/my-feature"
+        echo -e "  git checkout -b fix/my-bugfix"
+        echo -e "  git checkout -b chore/my-task"
+        echo ""
+        echo -e "${YELLOW}To bypass (emergencies only): git commit --no-verify${NC}"
+        exit 1
+    fi
+fi
+
+# ─── Validate branch naming ─────────────────────────────────────────────────
+VALID_PREFIXES="^(feat|fix|chore|docs|hotfix|refactor|test|release)/"
+if [[ "$BRANCH" != "main" && "$BRANCH" != "detached" ]]; then
+    if ! echo "$BRANCH" | grep -qE "$VALID_PREFIXES"; then
+        echo -e "${RED}ERROR: Branch name '$BRANCH' does not follow naming convention.${NC}"
+        echo -e "${YELLOW}Use one of: feat/xxx, fix/xxx, chore/xxx, docs/xxx, hotfix/xxx, refactor/xxx, test/xxx${NC}"
+        exit 1
+    fi
+fi
+
+# ─── TypeScript checks ──────────────────────────────────────────────────────
+echo -e "${YELLOW}[pre-commit] TypeScript check — pulse/${NC}"
+(cd "$ROOT_DIR/pulse" && npx tsc --noEmit) || {
+    echo -e "${RED}TypeScript errors in pulse/. Commit blocked.${NC}"
+    exit 1
+}
+
+echo -e "${YELLOW}[pre-commit] TypeScript check — dashboard/${NC}"
+(cd "$ROOT_DIR/dashboard" && npx tsc --noEmit) || {
+    echo -e "${RED}TypeScript errors in dashboard/. Commit blocked.${NC}"
+    exit 1
+}
+
+# ─── .env check ──────────────────────────────────────────────────────────────
+STAGED_ENV=$(git diff --cached --name-only | grep -E '\.env' || true)
+if [[ -n "$STAGED_ENV" ]]; then
+    echo -e "${RED}ERROR: .env file(s) staged for commit:${NC}"
+    echo "$STAGED_ENV"
+    exit 1
+fi
+
+echo -e "${GREEN}[pre-commit] All checks passed.${NC}"

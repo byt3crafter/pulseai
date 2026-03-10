@@ -20,6 +20,9 @@ RUN npm run build
 # ==========================================
 FROM node:20-alpine AS runner
 
+ARG BUILD_VERSION=dev
+LABEL org.opencontainers.image.version=$BUILD_VERSION
+
 WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1

@@ -79,6 +79,16 @@ fi
 echo -e "${BOLD}${CYAN}━━━ Pulse AI Push ━━━${NC}"
 echo ""
 
+# ─── Branch check ────────────────────────────────────────────────────────────
+
+BRANCH=$(git branch --show-current)
+if [[ "$BRANCH" == "main" && "$DO_DEPLOY" == false ]]; then
+    echo -e "${RED}Cannot push directly to main. Use a feature branch.${NC}"
+    echo -e "${YELLOW}Create one with: git checkout -b feat/my-feature${NC}"
+    echo -e "${YELLOW}Or use: ./scripts/release.sh patch  (for releases)${NC}"
+    exit 1
+fi
+
 # ─── Pre-flight: full validation ─────────────────────────────────────────────
 
 echo -e "${YELLOW}[1/4] Running pre-deploy checks...${NC}"

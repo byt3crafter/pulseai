@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# commit-msg hook — Enforce conventional commit format
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(head -1 "$COMMIT_MSG_FILE")
+
+# Allow merge commits
+if echo "$COMMIT_MSG" | grep -qE "^Merge "; then
+    exit 0
+fi
+
+# Conventional commit pattern: type(optional-scope): description
+PATTERN="^(feat|fix|chore|docs|refactor|test|perf|ci|build|revert|release)(\(.+\))?: .{3,}"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo -e "${RED}ERROR: Commit message does not follow conventional format.${NC}"
+    echo -e "${YELLOW}Expected: type: description (min 3 chars)${NC}"
+    echo -e "${YELLOW}Types: feat, fix, chore, docs, refactor, test, perf, ci, build, revert, release${NC}"
+    echo ""
+    echo -e "${YELLOW}Examples:${NC}"
+    echo "  feat: add email notification system"
+    echo "  fix: resolve race condition in agent runtime"
+    echo "  chore: update dependencies"
+    echo "  docs: add API documentation"
+    echo ""
+    echo -e "Your message: ${RED}$COMMIT_MSG${NC}"
+    exit 1
+fi
