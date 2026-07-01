@@ -70,7 +70,7 @@ export default async function AdminLayout({
                             role="Administrator"
                             initials={initials}
                             callbackUrl="/admin/login"
-                            variant="dark"
+                            variant="pulse"
                             settingsHref="/admin/settings"
                         />
                     </div>
