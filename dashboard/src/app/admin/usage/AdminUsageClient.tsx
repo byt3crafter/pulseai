@@ -1,6 +1,7 @@
 "use client";
 
 import { getModelDisplayName, getProviderName } from "../../../utils/models";
+import { ui, PageHeader, Panel } from "../../../components/admin/ui";
 
 interface TenantUsage {
     tenantId: string;
@@ -49,18 +50,11 @@ export default function AdminUsageClient({
     );
 
     return (
-        <div className="p-8">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">
-                    Usage Analytics
-                </h1>
-                <p className="text-sm text-[#8A8A90] mt-1">
-                    Platform-wide usage metrics and cost analysis.
-                </p>
-            </div>
+        <div className={ui.page}>
+            <PageHeader title="Usage Analytics" subtitle="Platform-wide usage metrics and cost analysis." />
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-[#242429] border border-[#242429] rounded-md overflow-hidden">
                 <StatCard
                     label="Total Tokens"
                     value={formatNumber(totalInputTokens + totalOutputTokens)}
@@ -83,29 +77,22 @@ export default function AdminUsageClient({
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Top Tenants by Cost */}
-                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
-                    <div className="px-6 py-4 border-b border-[#242429]">
-                        <h2 className="text-sm font-semibold text-[#EDEDED]">
-                            Top Tenants by Cost
-                        </h2>
-                    </div>
-                    <div className="p-6 space-y-4">
+                <Panel label="Top Tenants by Cost">
+                    <div className="space-y-4">
                         {topTenants.length === 0 && (
-                            <p className="text-sm text-[#5A5A61]">
-                                No usage data yet.
-                            </p>
+                            <p className="text-[13px] text-[#5A5A61]">No usage data yet.</p>
                         )}
                         {topTenants.map((t) => {
                             const pct = (t.totalCost / maxTenantCost) * 100;
                             return (
                                 <div key={t.tenantId}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-medium text-[#B5B5BA]">
+                                        <span className="text-[13px] font-medium text-[#B5B5BA]">
                                             {t.tenantName}
                                         </span>
-                                        <span className="text-xs text-[#8A8A90]">
+                                        <span className="text-[11px] text-[#8A8A90] tabular-nums">
                                             ${t.totalCost.toFixed(4)} &middot;{" "}
                                             {t.requestCount} requests
                                         </span>
@@ -120,20 +107,13 @@ export default function AdminUsageClient({
                             );
                         })}
                     </div>
-                </div>
+                </Panel>
 
                 {/* Model Distribution */}
-                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
-                    <div className="px-6 py-4 border-b border-[#242429]">
-                        <h2 className="text-sm font-semibold text-[#EDEDED]">
-                            Model Distribution
-                        </h2>
-                    </div>
-                    <div className="p-6 space-y-4">
+                <Panel label="Model Distribution">
+                    <div className="space-y-4">
                         {modelDistribution.length === 0 && (
-                            <p className="text-sm text-[#5A5A61]">
-                                No usage data yet.
-                            </p>
+                            <p className="text-[13px] text-[#5A5A61]">No usage data yet.</p>
                         )}
                         {modelDistribution.map((m) => {
                             const pct =
@@ -141,11 +121,11 @@ export default function AdminUsageClient({
                             return (
                                 <div key={m.model}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-medium text-[#B5B5BA]">
-                                            <span className="text-xs text-[#5A5A61] mr-1">{getProviderName(m.model)}</span>
+                                        <span className="text-[13px] font-medium text-[#B5B5BA]">
+                                            <span className="text-[11px] text-[#5A5A61] mr-1">{getProviderName(m.model)}</span>
                                             {getModelDisplayName(m.model)}
                                         </span>
-                                        <span className="text-xs text-[#8A8A90]">
+                                        <span className="text-[11px] text-[#8A8A90] tabular-nums">
                                             {formatNumber(m.totalTokens)} tokens
                                             &middot; ${m.totalCost.toFixed(4)}
                                         </span>
@@ -160,7 +140,7 @@ export default function AdminUsageClient({
                             );
                         })}
                     </div>
-                </div>
+                </Panel>
             </div>
         </div>
     );
@@ -168,11 +148,9 @@ export default function AdminUsageClient({
 
 function StatCard({ label, value }: { label: string; value: string }) {
     return (
-        <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-5">
-            <p className="text-xs font-medium text-[#8A8A90] uppercase tracking-wide">
-                {label}
-            </p>
-            <p className="text-2xl font-bold text-[#EDEDED] mt-1">{value}</p>
+        <div className="bg-[#0C0C0E] p-4">
+            <p className={ui.labelMicro}>{label}</p>
+            <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#EDEDED]">{value}</p>
         </div>
     );
 }

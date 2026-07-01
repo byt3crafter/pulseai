@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+import { ui, PageHeader, Panel, Badge } from "../../../components/admin/ui";
 
 interface PluginData {
     id: string;
@@ -65,26 +66,25 @@ export default function AdminPluginsClient({
     }
 
     return (
-        <div className="p-8">
-            <div className="mb-8">
-                <a href="/admin/settings" className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">&larr; Back to Settings</a>
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[#8B5CF6]/10 rounded-lg">
-                        <PuzzleIcon className="w-6 h-6 text-[#8B5CF6]" />
-                    </div>
-                    <h1 className="text-3xl font-bold text-[#EDEDED] tracking-tight">Plugins</h1>
-                </div>
-                <p className="text-[#8A8A90]">Manage plugins and control per-tenant access.</p>
+        <div className={ui.page}>
+            <div>
+                <a href="/admin/settings" className={`${ui.btnGhost} mb-2 inline-block`}>&larr; Back to Settings</a>
+                <PageHeader title="Plugins" subtitle="Manage plugins and control per-tenant access." />
             </div>
 
             {plugins.length === 0 ? (
-                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-12 text-center">
-                    <PuzzleIcon className="w-12 h-12 text-[#5A5A61] mx-auto mb-4" />
-                    <p className="text-[#8A8A90] text-sm">No plugins discovered. Place plugins in <code className="text-xs bg-[#141417] px-1.5 py-0.5 rounded">pulse/plugins/</code> and restart the backend.</p>
-                </div>
+                <Panel>
+                    <div className="p-8 text-center">
+                        <PuzzleIcon className="w-10 h-10 text-[#5A5A61] mx-auto mb-4" />
+                        <p className="text-[#8A8A90] text-[13px]">
+                            No plugins discovered. Place plugins in{" "}
+                            <code className="text-[11px] bg-[#141417] px-1.5 py-0.5 rounded">pulse/plugins/</code> and restart the backend.
+                        </p>
+                    </div>
+                </Panel>
             ) : (
                 <div className="space-y-4">
-                    <p className="text-sm text-[#8A8A90]">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} discovered</p>
+                    <p className="text-[13px] text-[#8A8A90]">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} discovered</p>
 
                     {plugins.map((plugin) => {
                         const isExpanded = expandedPlugins.has(plugin.id);
@@ -99,46 +99,54 @@ export default function AdminPluginsClient({
                         const tenantConfigLookup = new Map(pluginTenantConfigs.map((c) => [c.tenantId, c]));
 
                         return (
-                            <div key={plugin.id} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                            <Panel key={plugin.id} bodyClassName="p-0">
                                 {/* Plugin Header */}
                                 <div className="p-5">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-1.5">
-                                                <h3 className="text-lg font-semibold text-[#EDEDED]">{plugin.name}</h3>
-                                                <span className="text-xs text-[#5A5A61]">v{plugin.version || "?"}</span>
-                                                <span className="px-2 py-0.5 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">{plugin.source}</span>
+                                                <h3 className="text-[15px] font-semibold text-[#EDEDED]">{plugin.name}</h3>
+                                                <Badge variant="neutral">v{plugin.version || "?"}</Badge>
+                                                <Badge variant="neutral">{plugin.source}</Badge>
                                             </div>
-                                            <p className="text-sm text-[#8A8A90] mb-3">{description}</p>
-                                            {author && <p className="text-xs text-[#5A5A61] mb-3">by {author}</p>}
+                                            <p className="text-[13px] text-[#8A8A90] mb-3">{description}</p>
+                                            {author && <p className="text-[11px] text-[#5A5A61] mb-3">by {author}</p>}
 
                                             {/* Stats badges */}
                                             <div className="flex flex-wrap gap-2">
                                                 {toolCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">
-                                                        <WrenchIcon className="w-3 h-3" /> {toolCount} tool{toolCount !== 1 ? "s" : ""}
-                                                    </span>
+                                                    <Badge variant="neutral">
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <WrenchIcon className="w-3 h-3" /> {toolCount} tool{toolCount !== 1 ? "s" : ""}
+                                                        </span>
+                                                    </Badge>
                                                 )}
                                                 {routeCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">
-                                                        <RouteIcon className="w-3 h-3" /> {routeCount} route{routeCount !== 1 ? "s" : ""}
-                                                    </span>
+                                                    <Badge variant="neutral">
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <RouteIcon className="w-3 h-3" /> {routeCount} route{routeCount !== 1 ? "s" : ""}
+                                                        </span>
+                                                    </Badge>
                                                 )}
                                                 {hookNames.length > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40 rounded-full">
-                                                        <HookIcon className="w-3 h-3" /> {hookNames.length} hook{hookNames.length !== 1 ? "s" : ""}
-                                                    </span>
+                                                    <Badge variant="neutral">
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <HookIcon className="w-3 h-3" /> {hookNames.length} hook{hookNames.length !== 1 ? "s" : ""}
+                                                        </span>
+                                                    </Badge>
                                                 )}
                                                 {credentialSchema.length > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">
-                                                        <KeyIcon className="w-3 h-3" /> {credentialSchema.length} credential{credentialSchema.length !== 1 ? "s" : ""}
-                                                    </span>
+                                                    <Badge variant="neutral">
+                                                        <span className="inline-flex items-center gap-1">
+                                                            <KeyIcon className="w-3 h-3" /> {credentialSchema.length} credential{credentialSchema.length !== 1 ? "s" : ""}
+                                                        </span>
+                                                    </Badge>
                                                 )}
                                             </div>
                                         </div>
 
                                         {/* Actions */}
-                                        <div className="flex items-center gap-3 ml-4">
+                                        <div className="flex items-center gap-4 ml-4">
                                             <form action={toggleGlobalPlugin}>
                                                 <input type="hidden" name="pluginId" value={plugin.id} />
                                                 <input type="hidden" name="enabled" value={String(plugin.enabled)} />
@@ -157,14 +165,14 @@ export default function AdminPluginsClient({
 
                                             <button
                                                 onClick={() => toggleExpand(plugin.id)}
-                                                className="text-xs text-[#8B5CF6] hover:text-[#A78BFA] font-medium whitespace-nowrap"
+                                                className={`${ui.btnGhost} whitespace-nowrap`}
                                             >
                                                 {isExpanded ? "Hide tenants" : "Manage tenants"}
                                             </button>
 
                                             <button
                                                 onClick={() => setRemovePluginId(plugin.id)}
-                                                className="text-xs text-[#F0503C] hover:text-[#F0503C]/80 font-medium"
+                                                className={ui.btnDanger}
                                             >
                                                 Remove
                                             </button>
@@ -175,9 +183,9 @@ export default function AdminPluginsClient({
                                 {/* Expanded: Tenant List */}
                                 {isExpanded && (
                                     <div className="border-t border-[#1C1C1F] bg-[#101012] px-5 py-4">
-                                        <h4 className="text-sm font-medium text-[#B5B5BA] mb-3">Per-Tenant Access</h4>
+                                        <h4 className={`${ui.labelMicro} mb-3`}>Per-Tenant Access</h4>
                                         {tenants.length === 0 ? (
-                                            <p className="text-xs text-[#5A5A61]">No tenants found.</p>
+                                            <p className="text-[11px] text-[#5A5A61]">No tenants found.</p>
                                         ) : (
                                             <div className="space-y-2">
                                                 {tenants.map((tenant) => {
@@ -188,14 +196,14 @@ export default function AdminPluginsClient({
                                                     return (
                                                         <div key={tenant.id} className="flex items-center justify-between py-2 px-3 bg-[#0C0C0E] rounded-lg border border-[#242429]">
                                                             <div>
-                                                                <span className="text-sm font-medium text-[#EDEDED]">{tenant.name}</span>
-                                                                <span className="text-xs text-[#5A5A61] ml-2">({tenant.slug})</span>
+                                                                <span className="text-[13px] font-medium text-[#EDEDED]">{tenant.name}</span>
+                                                                <span className="text-[11px] text-[#5A5A61] ml-2">({tenant.slug})</span>
                                                             </div>
                                                             <div className="flex items-center gap-3">
-                                                                <span className={`text-xs font-medium ${isEnabled ? "text-[#3FB950]" : "text-[#5A5A61]"}`}>
+                                                                <Badge variant={isEnabled ? "success" : "neutral"}>
                                                                     {isEnabled ? "Enabled" : "Disabled"}
-                                                                    {!override && <span className="text-[#5A5A61] ml-1">(default)</span>}
-                                                                </span>
+                                                                    {!override && " (default)"}
+                                                                </Badge>
                                                                 <form action={setTenantPluginOverride}>
                                                                     <input type="hidden" name="tenantId" value={tenant.id} />
                                                                     <input type="hidden" name="pluginId" value={plugin.id} />
@@ -219,7 +227,7 @@ export default function AdminPluginsClient({
                                         )}
                                     </div>
                                 )}
-                            </div>
+                            </Panel>
                         );
                     })}
                 </div>

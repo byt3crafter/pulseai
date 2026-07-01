@@ -7,6 +7,7 @@ import { auth } from "../../auth";
 import { getAdminStatus } from "./overview-data";
 import { db } from "../../storage/db";
 import { tenants } from "../../storage/schema";
+import { ui } from "../../components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -80,11 +81,8 @@ export default async function AdminLayout({
                         </div>
                         <div className="ml-auto flex items-center gap-2">
                             <CommandPalette tenants={tenantRows} />
-                            <Link
-                                href="/admin/tenants"
-                                className="bg-[#8B5CF6] text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-[#A78BFA] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0A0A0B]"
-                            >
-                                + New Workspace
+                            <Link href="/admin/tenants" className={ui.btnPrimary}>
+                                <span aria-hidden="true">+</span> New Workspace
                             </Link>
                         </div>
                     </header>

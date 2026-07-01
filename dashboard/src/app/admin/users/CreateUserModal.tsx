@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createUserAction } from "./actions";
+import { ui } from "../../../components/admin/ui";
 
 interface Tenant {
     id: string;
@@ -84,10 +85,7 @@ export default function CreateUserModal({
 
     if (!isOpen) {
         return (
-            <button
-                onClick={() => setIsOpen(true)}
-                className="px-4 py-2 bg-[#8B5CF6] hover:bg-[#A78BFA] text-white text-sm font-medium rounded-lg transition-colors"
-            >
+            <button onClick={() => setIsOpen(true)} className={ui.btnPrimary}>
                 Create User
             </button>
         );
@@ -104,7 +102,7 @@ export default function CreateUserModal({
                 className="absolute inset-0 bg-black/40"
                 onClick={handleClose}
             />
-            <div ref={modalRef} className="relative bg-[#0C0C0E] border border-[#242429] rounded-2xl w-full max-w-lg mx-4 p-6">
+            <div ref={modalRef} className="relative bg-[#0C0C0E] border border-[#242429] rounded-lg w-full max-w-lg mx-4 p-6">
                 {credentials ? (
                     /* Success state — show credentials */
                     <div>
@@ -113,19 +111,19 @@ export default function CreateUserModal({
                         </h2>
                         <div className="space-y-3 bg-[#3FB950]/10 border border-[#3FB950]/40 rounded-lg p-4">
                             <div>
-                                <p className="text-xs font-medium text-[#3FB950] uppercase tracking-wide">
+                                <p className={ui.labelMicro}>
                                     Email
                                 </p>
-                                <p className="text-sm font-sans text-[#EDEDED]">
+                                <p className="text-[13px] font-sans text-[#EDEDED] mt-1">
                                     {credentials.email}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-[#3FB950] uppercase tracking-wide">
+                                <p className={ui.labelMicro}>
                                     Temporary Password
                                 </p>
-                                <div className="flex items-center gap-2">
-                                    <code className="text-sm font-sans bg-[#0C0C0E] px-2 py-1 rounded border border-[#3FB950]/40 text-[#EDEDED]">
+                                <div className="flex items-center gap-2 mt-1">
+                                    <code className="text-[13px] font-sans bg-[#0C0C0E] px-2 py-1 rounded border border-[#3FB950]/40 text-[#EDEDED]">
                                         {credentials.password}
                                     </code>
                                     <button
@@ -134,22 +132,19 @@ export default function CreateUserModal({
                                                 credentials.password
                                             )
                                         }
-                                        className="text-xs text-[#3FB950] hover:text-[#3FB950]/80 font-medium"
+                                        className="text-[13px] font-medium text-[#3FB950] hover:text-[#3FB950]/80 transition-colors"
                                     >
                                         Copy
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-xs text-[#3FB950]">
+                            <p className="text-[11px] text-[#3FB950]">
                                 User will be prompted to change their password on
                                 first login.
                             </p>
                         </div>
                         <div className="flex justify-end mt-4">
-                            <button
-                                onClick={handleClose}
-                                className="px-4 py-2 text-sm font-medium text-white bg-[#8B5CF6] rounded-lg hover:bg-[#A78BFA] transition-colors"
-                            >
+                            <button onClick={handleClose} className={ui.btnPrimary}>
                                 Done
                             </button>
                         </div>
@@ -162,14 +157,14 @@ export default function CreateUserModal({
                         </h2>
 
                         {error && (
-                            <div role="alert" className="mb-4 p-3 bg-[#F0503C]/10 border border-[#F0503C]/40 rounded-lg text-sm text-[#F0503C]">
+                            <div role="alert" className="mb-4 p-3 bg-[#F0503C]/10 border border-[#F0503C]/40 rounded-lg text-[13px] text-[#F0503C]">
                                 {error}
                             </div>
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label htmlFor="create-user-email" className="block text-sm font-medium text-[#B5B5BA] mb-1">
+                                <label htmlFor="create-user-email" className={ui.label}>
                                     Email
                                 </label>
                                 <input
@@ -177,12 +172,12 @@ export default function CreateUserModal({
                                     name="email"
                                     type="email"
                                     required
-                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none"
+                                    className={ui.input}
                                 />
                             </div>
 
                             <div>
-                                <label htmlFor="create-user-name" className="block text-sm font-medium text-[#B5B5BA] mb-1">
+                                <label htmlFor="create-user-name" className={ui.label}>
                                     Name
                                 </label>
                                 <input
@@ -190,12 +185,12 @@ export default function CreateUserModal({
                                     name="name"
                                     type="text"
                                     required
-                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none"
+                                    className={ui.input}
                                 />
                             </div>
 
                             <div>
-                                <label htmlFor="create-user-role" className="block text-sm font-medium text-[#B5B5BA] mb-1">
+                                <label htmlFor="create-user-role" className={ui.label}>
                                     Role
                                 </label>
                                 <select
@@ -203,7 +198,7 @@ export default function CreateUserModal({
                                     name="role"
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
-                                    className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none bg-[#101012]"
+                                    className={ui.input}
                                 >
                                     <option value="TENANT">Tenant User</option>
                                     <option value="ADMIN">Admin</option>
@@ -212,14 +207,14 @@ export default function CreateUserModal({
 
                             {role === "TENANT" && (
                                 <div>
-                                    <label htmlFor="create-user-tenantId" className="block text-sm font-medium text-[#B5B5BA] mb-1">
+                                    <label htmlFor="create-user-tenantId" className={ui.label}>
                                         Workspace
                                     </label>
                                     <select
                                         id="create-user-tenantId"
                                         name="tenantId"
                                         required
-                                        className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none bg-[#101012]"
+                                        className={ui.input}
                                     >
                                         <option value="">
                                             Select a workspace...
@@ -237,14 +232,14 @@ export default function CreateUserModal({
                                 <button
                                     type="button"
                                     onClick={handleClose}
-                                    className="px-4 py-2 text-sm font-medium text-[#B5B5BA] bg-[#0C0C0E] border border-[#242429] rounded-lg hover:bg-[#101012] transition-colors"
+                                    className={ui.btnSecondary}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-[#8B5CF6] rounded-lg hover:bg-[#A78BFA] transition-colors disabled:opacity-50"
+                                    className={ui.btnPrimary}
                                 >
                                     {loading ? "Creating..." : "Create User"}
                                 </button>

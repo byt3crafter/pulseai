@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { ui, PageHeader, Panel, Badge } from "../../../../components/admin/ui";
 
 interface Message {
     id: string;
@@ -21,11 +22,20 @@ interface ConversationInfo {
     tenantName: string;
 }
 
-const channelBadge: Record<string, { bg: string; text: string }> = {
-    telegram: { bg: "bg-[#3B82F6]/10 border border-[#3B82F6]/40", text: "text-[#3B82F6]" },
-    whatsapp: { bg: "bg-[#3FB950]/10 border border-[#3FB950]/40", text: "text-[#3FB950]" },
-    webchat: { bg: "bg-[#A78BFA]/10 border border-[#A78BFA]/40", text: "text-[#A78BFA]" },
+const channelBadge: Record<string, string> = {
+    telegram: "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/30",
+    whatsapp: "bg-[#3FB950]/10 text-[#3FB950] border-[#3FB950]/30",
+    webchat: "bg-[#A78BFA]/10 text-[#A78BFA] border-[#A78BFA]/30",
 };
+
+function ChannelBadge({ channelType }: { channelType: string }) {
+    const cls = channelBadge[channelType] ?? "bg-[#141417] text-[#8A8A90] border-[#242429]";
+    return (
+        <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium capitalize ${cls}`}>
+            {channelType}
+        </span>
+    );
+}
 
 function roleStyling(role: string) {
     switch (role) {
@@ -230,11 +240,6 @@ export default function AdminConversationDetailClient({
     conversation: ConversationInfo;
     messages: Message[];
 }) {
-    const badge = channelBadge[conversation.channelType] ?? {
-        bg: "bg-[#141417] border border-[#242429]",
-        text: "text-[#8A8A90]",
-    };
-
     const dateGroups = groupByDate(messages);
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
@@ -243,109 +248,84 @@ export default function AdminConversationDetailClient({
     };
 
     return (
-        <div className="p-8">
-            {/* Header */}
-            <div className="mb-6">
-                <Link
-                    href="/admin/conversations"
-                    className="text-sm text-[#8A8A90] hover:text-[#B5B5BA] transition-colors mb-2 inline-block"
-                >
-                    &larr; Back to Conversations
-                </Link>
+        <div className={ui.page}>
+            <Link
+                href="/admin/conversations"
+                className="text-[13px] text-[#8A8A90] hover:text-[#B5B5BA] transition-colors inline-block"
+            >
+                &larr; Back to Conversations
+            </Link>
 
-                <div className="mb-3 px-3 py-2 bg-[#141417] rounded-lg inline-block">
-                    <span className="text-xs font-medium text-[#8A8A90] uppercase tracking-wide">
-                        Workspace:
-                    </span>{" "}
-                    <span className="text-sm font-semibold text-[#B5B5BA]">
-                        {conversation.tenantName}
-                    </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#EDEDED]">
-                            {conversation.contactName ||
-                                conversation.channelContactId}
-                        </h1>
-                        <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs font-sans text-[#5A5A61]">
-                                {conversation.channelContactId}
-                            </span>
-                            <span
-                                className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${badge.bg} ${badge.text}`}
-                            >
-                                {conversation.channelType}
-                            </span>
-                            <span
-                                className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${
-                                    conversation.status === "active"
-                                        ? "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
-                                        : "bg-[#141417] text-[#8A8A90] border border-[#242429]"
-                                }`}
-                            >
-                                {conversation.status}
-                            </span>
-                        </div>
+            <PageHeader
+                title={conversation.contactName || conversation.channelContactId}
+                subtitle={`${conversation.tenantName} · ${conversation.channelContactId}`}
+                action={
+                    <div className="flex items-center gap-2">
+                        <ChannelBadge channelType={conversation.channelType} />
+                        <Badge variant={conversation.status === "active" ? "success" : "neutral"}>
+                            {conversation.status}
+                        </Badge>
                     </div>
-                </div>
-            </div>
+                }
+            />
 
             {/* Message Thread — grouped by date */}
-            <div className="space-y-4">
-                {dateGroups.map((group) => (
-                    <div key={group.date}>
-                        {/* Date header */}
-                        <button
-                            onClick={() => toggleDate(group.date)}
-                            className="flex items-center gap-3 w-full py-2 group"
-                        >
-                            <div className="h-px flex-1 bg-[#242429]" />
-                            <span className="text-xs font-medium text-[#5A5A61] group-hover:text-[#B5B5BA] transition-colors flex items-center gap-1.5">
-                                <svg className={`w-3 h-3 transition-transform ${collapsed[group.date] ? "-rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                </svg>
-                                {group.date}
-                                <span className="text-[#5A5A61]">({group.messages.length})</span>
-                            </span>
-                            <div className="h-px flex-1 bg-[#242429]" />
-                        </button>
+            <Panel label="Message Thread" meta={`${messages.length} messages`}>
+                <div className="space-y-4">
+                    {dateGroups.map((group) => (
+                        <div key={group.date}>
+                            {/* Date header */}
+                            <button
+                                onClick={() => toggleDate(group.date)}
+                                className="flex items-center gap-3 w-full py-2 group"
+                            >
+                                <div className="h-px flex-1 bg-[#242429]" />
+                                <span className="text-xs font-medium text-[#5A5A61] group-hover:text-[#B5B5BA] transition-colors flex items-center gap-1.5">
+                                    <svg className={`w-3 h-3 transition-transform ${collapsed[group.date] ? "-rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                    </svg>
+                                    {group.date}
+                                    <span className="text-[#5A5A61]">({group.messages.length})</span>
+                                </span>
+                                <div className="h-px flex-1 bg-[#242429]" />
+                            </button>
 
-                        {/* Messages within date */}
-                        {!collapsed[group.date] && (
-                            <div className="space-y-3">
-                                {group.messages.map((msg) => (
-                                    <div
-                                        key={msg.id}
-                                        className={`rounded-xl px-5 py-3 ${roleStyling(msg.role)}`}
-                                    >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs font-semibold text-[#8A8A90] uppercase tracking-wide">
-                                                {roleLabel(msg.role)}
-                                            </span>
-                                            <span className="text-xs text-[#5A5A61]">
-                                                {msg.createdAt
-                                                    ? new Date(msg.createdAt).toLocaleTimeString()
-                                                    : ""}
-                                            </span>
+                            {/* Messages within date */}
+                            {!collapsed[group.date] && (
+                                <div className="space-y-3">
+                                    {group.messages.map((msg) => (
+                                        <div
+                                            key={msg.id}
+                                            className={`rounded-lg px-5 py-3 ${roleStyling(msg.role)}`}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-xs font-semibold text-[#8A8A90] uppercase tracking-wide">
+                                                    {roleLabel(msg.role)}
+                                                </span>
+                                                <span className="text-xs text-[#5A5A61]">
+                                                    {msg.createdAt
+                                                        ? new Date(msg.createdAt).toLocaleTimeString()
+                                                        : ""}
+                                                </span>
+                                            </div>
+                                            {msg.role === "tool" ? (
+                                                <pre className="text-xs whitespace-pre-wrap">{msg.content}</pre>
+                                            ) : (
+                                                <MarkdownContent content={msg.content} />
+                                            )}
                                         </div>
-                                        {msg.role === "tool" ? (
-                                            <pre className="text-xs whitespace-pre-wrap">{msg.content}</pre>
-                                        ) : (
-                                            <MarkdownContent content={msg.content} />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ))}
-                {messages.length === 0 && (
-                    <div className="text-center py-12 text-sm text-[#5A5A61]">
-                        No messages in this conversation.
-                    </div>
-                )}
-            </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {messages.length === 0 && (
+                        <div className="text-center py-12 text-[13px] text-[#5A5A61]">
+                            No messages in this conversation.
+                        </div>
+                    )}
+                </div>
+            </Panel>
         </div>
     );
 }
