@@ -46,29 +46,29 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href={`/admin/tenants/${tenantId}`} className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">
+                <a href={`/admin/tenants/${tenantId}`} className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block">
                     &larr; Back to {tenant.name}
                 </a>
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-50 rounded-lg">
-                        <KeyIcon className="w-6 h-6 text-amber-600" />
+                    <div className="p-2 bg-[#F5A524]/10 rounded-lg">
+                        <KeyIcon className="w-6 h-6 text-[#F5A524]" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Credentials — {tenant.name}</h1>
-                        <p className="text-slate-500 text-sm">Admin view of tenant API credentials (values never shown).</p>
+                        <h1 className="text-2xl font-bold text-[#EDEDED]">Credentials — {tenant.name}</h1>
+                        <p className="text-[#8A8A90] text-sm">Admin view of tenant API credentials (values never shown).</p>
                     </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Stored Credentials</h2>
-                    <p className="text-sm text-slate-500 mt-1">{creds.length} credential(s).</p>
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">Stored Credentials</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">{creds.length} credential(s).</p>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                            <tr className="text-left text-xs text-[#5A5A61] border-b border-[#1C1C1F]">
                                 <th className="px-6 py-3 font-medium">Name</th>
                                 <th className="px-6 py-3 font-medium">Type</th>
                                 <th className="px-6 py-3 font-medium">Description</th>
@@ -79,26 +79,26 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
                         <tbody>
                             {creds.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
+                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#5A5A61]">
                                         No credentials stored for this tenant.
                                     </td>
                                 </tr>
                             )}
                             {creds.map((cred) => (
-                                <tr key={cred.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                    <td className="px-6 py-3 font-mono text-sm font-medium text-slate-900">{cred.name}</td>
+                                <tr key={cred.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
+                                    <td className="px-6 py-3 font-mono text-sm font-medium text-[#EDEDED]">{cred.name}</td>
                                     <td className="px-6 py-3">
-                                        <span className="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded-full">{cred.credentialType}</span>
+                                        <span className="px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">{cred.credentialType}</span>
                                     </td>
-                                    <td className="px-6 py-3 text-sm text-slate-500">{cred.description || "—"}</td>
-                                    <td className="px-6 py-3 text-xs text-slate-400">
+                                    <td className="px-6 py-3 text-sm text-[#8A8A90]">{cred.description || "—"}</td>
+                                    <td className="px-6 py-3 text-xs text-[#5A5A61]">
                                         {cred.updatedAt ? new Date(cred.updatedAt).toLocaleDateString() : "—"}
                                     </td>
                                     <td className="px-6 py-3">
                                         <form action={deleteCredentialAction}>
                                             <input type="hidden" name="credentialId" value={cred.id} />
                                             <input type="hidden" name="tenantId" value={tenantId} />
-                                            <button type="submit" className="text-xs text-red-600 hover:text-red-800 font-medium">
+                                            <button type="submit" className="text-xs text-[#F0503C] hover:text-[#F0503C]/80 font-medium">
                                                 Delete (Admin)
                                             </button>
                                         </form>

@@ -86,7 +86,7 @@ export default function CreateUserModal({
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-[#F5A524] hover:bg-[#FFC24B] text-black text-sm font-medium rounded-lg transition-colors"
             >
                 Create User
             </button>
@@ -104,28 +104,28 @@ export default function CreateUserModal({
                 className="absolute inset-0 bg-black/40"
                 onClick={handleClose}
             />
-            <div ref={modalRef} className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+            <div ref={modalRef} className="relative bg-[#0C0C0E] border border-[#242429] rounded-2xl w-full max-w-lg mx-4 p-6">
                 {credentials ? (
                     /* Success state — show credentials */
                     <div>
-                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-slate-900 mb-4">
+                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-[#EDEDED] mb-4">
                             User Created
                         </h2>
-                        <div className="space-y-3 bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="space-y-3 bg-[#3FB950]/10 border border-[#3FB950]/40 rounded-lg p-4">
                             <div>
-                                <p className="text-xs font-medium text-green-700 uppercase tracking-wide">
+                                <p className="text-xs font-medium text-[#3FB950] uppercase tracking-wide">
                                     Email
                                 </p>
-                                <p className="text-sm font-mono text-green-900">
+                                <p className="text-sm font-mono text-[#EDEDED]">
                                     {credentials.email}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-green-700 uppercase tracking-wide">
+                                <p className="text-xs font-medium text-[#3FB950] uppercase tracking-wide">
                                     Temporary Password
                                 </p>
                                 <div className="flex items-center gap-2">
-                                    <code className="text-sm font-mono bg-white px-2 py-1 rounded border border-green-200 text-green-900">
+                                    <code className="text-sm font-mono bg-[#0C0C0E] px-2 py-1 rounded border border-[#3FB950]/40 text-[#EDEDED]">
                                         {credentials.password}
                                     </code>
                                     <button
@@ -134,13 +134,13 @@ export default function CreateUserModal({
                                                 credentials.password
                                             )
                                         }
-                                        className="text-xs text-green-700 hover:text-green-900 font-medium"
+                                        className="text-xs text-[#3FB950] hover:text-[#3FB950]/80 font-medium"
                                     >
                                         Copy
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-xs text-green-600">
+                            <p className="text-xs text-[#3FB950]">
                                 User will be prompted to change their password on
                                 first login.
                             </p>
@@ -148,7 +148,7 @@ export default function CreateUserModal({
                         <div className="flex justify-end mt-4">
                             <button
                                 onClick={handleClose}
-                                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-black bg-[#F5A524] rounded-lg hover:bg-[#FFC24B] transition-colors"
                             >
                                 Done
                             </button>
@@ -157,19 +157,19 @@ export default function CreateUserModal({
                 ) : (
                     /* Form state */
                     <div>
-                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-slate-900 mb-4">
+                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-[#EDEDED] mb-4">
                             Create User
                         </h2>
 
                         {error && (
-                            <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                            <div role="alert" className="mb-4 p-3 bg-[#F0503C]/10 border border-[#F0503C]/40 rounded-lg text-sm text-[#F0503C]">
                                 {error}
                             </div>
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label htmlFor="create-user-email" className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="create-user-email" className="block text-sm font-medium text-[#B5B5BA] mb-1">
                                     Email
                                 </label>
                                 <input
@@ -177,12 +177,12 @@ export default function CreateUserModal({
                                     name="email"
                                     type="email"
                                     required
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none"
                                 />
                             </div>
 
                             <div>
-                                <label htmlFor="create-user-name" className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="create-user-name" className="block text-sm font-medium text-[#B5B5BA] mb-1">
                                     Name
                                 </label>
                                 <input
@@ -190,12 +190,12 @@ export default function CreateUserModal({
                                     name="name"
                                     type="text"
                                     required
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none"
                                 />
                             </div>
 
                             <div>
-                                <label htmlFor="create-user-role" className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="create-user-role" className="block text-sm font-medium text-[#B5B5BA] mb-1">
                                     Role
                                 </label>
                                 <select
@@ -203,7 +203,7 @@ export default function CreateUserModal({
                                     name="role"
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
+                                    className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none bg-[#101012]"
                                 >
                                     <option value="TENANT">Tenant User</option>
                                     <option value="ADMIN">Admin</option>
@@ -212,14 +212,14 @@ export default function CreateUserModal({
 
                             {role === "TENANT" && (
                                 <div>
-                                    <label htmlFor="create-user-tenantId" className="block text-sm font-medium text-slate-700 mb-1">
+                                    <label htmlFor="create-user-tenantId" className="block text-sm font-medium text-[#B5B5BA] mb-1">
                                         Workspace
                                     </label>
                                     <select
                                         id="create-user-tenantId"
                                         name="tenantId"
                                         required
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
+                                        className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none bg-[#101012]"
                                     >
                                         <option value="">
                                             Select a workspace...
@@ -237,14 +237,14 @@ export default function CreateUserModal({
                                 <button
                                     type="button"
                                     onClick={handleClose}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                                    className="px-4 py-2 text-sm font-medium text-[#B5B5BA] bg-[#0C0C0E] border border-[#242429] rounded-lg hover:bg-[#101012] transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-sm font-medium text-black bg-[#F5A524] rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-50"
                                 >
                                     {loading ? "Creating..." : "Create User"}
                                 </button>

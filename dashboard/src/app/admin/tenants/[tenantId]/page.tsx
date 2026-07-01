@@ -49,17 +49,17 @@ export default async function TenantDetailPage({
             <div className="mb-8">
                 <Link
                     href="/admin/tenants"
-                    className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block"
+                    className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block"
                 >
                     &larr; Back to Tenants
                 </Link>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{tenant.name}</h1>
+                <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">{tenant.name}</h1>
                 <div className="flex items-center gap-3 mt-1">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md text-xs font-mono">
+                    <span className="bg-[#141417] text-[#8A8A90] border border-[#242429] px-2 py-0.5 rounded-md text-xs font-mono">
                         {tenant.slug}
                     </span>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                        tenant.status === "active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        tenant.status === "active" ? "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40" : "bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40"
                     }`}>
                         {tenant.status}
                     </span>
@@ -68,27 +68,27 @@ export default async function TenantDetailPage({
 
             {/* Quick Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                    <div className="text-xs text-gray-500">Channels</div>
-                    <div className="text-lg font-semibold text-gray-900">{channels.length}</div>
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-4">
+                    <div className="text-xs text-[#8A8A90]">Channels</div>
+                    <div className="text-lg font-semibold text-[#EDEDED]">{channels.length}</div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                    <div className="text-xs text-gray-500">Pending Approvals</div>
-                    <div className="text-lg font-semibold text-gray-900">
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-4">
+                    <div className="text-xs text-[#8A8A90]">Pending Approvals</div>
+                    <div className="text-lg font-semibold text-[#EDEDED]">
                         {pendingCount}
                         {Number(pendingCount) > 0 && (
                             <Link
                                 href={`/admin/tenants/${tenantId}/approvals`}
-                                className="text-sm font-normal text-indigo-600 hover:text-indigo-700 ml-2"
+                                className="text-sm font-normal text-[#F5A524] hover:text-[#FFC24B] ml-2"
                             >
                                 View
                             </Link>
                         )}
                     </div>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                    <div className="text-xs text-gray-500">OAuth Client</div>
-                    <div className="text-sm font-mono text-gray-700 truncate">
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-4">
+                    <div className="text-xs text-[#8A8A90]">OAuth Client</div>
+                    <div className="text-sm font-mono text-[#B5B5BA] truncate">
                         {oauthClient?.clientId ?? "None"}
                     </div>
                 </div>
@@ -106,7 +106,7 @@ export default async function TenantDetailPage({
             <div className="mt-8">
                 <Link
                     href={`/admin/tenants/${tenantId}/approvals`}
-                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                    className="text-sm text-[#F5A524] hover:text-[#FFC24B] font-medium"
                 >
                     Manage Approvals & Allowlists &rarr;
                 </Link>

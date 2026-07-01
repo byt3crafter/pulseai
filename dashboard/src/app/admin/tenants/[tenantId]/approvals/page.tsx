@@ -69,14 +69,14 @@ export default async function ApprovalsPage({
             <div className="mb-8">
                 <Link
                     href={`/admin/tenants/${tenantId}`}
-                    className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block"
+                    className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block"
                 >
                     &larr; Back to Tenant Settings
                 </Link>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+                <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">
                     Approvals & Allowlists
                 </h1>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-[#8A8A90] mt-1">
                     Manage DM pairing approvals and group chat access.
                 </p>
             </div>

@@ -22,23 +22,23 @@ interface ConversationInfo {
 }
 
 const channelBadge: Record<string, { bg: string; text: string }> = {
-    telegram: { bg: "bg-blue-100", text: "text-blue-800" },
-    whatsapp: { bg: "bg-green-100", text: "text-green-800" },
-    webchat: { bg: "bg-purple-100", text: "text-purple-800" },
+    telegram: { bg: "bg-[#3B82F6]/10 border border-[#3B82F6]/40", text: "text-[#3B82F6]" },
+    whatsapp: { bg: "bg-[#3FB950]/10 border border-[#3FB950]/40", text: "text-[#3FB950]" },
+    webchat: { bg: "bg-[#A78BFA]/10 border border-[#A78BFA]/40", text: "text-[#A78BFA]" },
 };
 
 function roleStyling(role: string) {
     switch (role) {
         case "user":
-            return "bg-indigo-50 text-slate-800 ml-12";
+            return "bg-[#141417] text-[#EDEDED] ml-12";
         case "assistant":
-            return "bg-white border border-slate-200 text-slate-800 mr-12";
+            return "bg-[#101012] border border-[#242429] text-[#EDEDED] mr-12";
         case "tool":
-            return "bg-amber-50 border border-amber-200 text-amber-900 font-mono text-xs mr-12";
+            return "bg-[#F5A524]/10 border border-[#F5A524]/40 text-[#F5A524] font-mono text-xs mr-12";
         case "system":
-            return "bg-slate-50 border border-slate-200 text-slate-500 italic text-center mx-16 text-xs";
+            return "bg-[#101012] border border-[#242429] text-[#8A8A90] italic text-center mx-16 text-xs";
         default:
-            return "bg-slate-50 text-slate-700 mr-12";
+            return "bg-[#101012] text-[#B5B5BA] mr-12";
     }
 }
 
@@ -103,8 +103,8 @@ function MarkdownContent({ content }: { content: string }) {
             }
             i++; // skip closing ```
             elements.push(
-                <pre key={`code-${i}`} className="bg-slate-900 text-slate-100 rounded-lg p-4 overflow-x-auto text-xs my-2">
-                    {lang && <div className="text-xs text-slate-400 mb-2">{lang}</div>}
+                <pre key={`code-${i}`} className="bg-[#050506] text-[#EDEDED] rounded-lg p-4 overflow-x-auto text-xs my-2">
+                    {lang && <div className="text-xs text-[#5A5A61] mb-2">{lang}</div>}
                     <code>{codeLines.join("\n")}</code>
                 </pre>
             );
@@ -194,7 +194,7 @@ function renderInline(text: string): (string | React.ReactElement)[] {
         const m = match[0];
         if (m.startsWith("`")) {
             parts.push(
-                <code key={key++} className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-xs font-mono">
+                <code key={key++} className="bg-[#141417] text-[#EDEDED] px-1.5 py-0.5 rounded text-xs font-mono">
                     {m.slice(1, -1)}
                 </code>
             );
@@ -206,7 +206,7 @@ function renderInline(text: string): (string | React.ReactElement)[] {
             const linkMatch = m.match(/\[([^\]]+)\]\(([^)]+)\)/);
             if (linkMatch) {
                 parts.push(
-                    <a key={key++} href={linkMatch[2]} className="text-indigo-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                    <a key={key++} href={linkMatch[2]} className="text-[#F5A524] hover:underline" target="_blank" rel="noopener noreferrer">
                         {linkMatch[1]}
                     </a>
                 );
@@ -231,8 +231,8 @@ export default function AdminConversationDetailClient({
     messages: Message[];
 }) {
     const badge = channelBadge[conversation.channelType] ?? {
-        bg: "bg-gray-100",
-        text: "text-gray-800",
+        bg: "bg-[#141417] border border-[#242429]",
+        text: "text-[#8A8A90]",
     };
 
     const dateGroups = groupByDate(messages);
@@ -248,28 +248,28 @@ export default function AdminConversationDetailClient({
             <div className="mb-6">
                 <Link
                     href="/admin/conversations"
-                    className="text-sm text-gray-500 hover:text-gray-700 transition-colors mb-2 inline-block"
+                    className="text-sm text-[#8A8A90] hover:text-[#B5B5BA] transition-colors mb-2 inline-block"
                 >
                     &larr; Back to Conversations
                 </Link>
 
-                <div className="mb-3 px-3 py-2 bg-slate-100 rounded-lg inline-block">
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                <div className="mb-3 px-3 py-2 bg-[#141417] rounded-lg inline-block">
+                    <span className="text-xs font-medium text-[#8A8A90] uppercase tracking-wide">
                         Workspace:
                     </span>{" "}
-                    <span className="text-sm font-semibold text-slate-700">
+                    <span className="text-sm font-semibold text-[#B5B5BA]">
                         {conversation.tenantName}
                     </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
+                        <h1 className="text-2xl font-bold text-[#EDEDED]">
                             {conversation.contactName ||
                                 conversation.channelContactId}
                         </h1>
                         <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs font-mono text-gray-400">
+                            <span className="text-xs font-mono text-[#5A5A61]">
                                 {conversation.channelContactId}
                             </span>
                             <span
@@ -280,8 +280,8 @@ export default function AdminConversationDetailClient({
                             <span
                                 className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${
                                     conversation.status === "active"
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-gray-100 text-gray-600"
+                                        ? "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
+                                        : "bg-[#141417] text-[#8A8A90] border border-[#242429]"
                                 }`}
                             >
                                 {conversation.status}
@@ -300,15 +300,15 @@ export default function AdminConversationDetailClient({
                             onClick={() => toggleDate(group.date)}
                             className="flex items-center gap-3 w-full py-2 group"
                         >
-                            <div className="h-px flex-1 bg-slate-200" />
-                            <span className="text-xs font-medium text-slate-400 group-hover:text-slate-600 transition-colors flex items-center gap-1.5">
+                            <div className="h-px flex-1 bg-[#242429]" />
+                            <span className="text-xs font-medium text-[#5A5A61] group-hover:text-[#B5B5BA] transition-colors flex items-center gap-1.5">
                                 <svg className={`w-3 h-3 transition-transform ${collapsed[group.date] ? "-rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                                 </svg>
                                 {group.date}
-                                <span className="text-slate-300">({group.messages.length})</span>
+                                <span className="text-[#5A5A61]">({group.messages.length})</span>
                             </span>
-                            <div className="h-px flex-1 bg-slate-200" />
+                            <div className="h-px flex-1 bg-[#242429]" />
                         </button>
 
                         {/* Messages within date */}
@@ -320,10 +320,10 @@ export default function AdminConversationDetailClient({
                                         className={`rounded-xl px-5 py-3 ${roleStyling(msg.role)}`}
                                     >
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                            <span className="text-xs font-semibold text-[#8A8A90] uppercase tracking-wide">
                                                 {roleLabel(msg.role)}
                                             </span>
-                                            <span className="text-xs text-gray-400">
+                                            <span className="text-xs text-[#5A5A61]">
                                                 {msg.createdAt
                                                     ? new Date(msg.createdAt).toLocaleTimeString()
                                                     : ""}
@@ -341,7 +341,7 @@ export default function AdminConversationDetailClient({
                     </div>
                 ))}
                 {messages.length === 0 && (
-                    <div className="text-center py-12 text-sm text-gray-400">
+                    <div className="text-center py-12 text-sm text-[#5A5A61]">
                         No messages in this conversation.
                     </div>
                 )}

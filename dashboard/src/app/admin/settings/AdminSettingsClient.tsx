@@ -87,8 +87,8 @@ export default function AdminSettingsClient({
     return (
         <div className="p-8">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Global Settings</h1>
-                <p className="text-sm text-slate-500 mt-1">Manage platform configuration, providers, security, and services.</p>
+                <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">Global Settings</h1>
+                <p className="text-sm text-[#8A8A90] mt-1">Manage platform configuration, providers, security, and services.</p>
             </div>
 
             <div className="flex gap-8">
@@ -101,8 +101,8 @@ export default function AdminSettingsClient({
                                     href={`/admin/settings?tab=${t.id}`}
                                     className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                         tab === t.id
-                                            ? "bg-slate-100 text-slate-900"
-                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                            ? "bg-[#141210] text-[#F5A524]"
+                                            : "text-[#8A8A90] hover:text-[#EDEDED] hover:bg-[#101012]"
                                     }`}
                                 >
                                     {t.label}
@@ -112,7 +112,7 @@ export default function AdminSettingsClient({
                         <li>
                             <Link
                                 href="/admin/plugins"
-                                className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+                                className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-[#8A8A90] hover:text-[#EDEDED] hover:bg-[#101012] transition-colors"
                             >
                                 Plugins
                             </Link>
@@ -153,10 +153,10 @@ function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">AI Model Providers</h2>
-                    <p className="text-sm text-slate-500 mt-1">Configure global API keys. Platform-mode tenants use these keys automatically.</p>
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">AI Model Providers</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">Configure global API keys. Platform-mode tenants use these keys automatically.</p>
                 </div>
                 <div className="p-6 space-y-4">
                     {PROVIDER_CARDS.map(pc => (
@@ -222,16 +222,16 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
     };
 
     return (
-        <div className="border border-slate-200 rounded-lg p-4">
+        <div className="border border-[#242429] rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
                 <div>
-                    <span className="text-sm font-semibold text-slate-900">{name}</span>
-                    <span className="text-xs text-slate-500 ml-2">{description}</span>
-                    {required && <span className="text-xs text-red-500 ml-1">*</span>}
+                    <span className="text-sm font-semibold text-[#EDEDED]">{name}</span>
+                    <span className="text-xs text-[#8A8A90] ml-2">{description}</span>
+                    {required && <span className="text-xs text-[#F0503C] ml-1">*</span>}
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                    <span className={`text-xs ${hasKey ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-[#3FB950]' : 'bg-[#5A5A61]'}`} />
+                    <span className={`text-xs ${hasKey ? 'text-[#3FB950]' : 'text-[#5A5A61]'}`}>
                         {hasKey ? "Active" : "Not configured"}
                     </span>
                 </div>
@@ -242,13 +242,13 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
                     value={apiKey}
                     onChange={(e) => { setApiKey(e.target.value); setMessage(null); }}
                     placeholder={hasKey ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (enter new key to replace)" : placeholder}
-                    className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400"
+                    className="flex-1 px-3 py-1.5 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] transition-all text-[#EDEDED] placeholder:text-[#5A5A61]"
                 />
                 <button
                     type="button"
                     onClick={handleTest}
                     disabled={!apiKey.trim() || testing}
-                    className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40 text-slate-700"
+                    className="px-3 py-1.5 text-xs font-medium border border-[#242429] rounded-lg hover:bg-[#101012] transition-colors disabled:opacity-40 text-[#B5B5BA]"
                 >
                     {testing ? "Testing..." : "Test"}
                 </button>
@@ -256,13 +256,13 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
                     type="button"
                     onClick={handleSave}
                     disabled={!apiKey.trim() || saving}
-                    className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                    className="px-3 py-1.5 text-xs font-medium bg-[#F5A524] text-black rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-40"
                 >
                     {saving ? "Saving..." : "Save"}
                 </button>
             </div>
             {message && (
-                <p className={`text-xs mt-2 ${message.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
+                <p className={`text-xs mt-2 ${message.type === "success" ? "text-[#3FB950]" : "text-[#F0503C]"}`}>
                     {message.text}
                 </p>
             )}
@@ -330,75 +330,75 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
             : { type: "error", text: result.message || "Test failed" });
     };
 
-    const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400";
+    const inputClass = "w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] transition-all text-[#EDEDED] placeholder:text-[#5A5A61]";
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-semibold text-slate-900">Email (SMTP)</h2>
-                <p className="text-sm text-slate-500 mt-1">
+        <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+            <div className="p-6 border-b border-[#242429]">
+                <h2 className="text-lg font-semibold text-[#EDEDED]">Email (SMTP)</h2>
+                <p className="text-sm text-[#8A8A90] mt-1">
                     Used for account emails — password resets and user invitations. The password is encrypted at rest.
                 </p>
             </div>
             <div className="p-6 space-y-4">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                    <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="rounded border-slate-300" />
+                <label className="flex items-center gap-2 text-sm font-medium text-[#B5B5BA]">
+                    <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="rounded border-[#242429]" />
                     Enable email sending
                 </label>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">SMTP Host</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1.5">SMTP Host</label>
                         <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.example.com" className={inputClass} />
                     </div>
                     <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Port</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1.5">Port</label>
                         <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="587" className={inputClass} />
                     </div>
                     <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Username</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1.5">Username</label>
                         <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="you@example.com" className={inputClass} autoComplete="off" />
                     </div>
                     <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1.5">Password</label>
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={s.hasPassword ? "•••••••• (enter to replace)" : "SMTP password"} className={inputClass} autoComplete="new-password" />
                     </div>
                     <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">From Address</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1.5">From Address</label>
                         <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="no-reply@example.com" className={inputClass} />
                     </div>
                     <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">From Name <span className="text-slate-400 font-normal">(optional)</span></label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1.5">From Name <span className="text-[#5A5A61] font-normal">(optional)</span></label>
                         <input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Pulse AI" className={inputClass} />
                     </div>
                 </div>
 
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                    <input type="checkbox" checked={secure} onChange={(e) => setSecure(e.target.checked)} className="rounded border-slate-300" />
+                <label className="flex items-center gap-2 text-sm font-medium text-[#B5B5BA]">
+                    <input type="checkbox" checked={secure} onChange={(e) => setSecure(e.target.checked)} className="rounded border-[#242429]" />
                     Use implicit TLS (port 465). Leave off for STARTTLS (port 587).
                 </label>
 
                 <div className="flex items-center gap-2 pt-2">
                     <button type="button" onClick={handleSave} disabled={saving}
-                        className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40">
+                        className="px-4 py-2 text-sm font-medium bg-[#F5A524] text-black rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-40">
                         {saving ? "Saving..." : "Save settings"}
                     </button>
                 </div>
 
-                <div className="border-t border-slate-200 pt-4 mt-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Send a test email</label>
+                <div className="border-t border-[#242429] pt-4 mt-2">
+                    <label className="block text-sm font-medium text-[#B5B5BA] mb-1.5">Send a test email</label>
                     <div className="flex gap-2">
                         <input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="recipient@example.com" className={inputClass} />
                         <button type="button" onClick={handleTest} disabled={testing}
-                            className="px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40 text-slate-700 whitespace-nowrap">
+                            className="px-3 py-2 text-sm font-medium border border-[#242429] rounded-lg hover:bg-[#101012] transition-colors disabled:opacity-40 text-[#B5B5BA] whitespace-nowrap">
                             {testing ? "Sending..." : "Send test"}
                         </button>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1.5">Uses the values above (saving first is not required).</p>
+                    <p className="text-xs text-[#5A5A61] mt-1.5">Uses the values above (saving first is not required).</p>
                 </div>
 
                 {message && (
-                    <p className={`text-sm ${message.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
+                    <p className={`text-sm ${message.type === "success" ? "text-[#3FB950]" : "text-[#F0503C]"}`}>
                         {message.text}
                     </p>
                 )}
@@ -410,11 +410,11 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
 /* ─── System Services Tab ─────────────────────────────────────── */
 function SystemTab({ settings }: { settings: any }) {
     return (
-        <form action={saveGlobalSettingsAction} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <form action={saveGlobalSettingsAction} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
             <input type="hidden" name="section" value="pulse_system" />
-            <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-semibold text-slate-900">Pulse System Services</h2>
-                <p className="text-sm text-slate-500 mt-1">Enable advanced features like hot-reload, trusted proxies, local discovery, and CLI backends.</p>
+            <div className="p-6 border-b border-[#242429]">
+                <h2 className="text-lg font-semibold text-[#EDEDED]">Pulse System Services</h2>
+                <p className="text-sm text-[#8A8A90] mt-1">Enable advanced features like hot-reload, trusted proxies, local discovery, and CLI backends.</p>
             </div>
             <div className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -423,11 +423,11 @@ function SystemTab({ settings }: { settings: any }) {
                             type="checkbox"
                             name="enableHotReload"
                             defaultChecked={settings.gatewayConfig?.enable_hot_reload ?? true}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
                         />
                         <div>
-                            <span className="text-sm font-medium text-slate-900">Enable Hot-Reload</span>
-                            <p className="text-xs text-slate-500">Apply config changes without restarting</p>
+                            <span className="text-sm font-medium text-[#EDEDED]">Enable Hot-Reload</span>
+                            <p className="text-xs text-[#8A8A90]">Apply config changes without restarting</p>
                         </div>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
@@ -435,30 +435,30 @@ function SystemTab({ settings }: { settings: any }) {
                             type="checkbox"
                             name="lanDiscovery"
                             defaultChecked={settings.gatewayConfig?.lan_discovery ?? false}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
                         />
                         <div>
-                            <span className="text-sm font-medium text-slate-900">LAN Discovery / Bonjour</span>
-                            <p className="text-xs text-slate-500">Allow mDNS local gateway discovery</p>
+                            <span className="text-sm font-medium text-[#EDEDED]">LAN Discovery / Bonjour</span>
+                            <p className="text-xs text-[#8A8A90]">Allow mDNS local gateway discovery</p>
                         </div>
                     </label>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Trusted Proxy Network</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Trusted Proxy Network</label>
                         <input
                             type="text"
                             name="trustedProxy"
                             placeholder="10.0.0.0/8, 192.168.0.0/16"
                             defaultValue={settings.gatewayConfig?.trusted_proxy || ""}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 placeholder:text-slate-400"
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61]"
                         />
-                        <p className="text-xs text-slate-500 mt-1">Comma-separated CIDR list for trusted LB proxies.</p>
+                        <p className="text-xs text-[#8A8A90] mt-1">Comma-separated CIDR list for trusted LB proxies.</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">CLI Backends Integration</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">CLI Backends Integration</label>
                         <select
                             name="cliBackends"
                             defaultValue={settings.gatewayConfig?.cli_backends || "disabled"}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED]"
                         >
                             <option value="disabled">Disabled</option>
                             <option value="enabled">Enabled (Local Only)</option>
@@ -485,40 +485,40 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
     return (
         <div className="space-y-6">
             {/* Global Settings */}
-            <form action={saveExecSafetySettings} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Global Policy</h2>
-                    <p className="text-sm text-slate-500 mt-1">These settings apply to all tenants as defaults.</p>
+            <form action={saveExecSafetySettings} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">Global Policy</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">These settings apply to all tenants as defaults.</p>
                 </div>
                 <div className="p-6 space-y-6">
                     <label className="flex items-center gap-3 cursor-pointer">
                         <input type="checkbox" name="enabled" defaultChecked={execSafety.enabled}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
                         <div>
-                            <span className="text-sm font-medium text-slate-900">Enable Exec Safety</span>
-                            <p className="text-xs text-slate-500">When disabled, all commands are allowed without checks.</p>
+                            <span className="text-sm font-medium text-[#EDEDED]">Enable Exec Safety</span>
+                            <p className="text-xs text-[#8A8A90]">When disabled, all commands are allowed without checks.</p>
                         </div>
                     </label>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Default Policy</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Default Policy</label>
                         <select name="defaultPolicy" defaultValue={execSafety.defaultPolicy}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900">
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED]">
                             <option value="allow_all">Allow All (log everything)</option>
                             <option value="allowlist_only">Allowlist Only (safe commands only)</option>
                             <option value="deny_all">Deny All (block everything)</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Global Deny Patterns</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Global Deny Patterns</label>
                         <textarea name="denyPatterns" rows={3} defaultValue={execSafety.globalDenyPatterns}
                             placeholder={"One pattern per line, e.g.:\nrm -rf *\n/DROP\\s+TABLE/i"}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 placeholder:text-slate-400 font-mono" />
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61] font-mono" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Global Allow Patterns</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Global Allow Patterns</label>
                         <textarea name="allowPatterns" rows={3} defaultValue={execSafety.globalAllowPatterns}
                             placeholder={"One pattern per line, e.g.:\npython3 *\nls *"}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 placeholder:text-slate-400 font-mono" />
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61] font-mono" />
                     </div>
                     <div className="flex justify-end">
                         <SaveButton label="Save Policy" />
@@ -527,32 +527,32 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
             </form>
 
             {/* Policy Rules */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Global Policy Rules</h2>
-                    <p className="text-sm text-slate-500 mt-1">Custom allow/deny rules evaluated by priority (highest first).</p>
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">Global Policy Rules</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">Custom allow/deny rules evaluated by priority (highest first).</p>
                 </div>
-                <form action={addPolicyRule} className="p-6 border-b border-slate-100 bg-slate-50">
+                <form action={addPolicyRule} className="p-6 border-b border-[#1C1C1F] bg-[#101012]">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                        <select name="ruleType" className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
+                        <select name="ruleType" className="px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] text-[#EDEDED]">
                             <option value="deny">Deny</option>
                             <option value="allow">Allow</option>
                         </select>
                         <input type="text" name="pattern" placeholder='Pattern (glob or /regex/)' required
-                            className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 font-mono md:col-span-2" />
+                            className="px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] placeholder:text-[#5A5A61] font-mono md:col-span-2" />
                         <input type="text" name="description" placeholder="Description"
-                            className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400" />
+                            className="px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] placeholder:text-[#5A5A61]" />
                         <div className="flex gap-2">
                             <input type="number" name="priority" placeholder="Priority" defaultValue="0"
-                                className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
-                            <SaveButton label="Add" className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-60" />
+                                className="w-20 px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
+                            <SaveButton label="Add" className="px-4 py-2 bg-[#F5A524] text-black rounded-lg text-sm font-medium hover:bg-[#FFC24B] transition-colors disabled:opacity-60" />
                         </div>
                     </div>
                 </form>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                            <tr className="text-left text-xs text-[#8A8A90] border-b border-[#1C1C1F]">
                                 <th className="px-6 py-3 font-medium">Type</th>
                                 <th className="px-6 py-3 font-medium">Pattern</th>
                                 <th className="px-6 py-3 font-medium">Description</th>
@@ -562,24 +562,24 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                         </thead>
                         <tbody>
                             {policyRules.length === 0 && (
-                                <tr><td colSpan={5} className="px-6 py-8 text-center text-sm text-slate-400">
+                                <tr><td colSpan={5} className="px-6 py-8 text-center text-sm text-[#5A5A61]">
                                     No custom policy rules configured. Built-in patterns are always active.
                                 </td></tr>
                             )}
                             {policyRules.map((rule: any) => (
-                                <tr key={rule.id} className="border-b border-slate-50 hover:bg-slate-50">
+                                <tr key={rule.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
                                     <td className="px-6 py-3">
                                         <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                            rule.ruleType === "deny" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                                            rule.ruleType === "deny" ? "bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40" : "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
                                         }`}>{rule.ruleType}</span>
                                     </td>
-                                    <td className="px-6 py-3 font-mono text-sm text-slate-700">{rule.pattern}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-500">{rule.description || "\u2014"}</td>
-                                    <td className="px-6 py-3 text-sm text-slate-500">{rule.priority}</td>
+                                    <td className="px-6 py-3 font-mono text-sm text-[#B5B5BA]">{rule.pattern}</td>
+                                    <td className="px-6 py-3 text-sm text-[#8A8A90]">{rule.description || "\u2014"}</td>
+                                    <td className="px-6 py-3 text-sm text-[#8A8A90]">{rule.priority}</td>
                                     <td className="px-6 py-3">
                                         <button
                                             onClick={() => setDeleteRuleId(rule.id)}
-                                            className="text-xs text-red-600 hover:text-red-800 font-medium"
+                                            className="text-xs text-[#F0503C] hover:text-[#F0503C]/80 font-medium"
                                         >
                                             Delete
                                         </button>
@@ -592,15 +592,15 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
             </div>
 
             {/* Audit Log */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Audit Log</h2>
-                    <p className="text-sm text-slate-500 mt-1">Recent command execution decisions ({auditLogs.total} total entries).</p>
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">Audit Log</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">Recent command execution decisions ({auditLogs.total} total entries).</p>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                            <tr className="text-left text-xs text-[#8A8A90] border-b border-[#1C1C1F]">
                                 <th className="px-6 py-3 font-medium">Time</th>
                                 <th className="px-6 py-3 font-medium">Decision</th>
                                 <th className="px-6 py-3 font-medium">Command</th>
@@ -609,26 +609,26 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                         </thead>
                         <tbody>
                             {auditLogs.logs.length === 0 && (
-                                <tr><td colSpan={4} className="px-6 py-8 text-center text-sm text-slate-400">
+                                <tr><td colSpan={4} className="px-6 py-8 text-center text-sm text-[#5A5A61]">
                                     No audit log entries yet. Exec events will appear here once agents run commands.
                                 </td></tr>
                             )}
                             {auditLogs.logs.map((log: any) => (
-                                <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                    <td className="px-6 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                <tr key={log.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
+                                    <td className="px-6 py-3 text-xs text-[#8A8A90] whitespace-nowrap">
                                         {log.executedAt ? new Date(log.executedAt).toLocaleString() : "\u2014"}
                                     </td>
                                     <td className="px-6 py-3">
                                         <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                            log.decision === "denied" ? "bg-red-100 text-red-700"
-                                                : log.decision === "sandboxed" ? "bg-amber-100 text-amber-700"
-                                                    : "bg-green-100 text-green-700"
+                                            log.decision === "denied" ? "bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40"
+                                                : log.decision === "sandboxed" ? "bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40"
+                                                    : "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
                                         }`}>{log.decision}</span>
                                     </td>
-                                    <td className="px-6 py-3 font-mono text-xs text-slate-700 max-w-xs truncate">
+                                    <td className="px-6 py-3 font-mono text-xs text-[#B5B5BA] max-w-xs truncate">
                                         {log.command.length > 100 ? log.command.substring(0, 100) + "..." : log.command}
                                     </td>
-                                    <td className="px-6 py-3 text-xs text-slate-500 max-w-xs truncate">
+                                    <td className="px-6 py-3 text-xs text-[#8A8A90] max-w-xs truncate">
                                         {log.reason || "\u2014"}
                                     </td>
                                 </tr>
@@ -660,46 +660,46 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
 /* ─── Memory Tab ──────────────────────────────────────────────── */
 function MemoryTab({ config }: { config: any }) {
     return (
-        <form action={saveMemorySettingsAction} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-semibold text-slate-900">Memory System</h2>
-                <p className="text-sm text-slate-500 mt-1">Configure agent long-term memory and vector search.</p>
+        <form action={saveMemorySettingsAction} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+            <div className="p-6 border-b border-[#242429]">
+                <h2 className="text-lg font-semibold text-[#EDEDED]">Memory System</h2>
+                <p className="text-sm text-[#8A8A90] mt-1">Configure agent long-term memory and vector search.</p>
             </div>
             <div className="p-6 space-y-6">
                 <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" name="enabled" defaultChecked={config.enabled !== false}
-                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+                        className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
                     <div>
-                        <span className="text-sm font-medium text-slate-900">Enable Memory System</span>
-                        <p className="text-xs text-slate-500">When disabled, agents cannot store or recall memories.</p>
+                        <span className="text-sm font-medium text-[#EDEDED]">Enable Memory System</span>
+                        <p className="text-xs text-[#8A8A90]">When disabled, agents cannot store or recall memories.</p>
                     </div>
                 </label>
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Embedding Model</label>
+                    <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Embedding Model</label>
                     <select name="embeddingModel" defaultValue={config.embedding_model || "text-embedding-3-small"}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
+                        className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] text-[#EDEDED]">
                         <option value="text-embedding-3-small">text-embedding-3-small (1536d, fast)</option>
                         <option value="text-embedding-3-large">text-embedding-3-large (3072d, more accurate)</option>
                     </select>
-                    <p className="text-xs text-slate-400 mt-1">Requires OPENAI_API_KEY. Falls back to keyword-only search without it.</p>
+                    <p className="text-xs text-[#5A5A61] mt-1">Requires OPENAI_API_KEY. Falls back to keyword-only search without it.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Max Memories per Agent</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Max Memories per Agent</label>
                         <input type="number" name="maxMemories" defaultValue={config.max_memories_per_agent || 10000}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Decay Half-Life (days)</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Decay Half-Life (days)</label>
                         <input type="number" name="decayHalfLife" defaultValue={config.decay_half_life_days || 30}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
-                        <p className="text-xs text-slate-400 mt-1">After this many days, a memory&apos;s relevance score halves.</p>
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
+                        <p className="text-xs text-[#5A5A61] mt-1">After this many days, a memory&apos;s relevance score halves.</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">MMR Lambda (0.0-1.0)</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">MMR Lambda (0.0-1.0)</label>
                         <input type="number" name="mmrLambda" step="0.1" min="0" max="1" defaultValue={config.mmr_lambda || 0.7}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
-                        <p className="text-xs text-slate-400 mt-1">1.0 = pure relevance, 0.0 = max diversity.</p>
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
+                        <p className="text-xs text-[#5A5A61] mt-1">1.0 = pure relevance, 0.0 = max diversity.</p>
                     </div>
                 </div>
                 <div className="flex justify-end">
@@ -713,23 +713,23 @@ function MemoryTab({ config }: { config: any }) {
 /* ─── Sandbox Tab ─────────────────────────────────────────────── */
 function SandboxTab({ config }: { config: any }) {
     return (
-        <form action={saveSandboxSettingsAction} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-semibold text-slate-900">Python Sandbox</h2>
-                <p className="text-sm text-slate-500 mt-1">Docker image, resource limits, timeouts, and network access for agent code execution.</p>
+        <form action={saveSandboxSettingsAction} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+            <div className="p-6 border-b border-[#242429]">
+                <h2 className="text-lg font-semibold text-[#EDEDED]">Python Sandbox</h2>
+                <p className="text-sm text-[#8A8A90] mt-1">Docker image, resource limits, timeouts, and network access for agent code execution.</p>
             </div>
             <div className="p-6 space-y-6">
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Python Docker Image</label>
+                    <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Python Docker Image</label>
                     <input type="text" name="pythonImage" defaultValue={config.image || "pulse-python-sandbox:latest"}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono" />
-                    <p className="text-xs text-slate-400 mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
+                        className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] font-mono" />
+                    <p className="text-xs text-[#5A5A61] mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Memory Limit</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Memory Limit</label>
                         <select name="memoryLimit" defaultValue={config.memory_limit || "256m"}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] text-[#EDEDED]">
                             <option value="128m">128 MB</option>
                             <option value="256m">256 MB</option>
                             <option value="512m">512 MB</option>
@@ -737,9 +737,9 @@ function SandboxTab({ config }: { config: any }) {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">CPU Limit</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">CPU Limit</label>
                         <select name="cpuLimit" defaultValue={config.cpu_limit || "1.0"}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] text-[#EDEDED]">
                             <option value="0.5">0.5 CPU</option>
                             <option value="1.0">1.0 CPU</option>
                             <option value="2.0">2.0 CPU</option>
@@ -748,22 +748,22 @@ function SandboxTab({ config }: { config: any }) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Default Timeout (seconds)</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Default Timeout (seconds)</label>
                         <input type="number" name="defaultTimeout" defaultValue={config.default_timeout || 60}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Max Timeout (seconds)</label>
+                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Max Timeout (seconds)</label>
                         <input type="number" name="maxTimeout" defaultValue={config.max_timeout || 300}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
                     </div>
                 </div>
                 <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" name="networkEnabled" defaultChecked={config.network_enabled !== false}
-                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+                        className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
                     <div>
-                        <span className="text-sm font-medium text-slate-900">Network Access</span>
-                        <p className="text-xs text-slate-500">Allow sandbox containers to make outbound API calls</p>
+                        <span className="text-sm font-medium text-[#EDEDED]">Network Access</span>
+                        <p className="text-xs text-[#8A8A90]">Allow sandbox containers to make outbound API calls</p>
                     </div>
                 </label>
                 <div className="flex justify-end">
@@ -780,36 +780,36 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
 
     return (
         <div className="space-y-6">
-            <form action={saveSchedulingSettingsAction} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Scheduling Settings</h2>
-                    <p className="text-sm text-slate-500 mt-1">Configure global scheduling settings for cron jobs and scheduled tasks.</p>
+            <form action={saveSchedulingSettingsAction} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">Scheduling Settings</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">Configure global scheduling settings for cron jobs and scheduled tasks.</p>
                 </div>
                 <div className="p-6 space-y-6">
                     <label className="flex items-center gap-3 cursor-pointer">
                         <input type="checkbox" name="enabled" defaultChecked={config.enabled !== false}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
                         <div>
-                            <span className="text-sm font-medium text-slate-900">Enable Scheduling System</span>
-                            <p className="text-xs text-slate-500">When disabled, no scheduled jobs will execute.</p>
+                            <span className="text-sm font-medium text-[#EDEDED]">Enable Scheduling System</span>
+                            <p className="text-xs text-[#8A8A90]">When disabled, no scheduled jobs will execute.</p>
                         </div>
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Max Jobs per Tenant</label>
+                            <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Max Jobs per Tenant</label>
                             <input type="number" name="maxJobsPerTenant" defaultValue={config.max_jobs_per_tenant || 50} min={1}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
+                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Max Jobs per Agent</label>
+                            <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Max Jobs per Agent</label>
                             <input type="number" name="maxJobsPerAgent" defaultValue={config.max_jobs_per_agent || 10} min={1}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
+                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Min Interval (seconds)</label>
+                            <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Min Interval (seconds)</label>
                             <input type="number" name="minInterval" defaultValue={config.min_interval_seconds || 300} min={60}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900" />
-                            <p className="text-xs text-slate-400 mt-1">Minimum seconds between runs. Default: 300 (5 min).</p>
+                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
+                            <p className="text-xs text-[#5A5A61] mt-1">Minimum seconds between runs. Default: 300 (5 min).</p>
                         </div>
                     </div>
                     <div className="flex justify-end">
@@ -819,15 +819,15 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
             </form>
 
             {/* Active Jobs Overview */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">All Scheduled Jobs</h2>
-                    <p className="text-sm text-slate-500 mt-1">{allJobs.length} total jobs, {enabledCount} enabled</p>
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">All Scheduled Jobs</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">{allJobs.length} total jobs, {enabledCount} enabled</p>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                            <tr className="text-left text-xs text-[#8A8A90] border-b border-[#1C1C1F]">
                                 <th className="px-6 py-3 font-medium">Name</th>
                                 <th className="px-6 py-3 font-medium">Agent</th>
                                 <th className="px-6 py-3 font-medium">Schedule</th>
@@ -838,7 +838,7 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                         </thead>
                         <tbody>
                             {allJobs.length === 0 && (
-                                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-[#5A5A61]">
                                     No scheduled jobs across any tenant.
                                 </td></tr>
                             )}
@@ -846,19 +846,19 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                                 const schedule = job.cronExpression
                                     || (job.intervalSeconds ? `every ${job.intervalSeconds}s` : `once at ${job.runAt ? new Date(job.runAt).toLocaleString() : "\u2014"}`);
                                 return (
-                                    <tr key={job.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                        <td className="px-6 py-3 text-sm font-medium text-slate-900">{job.name}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-500">{job.agentName || "\u2014"}</td>
+                                    <tr key={job.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
+                                        <td className="px-6 py-3 text-sm font-medium text-[#EDEDED]">{job.name}</td>
+                                        <td className="px-6 py-3 text-sm text-[#8A8A90]">{job.agentName || "\u2014"}</td>
                                         <td className="px-6 py-3">
-                                            <code className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded">{schedule}</code>
+                                            <code className="text-xs bg-[#141417] text-[#B5B5BA] px-2 py-1 rounded">{schedule}</code>
                                         </td>
-                                        <td className="px-6 py-3 text-sm text-slate-500">{job.timezone || "UTC"}</td>
+                                        <td className="px-6 py-3 text-sm text-[#8A8A90]">{job.timezone || "UTC"}</td>
                                         <td className="px-6 py-3">
                                             <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                job.enabled ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-500"
+                                                job.enabled ? "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40" : "bg-[#141417] text-[#8A8A90] border border-[#242429]"
                                             }`}>{job.enabled ? "Enabled" : "Disabled"}</span>
                                         </td>
-                                        <td className="px-6 py-3 text-xs text-slate-400">
+                                        <td className="px-6 py-3 text-xs text-[#5A5A61]">
                                             {job.lastRunAt ? new Date(job.lastRunAt).toLocaleString() : "Never"}
                                         </td>
                                     </tr>
@@ -929,8 +929,8 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Model Pricing</h3>
-                    <p className="text-sm text-slate-500 mt-1">
+                    <h3 className="text-lg font-semibold text-[#EDEDED]">Model Pricing</h3>
+                    <p className="text-sm text-[#8A8A90] mt-1">
                         Set base cost (what you pay) and customer price (what you charge). The difference is your profit.
                     </p>
                 </div>
@@ -939,14 +939,14 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                         <button
                             key={p}
                             onClick={() => handleSync(p)}
-                            className="px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100"
+                            className="px-3 py-1.5 text-xs font-medium bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40 rounded-lg hover:bg-[#F5A524]/20"
                         >
                             Sync {p.charAt(0).toUpperCase() + p.slice(1)}
                         </button>
                     ))}
                     <button
                         onClick={() => setShowAddForm(!showAddForm)}
-                        className="px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 rounded-lg hover:bg-green-100"
+                        className="px-3 py-1.5 text-xs font-medium bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40 rounded-lg hover:bg-[#3FB950]/20"
                     >
                         + Add Model
                     </button>
@@ -954,18 +954,18 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
             </div>
 
             {syncStatus && (
-                <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 text-sm">
+                <div className="bg-[#F5A524]/10 border border-[#F5A524]/40 text-[#F5A524] rounded-lg p-3 text-sm">
                     {syncStatus}
                 </div>
             )}
 
             {showAddForm && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h4 className="text-sm font-semibold text-slate-900 mb-4">Add New Model</h4>
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-6">
+                    <h4 className="text-sm font-semibold text-[#EDEDED] mb-4">Add New Model</h4>
                     <form onSubmit={handleSave} className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Provider</label>
-                            <select name="provider" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required>
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Provider</label>
+                            <select name="provider" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" required>
                                 <option value="anthropic">Anthropic</option>
                                 <option value="openai">OpenAI</option>
                                 <option value="google">Google</option>
@@ -973,16 +973,16 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Model ID</label>
-                            <input name="modelId" type="text" placeholder="claude-sonnet-4-6" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Model ID</label>
+                            <input name="modelId" type="text" placeholder="claude-sonnet-4-6" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" required />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Display Name</label>
-                            <input name="displayName" type="text" placeholder="Claude Sonnet 4.6" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Display Name</label>
+                            <input name="displayName" type="text" placeholder="Claude Sonnet 4.6" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" required />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Category</label>
-                            <select name="category" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Category</label>
+                            <select name="category" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm">
                                 <option value="flagship">Flagship</option>
                                 <option value="fast">Fast</option>
                                 <option value="reasoning">Reasoning</option>
@@ -990,30 +990,30 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Base Input $/1M tokens</label>
-                            <input name="baseInputPerMillion" type="number" step="0.001" defaultValue="3.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Base Input $/1M tokens</label>
+                            <input name="baseInputPerMillion" type="number" step="0.001" defaultValue="3.0" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" required />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Base Output $/1M tokens</label>
-                            <input name="baseOutputPerMillion" type="number" step="0.001" defaultValue="15.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Base Output $/1M tokens</label>
+                            <input name="baseOutputPerMillion" type="number" step="0.001" defaultValue="15.0" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" required />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Customer Input $/1M tokens</label>
-                            <input name="customerInputPerMillion" type="number" step="0.001" defaultValue="3.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Customer Input $/1M tokens</label>
+                            <input name="customerInputPerMillion" type="number" step="0.001" defaultValue="3.0" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" required />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Customer Output $/1M tokens</label>
-                            <input name="customerOutputPerMillion" type="number" step="0.001" defaultValue="15.0" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" required />
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Customer Output $/1M tokens</label>
+                            <input name="customerOutputPerMillion" type="number" step="0.001" defaultValue="15.0" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" required />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Max Tokens</label>
-                            <input name="maxTokens" type="number" defaultValue="8192" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+                            <label className="block text-xs font-medium text-[#B5B5BA] mb-1">Max Tokens</label>
+                            <input name="maxTokens" type="number" defaultValue="8192" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" />
                         </div>
                         <div className="flex items-end gap-2">
-                            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
+                            <button type="submit" className="px-4 py-2 bg-[#F5A524] text-black text-sm rounded-lg hover:bg-[#FFC24B]">
                                 Save
                             </button>
-                            <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200">
+                            <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-[#141417] text-[#B5B5BA] text-sm rounded-lg hover:bg-[#1C1C1F]">
                                 Cancel
                             </button>
                         </div>
@@ -1022,39 +1022,39 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
             )}
 
             {providers.map((provider) => (
-                <div key={provider} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-4 border-b border-slate-200 bg-slate-50">
-                        <h4 className="text-sm font-semibold text-slate-900 capitalize">{provider}</h4>
-                        <p className="text-xs text-slate-500">{grouped[provider].length} models</p>
+                <div key={provider} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                    <div className="p-4 border-b border-[#242429] bg-[#101012]">
+                        <h4 className="text-sm font-semibold text-[#EDEDED] capitalize">{provider}</h4>
+                        <p className="text-xs text-[#8A8A90]">{grouped[provider].length} models</p>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b border-slate-100">
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-slate-500">Model</th>
-                                    <th className="text-left px-4 py-2 text-xs font-medium text-slate-500">Category</th>
-                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Base $/1M tokens (In/Out)</th>
-                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Customer $/1M tokens (In/Out)</th>
-                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Markup</th>
-                                    <th className="text-center px-4 py-2 text-xs font-medium text-slate-500">Active</th>
-                                    <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">Actions</th>
+                                <tr className="border-b border-[#1C1C1F]">
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-[#8A8A90]">Model</th>
+                                    <th className="text-left px-4 py-2 text-xs font-medium text-[#8A8A90]">Category</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-[#8A8A90]">Base $/1M tokens (In/Out)</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-[#8A8A90]">Customer $/1M tokens (In/Out)</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-[#8A8A90]">Markup</th>
+                                    <th className="text-center px-4 py-2 text-xs font-medium text-[#8A8A90]">Active</th>
+                                    <th className="text-right px-4 py-2 text-xs font-medium text-[#8A8A90]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {grouped[provider].map((model) => (
                                     editingId === model.id ? (
-                                        <tr key={model.id} className="border-b border-slate-50">
+                                        <tr key={model.id} className="border-b border-[#1C1C1F]">
                                             <td colSpan={7} className="p-4">
                                                 <form onSubmit={handleSave} className="grid grid-cols-4 gap-3">
                                                     <input type="hidden" name="provider" value={model.provider} />
                                                     <input type="hidden" name="modelId" value={model.modelId} />
                                                     <div>
-                                                        <label className="block text-xs text-slate-500 mb-1">Display Name</label>
-                                                        <input name="displayName" defaultValue={model.displayName} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                        <label className="block text-xs text-[#8A8A90] mb-1">Display Name</label>
+                                                        <input name="displayName" defaultValue={model.displayName} className="w-full border border-[#242429] rounded px-2 py-1 text-sm" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs text-slate-500 mb-1">Category</label>
-                                                        <select name="category" defaultValue={model.category} className="w-full border border-slate-300 rounded px-2 py-1 text-sm">
+                                                        <label className="block text-xs text-[#8A8A90] mb-1">Category</label>
+                                                        <select name="category" defaultValue={model.category} className="w-full border border-[#242429] rounded px-2 py-1 text-sm">
                                                             <option value="flagship">Flagship</option>
                                                             <option value="fast">Fast</option>
                                                             <option value="reasoning">Reasoning</option>
@@ -1062,74 +1062,74 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                                         </select>
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs text-slate-500 mb-1">Base Input $/1M</label>
-                                                        <input name="baseInputPerMillion" type="number" step="0.001" defaultValue={model.baseInputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                        <label className="block text-xs text-[#8A8A90] mb-1">Base Input $/1M</label>
+                                                        <input name="baseInputPerMillion" type="number" step="0.001" defaultValue={model.baseInputPerMillion} className="w-full border border-[#242429] rounded px-2 py-1 text-sm" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs text-slate-500 mb-1">Base Output $/1M</label>
-                                                        <input name="baseOutputPerMillion" type="number" step="0.001" defaultValue={model.baseOutputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                        <label className="block text-xs text-[#8A8A90] mb-1">Base Output $/1M</label>
+                                                        <input name="baseOutputPerMillion" type="number" step="0.001" defaultValue={model.baseOutputPerMillion} className="w-full border border-[#242429] rounded px-2 py-1 text-sm" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs text-slate-500 mb-1">Customer Input $/1M</label>
-                                                        <input name="customerInputPerMillion" type="number" step="0.001" defaultValue={model.customerInputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                        <label className="block text-xs text-[#8A8A90] mb-1">Customer Input $/1M</label>
+                                                        <input name="customerInputPerMillion" type="number" step="0.001" defaultValue={model.customerInputPerMillion} className="w-full border border-[#242429] rounded px-2 py-1 text-sm" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs text-slate-500 mb-1">Customer Output $/1M</label>
-                                                        <input name="customerOutputPerMillion" type="number" step="0.001" defaultValue={model.customerOutputPerMillion} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                        <label className="block text-xs text-[#8A8A90] mb-1">Customer Output $/1M</label>
+                                                        <input name="customerOutputPerMillion" type="number" step="0.001" defaultValue={model.customerOutputPerMillion} className="w-full border border-[#242429] rounded px-2 py-1 text-sm" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs text-slate-500 mb-1">Max Tokens</label>
-                                                        <input name="maxTokens" type="number" defaultValue={model.maxTokens} className="w-full border border-slate-300 rounded px-2 py-1 text-sm" />
+                                                        <label className="block text-xs text-[#8A8A90] mb-1">Max Tokens</label>
+                                                        <input name="maxTokens" type="number" defaultValue={model.maxTokens} className="w-full border border-[#242429] rounded px-2 py-1 text-sm" />
                                                     </div>
                                                     <div className="flex items-end gap-2">
-                                                        <button type="submit" className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700">Save</button>
-                                                        <button type="button" onClick={() => setEditingId(null)} className="px-3 py-1 bg-slate-100 text-slate-700 text-xs rounded hover:bg-slate-200">Cancel</button>
+                                                        <button type="submit" className="px-3 py-1 bg-[#F5A524] text-black text-xs rounded hover:bg-[#FFC24B]">Save</button>
+                                                        <button type="button" onClick={() => setEditingId(null)} className="px-3 py-1 bg-[#141417] text-[#B5B5BA] text-xs rounded hover:bg-[#1C1C1F]">Cancel</button>
                                                     </div>
                                                 </form>
                                             </td>
                                         </tr>
                                     ) : (
-                                        <tr key={model.id} className="border-b border-slate-50 hover:bg-slate-50">
+                                        <tr key={model.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
                                             <td className="px-4 py-2.5">
-                                                <div className="font-medium text-slate-900">{model.displayName}</div>
-                                                <div className="text-xs text-slate-400 font-mono">{model.modelId}</div>
+                                                <div className="font-medium text-[#EDEDED]">{model.displayName}</div>
+                                                <div className="text-xs text-[#5A5A61] font-mono">{model.modelId}</div>
                                             </td>
                                             <td className="px-4 py-2.5">
                                                 <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                                    model.category === "flagship" ? "bg-indigo-50 text-indigo-700" :
-                                                    model.category === "fast" ? "bg-green-50 text-green-700" :
-                                                    model.category === "reasoning" ? "bg-amber-50 text-amber-700" :
-                                                    "bg-slate-100 text-slate-600"
+                                                    model.category === "flagship" ? "bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40" :
+                                                    model.category === "fast" ? "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40" :
+                                                    model.category === "reasoning" ? "bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40" :
+                                                    "bg-[#141417] text-[#8A8A90] border border-[#242429]"
                                                 }`}>
                                                     {model.category}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-slate-600">
+                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-[#B5B5BA]">
                                                 {formatPrice(model.baseInputPerMillion)} / {formatPrice(model.baseOutputPerMillion)}
                                             </td>
-                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-slate-900 font-medium">
+                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-[#EDEDED] font-medium">
                                                 {formatPrice(model.customerInputPerMillion)} / {formatPrice(model.customerOutputPerMillion)}
                                             </td>
                                             <td className="px-4 py-2.5 text-right">
                                                 <span className={`text-xs font-medium ${
-                                                    model.customerInputPerMillion > model.baseInputPerMillion ? "text-green-600" : "text-slate-400"
+                                                    model.customerInputPerMillion > model.baseInputPerMillion ? "text-[#3FB950]" : "text-[#5A5A61]"
                                                 }`}>
                                                     {calcMarkup(model.baseInputPerMillion, model.customerInputPerMillion)}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-2.5 text-center">
-                                                <span className={`w-2 h-2 rounded-full inline-block ${model.isActive ? "bg-green-500" : "bg-slate-300"}`} />
+                                                <span className={`w-2 h-2 rounded-full inline-block ${model.isActive ? "bg-[#3FB950]" : "bg-[#5A5A61]"}`} />
                                             </td>
                                             <td className="px-4 py-2.5 text-right">
                                                 <button
                                                     onClick={() => setEditingId(model.id)}
-                                                    className="text-xs text-indigo-600 hover:text-indigo-800 mr-2"
+                                                    className="text-xs text-[#F5A524] hover:text-[#FFC24B] mr-2"
                                                 >
                                                     Edit
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(model.id)}
-                                                    className="text-xs text-red-500 hover:text-red-700"
+                                                    className="text-xs text-[#F0503C] hover:text-[#F0503C]/80"
                                                 >
                                                     Delete
                                                 </button>
@@ -1144,7 +1144,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
             ))}
 
             {models.length === 0 && (
-                <div className="text-center py-12 text-slate-500">
+                <div className="text-center py-12 text-[#8A8A90]">
                     <p className="text-lg font-medium">No models configured</p>
                     <p className="text-sm mt-1">Click &quot;Sync&quot; to auto-discover models from your connected providers, or add them manually.</p>
                 </div>
@@ -1152,22 +1152,22 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
 
             {/* Profit Summary */}
             {models.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Pricing Summary</h4>
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-6">
+                    <h4 className="text-sm font-semibold text-[#EDEDED] mb-3">Pricing Summary</h4>
                     <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-slate-50 rounded-lg p-4">
-                            <p className="text-xs text-slate-500 mb-1">Total Models</p>
-                            <p className="text-2xl font-bold text-slate-900">{models.length}</p>
+                        <div className="bg-[#101012] rounded-lg p-4">
+                            <p className="text-xs text-[#8A8A90] mb-1">Total Models</p>
+                            <p className="text-2xl font-bold text-[#EDEDED]">{models.length}</p>
                         </div>
-                        <div className="bg-green-50 rounded-lg p-4">
-                            <p className="text-xs text-green-600 mb-1">Models with Markup</p>
-                            <p className="text-2xl font-bold text-green-700">
+                        <div className="bg-[#3FB950]/10 rounded-lg p-4">
+                            <p className="text-xs text-[#3FB950] mb-1">Models with Markup</p>
+                            <p className="text-2xl font-bold text-[#3FB950]">
                                 {models.filter((m) => m.customerInputPerMillion > m.baseInputPerMillion || m.customerOutputPerMillion > m.baseOutputPerMillion).length}
                             </p>
                         </div>
-                        <div className="bg-indigo-50 rounded-lg p-4">
-                            <p className="text-xs text-indigo-600 mb-1">Active Models</p>
-                            <p className="text-2xl font-bold text-indigo-700">
+                        <div className="bg-[#F5A524]/10 rounded-lg p-4">
+                            <p className="text-xs text-[#F5A524] mb-1">Active Models</p>
+                            <p className="text-2xl font-bold text-[#F5A524]">
                                 {models.filter((m) => m.isActive).length}
                             </p>
                         </div>
@@ -1182,35 +1182,35 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
 function DatabaseTab() {
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">PostgreSQL Connection</h2>
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">PostgreSQL Connection</h2>
                 </div>
                 <div className="p-6">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">DATABASE_URL</label>
+                    <label className="block text-sm font-medium text-[#B5B5BA] mb-1">DATABASE_URL</label>
                     <input type="text" readOnly value="postgres://pulseadmin:******@localhost:5432/pulse"
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-500 focus:outline-none font-mono text-sm" />
+                        className="w-full px-4 py-2 bg-[#101012] border border-[#242429] rounded-lg text-[#8A8A90] focus:outline-none font-mono text-sm" />
                     <div className="mt-4 flex gap-3">
-                        <button className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors">
+                        <button className="px-4 py-2 text-sm bg-[#141417] text-[#B5B5BA] rounded-lg font-medium hover:bg-[#1C1C1F] transition-colors">
                             Test Connection
                         </button>
-                        <button className="px-4 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-lg font-medium hover:bg-indigo-100 transition-colors">
+                        <button className="px-4 py-2 text-sm bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40 rounded-lg font-medium hover:bg-[#F5A524]/20 transition-colors">
                             Run Migrations
                         </button>
                     </div>
                 </div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Security & Encryption</h2>
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">Security & Encryption</h2>
                 </div>
                 <div className="p-6">
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="flex items-center justify-between p-4 bg-[#101012] rounded-lg border border-[#242429]">
                         <div>
-                            <p className="font-medium text-slate-900">ENCRYPTION_KEY Status</p>
-                            <p className="text-sm text-slate-500">Used for signing OAuth tokens and NextAuth sessions.</p>
+                            <p className="font-medium text-[#EDEDED]">ENCRYPTION_KEY Status</p>
+                            <p className="text-sm text-[#8A8A90]">Used for signing OAuth tokens and NextAuth sessions.</p>
                         </div>
-                        <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">Valid (64-byte Hex)</span>
+                        <span className="px-3 py-1 bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40 rounded-full text-xs font-semibold">Valid (64-byte Hex)</span>
                     </div>
                 </div>
             </div>
@@ -1262,26 +1262,26 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">Default Skills</h2>
-                    <p className="text-sm text-slate-500 mt-1">
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <div className="p-6 border-b border-[#242429]">
+                    <h2 className="text-lg font-semibold text-[#EDEDED]">Default Skills</h2>
+                    <p className="text-sm text-[#8A8A90] mt-1">
                         Select which built-in skills are enabled by default for all agents.
                         Individual agents can override these settings.
                     </p>
                     {noDefaultsSet && (
-                        <p className="text-xs text-amber-600 mt-2">
+                        <p className="text-xs text-[#F5A524] mt-2">
                             No defaults configured yet — all skills are enabled for all agents. Save to set explicit defaults.
                         </p>
                     )}
                 </div>
                 <div className="p-6 space-y-6">
                     <div className="flex gap-2">
-                        <button onClick={selectAll} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                        <button onClick={selectAll} className="text-xs text-[#F5A524] hover:text-[#FFC24B] font-medium">
                             Select All
                         </button>
-                        <span className="text-xs text-slate-300">|</span>
-                        <button onClick={clearAll} className="text-xs text-slate-500 hover:text-slate-700 font-medium">
+                        <span className="text-xs text-[#5A5A61]">|</span>
+                        <button onClick={clearAll} className="text-xs text-[#8A8A90] hover:text-[#B5B5BA] font-medium">
                             Clear All
                         </button>
                     </div>
@@ -1291,7 +1291,7 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                         if (skills.length === 0) return null;
                         return (
                             <div key={cat.id}>
-                                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">{cat.label}</h3>
+                                <h3 className="text-xs font-semibold text-[#8A8A90] uppercase tracking-wider mb-3">{cat.label}</h3>
                                 <div className="grid gap-3">
                                     {skills.map((skill) => {
                                         const isEnabled = enabled.includes(skill.name);
@@ -1300,18 +1300,18 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                                                 key={skill.name}
                                                 className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
                                                     isEnabled
-                                                        ? "border-indigo-200 bg-indigo-50/50"
-                                                        : "border-slate-200 bg-slate-50/50"
+                                                        ? "border-[#F5A524]/40 bg-[#F5A524]/10"
+                                                        : "border-[#242429] bg-[#101012]/50"
                                                 }`}
                                             >
                                                 <div>
-                                                    <span className="text-sm font-medium text-slate-900">{skill.name}</span>
-                                                    <p className="text-xs text-slate-500 mt-0.5">{skill.description}</p>
+                                                    <span className="text-sm font-medium text-[#EDEDED]">{skill.name}</span>
+                                                    <p className="text-xs text-[#8A8A90] mt-0.5">{skill.description}</p>
                                                 </div>
                                                 <button
                                                     onClick={() => toggle(skill.name)}
                                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                        isEnabled ? "bg-indigo-600" : "bg-slate-300"
+                                                        isEnabled ? "bg-[#3FB950]" : "bg-[#242429]"
                                                     }`}
                                                 >
                                                     <span
@@ -1334,15 +1334,15 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                 <button
                     onClick={handleSave}
                     disabled={status.type === "saving"}
-                    className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 text-sm font-medium text-black bg-[#F5A524] rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-50"
                 >
                     {status.type === "saving" ? "Saving..." : "Save Defaults"}
                 </button>
                 {status.type === "success" && (
-                    <span className="text-sm text-emerald-600">{status.message}</span>
+                    <span className="text-sm text-[#3FB950]">{status.message}</span>
                 )}
                 {status.type === "error" && (
-                    <span className="text-sm text-red-600">{status.message}</span>
+                    <span className="text-sm text-[#F0503C]">{status.message}</span>
                 )}
             </div>
         </div>
