@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.10] - 2026-07-01
+
+### Bug Fixes
+- theme-aware sidebar user menu (pulse variant)
+
 ## [0.10.9] - 2026-07-01
 
 ### Features
