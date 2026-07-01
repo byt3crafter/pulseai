@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.13] - 2026-07-01
+
+### Bug Fixes
+- icon actions for users; compact skills grid
+
 ## [0.10.12] - 2026-07-01
 
 ### Bug Fixes
