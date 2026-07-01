@@ -190,17 +190,12 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
             <button
                 type="button"
                 onClick={openPalette}
-                className="inline-flex items-center gap-2.5 rounded-full border border-[#E1E5EA] bg-white pl-3.5 pr-2.5 py-2 text-sm text-[#5F6368] hover:border-[#D2D6DB] hover:text-[#1F1F1F] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B57D0] focus-visible:ring-offset-2"
+                className="flex items-center gap-2 border border-[#242429] bg-[#101012] rounded px-3 py-1.5 text-[11px] text-[#8A8A90] hover:border-[#33333B] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A524]"
                 aria-haspopup="dialog"
             >
-                <MagnifyingGlassIcon className="w-4 h-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Search or jump to…</span>
-                <span
-                    aria-hidden="true"
-                    className="ml-1 inline-flex items-center gap-0.5 rounded-md bg-[#F0F4F9] px-1.5 py-0.5 text-[11px] font-medium text-[#80868B]"
-                >
-                    ⌘K
-                </span>
+                <MagnifyingGlassIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline uppercase tracking-[0.08em]">Search or jump to&hellip;</span>
+                <kbd className="ml-2 border border-[#242429] rounded px-1 text-[10px] text-[#5A5A61]">&#8984;K</kbd>
             </button>
 
             {open && (
@@ -209,7 +204,7 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                     role="presentation"
                 >
                     <div
-                        className="absolute inset-0 bg-[#1F1F1F]/30 backdrop-blur-sm"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         onClick={closePalette}
                         aria-hidden="true"
                     />
@@ -219,10 +214,10 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                         role="dialog"
                         aria-modal="true"
                         aria-label="Command palette"
-                        className="relative w-full max-w-xl rounded-2xl border border-[#E1E5EA] bg-white shadow-2xl overflow-hidden"
+                        className="relative w-full max-w-xl rounded-lg border border-[#33333B] bg-[#0C0C0E] shadow-2xl overflow-hidden font-mono"
                     >
-                        <div className="flex items-center gap-3 border-b border-[#E1E5EA] px-4 py-3.5">
-                            <MagnifyingGlassIcon className="w-5 h-5 text-[#80868B] flex-shrink-0" aria-hidden="true" />
+                        <div className="flex items-center gap-3 border-b border-[#242429] px-4 py-3.5">
+                            <MagnifyingGlassIcon className="w-4 h-4 text-[#5A5A61] flex-shrink-0" aria-hidden="true" />
                             <input
                                 ref={inputRef}
                                 type="text"
@@ -233,14 +228,14 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                                 }}
                                 onKeyDown={handleInputKeyDown}
                                 placeholder="Search pages, workspaces, actions…"
-                                className="w-full bg-transparent text-sm text-[#1F1F1F] placeholder:text-[#80868B] outline-none"
+                                className="w-full bg-transparent text-[13px] text-[#EDEDED] placeholder:text-[#5A5A61] outline-none"
                                 role="combobox"
                                 aria-expanded="true"
                                 aria-controls="command-palette-listbox"
                                 aria-autocomplete="list"
                             />
-                            <kbd className="hidden sm:inline text-[11px] text-[#80868B] border border-[#E1E5EA] rounded px-1.5 py-0.5">
-                                Esc
+                            <kbd className="hidden sm:inline text-[10px] text-[#5A5A61] border border-[#242429] rounded px-1.5 py-0.5">
+                                ESC
                             </kbd>
                         </div>
 
@@ -252,7 +247,7 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                             className="max-h-80 overflow-y-auto p-2"
                         >
                             {groups.length === 0 && (
-                                <p className="px-3 py-8 text-center text-sm text-[#80868B]">
+                                <p className="px-3 py-8 text-center text-[13px] text-[#5A5A61]">
                                     No results for &ldquo;{query}&rdquo;.
                                 </p>
                             )}
@@ -260,7 +255,7 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                                 const GroupIcon = GROUP_ICONS[group];
                                 return (
                                     <div key={group} className="mb-2 last:mb-0">
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-[#80868B]">
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] text-[#5A5A61]">
                                             <GroupIcon className="w-3.5 h-3.5" aria-hidden="true" />
                                             {group}
                                         </div>
@@ -278,14 +273,20 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                                                     type="button"
                                                     onMouseEnter={() => setActiveIndex(runningIndex)}
                                                     onClick={() => handleSelect(item)}
-                                                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors motion-reduce:transition-none focus-visible:outline-none ${
-                                                        isActive ? "bg-[#F0F4F9] text-[#1F1F1F]" : "text-[#444746]"
+                                                    className={`relative flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none ${
+                                                        isActive ? "bg-[#141210] text-[#F5A524]" : "text-[#8A8A90] hover:bg-[#141417] hover:text-[#EDEDED]"
                                                     }`}
                                                 >
-                                                    <Icon className="w-4 h-4 flex-shrink-0 text-[#80868B]" aria-hidden="true" />
+                                                    {isActive && (
+                                                        <span
+                                                            aria-hidden="true"
+                                                            className="absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded-r bg-[#F5A524]"
+                                                        />
+                                                    )}
+                                                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-[#F5A524]" : "text-[#5A5A61]"}`} aria-hidden="true" />
                                                     <span className="flex-1 truncate">{item.label}</span>
                                                     {item.sublabel && (
-                                                        <span className="text-xs text-[#80868B] flex-shrink-0">{item.sublabel}</span>
+                                                        <span className="text-[11px] uppercase tracking-[0.08em] text-[#5A5A61] flex-shrink-0">{item.sublabel}</span>
                                                     )}
                                                 </button>
                                             );
@@ -293,6 +294,18 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                                     </div>
                                 );
                             })}
+                        </div>
+
+                        <div className="flex items-center gap-4 border-t border-[#242429] px-4 py-2.5 text-[10px] uppercase tracking-[0.08em] text-[#5A5A61]">
+                            <span className="flex items-center gap-1">
+                                <kbd className="border border-[#242429] rounded px-1 py-0.5 text-[#8A8A90]">&uarr;&darr;</kbd> navigate
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <kbd className="border border-[#242429] rounded px-1 py-0.5 text-[#8A8A90]">&crarr;</kbd> open
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <kbd className="border border-[#242429] rounded px-1 py-0.5 text-[#8A8A90]">esc</kbd> close
+                            </span>
                         </div>
                     </div>
                 </div>

@@ -18,6 +18,7 @@ const PAD_LEFT = 8;
 const PAD_RIGHT = 8;
 const PAD_TOP = 28;
 const PAD_BOTTOM = 28;
+const GRID_LINES = 4;
 
 function formatDay(day: string): string {
     const parts = day.split("-").map((n) => Number(n));
@@ -25,7 +26,7 @@ function formatDay(day: string): string {
     const m = parts[1];
     const d = parts[2];
     if (!y || !m || !d) return day;
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
     return `${months[m - 1]} ${d}`;
 }
 
@@ -118,8 +119,8 @@ export default function PulseChart({ series }: PulseChartProps) {
     if (!hasActivity) {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-center gap-2">
-                <p className="text-sm text-[#5F6368]">No activity yet in the last 14 days.</p>
-                <p className="text-xs text-[#80868B]">New messages and revenue will appear here as they come in.</p>
+                <p className="text-[13px] uppercase tracking-[0.1em] text-[#5A5A61]">No activity &middot; last 14 days</p>
+                <p className="text-[11px] text-[#5A5A61]">New messages and revenue will appear here as they come in.</p>
             </div>
         );
     }
@@ -153,26 +154,28 @@ export default function PulseChart({ series }: PulseChartProps) {
     const tooltipLeftPct = activePoint ? (activePoint.x / WIDTH) * 100 : 0;
     const tooltipAlignRight = tooltipLeftPct > 65;
 
+    const gridYs = Array.from({ length: GRID_LINES + 1 }, (_, i) => PAD_TOP + ((HEIGHT - PAD_TOP - PAD_BOTTOM) / GRID_LINES) * i);
+
     return (
         <div className="relative">
-            <div className="flex items-center gap-5 mb-2 text-xs">
-                <span className="inline-flex items-center gap-1.5 text-[#5F6368]">
-                    <span className="w-2 h-2 rounded-full bg-gradient-to-br from-[#4285F4] to-[#9B72CB]" aria-hidden="true" />
+            <div className="flex items-center gap-5 mb-2 text-[11px] uppercase tracking-[0.08em]">
+                <span className="inline-flex items-center gap-1.5 text-[#8A8A90]">
+                    <span className="w-2 h-2 rounded-full bg-[#F5A524]" aria-hidden="true" />
                     Messages
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-[#80868B]">
-                    <span className="w-2.5 h-0 border-t border-dashed border-[#80868B]" aria-hidden="true" />
+                <span className="inline-flex items-center gap-1.5 text-[#5A5A61]">
+                    <span className="w-2.5 h-0 border-t border-dashed border-[#5A5A61]" aria-hidden="true" />
                     Revenue
                 </span>
-                <span className="ml-auto flex items-center gap-4 text-[#80868B] tabular-nums">
-                    <span>Peak <strong className="text-[#1F1F1F] font-semibold">{peak.toLocaleString()}</strong></span>
-                    <span>Low <strong className="text-[#1F1F1F] font-semibold">{low.toLocaleString()}</strong></span>
-                    <span>Latest <strong className="text-[#1F1F1F] font-semibold">{latest.toLocaleString()}</strong></span>
+                <span className="ml-auto flex items-center gap-4 text-[#5A5A61] tabular-nums">
+                    <span>Peak <strong className="text-[#EDEDED] font-semibold">{peak.toLocaleString()}</strong></span>
+                    <span>Low <strong className="text-[#EDEDED] font-semibold">{low.toLocaleString()}</strong></span>
+                    <span>Latest <strong className="text-[#F5A524] font-semibold">{latest.toLocaleString()}</strong></span>
                 </span>
             </div>
 
             <div
-                className="relative outline-none focus-visible:ring-2 focus-visible:ring-[#0B57D0] focus-visible:ring-offset-2 rounded-lg"
+                className="relative outline-none focus-visible:ring-1 focus-visible:ring-[#F5A524] rounded"
                 tabIndex={0}
                 role="img"
                 aria-label={`Messages and revenue over the last ${series.length} days. Latest day: ${latest.toLocaleString()} messages.`}
@@ -191,13 +194,8 @@ export default function PulseChart({ series }: PulseChartProps) {
                 >
                     <defs>
                         <linearGradient id={`${uid}-area`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#4285F4" stopOpacity="0.28" />
-                            <stop offset="55%" stopColor="#9B72CB" stopOpacity="0.14" />
-                            <stop offset="100%" stopColor="#D96570" stopOpacity="0.02" />
-                        </linearGradient>
-                        <linearGradient id={`${uid}-line`} x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#4285F4" />
-                            <stop offset="100%" stopColor="#9B72CB" />
+                            <stop offset="0%" stopColor="#F5A524" stopOpacity="0.18" />
+                            <stop offset="100%" stopColor="#F5A524" stopOpacity="0" />
                         </linearGradient>
                         <clipPath id={`${uid}-reveal`}>
                             <rect
@@ -210,10 +208,14 @@ export default function PulseChart({ series }: PulseChartProps) {
                         </clipPath>
                     </defs>
 
+                    {gridYs.map((y, i) => (
+                        <line key={i} x1={PAD_LEFT} y1={y} x2={WIDTH - PAD_RIGHT} y2={y} stroke="#1C1C1F" strokeWidth={1} />
+                    ))}
+
                     <g clipPath={`url(#${uid}-reveal)`}>
                         <path d={areaPath} fill={`url(#${uid}-area)`} stroke="none" />
-                        <path d={revenuePath} fill="none" stroke="#80868B" strokeWidth={1.25} strokeDasharray="4 4" opacity={0.6} />
-                        <path d={linePath} fill="none" stroke={`url(#${uid}-line)`} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                        <path d={revenuePath} fill="none" stroke="#5A5A61" strokeWidth={1.25} strokeDasharray="4 4" opacity={0.8} />
+                        <path d={linePath} fill="none" stroke="#F5A524" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                     </g>
 
                     {activePoint && (
@@ -223,22 +225,24 @@ export default function PulseChart({ series }: PulseChartProps) {
                                 y1={PAD_TOP}
                                 x2={activePoint.x}
                                 y2={HEIGHT - PAD_BOTTOM}
-                                stroke="#E1E5EA"
+                                stroke="#F5A524"
                                 strokeWidth={1}
+                                strokeDasharray="3 3"
+                                opacity={0.6}
                             />
-                            <circle cx={activePoint.x} cy={activePoint.y} r={4} fill="#4285F4" stroke="#FFFFFF" strokeWidth={2} />
+                            <circle cx={activePoint.x} cy={activePoint.y} r={3.5} fill="#F5A524" stroke="#0A0A0B" strokeWidth={2} />
                         </g>
                     )}
                 </svg>
 
-                <div className="flex justify-between text-[11px] text-[#80868B] mt-1 px-0.5">
+                <div className="flex justify-between text-[10px] uppercase tracking-[0.06em] text-[#5A5A61] mt-1 px-0.5">
                     <span>{formatDay(series[0].day)}</span>
                     <span>{formatDay(series[series.length - 1].day)}</span>
                 </div>
 
                 {active && activePoint && (
                     <div
-                        className="pointer-events-none absolute z-10 -translate-y-full rounded-xl border border-[#E1E5EA] bg-white px-3 py-2 shadow-lg text-xs whitespace-nowrap"
+                        className="pointer-events-none absolute z-10 -translate-y-full rounded border border-[#33333B] bg-[#0C0C0E] px-3 py-2 shadow-2xl text-[11px] whitespace-nowrap font-mono"
                         style={{
                             top: `${(activePoint.y / HEIGHT) * 220 - 10}px`,
                             left: tooltipAlignRight ? undefined : `${tooltipLeftPct}%`,
@@ -247,9 +251,9 @@ export default function PulseChart({ series }: PulseChartProps) {
                         }}
                         role="status"
                     >
-                        <p className="font-medium text-[#1F1F1F]">{formatDay(active.day)}</p>
-                        <p className="text-[#5F6368] mt-0.5">
-                            {active.messages.toLocaleString()} messages · {formatMoney(active.revenue)}
+                        <p className="font-semibold text-[#EDEDED] uppercase tracking-[0.06em]">{formatDay(active.day)}</p>
+                        <p className="text-[#8A8A90] mt-0.5 tabular-nums">
+                            {active.messages.toLocaleString()} msgs &middot; {formatMoney(active.revenue)}
                         </p>
                     </div>
                 )}

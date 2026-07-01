@@ -113,6 +113,40 @@ async function checkGatewayHealth(): Promise<HealthRow> {
     }
 }
 
+export interface AdminStatus {
+    gateway: "operational" | "degraded" | "unknown";
+    db: "operational" | "unknown";
+    tenants: number;
+    messages24h: number;
+}
+
+/** Lightweight status for the terminal footer bar (cheap; safe for every page). */
+export async function getAdminStatus(): Promise<AdminStatus> {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) {
+        return { gateway: "unknown", db: "unknown", tenants: 0, messages24h: 0 };
+    }
+    try {
+        const [counts, gateway] = await Promise.all([
+            db.execute(sql`
+                select
+                    (select count(*) from tenants) as tenants,
+                    (select count(*) from messages where created_at > now() - interval '24 hours') as m24
+            `),
+            checkGatewayHealth(),
+        ]);
+        const c = (counts as any)[0] ?? {};
+        return {
+            gateway: gateway.status,
+            db: "operational",
+            tenants: num(c.tenants),
+            messages24h: num(c.m24),
+        };
+    } catch {
+        return { gateway: "unknown", db: "unknown", tenants: 0, messages24h: 0 };
+    }
+}
+
 export async function getAdminOverview(): Promise<AdminOverview> {
     const adminCheck = await requireAdmin();
     if (!adminCheck.authorized) return emptyOverview();

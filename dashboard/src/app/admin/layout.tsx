@@ -1,7 +1,12 @@
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
 import SidebarUserMenu from "../../components/SidebarUserMenu";
 import AdminNav from "../../components/AdminNav";
+import CommandPalette from "../../components/admin/CommandPalette";
+import StatusBar from "../../components/admin/StatusBar";
 import { auth } from "../../auth";
+import { getAdminStatus } from "./overview-data";
+import { db } from "../../storage/db";
+import { tenants } from "../../storage/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -14,42 +19,81 @@ export default async function AdminLayout({
     // (middleware already protects admin routes, so we always render the sidebar)
     const session = await auth();
     const userName = session?.user?.name || "Admin";
+    const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+
+    const [status, tenantRows] = await Promise.all([
+        getAdminStatus(),
+        db.select({ id: tenants.id, name: tenants.name }).from(tenants).orderBy(tenants.name).limit(200),
+    ]);
 
     return (
-        <div className="flex h-screen bg-white w-full font-sans">
+        <div className="flex flex-col h-screen bg-[#0A0A0B] text-[#EDEDED] font-mono">
+            <div className="flex flex-1 min-h-0">
+                {/* Sidebar */}
+                <aside className="w-[232px] flex-shrink-0 bg-[#0C0C0E] border-r border-[#242429] flex flex-col">
+                    {/* Brand */}
+                    <div className="h-14 px-4 flex items-center gap-2.5 border-b border-[#242429]">
+                        <span className="w-7 h-7 rounded bg-[#F5A524] flex items-center justify-center flex-shrink-0">
+                            <span className="text-black font-bold text-sm">P</span>
+                        </span>
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-[#EDEDED] leading-none">PULSE</p>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-[#5A5A61] mt-1">Admin Console</p>
+                        </div>
+                    </div>
 
-            {/* Sidebar */}
-            <aside className="flex w-64 shrink-0 bg-[#F0F4F9] text-[#444746] h-screen flex-col border-r border-[#E1E5EA] overflow-y-auto">
-                <div className="h-16 px-5 flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-[#4285F4] via-[#9B72CB] to-[#D96570]">
-                        <SparklesIcon className="w-4 h-4 text-white" aria-hidden="true" />
-                    </span>
-                    <span className="text-base tracking-tight leading-none">
-                        <span className="font-bold text-[#1F1F1F]">Pulse</span>{" "}
-                        <span className="font-normal text-[#5F6368]">Admin</span>
-                    </span>
-                </div>
+                    {/* Environment */}
+                    <div className="mx-3 mt-3 border border-[#242429] rounded-md p-2.5">
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Environment</p>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" aria-hidden="true" />
+                            <span className="text-[#EDEDED] text-xs">PRODUCTION</span>
+                        </div>
+                        <p className="text-[11px] text-[#5A5A61] mt-0.5">pulse.runstate.mu</p>
+                    </div>
 
-                <AdminNav />
+                    <div className="flex-1 overflow-y-auto mt-2">
+                        <AdminNav />
+                    </div>
 
-                <div className="p-3">
-                    <div className="bg-white rounded-xl border border-[#E1E5EA] p-1.5">
+                    {/* User */}
+                    <div className="border-t border-[#242429] p-2">
                         <SidebarUserMenu
                             name={userName}
                             role="Administrator"
-                            initials={userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2)}
+                            initials={initials}
                             callbackUrl="/admin/login"
-                            variant="light"
+                            variant="dark"
                             settingsHref="/admin/settings"
                         />
                     </div>
-                </div>
-            </aside>
+                </aside>
 
-            {/* Main content */}
-            <main className="flex-1 overflow-auto bg-white">
-                {children}
-            </main>
+                {/* Main column */}
+                <div className="flex-1 flex flex-col min-w-0">
+                    {/* Top command bar */}
+                    <header className="h-12 flex-shrink-0 border-b border-[#242429] bg-[#0A0A0B] px-4 flex items-center gap-4">
+                        <div className="flex items-center gap-1.5 text-xs">
+                            <span className="text-[#F5A524]">&#9656;</span>
+                            <span className="text-[#EDEDED]">ADMIN</span>
+                            <span className="text-[#5A5A61]">&middot; platform control plane</span>
+                        </div>
+                        <div className="ml-auto flex items-center gap-2">
+                            <CommandPalette tenants={tenantRows} />
+                            <Link
+                                href="/admin/tenants"
+                                className="bg-[#F5A524] text-black text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-[#FFC24B] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A524] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0A0A0B]"
+                            >
+                                + New Workspace
+                            </Link>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 overflow-auto">{children}</main>
+                </div>
+            </div>
+
+            <StatusBar status={status} />
         </div>
     );
 }
