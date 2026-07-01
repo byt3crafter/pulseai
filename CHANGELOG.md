@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.6] - 2026-07-01
+
+### Features
+- recolor all inner admin pages to the Pulse Terminal palette
+
 ## [0.10.5] - 2026-07-01
 
 ### Features
