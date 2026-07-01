@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import SaveButton from "../../../components/SaveButton";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { ui, PageHeader, Panel, Badge, StatusDot } from "../../../components/admin/ui";
@@ -1120,18 +1121,26 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                                 </span>
                                             </td>
                                             <td className={ui.tdRight}>
-                                                <button
-                                                    onClick={() => setEditingId(model.id)}
-                                                    className={`${ui.btnGhost} mr-3`}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(model.id)}
-                                                    className="text-[13px] font-medium text-pulse-loss hover:text-pulse-loss/80 transition-colors"
-                                                >
-                                                    Delete
-                                                </button>
+                                                <div className="inline-flex items-center justify-end gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingId(model.id)}
+                                                        aria-label="Edit model pricing"
+                                                        title="Edit"
+                                                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-accent hover:bg-pulse-hover transition-colors"
+                                                    >
+                                                        <PencilSquareIcon aria-hidden="true" className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDelete(model.id)}
+                                                        aria-label="Delete model"
+                                                        title="Delete"
+                                                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-loss hover:bg-pulse-loss/10 transition-colors"
+                                                    >
+                                                        <TrashIcon aria-hidden="true" className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     )
