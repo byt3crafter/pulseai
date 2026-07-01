@@ -27,14 +27,14 @@ export default async function AdminLayout({
     ]);
 
     return (
-        <div className="flex flex-col h-screen bg-[#0A0A0B] text-[#EDEDED] font-mono">
+        <div className="flex flex-col h-screen bg-[#0A0A0B] text-[#EDEDED] font-sans">
             <div className="flex flex-1 min-h-0">
                 {/* Sidebar */}
                 <aside className="w-[232px] flex-shrink-0 bg-[#0C0C0E] border-r border-[#242429] flex flex-col">
                     {/* Brand */}
                     <div className="h-14 px-4 flex items-center gap-2.5 border-b border-[#242429]">
-                        <span className="w-7 h-7 rounded bg-[#F5A524] flex items-center justify-center flex-shrink-0">
-                            <span className="text-black font-bold text-sm">P</span>
+                        <span className="w-7 h-7 rounded bg-[#8B5CF6] flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-bold text-sm">P</span>
                         </span>
                         <div className="min-w-0">
                             <p className="text-sm font-bold text-[#EDEDED] leading-none">PULSE</p>
@@ -74,7 +74,7 @@ export default async function AdminLayout({
                     {/* Top command bar */}
                     <header className="h-12 flex-shrink-0 border-b border-[#242429] bg-[#0A0A0B] px-4 flex items-center gap-4">
                         <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-[#F5A524]">&#9656;</span>
+                            <span className="text-[#8B5CF6]">&#9656;</span>
                             <span className="text-[#EDEDED]">ADMIN</span>
                             <span className="text-[#5A5A61]">&middot; platform control plane</span>
                         </div>
@@ -82,7 +82,7 @@ export default async function AdminLayout({
                             <CommandPalette tenants={tenantRows} />
                             <Link
                                 href="/admin/tenants"
-                                className="bg-[#F5A524] text-black text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-[#FFC24B] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A524] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0A0A0B]"
+                                className="bg-[#8B5CF6] text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded hover:bg-[#A78BFA] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0A0A0B]"
                             >
                                 + New Workspace
                             </Link>

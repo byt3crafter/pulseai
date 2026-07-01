@@ -49,13 +49,13 @@ export default async function TenantDetailPage({
             <div className="mb-8">
                 <Link
                     href="/admin/tenants"
-                    className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block"
+                    className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block"
                 >
                     &larr; Back to Tenants
                 </Link>
                 <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">{tenant.name}</h1>
                 <div className="flex items-center gap-3 mt-1">
-                    <span className="bg-[#141417] text-[#8A8A90] border border-[#242429] px-2 py-0.5 rounded-md text-xs font-mono">
+                    <span className="bg-[#141417] text-[#8A8A90] border border-[#242429] px-2 py-0.5 rounded-md text-xs font-sans">
                         {tenant.slug}
                     </span>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
@@ -79,7 +79,7 @@ export default async function TenantDetailPage({
                         {Number(pendingCount) > 0 && (
                             <Link
                                 href={`/admin/tenants/${tenantId}/approvals`}
-                                className="text-sm font-normal text-[#F5A524] hover:text-[#FFC24B] ml-2"
+                                className="text-sm font-normal text-[#8B5CF6] hover:text-[#A78BFA] ml-2"
                             >
                                 View
                             </Link>
@@ -88,7 +88,7 @@ export default async function TenantDetailPage({
                 </div>
                 <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-4">
                     <div className="text-xs text-[#8A8A90]">OAuth Client</div>
-                    <div className="text-sm font-mono text-[#B5B5BA] truncate">
+                    <div className="text-sm font-sans text-[#B5B5BA] truncate">
                         {oauthClient?.clientId ?? "None"}
                     </div>
                 </div>
@@ -106,7 +106,7 @@ export default async function TenantDetailPage({
             <div className="mt-8">
                 <Link
                     href={`/admin/tenants/${tenantId}/approvals`}
-                    className="text-sm text-[#F5A524] hover:text-[#FFC24B] font-medium"
+                    className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] font-medium"
                 >
                     Manage Approvals & Allowlists &rarr;
                 </Link>

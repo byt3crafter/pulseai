@@ -34,7 +34,7 @@ function roleStyling(role: string) {
         case "assistant":
             return "bg-[#101012] border border-[#242429] text-[#EDEDED] mr-12";
         case "tool":
-            return "bg-[#F5A524]/10 border border-[#F5A524]/40 text-[#F5A524] font-mono text-xs mr-12";
+            return "bg-[#8B5CF6]/10 border border-[#8B5CF6]/40 text-[#8B5CF6] font-sans text-xs mr-12";
         case "system":
             return "bg-[#101012] border border-[#242429] text-[#8A8A90] italic text-center mx-16 text-xs";
         default:
@@ -194,7 +194,7 @@ function renderInline(text: string): (string | React.ReactElement)[] {
         const m = match[0];
         if (m.startsWith("`")) {
             parts.push(
-                <code key={key++} className="bg-[#141417] text-[#EDEDED] px-1.5 py-0.5 rounded text-xs font-mono">
+                <code key={key++} className="bg-[#141417] text-[#EDEDED] px-1.5 py-0.5 rounded text-xs font-sans">
                     {m.slice(1, -1)}
                 </code>
             );
@@ -206,7 +206,7 @@ function renderInline(text: string): (string | React.ReactElement)[] {
             const linkMatch = m.match(/\[([^\]]+)\]\(([^)]+)\)/);
             if (linkMatch) {
                 parts.push(
-                    <a key={key++} href={linkMatch[2]} className="text-[#F5A524] hover:underline" target="_blank" rel="noopener noreferrer">
+                    <a key={key++} href={linkMatch[2]} className="text-[#8B5CF6] hover:underline" target="_blank" rel="noopener noreferrer">
                         {linkMatch[1]}
                     </a>
                 );
@@ -269,7 +269,7 @@ export default function AdminConversationDetailClient({
                                 conversation.channelContactId}
                         </h1>
                         <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs font-mono text-[#5A5A61]">
+                            <span className="text-xs font-sans text-[#5A5A61]">
                                 {conversation.channelContactId}
                             </span>
                             <span

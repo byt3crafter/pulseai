@@ -11,7 +11,7 @@ import type { AdminStatus } from "../../app/admin/overview-data";
 
 function dotColor(state: "operational" | "degraded" | "unknown") {
     if (state === "operational") return "bg-[#3FB950]";
-    if (state === "degraded") return "bg-[#F5A524]";
+    if (state === "degraded") return "bg-[#8B5CF6]";
     return "bg-[#5A5A61]";
 }
 
@@ -20,7 +20,7 @@ function Indicator({ label, state }: { label: string; state: "operational" | "de
         <span className="inline-flex items-center gap-1.5">
             <span className={`w-1.5 h-1.5 rounded-full ${dotColor(state)}`} aria-hidden="true" />
             <span className="text-[#8A8A90]">{label}</span>
-            <span className={state === "operational" ? "text-[#3FB950]" : state === "degraded" ? "text-[#F5A524]" : "text-[#5A5A61]"}>
+            <span className={state === "operational" ? "text-[#3FB950]" : state === "degraded" ? "text-[#8B5CF6]" : "text-[#5A5A61]"}>
                 {state === "operational" ? "OK" : state === "degraded" ? "DEGRADED" : "—"}
             </span>
         </span>
@@ -42,7 +42,7 @@ export default function StatusBar({ status }: { status: AdminStatus }) {
     }, []);
 
     return (
-        <footer className="h-7 flex-shrink-0 border-t border-[#242429] bg-[#0C0C0E] px-4 flex items-center gap-5 text-[11px] tracking-wide text-[#8A8A90] font-mono select-none">
+        <footer className="h-7 flex-shrink-0 border-t border-[#242429] bg-[#0C0C0E] px-4 flex items-center gap-5 text-[11px] tracking-wide text-[#8A8A90] font-sans select-none">
             <span className="text-[#5A5A61]">[SYS]</span>
             <Indicator label="GATEWAY" state={status.gateway} />
             <Indicator label="DB" state={status.db} />

@@ -109,7 +109,7 @@ export default function ApprovalsClient({
                 <h2 className="text-lg font-semibold text-[#EDEDED] mb-4">
                     Pending Pairing Requests
                     {pendingPairings.length > 0 && (
-                        <span className="ml-2 text-sm font-normal text-[#F5A524]">
+                        <span className="ml-2 text-sm font-normal text-[#8B5CF6]">
                             ({pendingPairings.length} pending)
                         </span>
                     )}
@@ -129,7 +129,7 @@ export default function ApprovalsClient({
                                     </div>
                                     <div className="text-xs text-[#8A8A90]">
                                         ID: {p.contactId} &middot; Code:{" "}
-                                        <code className="font-mono bg-[#141417] px-1 rounded">
+                                        <code className="font-sans bg-[#141417] px-1 rounded">
                                             {p.code}
                                         </code>
                                     </div>
@@ -177,7 +177,7 @@ export default function ApprovalsClient({
                                     <div className="text-sm font-medium text-[#EDEDED]">
                                         {u.contactName || "Unknown"}
                                     </div>
-                                    <div className="text-xs text-[#8A8A90] font-mono">{u.contactId}</div>
+                                    <div className="text-xs text-[#8A8A90] font-sans">{u.contactId}</div>
                                 </div>
                                 <button
                                     onClick={() => setConfirmAction({ type: "remove", contactId: u.contactId })}
@@ -208,7 +208,7 @@ export default function ApprovalsClient({
                                     <div className="text-sm font-medium text-[#EDEDED]">
                                         {g.contactName || "Unnamed Group"}
                                     </div>
-                                    <div className="text-xs text-[#8A8A90] font-mono">{g.contactId}</div>
+                                    <div className="text-xs text-[#8A8A90] font-sans">{g.contactId}</div>
                                 </div>
                                 <button
                                     onClick={() => setConfirmAction({ type: "remove", contactId: g.contactId })}
@@ -231,19 +231,19 @@ export default function ApprovalsClient({
                             placeholder="Group Chat ID (e.g. -1001234567890)"
                             value={groupChatId}
                             onChange={(e) => setGroupChatId(e.target.value)}
-                            className="flex-1 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F5A524] outline-none"
+                            className="flex-1 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#8B5CF6] outline-none"
                         />
                         <input
                             type="text"
                             placeholder="Group Name"
                             value={groupName}
                             onChange={(e) => setGroupName(e.target.value)}
-                            className="flex-1 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F5A524] outline-none"
+                            className="flex-1 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#8B5CF6] outline-none"
                         />
                         <button
                             onClick={handleAddGroup}
                             disabled={addingGroup}
-                            className="px-4 py-2 bg-[#F5A524] text-black text-sm font-medium rounded-lg hover:bg-[#FFC24B] disabled:opacity-50 transition-colors whitespace-nowrap"
+                            className="px-4 py-2 bg-[#8B5CF6] text-white text-sm font-medium rounded-lg hover:bg-[#A78BFA] disabled:opacity-50 transition-colors whitespace-nowrap"
                         >
                             {addingGroup ? "Adding..." : "Add Group"}
                         </button>

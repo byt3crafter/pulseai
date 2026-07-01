@@ -67,10 +67,10 @@ export default function AdminPluginsClient({
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href="/admin/settings" className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block">&larr; Back to Settings</a>
+                <a href="/admin/settings" className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[#F5A524]/10 rounded-lg">
-                        <PuzzleIcon className="w-6 h-6 text-[#F5A524]" />
+                    <div className="p-2 bg-[#8B5CF6]/10 rounded-lg">
+                        <PuzzleIcon className="w-6 h-6 text-[#8B5CF6]" />
                     </div>
                     <h1 className="text-3xl font-bold text-[#EDEDED] tracking-tight">Plugins</h1>
                 </div>
@@ -125,7 +125,7 @@ export default function AdminPluginsClient({
                                                     </span>
                                                 )}
                                                 {hookNames.length > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40 rounded-full">
                                                         <HookIcon className="w-3 h-3" /> {hookNames.length} hook{hookNames.length !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
@@ -157,7 +157,7 @@ export default function AdminPluginsClient({
 
                                             <button
                                                 onClick={() => toggleExpand(plugin.id)}
-                                                className="text-xs text-[#F5A524] hover:text-[#FFC24B] font-medium whitespace-nowrap"
+                                                className="text-xs text-[#8B5CF6] hover:text-[#A78BFA] font-medium whitespace-nowrap"
                                             >
                                                 {isExpanded ? "Hide tenants" : "Manage tenants"}
                                             </button>

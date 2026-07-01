@@ -82,7 +82,7 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                             >
                                 {currentStatus === "active" ? (
                                     <>
-                                        <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-[#F5A524]" />
+                                        <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-[#8B5CF6]" />
                                         Suspend Workspace
                                     </>
                                 ) : (

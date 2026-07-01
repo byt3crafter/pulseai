@@ -59,7 +59,7 @@ export default function TenantSettingsClient({
                             type="checkbox"
                             checked={enableCli}
                             onChange={(e) => setEnableCli(e.target.checked)}
-                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
+                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
                         />
                         <div>
                             <span className="text-sm font-medium text-[#EDEDED]">Enable Third-Party CLI Access</span>
@@ -69,7 +69,7 @@ export default function TenantSettingsClient({
                     {clientId && (
                         <div className="mt-2 bg-[#101012] rounded-lg p-3">
                             <div className="text-xs text-[#8A8A90]">OAuth Client ID</div>
-                            <code className="text-sm font-mono text-[#B5B5BA]">{clientId}</code>
+                            <code className="text-sm font-sans text-[#B5B5BA]">{clientId}</code>
                         </div>
                     )}
                 </div>
@@ -85,7 +85,7 @@ export default function TenantSettingsClient({
                             type="checkbox"
                             checked={heartbeatEnabled}
                             onChange={(e) => setHeartbeatEnabled(e.target.checked)}
-                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
+                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
                         />
                         <div>
                             <span className="text-sm font-medium text-[#EDEDED]">Enable Heartbeat by Default</span>
@@ -101,7 +101,7 @@ export default function TenantSettingsClient({
                             min="60"
                             value={heartbeatInterval}
                             onChange={(e) => setHeartbeatInterval(e.target.value)}
-                            className="w-full max-w-[200px] px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524]"
+                            className="w-full max-w-[200px] px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#8B5CF6]"
                         />
                     </div>
                 </div>
@@ -116,7 +116,7 @@ export default function TenantSettingsClient({
                         type="checkbox"
                         checked={routingEnabled}
                         onChange={(e) => setRoutingEnabled(e.target.checked)}
-                        className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
+                        className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
                     />
                     <div>
                         <span className="text-sm font-medium text-[#EDEDED]">Enable Multi-Agent Routing</span>
@@ -125,8 +125,8 @@ export default function TenantSettingsClient({
                 </label>
             </section>
 
-            <section className="bg-[#F5A524]/10 border border-[#F5A524]/40 rounded-xl p-4">
-                <p className="text-sm text-[#F5A524]">
+            <section className="bg-[#8B5CF6]/10 border border-[#8B5CF6]/40 rounded-xl p-4">
+                <p className="text-sm text-[#8B5CF6]">
                     Telegram policies (DM pairing, group access, allowlists) are managed by the tenant from their own dashboard under <span className="font-semibold">Settings &rarr; Telegram</span>.
                 </p>
             </section>
@@ -136,7 +136,7 @@ export default function TenantSettingsClient({
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-5 py-2 bg-[#F5A524] text-black text-sm font-medium rounded-lg hover:bg-[#FFC24B] disabled:opacity-50 transition-colors"
+                    className="px-5 py-2 bg-[#8B5CF6] text-white text-sm font-medium rounded-lg hover:bg-[#A78BFA] disabled:opacity-50 transition-colors"
                 >
                     {saving ? "Saving..." : "Save Settings"}
                 </button>

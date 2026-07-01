@@ -46,12 +46,12 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href={`/admin/tenants/${tenantId}`} className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block">
+                <a href={`/admin/tenants/${tenantId}`} className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">
                     &larr; Back to {tenant.name}
                 </a>
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#F5A524]/10 rounded-lg">
-                        <KeyIcon className="w-6 h-6 text-[#F5A524]" />
+                    <div className="p-2 bg-[#8B5CF6]/10 rounded-lg">
+                        <KeyIcon className="w-6 h-6 text-[#8B5CF6]" />
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-[#EDEDED]">Credentials — {tenant.name}</h1>
@@ -86,7 +86,7 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
                             )}
                             {creds.map((cred) => (
                                 <tr key={cred.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
-                                    <td className="px-6 py-3 font-mono text-sm font-medium text-[#EDEDED]">{cred.name}</td>
+                                    <td className="px-6 py-3 font-sans text-sm font-medium text-[#EDEDED]">{cred.name}</td>
                                     <td className="px-6 py-3">
                                         <span className="px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">{cred.credentialType}</span>
                                     </td>

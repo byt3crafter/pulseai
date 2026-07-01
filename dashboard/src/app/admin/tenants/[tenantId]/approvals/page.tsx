@@ -69,7 +69,7 @@ export default async function ApprovalsPage({
             <div className="mb-8">
                 <Link
                     href={`/admin/tenants/${tenantId}`}
-                    className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block"
+                    className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block"
                 >
                     &larr; Back to Tenant Settings
                 </Link>

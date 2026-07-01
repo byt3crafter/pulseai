@@ -24,7 +24,7 @@ export default async function ExecSafetyPage() {
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href="/admin/settings" className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block">&larr; Back to Settings</a>
+                <a href="/admin/settings" className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
                     <div className="p-2 bg-[#F0503C]/10 rounded-lg">
                         <ShieldCheckIcon className="w-6 h-6 text-[#F0503C]" />
@@ -49,7 +49,7 @@ export default async function ExecSafetyPage() {
                                 type="checkbox"
                                 name="enabled"
                                 defaultChecked={settings.enabled}
-                                className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
+                                className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
                             />
                             <div>
                                 <span className="text-sm font-medium text-[#EDEDED]">Enable Exec Safety</span>
@@ -62,7 +62,7 @@ export default async function ExecSafetyPage() {
                             <select
                                 name="defaultPolicy"
                                 defaultValue={settings.defaultPolicy}
-                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] outline-none focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] text-[#EDEDED]"
+                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] outline-none focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] text-[#EDEDED]"
                             >
                                 <option value="allow_all">Allow All (log everything)</option>
                                 <option value="allowlist_only">Allowlist Only (safe commands only)</option>
@@ -77,7 +77,7 @@ export default async function ExecSafetyPage() {
                                 rows={4}
                                 defaultValue={settings.globalDenyPatterns}
                                 placeholder="One pattern per line, e.g.:&#10;rm -rf *&#10;/DROP\s+TABLE/i"
-                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] outline-none focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61] font-mono"
+                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] outline-none focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] text-[#EDEDED] placeholder:text-[#5A5A61] font-sans"
                             />
                         </div>
 
@@ -88,7 +88,7 @@ export default async function ExecSafetyPage() {
                                 rows={4}
                                 defaultValue={settings.globalAllowPatterns}
                                 placeholder="One pattern per line, e.g.:&#10;python3 *&#10;ls *"
-                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] outline-none focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61] font-mono"
+                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] outline-none focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] text-[#EDEDED] placeholder:text-[#5A5A61] font-sans"
                             />
                         </div>
 
@@ -122,7 +122,7 @@ export default async function ExecSafetyPage() {
                                 name="pattern"
                                 placeholder="Pattern (glob or /regex/)"
                                 required
-                                className="px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED] placeholder:text-[#5A5A61] font-mono md:col-span-2"
+                                className="px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED] placeholder:text-[#5A5A61] font-sans md:col-span-2"
                             />
                             <input
                                 type="text"
@@ -138,7 +138,7 @@ export default async function ExecSafetyPage() {
                                     defaultValue="0"
                                     className="w-20 px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
                                 />
-                                <SaveButton label="Add" className="px-4 py-2 bg-[#F5A524] text-black rounded-lg text-sm font-medium hover:bg-[#FFC24B] transition-colors disabled:opacity-60" />
+                                <SaveButton label="Add" className="px-4 py-2 bg-[#8B5CF6] text-white rounded-lg text-sm font-medium hover:bg-[#A78BFA] transition-colors disabled:opacity-60" />
                             </div>
                         </div>
                     </form>
@@ -176,7 +176,7 @@ export default async function ExecSafetyPage() {
                                                 {rule.ruleType}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-3 font-mono text-sm text-[#B5B5BA]">{rule.pattern}</td>
+                                        <td className="px-6 py-3 font-sans text-sm text-[#B5B5BA]">{rule.pattern}</td>
                                         <td className="px-6 py-3 text-sm text-[#8A8A90]">{rule.description || "—"}</td>
                                         <td className="px-6 py-3 text-sm text-[#8A8A90]">{rule.priority}</td>
                                         <td className="px-6 py-3">
@@ -236,14 +236,14 @@ export default async function ExecSafetyPage() {
                                                     log.decision === "denied"
                                                         ? "bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40"
                                                         : log.decision === "sandboxed"
-                                                        ? "bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40"
+                                                        ? "bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40"
                                                         : "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
                                                 }`}
                                             >
                                                 {log.decision}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-3 font-mono text-xs text-[#B5B5BA] max-w-xs truncate">
+                                        <td className="px-6 py-3 font-sans text-xs text-[#B5B5BA] max-w-xs truncate">
                                             {log.command.length > 100
                                                 ? log.command.substring(0, 100) + "..."
                                                 : log.command}

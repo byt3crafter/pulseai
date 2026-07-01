@@ -77,8 +77,8 @@ function HealthStatus({ status }: { status: HealthRow["status"] }) {
     }
     if (status === "degraded") {
         return (
-            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-[#F5A524]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F5A524]" aria-hidden="true" />
+            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-[#8B5CF6]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" aria-hidden="true" />
                 Degraded
             </span>
         );
@@ -153,7 +153,7 @@ export default async function AdminOverviewPage() {
 
                 <div className="bg-[#0C0C0E] p-4">
                     <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Margin %</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#F5A524]">{kpis.marginPct.toFixed(1)}%</p>
+                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#8B5CF6]">{kpis.marginPct.toFixed(1)}%</p>
                     <p className="text-[11px] text-[#5A5A61] mt-1">of revenue</p>
                 </div>
 
@@ -214,7 +214,7 @@ export default async function AdminOverviewPage() {
                                                     <td className="px-4 py-2.5">
                                                         <Link
                                                             href="/admin/tenants"
-                                                            className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A524] rounded"
+                                                            className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] rounded"
                                                         >
                                                             <span className="text-[#EDEDED] truncate">{t.name}</span>
                                                             <TenantStatusBadge status={t.status} />
@@ -255,13 +255,13 @@ export default async function AdminOverviewPage() {
                                 <li key={item.title}>
                                     <Link
                                         href={item.href}
-                                        className={`block pl-3 py-1.5 border-l-2 hover:bg-[#101012] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F5A524] rounded-sm ${
-                                            item.severity === "warn" ? "border-[#F5A524]" : "border-[#33333B]"
+                                        className={`block pl-3 py-1.5 border-l-2 hover:bg-[#101012] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] rounded-sm ${
+                                            item.severity === "warn" ? "border-[#8B5CF6]" : "border-[#33333B]"
                                         }`}
                                     >
                                         <span
                                             className={`text-[10px] uppercase tracking-[0.1em] ${
-                                                item.severity === "warn" ? "text-[#F5A524]" : "text-[#5A5A61]"
+                                                item.severity === "warn" ? "text-[#8B5CF6]" : "text-[#5A5A61]"
                                             }`}
                                         >
                                             {item.severity}
