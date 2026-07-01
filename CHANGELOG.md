@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.4] - 2026-07-01
+
+### Features
+- redesign admin dashboard as a real command center
+
 ## [0.10.3] - 2026-07-01
 
 ### Features
