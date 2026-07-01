@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { EllipsisVerticalIcon, NoSymbolIcon, TrashIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { deleteTenantAction, toggleTenantStatusAction } from "./actions";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+
+const MENU_WIDTH = 192; // w-48
 
 export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantId: string, currentStatus: string }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -11,17 +14,38 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
     const [isToggling, setIsToggling] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [error, setError] = useState("");
-    const menuRef = useRef<HTMLDivElement>(null);
+    const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    const openMenu = () => {
+        const rect = buttonRef.current?.getBoundingClientRect();
+        if (rect) {
+            setCoords({
+                top: rect.bottom + 6,
+                left: Math.max(8, rect.right - MENU_WIDTH),
+            });
+        }
+        setIsOpen(true);
+    };
 
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
+        if (!isOpen) return;
+        function handlePointer(event: MouseEvent) {
+            const t = event.target as Node;
+            if (buttonRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+            setIsOpen(false);
         }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        const close = () => setIsOpen(false);
+        document.addEventListener("mousedown", handlePointer);
+        window.addEventListener("scroll", close, true);
+        window.addEventListener("resize", close);
+        return () => {
+            document.removeEventListener("mousedown", handlePointer);
+            window.removeEventListener("scroll", close, true);
+            window.removeEventListener("resize", close);
+        };
+    }, [isOpen]);
 
     const handleDelete = async () => {
         setShowDeleteConfirm(false);
@@ -60,9 +84,10 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                     </button>
                 </div>
             )}
-            <div className="relative inline-block text-left" ref={menuRef}>
+            <div className="inline-block text-left">
                 <button
-                    onClick={() => setIsOpen(!isOpen)}
+                    ref={buttonRef}
+                    onClick={() => (isOpen ? setIsOpen(false) : openMenu())}
                     aria-label="Tenant actions"
                     aria-haspopup="true"
                     aria-expanded={isOpen}
@@ -71,39 +96,44 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                     <EllipsisVerticalIcon aria-hidden="true" className="w-5 h-5" />
                 </button>
 
-                {isOpen && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-md bg-pulse-panel border border-pulse-border z-10 transition-all">
-                        <div className="py-1" role="menu" aria-orientation="vertical">
-                            <button
-                                onClick={handleToggleStatus}
-                                disabled={isToggling}
-                                className="w-full text-left px-4 py-2 text-sm text-pulse-text-soft hover:bg-pulse-hover hover:text-pulse-text flex items-center gap-2 disabled:opacity-50"
-                                role="menuitem"
-                            >
-                                {currentStatus === "active" ? (
-                                    <>
-                                        <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-pulse-accent" />
-                                        Suspend Workspace
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircleIcon aria-hidden="true" className="w-4 h-4 text-pulse-profit" />
-                                        Activate Workspace
-                                    </>
-                                )}
-                            </button>
+                {isOpen && typeof document !== "undefined" && createPortal(
+                    <div
+                        ref={panelRef}
+                        style={{ position: "fixed", top: coords.top, left: coords.left, width: MENU_WIDTH }}
+                        className="rounded-md bg-pulse-panel border border-pulse-border shadow-xl z-[200] py-1"
+                        role="menu"
+                        aria-orientation="vertical"
+                    >
+                        <button
+                            onClick={handleToggleStatus}
+                            disabled={isToggling}
+                            className="w-full text-left px-4 py-2 text-sm text-pulse-text-soft hover:bg-pulse-hover hover:text-pulse-text flex items-center gap-2 disabled:opacity-50"
+                            role="menuitem"
+                        >
+                            {currentStatus === "active" ? (
+                                <>
+                                    <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-pulse-accent" />
+                                    Suspend Workspace
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircleIcon aria-hidden="true" className="w-4 h-4 text-pulse-profit" />
+                                    Activate Workspace
+                                </>
+                            )}
+                        </button>
 
-                            <button
-                                onClick={() => { setIsOpen(false); setShowDeleteConfirm(true); }}
-                                disabled={isDeleting}
-                                className="w-full text-left px-4 py-2 text-sm text-pulse-loss hover:bg-pulse-loss/10 hover:text-pulse-loss flex items-center gap-2 disabled:opacity-50"
-                                role="menuitem"
-                            >
-                                <TrashIcon aria-hidden="true" className="w-4 h-4" />
-                                {isDeleting ? "Deleting..." : "Delete Permanently"}
-                            </button>
-                        </div>
-                    </div>
+                        <button
+                            onClick={() => { setIsOpen(false); setShowDeleteConfirm(true); }}
+                            disabled={isDeleting}
+                            className="w-full text-left px-4 py-2 text-sm text-pulse-loss hover:bg-pulse-loss/10 hover:text-pulse-loss flex items-center gap-2 disabled:opacity-50"
+                            role="menuitem"
+                        >
+                            <TrashIcon aria-hidden="true" className="w-4 h-4" />
+                            {isDeleting ? "Deleting..." : "Delete Permanently"}
+                        </button>
+                    </div>,
+                    document.body,
                 )}
             </div>
 
