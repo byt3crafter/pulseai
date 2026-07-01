@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.12] - 2026-07-01
+
+### Bug Fixes
+- portal tenant actions dropdown; icons on model-pricing edit/delete
+
 ## [0.10.11] - 2026-07-01
 
 ### Features
