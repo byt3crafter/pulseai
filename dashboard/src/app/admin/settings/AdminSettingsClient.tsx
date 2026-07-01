@@ -1287,26 +1287,27 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                         return (
                             <div key={cat.id}>
                                 <h3 className={`${ui.labelMicro} mb-2.5`}>{cat.label}</h3>
-                                <div className="space-y-2">
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                                     {skills.map((skill) => {
                                         const isEnabled = enabled.includes(skill.name);
                                         return (
                                             <div
                                                 key={skill.name}
-                                                className={`flex items-center justify-between px-4 py-3 rounded-md border ${
+                                                className={`flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-md border ${
                                                     isEnabled
                                                         ? "border-pulse-accent/40 bg-pulse-accent/10"
                                                         : "border-pulse-border bg-pulse-panel-alt"
                                                 }`}
                                             >
-                                                <div>
-                                                    <span className="text-[13px] font-medium text-pulse-text">{skill.name}</span>
-                                                    <p className="text-[11px] text-pulse-muted mt-0.5">{skill.description}</p>
+                                                <div className="min-w-0">
+                                                    <span className="block text-[13px] font-medium text-pulse-text truncate">{skill.name}</span>
+                                                    <p className="text-[11px] text-pulse-muted mt-0.5 truncate" title={skill.description}>{skill.description}</p>
                                                 </div>
                                                 <button
                                                     onClick={() => toggle(skill.name)}
                                                     role="switch"
                                                     aria-checked={isEnabled}
+                                                    aria-label={`${isEnabled ? "Disable" : "Enable"} ${skill.name}`}
                                                     className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors motion-reduce:transition-none ${
                                                         isEnabled ? "bg-pulse-profit" : "bg-pulse-border"
                                                     }`}
