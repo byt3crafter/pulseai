@@ -63,10 +63,17 @@ export class ProviderKeyService {
                 openrouter: providerConfig.openrouterApiKey,
                 minimax: providerConfig.minimaxApiKey,
             };
-            const globalKey = globalKeyMap[provider];
-            if (globalKey) {
-                logger.debug({ tenantId, provider }, "Using global admin DB key");
-                return { key: globalKey, authMethod: "api_key" };
+            const globalKeyEnc = globalKeyMap[provider];
+            if (globalKeyEnc) {
+                try {
+                    const globalKey = decrypt(globalKeyEnc);
+                    if (globalKey) {
+                        logger.debug({ tenantId, provider }, "Using global admin DB key");
+                        return { key: globalKey, authMethod: "api_key" };
+                    }
+                } catch (err) {
+                    logger.warn({ tenantId, provider, err }, "Failed to decrypt global admin key");
+                }
             }
         }
 

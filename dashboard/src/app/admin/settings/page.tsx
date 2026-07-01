@@ -1,4 +1,4 @@
-import { getGlobalSettings, getScheduledJobs, getModelPricingList, getProviderKeyStatuses } from "./actions";
+import { getGlobalSettings, getScheduledJobs, getModelPricingList, getProviderKeyStatuses, getEmailSettings } from "./actions";
 import { getExecSafetySettings, getAuditLogs, getGlobalPolicyRules } from "./exec-safety/actions";
 import AdminSettingsClient from "./AdminSettingsClient";
 
@@ -15,7 +15,7 @@ export default async function AdminSettingsPage({
     const params = await searchParams;
     const tab = params.tab || "providers";
 
-    const [settings, execSafety, auditLogs, policyRules, allJobs, modelPricingData, providerStatuses] = await Promise.all([
+    const [settings, execSafety, auditLogs, policyRules, allJobs, modelPricingData, providerStatuses, emailSettings] = await Promise.all([
         getGlobalSettings(),
         getExecSafetySettings(),
         getAuditLogs(0, 50),
@@ -23,6 +23,7 @@ export default async function AdminSettingsPage({
         getScheduledJobs(),
         getModelPricingList(),
         getProviderKeyStatuses(),
+        getEmailSettings(),
     ]);
 
     const gwConfig = ((settings as any).gatewayConfig || {}) as any;
@@ -41,6 +42,7 @@ export default async function AdminSettingsPage({
             defaultSkills={Array.isArray(gwConfig.defaultSkills) ? gwConfig.defaultSkills : []}
             modelPricing={modelPricingData}
             providerStatuses={providerStatuses}
+            emailSettings={emailSettings}
         />
     );
 }

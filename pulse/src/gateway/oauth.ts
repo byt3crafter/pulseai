@@ -240,10 +240,11 @@ export const oauthRoutes: FastifyPluginAsync = async (server) => {
 
             // Successfully authenticated, generate access token
             const accessToken = "pls_" + randomBytes(32).toString("hex");
+            const tokenHash = createHash("sha256").update(accessToken).digest("hex");
             const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 Days
 
             await db.insert(oauthTokens).values({
-                accessToken,
+                accessToken: tokenHash,
                 clientId: client_id,
                 tenantId: authCode.tenantId,
                 expiresAt,

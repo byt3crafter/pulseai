@@ -4,6 +4,8 @@ import { tenantBalances, channelConnections, oauthClients } from "../../storage/
 import { eq } from "drizzle-orm";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardOverview() {
     const session = await auth();
     const tenantId = session?.user?.tenantId;

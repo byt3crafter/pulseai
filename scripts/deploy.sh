@@ -148,6 +148,21 @@ esac
 
 echo -e "${GREEN}  Containers rebuilt.${NC}"
 
+# ─── Post-deploy health check ─────────────────────────────────────────────────
+
+if [[ "$REBUILD_TARGET" != "none" ]]; then
+    echo ""
+    echo -e "${CYAN}Waiting for services to be healthy...${NC}"
+    sleep 10
+    HEALTH=$(ssh "$VPS_HOST" "curl -sf http://localhost:8082/health 2>/dev/null || echo 'FAILED'")
+    if echo "$HEALTH" | grep -q '"status":"ok"'; then
+        echo -e "${GREEN}Gateway health check: PASSED${NC}"
+    else
+        echo -e "${YELLOW}WARNING: Gateway health check FAILED${NC}"
+        echo -e "  Response: $HEALTH"
+    fi
+fi
+
 # ─── Done ─────────────────────────────────────────────────────────────────────
 
 echo ""

@@ -149,7 +149,7 @@ export const openResponsesRoutes: FastifyPluginAsync = async (fastify) => {
             });
         } catch (err: any) {
             log.error({ err }, "Response creation failed");
-            return reply.code(500).send({ error: { message: err.message || "Internal server error.", type: "api_error" } });
+            return reply.code(500).send({ error: { message: "Internal server error", type: "server_error" } });
         }
     });
 };

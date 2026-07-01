@@ -5,8 +5,12 @@ import {
   MagnifyingGlassIcon
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "../../../auth";
 import CreateTenantModal from "./CreateTenantModal";
 import TenantActionsMenu from "./TenantActionsMenu";
+
+export const dynamic = "force-dynamic";
 
 // Next.js App Router Server Component
 export default async function TenantManagerPage() {
@@ -17,6 +21,9 @@ export default async function TenantManagerPage() {
   if (isNextBuild) {
     return <div>Building Component</div>;
   }
+
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "ADMIN") redirect("/admin/login");
 
   // Directly fetch tenants via DB on the server
   const allTenants = await db.select({

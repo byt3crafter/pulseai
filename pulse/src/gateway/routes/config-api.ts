@@ -8,16 +8,27 @@
 import { FastifyPluginAsync } from "fastify";
 import { configManager } from "../../infra/config-manager.js";
 import { logger } from "../../utils/logger.js";
+import crypto from "crypto";
 
 export const configApiRoutes: FastifyPluginAsync = async (fastify) => {
-    // Simple admin auth check — reuse existing patterns
-    // In production, this should validate an admin session/token
     const adminAuth = async (request: any, reply: any) => {
         const authHeader = request.headers.authorization;
-        // Accept API token auth or admin header
-        if (!authHeader) {
-            reply.code(401).send({ error: "Authentication required" });
-            return;
+        if (!authHeader?.startsWith("Bearer ")) {
+            return reply.code(401).send({ error: "Authentication required" });
+        }
+        const token = authHeader.slice(7);
+        const adminKey = process.env.ADMIN_API_KEY;
+        if (!adminKey) {
+            return reply.code(503).send({ error: "Admin API not configured" });
+        }
+        try {
+            const tokenBuf = Buffer.from(token);
+            const keyBuf = Buffer.from(adminKey);
+            if (tokenBuf.length !== keyBuf.length || !crypto.timingSafeEqual(tokenBuf, keyBuf)) {
+                return reply.code(401).send({ error: "Invalid credentials" });
+            }
+        } catch {
+            return reply.code(401).send({ error: "Invalid credentials" });
         }
     };
 

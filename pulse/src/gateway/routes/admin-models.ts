@@ -15,14 +15,27 @@ import { discoverModels, DiscoveredModel } from "../../agent/providers/model-dis
 import { invalidatePricingCache, getAllModelPricing } from "../../agent/providers/model-pricing-service.js";
 import { providerKeyService } from "../../agent/providers/provider-key-service.js";
 import { logger } from "../../utils/logger.js";
+import crypto from "crypto";
 
 export const adminModelsRoutes: FastifyPluginAsync = async (fastify) => {
-    // Simple auth check (reuse existing pattern)
     const adminAuth = async (request: any, reply: any) => {
         const authHeader = request.headers.authorization;
-        if (!authHeader) {
-            reply.code(401).send({ error: "Authentication required" });
-            return;
+        if (!authHeader?.startsWith("Bearer ")) {
+            return reply.code(401).send({ error: "Authentication required" });
+        }
+        const token = authHeader.slice(7);
+        const adminKey = process.env.ADMIN_API_KEY;
+        if (!adminKey) {
+            return reply.code(503).send({ error: "Admin API not configured" });
+        }
+        try {
+            const tokenBuf = Buffer.from(token);
+            const keyBuf = Buffer.from(adminKey);
+            if (tokenBuf.length !== keyBuf.length || !crypto.timingSafeEqual(tokenBuf, keyBuf)) {
+                return reply.code(401).send({ error: "Invalid credentials" });
+            }
+        } catch {
+            return reply.code(401).send({ error: "Invalid credentials" });
         }
     };
 

@@ -4,7 +4,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { db } from "../../storage/db.js";
 import { oauthTokens, tenants, conversations, messages } from "../../storage/schema.js";
 import { eq, and, desc } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 import { InboundMessage } from "../../channels/types.js";
 import { AgentRuntime } from "../../agent/runtime.js";
@@ -19,9 +19,10 @@ const sessions = new Map<string, { transport: StreamableHTTPServerTransport; ser
 async function resolveToken(authHeader: string | undefined): Promise<{ tenantId: string } | null> {
     if (!authHeader?.startsWith("Bearer ")) return null;
     const token = authHeader.slice(7);
+    const tokenHash = createHash("sha256").update(token).digest("hex");
 
     const record = await db.query.oauthTokens.findFirst({
-        where: eq(oauthTokens.accessToken, token),
+        where: eq(oauthTokens.accessToken, tokenHash),
     });
 
     if (!record || record.expiresAt < new Date()) return null;

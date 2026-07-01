@@ -15,6 +15,9 @@ import {
     syncProviderModelsAction,
     saveProviderKeyAction,
     testProviderKeyAction,
+    saveEmailSettingsAction,
+    testEmailSettingsAction,
+    type EmailSettingsView,
 } from "./actions";
 import { BUILTIN_SKILLS } from "../../../utils/skills-registry";
 import {
@@ -27,6 +30,7 @@ const TABS = [
     { id: "providers", label: "AI Providers" },
     { id: "model-pricing", label: "Model Pricing" },
     { id: "system", label: "System Services" },
+    { id: "email", label: "Email (SMTP)" },
     { id: "exec-safety", label: "Exec Safety" },
     { id: "memory", label: "Memory" },
     { id: "sandbox", label: "Sandbox" },
@@ -48,6 +52,7 @@ interface Props {
     defaultSkills: string[];
     modelPricing: ModelPricingEntry[];
     providerStatuses: Array<{ provider: string; hasKey: boolean }>;
+    emailSettings: EmailSettingsView | null;
 }
 
 interface ModelPricingEntry {
@@ -77,6 +82,7 @@ export default function AdminSettingsClient({
     defaultSkills,
     modelPricing,
     providerStatuses,
+    emailSettings,
 }: Props) {
     return (
         <div className="p-8">
@@ -118,6 +124,7 @@ export default function AdminSettingsClient({
                 <div className="flex-1 min-w-0">
                     {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} />}
                     {tab === "system" && <SystemTab settings={settings} />}
+                    {tab === "email" && <EmailTab settings={emailSettings} />}
                     {tab === "exec-safety" && <ExecSafetyTab execSafety={execSafety} auditLogs={auditLogs} policyRules={policyRules} />}
                     {tab === "memory" && <MemoryTab config={memoryConfig} />}
                     {tab === "sandbox" && <SandboxTab config={sandboxConfig} />}
@@ -259,6 +266,143 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
                     {message.text}
                 </p>
             )}
+        </div>
+    );
+}
+
+/* ─── Email (SMTP) Tab ────────────────────────────────────────── */
+function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
+    const s = settings ?? {
+        enabled: false, host: "", port: 587, secure: false,
+        user: "", from: "", fromName: "", hasPassword: false,
+    };
+
+    const [enabled, setEnabled] = useState(s.enabled);
+    const [host, setHost] = useState(s.host);
+    const [port, setPort] = useState(String(s.port || 587));
+    const [secure, setSecure] = useState(s.secure);
+    const [user, setUser] = useState(s.user);
+    const [password, setPassword] = useState("");
+    const [from, setFrom] = useState(s.from);
+    const [fromName, setFromName] = useState(s.fromName);
+    const [testEmail, setTestEmail] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    const buildForm = () => {
+        const fd = new FormData();
+        if (enabled) fd.set("enabled", "on");
+        fd.set("host", host);
+        fd.set("port", port);
+        if (secure) fd.set("secure", "on");
+        fd.set("user", user);
+        if (password) fd.set("password", password);
+        fd.set("from", from);
+        fd.set("fromName", fromName);
+        return fd;
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        setMessage(null);
+        const result = await saveEmailSettingsAction(buildForm());
+        setSaving(false);
+        setMessage(result.success
+            ? { type: "success", text: result.message || "Saved" }
+            : { type: "error", text: result.message || "Failed to save" });
+        if (result.success) setPassword("");
+    };
+
+    const handleTest = async () => {
+        if (!testEmail.trim()) {
+            setMessage({ type: "error", text: "Enter a recipient email to send the test to." });
+            return;
+        }
+        setTesting(true);
+        setMessage(null);
+        const fd = buildForm();
+        fd.set("testEmail", testEmail.trim());
+        const result = await testEmailSettingsAction(fd);
+        setTesting(false);
+        setMessage(result.success
+            ? { type: "success", text: result.message || "Test sent" }
+            : { type: "error", text: result.message || "Test failed" });
+    };
+
+    const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-900 placeholder:text-slate-400";
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-200">
+                <h2 className="text-lg font-semibold text-slate-900">Email (SMTP)</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                    Used for account emails — password resets and user invitations. The password is encrypted at rest.
+                </p>
+            </div>
+            <div className="p-6 space-y-4">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="rounded border-slate-300" />
+                    Enable email sending
+                </label>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">SMTP Host</label>
+                        <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.example.com" className={inputClass} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Port</label>
+                        <input value={port} onChange={(e) => setPort(e.target.value)} placeholder="587" className={inputClass} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Username</label>
+                        <input value={user} onChange={(e) => setUser(e.target.value)} placeholder="you@example.com" className={inputClass} autoComplete="off" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={s.hasPassword ? "•••••••• (enter to replace)" : "SMTP password"} className={inputClass} autoComplete="new-password" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">From Address</label>
+                        <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="no-reply@example.com" className={inputClass} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">From Name <span className="text-slate-400 font-normal">(optional)</span></label>
+                        <input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Pulse AI" className={inputClass} />
+                    </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <input type="checkbox" checked={secure} onChange={(e) => setSecure(e.target.checked)} className="rounded border-slate-300" />
+                    Use implicit TLS (port 465). Leave off for STARTTLS (port 587).
+                </label>
+
+                <div className="flex items-center gap-2 pt-2">
+                    <button type="button" onClick={handleSave} disabled={saving}
+                        className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40">
+                        {saving ? "Saving..." : "Save settings"}
+                    </button>
+                </div>
+
+                <div className="border-t border-slate-200 pt-4 mt-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Send a test email</label>
+                    <div className="flex gap-2">
+                        <input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="recipient@example.com" className={inputClass} />
+                        <button type="button" onClick={handleTest} disabled={testing}
+                            className="px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40 text-slate-700 whitespace-nowrap">
+                            {testing ? "Sending..." : "Send test"}
+                        </button>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1.5">Uses the values above (saving first is not required).</p>
+                </div>
+
+                {message && (
+                    <p className={`text-sm ${message.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
+                        {message.text}
+                    </p>
+                )}
+            </div>
         </div>
     );
 }

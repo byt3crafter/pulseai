@@ -2,13 +2,14 @@
 
 import { db } from "../../../../../storage/db";
 import { agentProfiles, agentDelegations } from "../../../../../storage/schema";
-import { eq, or, desc } from "drizzle-orm";
+import { and, eq, or, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../../../utils/tenant-auth";
 
 export async function saveDelegationConfig(formData: FormData) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
 
     const agentId = formData.get("agentId") as string;
 
@@ -29,7 +30,7 @@ export async function saveDelegationConfig(formData: FormData) {
     await db
         .update(agentProfiles)
         .set({ delegationConfig, updatedAt: new Date() })
-        .where(eq(agentProfiles.id, agentId));
+        .where(and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)));
 
     revalidatePath(`/dashboard/agents/${agentId}/delegation`);
 }

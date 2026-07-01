@@ -47,22 +47,25 @@ export default function ApprovalsClient({
 
     const handleApprove = async (code: string) => {
         setProcessing(code);
+        setErrorMsg(null);
         const result = await approvePairingAction(tenantId, code);
-        if (!result.success) alert(result.message);
+        if (!result.success) setErrorMsg(result.message ?? "Failed to approve pairing.");
         setProcessing(null);
     };
 
     const handleReject = async (contactId: string) => {
         setProcessing(contactId);
+        setErrorMsg(null);
         const result = await rejectPairingAction(tenantId, contactId);
-        if (!result.success) alert(result.message);
+        if (!result.success) setErrorMsg(result.message ?? "Failed to reject pairing.");
         setProcessing(null);
     };
 
     const handleRemove = async (contactId: string) => {
         setProcessing(contactId);
+        setErrorMsg(null);
         const result = await removeFromAllowlistAction(tenantId, contactId);
-        if (!result.success) alert(result.message);
+        if (!result.success) setErrorMsg(result.message ?? "Failed to remove contact.");
         setProcessing(null);
     };
 
@@ -95,6 +98,12 @@ export default function ApprovalsClient({
 
     return (
         <div className="space-y-8">
+            {errorMsg && (
+                <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">
+                    {errorMsg}
+                    <button onClick={() => setErrorMsg(null)} aria-label="Dismiss error" className="ml-2 text-red-400 hover:text-red-600 font-bold">&times;</button>
+                </div>
+            )}
             {/* Pending Pairing Requests */}
             <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">

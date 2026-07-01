@@ -25,11 +25,12 @@ function LoginForm() {
         const result = await signIn("credentials", {
             email,
             password,
+            loginType: "tenant",
             redirect: false,
         });
 
         if (result?.error) {
-            setError("Invalid email or password. Please try again.");
+            setError("Invalid email or password. If you are an admin, use the admin login page.");
             setLoading(false);
         } else {
             window.location.href = "/dashboard";
@@ -75,16 +76,17 @@ function LoginForm() {
                     <p className="text-sm text-slate-500 mb-8">Enter your credentials to access your dashboard.</p>
 
                     {info && (
-                        <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm mb-6 border border-blue-100">{info}</div>
+                        <div role="status" className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm mb-6 border border-blue-100">{info}</div>
                     )}
                     {error && (
-                        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 border border-red-100">{error}</div>
+                        <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 border border-red-100">{error}</div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+                            <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
                             <input
+                                id="login-email"
                                 type="email"
                                 required
                                 autoComplete="email"
@@ -95,8 +97,12 @@ function LoginForm() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label htmlFor="login-password" className="block text-sm font-medium text-slate-700">Password</label>
+                                <Link href="/forgot" className="text-xs font-medium text-indigo-600 hover:text-indigo-700">Forgot password?</Link>
+                            </div>
                             <input
+                                id="login-password"
                                 type="password"
                                 required
                                 autoComplete="current-password"

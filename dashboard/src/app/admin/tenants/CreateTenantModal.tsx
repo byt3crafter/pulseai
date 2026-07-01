@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createTenantAction } from "./actions";
 
 export default function CreateTenantModal() {
@@ -13,6 +13,40 @@ export default function CreateTenantModal() {
     const [slugEdited, setSlugEdited] = useState(false);
     const [apiMode, setApiMode] = useState<"platform" | "byok">("platform");
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") handleClose();
+        };
+        document.addEventListener("keydown", handleKey);
+        return () => document.removeEventListener("keydown", handleKey);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const modal = modalRef.current;
+        if (!modal) return;
+        const focusable = modal.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        first?.focus();
+        const trap = (e: KeyboardEvent) => {
+            if (e.key !== "Tab") return;
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last?.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first?.focus();
+            }
+        };
+        modal.addEventListener("keydown", trap);
+        return () => modal.removeEventListener("keydown", trap);
+    }, [isOpen]);
 
     const copy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -66,18 +100,23 @@ export default function CreateTenantModal() {
             </button>
 
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all my-8">
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm overflow-y-auto"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="create-tenant-modal-title"
+                >
+                    <div ref={modalRef} className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all my-8">
                         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="text-lg font-semibold text-gray-900">
+                            <h3 id="create-tenant-modal-title" className="text-lg font-semibold text-gray-900">
                                 {credentials ? "Workspace Created" : "Add New Tenant"}
                             </h3>
                             <button
                                 onClick={handleClose}
+                                aria-label="Close"
                                 className="text-gray-400 hover:text-gray-600 transition-colors"
-                                title="Close"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
@@ -163,8 +202,8 @@ export default function CreateTenantModal() {
                         ) : (
                             <form onSubmit={handleSubmit} className="p-6 space-y-5">
                                 {error && (
-                                    <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100 flex items-start gap-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 flex-shrink-0 mt-0.5">
+                                    <div role="alert" className="p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100 flex items-start gap-2">
+                                        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 flex-shrink-0 mt-0.5">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                         </svg>
                                         <span>{error}</span>

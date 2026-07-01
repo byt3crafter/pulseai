@@ -57,10 +57,3 @@ server.get("/health", async (request, reply) => {
 server.addHook("onReady", async () => {
     server.log.info("Server is bootstrapping channels and tools...");
 });
-
-// Graceful shutdown handling
-process.on("SIGTERM", async () => {
-    server.log.info("SIGTERM received, shutting down gracefully");
-    await server.close();
-    process.exit(0);
-});

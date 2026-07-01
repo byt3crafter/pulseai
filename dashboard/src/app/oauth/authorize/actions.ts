@@ -4,7 +4,7 @@ import { auth } from "../../../auth";
 import { db } from "../../../storage/db";
 import { oauthClients, oauthCodes, oauthTokens, tenants } from "../../../storage/schema";
 import { eq, and } from "drizzle-orm";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 
 /**
  * Approve an OAuth request from an external CLI tool.
@@ -87,10 +87,11 @@ export async function approveDirectAction(clientId: string) {
 
     // Generate access token directly
     const accessToken = "pls_" + randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(accessToken).digest("hex");
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
 
     await db.insert(oauthTokens).values({
-        accessToken,
+        accessToken: tokenHash,
         clientId,
         tenantId,
         expiresAt,
@@ -160,10 +161,11 @@ export async function generateApiTokenAction() {
     }
 
     const accessToken = "pls_" + randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(accessToken).digest("hex");
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     await db.insert(oauthTokens).values({
-        accessToken,
+        accessToken: tokenHash,
         clientId: result.clientId,
         tenantId,
         expiresAt,

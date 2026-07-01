@@ -29,6 +29,11 @@ Thumbs.db
 # Testing
 coverage
 .nyc_output
+*.test.ts
+__tests__
+
+# Scripts
+scripts
 
 # Documentation
 docs

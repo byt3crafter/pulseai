@@ -3,7 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 // Read secret directly from process.env to avoid importing config.ts,
 // which validates DATABASE_URL, ANTHROPIC_API_KEY, etc. and throws in Edge runtime
 // (middleware) where those env vars may not be available.
-const authSecret = process.env.ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET || "";
+const authSecret = process.env.NEXTAUTH_SECRET || process.env.ENCRYPTION_KEY || "";
 
 export const authConfig = {
     pages: {

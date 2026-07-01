@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin } from "../../../utils/admin-auth";
+import { encrypt, decrypt } from "../../../utils/crypto";
+import { sendMailWith } from "../../../utils/mailer";
 
 const settingsSchema = z.object({
     anthropicApiKey: z.string().optional(),
@@ -62,11 +64,13 @@ export async function saveProviderKeyAction(formData: FormData) {
 
         const updates: any = { updatedAt: new Date() };
 
+        const encryptedKey = encrypt(apiKey);
+
         // Anthropic and OpenAI have dedicated columns; others go in config.
         if (provider === "anthropic") {
-            updates.anthropicApiKeyHash = apiKey;
+            updates.anthropicApiKeyHash = encryptedKey;
         } else if (provider === "openai") {
-            updates.openaiApiKeyHash = apiKey;
+            updates.openaiApiKeyHash = encryptedKey;
         } else {
             const cfg = currentSettings?.config ? { ...currentSettings.config } : {};
             const keyMap: Record<string, string> = {
@@ -76,7 +80,7 @@ export async function saveProviderKeyAction(formData: FormData) {
             };
             const configKey = keyMap[provider];
             if (!configKey) return { success: false, message: "Unknown provider." };
-            cfg[configKey] = apiKey;
+            cfg[configKey] = encryptedKey;
             updates.config = cfg;
         }
 
@@ -172,8 +176,8 @@ export async function saveGlobalSettingsAction(formData: FormData) {
             if (!rawData.openaiApiKey) delete rawData.openaiApiKey;
 
             const validatedData = settingsSchema.parse(rawData);
-            if (validatedData.anthropicApiKey) updates.anthropicApiKeyHash = validatedData.anthropicApiKey;
-            if (validatedData.openaiApiKey) updates.openaiApiKeyHash = validatedData.openaiApiKey;
+            if (validatedData.anthropicApiKey) updates.anthropicApiKeyHash = encrypt(validatedData.anthropicApiKey);
+            if (validatedData.openaiApiKey) updates.openaiApiKeyHash = encrypt(validatedData.openaiApiKey);
         }
 
         const currentSettings = await db.query.globalSettings.findFirst({
@@ -209,6 +213,134 @@ export async function saveGlobalSettingsAction(formData: FormData) {
         revalidatePath("/admin/settings");
     } catch (error) {
         console.error("Failed to save global settings:", error);
+    }
+}
+
+// ─── Email (SMTP) Settings ─────────────────────────────────────────────────
+
+export interface EmailSettingsView {
+    enabled: boolean;
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    from: string;
+    fromName: string;
+    hasPassword: boolean;
+}
+
+export async function getEmailSettings(): Promise<EmailSettingsView | null> {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return null;
+
+    const row = (await db.query.globalSettings.findFirst({
+        where: eq(globalSettings.id, "root"),
+    })) as any;
+    const smtp = row?.config?.smtp ?? {};
+
+    return {
+        enabled: !!smtp.enabled,
+        host: smtp.host ?? "",
+        port: smtp.port ?? 587,
+        secure: !!smtp.secure,
+        user: smtp.user ?? "",
+        from: smtp.from ?? "",
+        fromName: smtp.fromName ?? "",
+        hasPassword: !!smtp.passwordEnc,
+    };
+}
+
+export async function saveEmailSettingsAction(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+
+    try {
+        const current = (await db.query.globalSettings.findFirst({
+            where: eq(globalSettings.id, "root"),
+        })) as any;
+        const cfg = current?.config ? { ...current.config } : {};
+        const existing = cfg.smtp ?? {};
+
+        const password = (formData.get("password") as string) || "";
+        const smtp: any = {
+            enabled: formData.get("enabled") === "on",
+            host: ((formData.get("host") as string) || "").trim(),
+            port: parseInt(formData.get("port") as string) || 587,
+            secure: formData.get("secure") === "on",
+            user: ((formData.get("user") as string) || "").trim(),
+            from: ((formData.get("from") as string) || "").trim(),
+            fromName: ((formData.get("fromName") as string) || "").trim(),
+            // Keep the existing password unless a new one is provided.
+            passwordEnc: existing.passwordEnc,
+        };
+        if (password) smtp.passwordEnc = encrypt(password);
+
+        cfg.smtp = smtp;
+        await db
+            .insert(globalSettings)
+            .values({ id: "root", config: cfg, updatedAt: new Date() })
+            .onConflictDoUpdate({ target: globalSettings.id, set: { config: cfg, updatedAt: new Date() } });
+
+        revalidatePath("/admin/settings");
+        return { success: true, message: "Email settings saved." };
+    } catch (error) {
+        console.error("Failed to save email settings:", error);
+        return { success: false, message: "Failed to save email settings." };
+    }
+}
+
+export async function testEmailSettingsAction(formData: FormData) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+
+    const to = ((formData.get("testEmail") as string) || "").trim();
+    if (!to) return { success: false, message: "Enter a recipient email to send the test to." };
+
+    try {
+        // Use the password from the form if the admin just typed one, else the stored one.
+        let password = (formData.get("password") as string) || "";
+        if (!password) {
+            const current = (await db.query.globalSettings.findFirst({
+                where: eq(globalSettings.id, "root"),
+            })) as any;
+            const enc = current?.config?.smtp?.passwordEnc;
+            if (enc) {
+                try {
+                    password = decrypt(enc);
+                } catch {
+                    /* ignore */
+                }
+            }
+        }
+
+        const host = ((formData.get("host") as string) || "").trim();
+        const user = ((formData.get("user") as string) || "").trim();
+        if (!host || !user || !password) {
+            return { success: false, message: "Host, username, and password are required to send a test." };
+        }
+
+        await sendMailWith(
+            {
+                host,
+                port: parseInt(formData.get("port") as string) || 587,
+                secure: formData.get("secure") === "on",
+                user,
+                password,
+                from: ((formData.get("from") as string) || user).trim() || user,
+                fromName: ((formData.get("fromName") as string) || "").trim() || undefined,
+            },
+            {
+                to,
+                subject: "Pulse SMTP test",
+                text: "This is a test email from Pulse. Your SMTP settings are working.",
+                html: "<p>This is a test email from Pulse. Your SMTP settings are working. ✅</p>",
+            },
+        );
+
+        return { success: true, message: `Test email sent to ${to}.` };
+    } catch (error) {
+        console.error("SMTP test failed:", error);
+        return { success: false, message: "Test failed. Check host, port, TLS, and credentials." };
     }
 }
 
@@ -495,7 +627,15 @@ export async function syncProviderModelsAction(formData: FormData) {
             openrouter: cfg.openrouterApiKey,
             minimax: cfg.minimaxApiKey,
         };
-        let apiKey = keyMap[provider] || undefined;
+        let apiKey: string | undefined;
+        const encryptedKey = keyMap[provider] || undefined;
+        if (encryptedKey) {
+            try {
+                apiKey = decrypt(encryptedKey) || undefined;
+            } catch {
+                apiKey = undefined;
+            }
+        }
 
         // Fallback to env vars
         if (!apiKey) {

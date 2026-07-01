@@ -1,6 +1,8 @@
 import { db } from "../../storage/db";
 import { tenants, tenantBalances, channelConnections, users } from "../../storage/schema";
 import { count, sum } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { auth } from "../../auth";
 import {
     ChartBarIcon,
     UsersIcon,
@@ -9,6 +11,14 @@ import {
 } from "@heroicons/react/24/outline";
 
 export default async function AdminOverviewPage() {
+    const isNextBuild =
+        process.env.npm_lifecycle_event === "build" ||
+        process.env.NEXT_PHASE === "phase-production-build";
+    if (isNextBuild) return <div>Building Component</div>;
+
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== "ADMIN") redirect("/admin/login");
+
     const [tenantCount, creditsTotal, channelCount, userCount] = await Promise.all([
         db.select({ value: count() }).from(tenants),
         db.select({ value: sum(tenantBalances.balance) }).from(tenantBalances),

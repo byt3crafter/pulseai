@@ -48,29 +48,4 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
-    // GET /webhooks/telegram/:tenantSlug/info - Debug endpoint to check webhook status
-    fastify.get("/webhooks/telegram/:tenantSlug/info", async (request, reply) => {
-        const { tenantSlug } = request.params as { tenantSlug: string };
-
-        const tenant = await db.query.tenants.findFirst({
-            where: eq(tenants.slug, tenantSlug),
-        });
-
-        if (!tenant) {
-            return reply.code(404).send({ error: "Tenant not found" });
-        }
-
-        const telegramAdapter = (fastify as any).telegramAdapter;
-        if (!telegramAdapter) {
-            return reply.code(500).send({ error: "Telegram adapter not available" });
-        }
-
-        try {
-            const webhookInfo = await telegramAdapter.getWebhookInfo(tenant.id);
-            return reply.send(webhookInfo);
-        } catch (err) {
-            logger.error({ err, tenantSlug }, "Failed to get webhook info");
-            return reply.code(500).send({ error: "Failed to get webhook info" });
-        }
-    });
 };
