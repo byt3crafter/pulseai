@@ -32,16 +32,16 @@ export default function AdminNav() {
                         key={href}
                         href={href}
                         aria-current={isActive ? "page" : undefined}
-                        className={`relative flex items-center gap-2.5 px-3 py-2 rounded text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] ${
+                        className={`relative flex items-center gap-2.5 px-3 py-2 rounded text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-accent ${
                             isActive
-                                ? "text-[#8B5CF6] bg-[#17132B]"
-                                : "text-[#8A8A90] hover:bg-[#141417] hover:text-[#EDEDED]"
+                                ? "text-pulse-accent bg-pulse-tint"
+                                : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                         }`}
                     >
                         {isActive && (
                             <span
                                 aria-hidden="true"
-                                className="absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded-r bg-[#8B5CF6]"
+                                className="absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded-r bg-pulse-accent"
                             />
                         )}
                         <Icon aria-hidden="true" className="w-4 h-4 flex-shrink-0" />

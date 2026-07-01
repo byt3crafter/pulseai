@@ -17,3 +17,69 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Pulse admin design tokens (theme-aware) ──────────────────────────────
+   Dark is the default. Adding data-theme="light" on <html> flips the whole
+   admin console. Tint states use /opacity on these tokens, so they flip too.
+   Money & accent colors are darkened on light for WCAG-AA contrast on white. */
+:root {
+  --pulse-bg:            #0A0A0B;
+  --pulse-panel:         #0C0C0E;
+  --pulse-panel-alt:     #101012;
+  --pulse-hover:         #141417;
+  --pulse-tint:          #17132B;
+  --pulse-border:        #242429;
+  --pulse-border-subtle: #1C1C1F;
+  --pulse-border-strong: #33333B;
+  --pulse-text:          #EDEDED;
+  --pulse-text-soft:     #B5B5BA;
+  --pulse-muted:         #8A8A90;
+  --pulse-faint:         #5A5A61;
+  --pulse-accent:        #8B5CF6;
+  --pulse-accent-hi:     #A78BFA;
+  --pulse-profit:        #3FB950;
+  --pulse-loss:          #F0503C;
+  --pulse-info:          #3B82F6;
+  --pulse-code:          #050506;
+}
+[data-theme="light"] {
+  --pulse-bg:            #F7F8FA;
+  --pulse-panel:         #FFFFFF;
+  --pulse-panel-alt:     #F2F4F7;
+  --pulse-hover:         #EEF1F5;
+  --pulse-tint:          #F1ECFB;
+  --pulse-border:        #D8DDE4;
+  --pulse-border-subtle: #E7EBF0;
+  --pulse-border-strong: #C2C9D2;
+  --pulse-text:          #14181F;
+  --pulse-text-soft:     #2A2F37;
+  --pulse-muted:         #5A626C;
+  --pulse-faint:         #8A929C;
+  --pulse-accent:        #7C3AED;
+  --pulse-accent-hi:     #6D28D9;
+  --pulse-profit:        #0F8A4F;
+  --pulse-loss:          #CC2F26;
+  --pulse-info:          #1D6FE0;
+  --pulse-code:          #EEF1F5;
+}
+
+@theme inline {
+  --color-pulse-bg:            var(--pulse-bg);
+  --color-pulse-panel:         var(--pulse-panel);
+  --color-pulse-panel-alt:     var(--pulse-panel-alt);
+  --color-pulse-hover:         var(--pulse-hover);
+  --color-pulse-tint:          var(--pulse-tint);
+  --color-pulse-border:        var(--pulse-border);
+  --color-pulse-border-subtle: var(--pulse-border-subtle);
+  --color-pulse-border-strong: var(--pulse-border-strong);
+  --color-pulse-text:          var(--pulse-text);
+  --color-pulse-text-soft:     var(--pulse-text-soft);
+  --color-pulse-muted:         var(--pulse-muted);
+  --color-pulse-faint:         var(--pulse-faint);
+  --color-pulse-accent:        var(--pulse-accent);
+  --color-pulse-accent-hi:     var(--pulse-accent-hi);
+  --color-pulse-profit:        var(--pulse-profit);
+  --color-pulse-loss:          var(--pulse-loss);
+  --color-pulse-info:          var(--pulse-info);
+  --color-pulse-code:          var(--pulse-code);
+}

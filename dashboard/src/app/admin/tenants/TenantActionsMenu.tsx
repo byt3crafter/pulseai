@@ -49,12 +49,12 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
     return (
         <>
             {error && (
-                <div role="alert" className="fixed bottom-4 right-4 z-50 bg-[#F0503C]/10 text-[#F0503C] p-3 rounded-lg text-sm border border-[#F0503C]/40 max-w-xs">
+                <div role="alert" className="fixed bottom-4 right-4 z-50 bg-pulse-loss/10 text-pulse-loss p-3 rounded-lg text-sm border border-pulse-loss/40 max-w-xs">
                     {error}
                     <button
                         onClick={() => setError("")}
                         aria-label="Dismiss error"
-                        className="ml-2 text-[#F0503C]/70 hover:text-[#F0503C] font-bold"
+                        className="ml-2 text-pulse-loss/70 hover:text-pulse-loss font-bold"
                     >
                         &times;
                     </button>
@@ -66,28 +66,28 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                     aria-label="Tenant actions"
                     aria-haspopup="true"
                     aria-expanded={isOpen}
-                    className="text-[#5A5A61] hover:text-[#B5B5BA] p-1 rounded hover:bg-[#141417] transition-colors"
+                    className="text-pulse-faint hover:text-pulse-text-soft p-1 rounded hover:bg-pulse-hover transition-colors"
                 >
                     <EllipsisVerticalIcon aria-hidden="true" className="w-5 h-5" />
                 </button>
 
                 {isOpen && (
-                    <div className="absolute right-0 mt-2 w-48 rounded-md bg-[#0C0C0E] border border-[#242429] z-10 transition-all">
+                    <div className="absolute right-0 mt-2 w-48 rounded-md bg-pulse-panel border border-pulse-border z-10 transition-all">
                         <div className="py-1" role="menu" aria-orientation="vertical">
                             <button
                                 onClick={handleToggleStatus}
                                 disabled={isToggling}
-                                className="w-full text-left px-4 py-2 text-sm text-[#B5B5BA] hover:bg-[#141417] hover:text-[#EDEDED] flex items-center gap-2 disabled:opacity-50"
+                                className="w-full text-left px-4 py-2 text-sm text-pulse-text-soft hover:bg-pulse-hover hover:text-pulse-text flex items-center gap-2 disabled:opacity-50"
                                 role="menuitem"
                             >
                                 {currentStatus === "active" ? (
                                     <>
-                                        <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-[#8B5CF6]" />
+                                        <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-pulse-accent" />
                                         Suspend Workspace
                                     </>
                                 ) : (
                                     <>
-                                        <CheckCircleIcon aria-hidden="true" className="w-4 h-4 text-[#3FB950]" />
+                                        <CheckCircleIcon aria-hidden="true" className="w-4 h-4 text-pulse-profit" />
                                         Activate Workspace
                                     </>
                                 )}
@@ -96,7 +96,7 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                             <button
                                 onClick={() => { setIsOpen(false); setShowDeleteConfirm(true); }}
                                 disabled={isDeleting}
-                                className="w-full text-left px-4 py-2 text-sm text-[#F0503C] hover:bg-[#F0503C]/10 hover:text-[#F0503C] flex items-center gap-2 disabled:opacity-50"
+                                className="w-full text-left px-4 py-2 text-sm text-pulse-loss hover:bg-pulse-loss/10 hover:text-pulse-loss flex items-center gap-2 disabled:opacity-50"
                                 role="menuitem"
                             >
                                 <TrashIcon aria-hidden="true" className="w-4 h-4" />

@@ -29,16 +29,16 @@ function formatUsd(n: number): string {
 }
 
 function marginClass(n: number): string {
-    return n < 0 ? "text-[#F0503C]" : "text-[#3FB950]";
+    return n < 0 ? "text-pulse-loss" : "text-pulse-profit";
 }
 
 function TrendLine({ pct }: { pct: number | null }) {
     if (pct === null) {
-        return <span className="text-[11px] text-[#5A5A61]">— vs prior period</span>;
+        return <span className="text-[11px] text-pulse-faint">— vs prior period</span>;
     }
     const up = pct >= 0;
     return (
-        <span className={`text-[11px] tabular-nums ${up ? "text-[#3FB950]" : "text-[#F0503C]"}`}>
+        <span className={`text-[11px] tabular-nums ${up ? "text-pulse-profit" : "text-pulse-loss"}`}>
             {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}% vs prior
         </span>
     );
@@ -82,49 +82,49 @@ export default async function AdminOverviewPage() {
             <PageHeader title="Platform Overview" subtitle="Live figures from the Pulse Gateway platform." />
 
             {/* KPI strip */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-px bg-[#242429] border border-[#242429] rounded-md overflow-hidden">
-                <div className="bg-[#0C0C0E] p-4">
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Revenue 30D</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#EDEDED]">{formatUsd(kpis.revenue30d)}</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-px bg-pulse-border border border-pulse-border rounded-md overflow-hidden">
+                <div className="bg-pulse-panel p-4">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Revenue 30D</p>
+                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{formatUsd(kpis.revenue30d)}</p>
                     <div className="mt-1">
                         <TrendLine pct={kpis.revenueTrendPct} />
                     </div>
                 </div>
 
-                <div className="bg-[#0C0C0E] p-4">
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Margin 30D</p>
+                <div className="bg-pulse-panel p-4">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Margin 30D</p>
                     <p className={`text-2xl font-semibold tabular-nums mt-1.5 ${marginClass(kpis.margin30d)}`}>
                         {formatUsd(kpis.margin30d)}
                     </p>
-                    <p className="text-[11px] text-[#5A5A61] mt-1">cost {formatUsd(kpis.cost30d)}</p>
+                    <p className="text-[11px] text-pulse-faint mt-1">cost {formatUsd(kpis.cost30d)}</p>
                 </div>
 
-                <div className="bg-[#0C0C0E] p-4">
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Margin %</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#8B5CF6]">{kpis.marginPct.toFixed(1)}%</p>
-                    <p className="text-[11px] text-[#5A5A61] mt-1">of revenue</p>
+                <div className="bg-pulse-panel p-4">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Margin %</p>
+                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-accent">{kpis.marginPct.toFixed(1)}%</p>
+                    <p className="text-[11px] text-pulse-faint mt-1">of revenue</p>
                 </div>
 
-                <div className="bg-[#0C0C0E] p-4">
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Messages 24H</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#EDEDED]">{kpis.messages24h.toLocaleString()}</p>
+                <div className="bg-pulse-panel p-4">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Messages 24H</p>
+                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{kpis.messages24h.toLocaleString()}</p>
                     <div className="mt-1">
                         <TrendLine pct={kpis.messagesTrendPct} />
                     </div>
                 </div>
 
-                <div className="bg-[#0C0C0E] p-4">
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Active Tenants</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#EDEDED]">
+                <div className="bg-pulse-panel p-4">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Active Tenants</p>
+                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">
                         {kpis.activeTenants}/{kpis.totalTenants}
                     </p>
-                    <p className="text-[11px] text-[#5A5A61] mt-1">workspaces</p>
+                    <p className="text-[11px] text-pulse-faint mt-1">workspaces</p>
                 </div>
 
-                <div className="bg-[#0C0C0E] p-4">
-                    <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Credits Out</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#EDEDED]">{kpis.creditsOutstanding.toLocaleString()}</p>
-                    <p className="text-[11px] text-[#5A5A61] mt-1">outstanding balance</p>
+                <div className="bg-pulse-panel p-4">
+                    <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Credits Out</p>
+                    <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{kpis.creditsOutstanding.toLocaleString()}</p>
+                    <p className="text-[11px] text-pulse-faint mt-1">outstanding balance</p>
                 </div>
             </div>
 
@@ -138,7 +138,7 @@ export default async function AdminOverviewPage() {
                 <Panel label="Workspaces" meta="Sorted by 30D spend" className="lg:col-span-2">
                     <div className="-m-4">
                         {tenants.length === 0 ? (
-                            <p className="p-4 text-[13px] uppercase tracking-[0.06em] text-[#5A5A61]">No workspaces yet.</p>
+                            <p className="p-4 text-[13px] uppercase tracking-[0.06em] text-pulse-faint">No workspaces yet.</p>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className={ui.table}>
@@ -159,9 +159,9 @@ export default async function AdminOverviewPage() {
                                                     <td className={ui.td}>
                                                         <Link
                                                             href="/admin/tenants"
-                                                            className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] rounded"
+                                                            className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-accent rounded"
                                                         >
-                                                            <span className="text-[13px] font-medium text-[#EDEDED] truncate">{t.name}</span>
+                                                            <span className="text-[13px] font-medium text-pulse-text truncate">{t.name}</span>
                                                             <TenantStatusBadge status={t.status} />
                                                         </Link>
                                                     </td>
@@ -169,10 +169,10 @@ export default async function AdminOverviewPage() {
                                                     <td className={ui.tdRight}>{formatUsd(t.spend30d)}</td>
                                                     <td className={ui.tdRight}>
                                                         <span className={marginClass(t.margin30d)}>{formatUsd(t.margin30d)}</span>{" "}
-                                                        <span className="text-[11px] text-[#5A5A61]">({marginOfSpendPct.toFixed(0)}%)</span>
+                                                        <span className="text-[11px] text-pulse-faint">({marginOfSpendPct.toFixed(0)}%)</span>
                                                     </td>
                                                     <td className={ui.tdRight}>
-                                                        <span className="text-[#5A5A61]">{relativeTime(t.lastActiveAt)}</span>
+                                                        <span className="text-pulse-faint">{relativeTime(t.lastActiveAt)}</span>
                                                     </td>
                                                 </tr>
                                             );
@@ -187,8 +187,8 @@ export default async function AdminOverviewPage() {
                 <Panel label="Needs Attention">
                     {attention.length === 0 ? (
                         <div className="flex items-center gap-2 py-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" aria-hidden="true" />
-                            <span className="text-[11px] uppercase tracking-[0.1em] text-[#3FB950]">All Clear</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-pulse-profit" aria-hidden="true" />
+                            <span className="text-[11px] uppercase tracking-[0.1em] text-pulse-profit">All Clear</span>
                         </div>
                     ) : (
                         <ul className="space-y-2">
@@ -196,19 +196,19 @@ export default async function AdminOverviewPage() {
                                 <li key={item.title}>
                                     <Link
                                         href={item.href}
-                                        className={`block pl-3 py-1.5 border-l-2 hover:bg-[#101012] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] rounded-sm ${
-                                            item.severity === "warn" ? "border-[#8B5CF6]" : "border-[#33333B]"
+                                        className={`block pl-3 py-1.5 border-l-2 hover:bg-pulse-panel-alt transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-accent rounded-sm ${
+                                            item.severity === "warn" ? "border-pulse-accent" : "border-pulse-border-strong"
                                         }`}
                                     >
                                         <span
                                             className={`text-[10px] uppercase tracking-[0.1em] ${
-                                                item.severity === "warn" ? "text-[#8B5CF6]" : "text-[#5A5A61]"
+                                                item.severity === "warn" ? "text-pulse-accent" : "text-pulse-faint"
                                             }`}
                                         >
                                             {item.severity}
                                         </span>
-                                        <p className="text-[#EDEDED] text-[13px] mt-0.5">{item.title}</p>
-                                        <p className="text-[11px] text-[#5A5A61] mt-0.5 truncate">{item.detail}</p>
+                                        <p className="text-pulse-text text-[13px] mt-0.5">{item.title}</p>
+                                        <p className="text-[11px] text-pulse-faint mt-0.5 truncate">{item.detail}</p>
                                     </Link>
                                 </li>
                             ))}
@@ -221,22 +221,22 @@ export default async function AdminOverviewPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Panel label="Live Activity">
                     {activity.length === 0 ? (
-                        <p className="text-[13px] uppercase tracking-[0.06em] text-[#5A5A61]">No recent activity.</p>
+                        <p className="text-[13px] uppercase tracking-[0.06em] text-pulse-faint">No recent activity.</p>
                     ) : (
                         <ul className="space-y-1">
                             {activity.map((row: ActivityRow) => (
                                 <li
                                     key={row.id}
-                                    className="flex items-center justify-between gap-3 py-1.5 -mx-1 px-1 rounded hover:bg-[#101012] transition-colors motion-reduce:transition-none"
+                                    className="flex items-center justify-between gap-3 py-1.5 -mx-1 px-1 rounded hover:bg-pulse-panel-alt transition-colors motion-reduce:transition-none"
                                 >
                                     <div className="flex items-center gap-2.5 min-w-0">
-                                        <span className="text-[10px] uppercase tracking-[0.06em] text-[#8A8A90] border border-[#242429] rounded px-1.5 py-0.5 flex-shrink-0">
+                                        <span className="text-[10px] uppercase tracking-[0.06em] text-pulse-muted border border-pulse-border rounded px-1.5 py-0.5 flex-shrink-0">
                                             {row.channelType}
                                         </span>
-                                        <span className="text-[13px] text-[#EDEDED] truncate">{row.contactName || "UNKNOWN"}</span>
-                                        <span className="text-[11px] text-[#5A5A61] truncate">{row.tenantName || "—"}</span>
+                                        <span className="text-[13px] text-pulse-text truncate">{row.contactName || "UNKNOWN"}</span>
+                                        <span className="text-[11px] text-pulse-faint truncate">{row.tenantName || "—"}</span>
                                     </div>
-                                    <span className="text-[11px] text-[#5A5A61] flex-shrink-0 tabular-nums">
+                                    <span className="text-[11px] text-pulse-faint flex-shrink-0 tabular-nums">
                                         {relativeTime(row.updatedAt)}
                                     </span>
                                 </li>
@@ -250,11 +250,11 @@ export default async function AdminOverviewPage() {
                         {health.map((item: HealthRow) => (
                             <div
                                 key={item.name}
-                                className="flex items-center justify-between py-1.5 -mx-1 px-1 rounded hover:bg-[#101012] transition-colors motion-reduce:transition-none"
+                                className="flex items-center justify-between py-1.5 -mx-1 px-1 rounded hover:bg-pulse-panel-alt transition-colors motion-reduce:transition-none"
                             >
                                 <div>
-                                    <p className="text-[13px] text-[#EDEDED]">{item.name}</p>
-                                    <p className="text-[11px] text-[#5A5A61]">{item.detail}</p>
+                                    <p className="text-[13px] text-pulse-text">{item.name}</p>
+                                    <p className="text-[11px] text-pulse-faint">{item.detail}</p>
                                 </div>
                                 <HealthStatus status={item.status} />
                             </div>

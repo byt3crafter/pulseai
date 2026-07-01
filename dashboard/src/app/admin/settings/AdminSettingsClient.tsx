@@ -98,7 +98,7 @@ function Toggle({
             <span className="relative inline-flex h-5 w-9 flex-shrink-0 items-center">
                 <input type="checkbox" name={name} className="peer sr-only" {...inputProps} />
                 <span
-                    className="absolute inset-0 rounded-full bg-[#242429] transition-colors motion-reduce:transition-none peer-checked:bg-[#3FB950]"
+                    className="absolute inset-0 rounded-full bg-pulse-border transition-colors motion-reduce:transition-none peer-checked:bg-pulse-profit"
                     aria-hidden="true"
                 />
                 <span
@@ -107,8 +107,8 @@ function Toggle({
                 />
             </span>
             <span>
-                <span className="block text-[13px] font-medium text-[#EDEDED]">{label}</span>
-                {description && <span className="block text-[11px] text-[#8A8A90] mt-0.5">{description}</span>}
+                <span className="block text-[13px] font-medium text-pulse-text">{label}</span>
+                {description && <span className="block text-[11px] text-pulse-muted mt-0.5">{description}</span>}
             </span>
         </label>
     );
@@ -116,9 +116,9 @@ function Toggle({
 
 function InlineMessage({ variant, text }: { variant: "success" | "danger" | "accent"; text: string }) {
     const styles: Record<string, string> = {
-        success: "bg-[#3FB950]/10 text-[#3FB950] border-[#3FB950]/30",
-        danger: "bg-[#F0503C]/10 text-[#F0503C] border-[#F0503C]/30",
-        accent: "bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/30",
+        success: "bg-pulse-profit/10 text-pulse-profit border-pulse-profit/30",
+        danger: "bg-pulse-loss/10 text-pulse-loss border-pulse-loss/30",
+        accent: "bg-pulse-accent/10 text-pulse-accent border-pulse-accent/30",
     };
     return <div className={`text-[13px] rounded-md border px-3 py-2 ${styles[variant]}`}>{text}</div>;
 }
@@ -155,13 +155,13 @@ export default function AdminSettingsClient({
                                     href={`/admin/settings?tab=${t.id}`}
                                     className={`relative block text-[13px] font-medium px-3 py-2 rounded-md transition-colors motion-reduce:transition-none ${
                                         tab === t.id
-                                            ? "bg-[#17132B] text-[#8B5CF6]"
-                                            : "text-[#8A8A90] hover:bg-[#141417] hover:text-[#EDEDED]"
+                                            ? "bg-pulse-tint text-pulse-accent"
+                                            : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                                     }`}
                                 >
                                     {tab === t.id && (
                                         <span
-                                            className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-[#8B5CF6]"
+                                            className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-pulse-accent"
                                             aria-hidden="true"
                                         />
                                     )}
@@ -169,10 +169,10 @@ export default function AdminSettingsClient({
                                 </Link>
                             </li>
                         ))}
-                        <li className="mt-2 pt-2 border-t border-[#1C1C1F]">
+                        <li className="mt-2 pt-2 border-t border-pulse-border-subtle">
                             <Link
                                 href="/admin/plugins"
-                                className="block text-[13px] font-medium px-3 py-2 rounded-md text-[#8A8A90] hover:bg-[#141417] hover:text-[#EDEDED] transition-colors motion-reduce:transition-none"
+                                className="block text-[13px] font-medium px-3 py-2 rounded-md text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none"
                             >
                                 Plugins
                             </Link>
@@ -215,7 +215,7 @@ function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider
 
     return (
         <Panel label="AI Model Providers">
-            <p className="text-[13px] text-[#8A8A90] mb-4">
+            <p className="text-[13px] text-pulse-muted mb-4">
                 Configure global API keys. Platform-mode tenants use these keys automatically.
             </p>
             <div className="space-y-3">
@@ -281,12 +281,12 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
     };
 
     return (
-        <div className="border border-[#242429] rounded-lg p-4">
+        <div className="border border-pulse-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2.5">
                 <div>
-                    <span className="text-[13px] font-medium text-[#EDEDED]">{name}</span>
-                    <span className="text-[11px] text-[#8A8A90] ml-2">{description}</span>
-                    {required && <span className="text-[11px] text-[#F0503C] ml-1">*</span>}
+                    <span className="text-[13px] font-medium text-pulse-text">{name}</span>
+                    <span className="text-[11px] text-pulse-muted ml-2">{description}</span>
+                    {required && <span className="text-[11px] text-pulse-loss ml-1">*</span>}
                 </div>
                 <StatusDot variant={hasKey ? "success" : "neutral"}>{hasKey ? "Active" : "Not configured"}</StatusDot>
             </div>
@@ -386,7 +386,7 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
 
     return (
         <Panel label="Email (SMTP)">
-            <p className="text-[13px] text-[#8A8A90] mb-4">
+            <p className="text-[13px] text-pulse-muted mb-4">
                 Used for account emails — password resets and user invitations. The password is encrypted at rest.
             </p>
             <div className="space-y-4">
@@ -414,7 +414,7 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
                         <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="no-reply@example.com" className={ui.input} />
                     </div>
                     <div className="col-span-2 sm:col-span-1">
-                        <label className={ui.label}>From Name <span className="text-[#5A5A61] font-normal">(optional)</span></label>
+                        <label className={ui.label}>From Name <span className="text-pulse-faint font-normal">(optional)</span></label>
                         <input value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Pulse AI" className={ui.input} />
                     </div>
                 </div>
@@ -432,7 +432,7 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
                     </button>
                 </div>
 
-                <div className="border-t border-[#242429] pt-4 mt-2">
+                <div className="border-t border-pulse-border pt-4 mt-2">
                     <label className={ui.label}>Send a test email</label>
                     <div className="flex gap-2">
                         <input value={testEmail} onChange={(e) => setTestEmail(e.target.value)} placeholder="recipient@example.com" className={ui.input} />
@@ -445,7 +445,7 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
                             {testing ? "Sending…" : "Send test"}
                         </button>
                     </div>
-                    <p className="text-[11px] text-[#5A5A61] mt-1.5">Uses the values above (saving first is not required).</p>
+                    <p className="text-[11px] text-pulse-faint mt-1.5">Uses the values above (saving first is not required).</p>
                 </div>
 
                 {message && <InlineMessage variant={message.type === "success" ? "success" : "danger"} text={message.text} />}
@@ -460,7 +460,7 @@ function SystemTab({ settings }: { settings: any }) {
         <form action={saveGlobalSettingsAction}>
             <input type="hidden" name="section" value="pulse_system" />
             <Panel label="Pulse System Services">
-                <p className="text-[13px] text-[#8A8A90] mb-4">
+                <p className="text-[13px] text-pulse-muted mb-4">
                     Enable advanced features like hot-reload, trusted proxies, local discovery, and CLI backends.
                 </p>
                 <div className="space-y-6">
@@ -486,7 +486,7 @@ function SystemTab({ settings }: { settings: any }) {
                                 defaultValue={settings.gatewayConfig?.trusted_proxy || ""}
                                 className={`${ui.input} font-mono`}
                             />
-                            <p className="text-[11px] text-[#5A5A61] mt-1">Comma-separated CIDR list for trusted LB proxies.</p>
+                            <p className="text-[11px] text-pulse-faint mt-1">Comma-separated CIDR list for trusted LB proxies.</p>
                         </div>
                         <div>
                             <label className={ui.label}>CLI Backends Integration</label>
@@ -523,7 +523,7 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
             {/* Global Settings */}
             <form action={saveExecSafetySettings}>
                 <Panel label="Global Policy">
-                    <p className="text-[13px] text-[#8A8A90] mb-4">These settings apply to all tenants as defaults.</p>
+                    <p className="text-[13px] text-pulse-muted mb-4">These settings apply to all tenants as defaults.</p>
                     <div className="space-y-6">
                         <Toggle
                             name="enabled"
@@ -568,7 +568,7 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
 
             {/* Policy Rules */}
             <Panel label="Global Policy Rules" meta="Evaluated by priority, highest first">
-                <form action={addPolicyRule} className="grid grid-cols-1 md:grid-cols-5 gap-3 pb-4 mb-4 border-b border-[#242429]">
+                <form action={addPolicyRule} className="grid grid-cols-1 md:grid-cols-5 gap-3 pb-4 mb-4 border-b border-pulse-border">
                     <select name="ruleType" className={ui.input}>
                         <option value="deny">Deny</option>
                         <option value="allow">Allow</option>
@@ -616,7 +616,7 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                                     <td className={ui.tdRight}>
                                         <button
                                             onClick={() => setDeleteRuleId(rule.id)}
-                                            className="text-[13px] font-medium text-[#F0503C] hover:text-[#F0503C]/80 transition-colors"
+                                            className="text-[13px] font-medium text-pulse-loss hover:text-pulse-loss/80 transition-colors"
                                         >
                                             Delete
                                         </button>
@@ -697,7 +697,7 @@ function MemoryTab({ config }: { config: any }) {
     return (
         <form action={saveMemorySettingsAction}>
             <Panel label="Memory System">
-                <p className="text-[13px] text-[#8A8A90] mb-4">Configure agent long-term memory and vector search.</p>
+                <p className="text-[13px] text-pulse-muted mb-4">Configure agent long-term memory and vector search.</p>
                 <div className="space-y-6">
                     <Toggle
                         name="enabled"
@@ -711,7 +711,7 @@ function MemoryTab({ config }: { config: any }) {
                             <option value="text-embedding-3-small">text-embedding-3-small (1536d, fast)</option>
                             <option value="text-embedding-3-large">text-embedding-3-large (3072d, more accurate)</option>
                         </select>
-                        <p className="text-[11px] text-[#5A5A61] mt-1">Requires OPENAI_API_KEY. Falls back to keyword-only search without it.</p>
+                        <p className="text-[11px] text-pulse-faint mt-1">Requires OPENAI_API_KEY. Falls back to keyword-only search without it.</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
@@ -721,12 +721,12 @@ function MemoryTab({ config }: { config: any }) {
                         <div>
                             <label className={ui.label}>Decay Half-Life (days)</label>
                             <input type="number" name="decayHalfLife" defaultValue={config.decay_half_life_days || 30} className={ui.input} />
-                            <p className="text-[11px] text-[#5A5A61] mt-1">After this many days, a memory&apos;s relevance score halves.</p>
+                            <p className="text-[11px] text-pulse-faint mt-1">After this many days, a memory&apos;s relevance score halves.</p>
                         </div>
                         <div>
                             <label className={ui.label}>MMR Lambda (0.0-1.0)</label>
                             <input type="number" name="mmrLambda" step="0.1" min="0" max="1" defaultValue={config.mmr_lambda || 0.7} className={ui.input} />
-                            <p className="text-[11px] text-[#5A5A61] mt-1">1.0 = pure relevance, 0.0 = max diversity.</p>
+                            <p className="text-[11px] text-pulse-faint mt-1">1.0 = pure relevance, 0.0 = max diversity.</p>
                         </div>
                     </div>
                     <div className="flex justify-end">
@@ -743,7 +743,7 @@ function SandboxTab({ config }: { config: any }) {
     return (
         <form action={saveSandboxSettingsAction}>
             <Panel label="Python Sandbox">
-                <p className="text-[13px] text-[#8A8A90] mb-4">
+                <p className="text-[13px] text-pulse-muted mb-4">
                     Docker image, resource limits, timeouts, and network access for agent code execution.
                 </p>
                 <div className="space-y-6">
@@ -755,7 +755,7 @@ function SandboxTab({ config }: { config: any }) {
                             defaultValue={config.image || "pulse-python-sandbox:latest"}
                             className={`${ui.input} font-mono`}
                         />
-                        <p className="text-[11px] text-[#5A5A61] mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
+                        <p className="text-[11px] text-pulse-faint mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -809,7 +809,7 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
         <div className="space-y-5">
             <form action={saveSchedulingSettingsAction}>
                 <Panel label="Scheduling Settings">
-                    <p className="text-[13px] text-[#8A8A90] mb-4">
+                    <p className="text-[13px] text-pulse-muted mb-4">
                         Configure global scheduling settings for cron jobs and scheduled tasks.
                     </p>
                     <div className="space-y-6">
@@ -831,7 +831,7 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                             <div>
                                 <label className={ui.label}>Min Interval (seconds)</label>
                                 <input type="number" name="minInterval" defaultValue={config.min_interval_seconds || 300} min={60} className={ui.input} />
-                                <p className="text-[11px] text-[#5A5A61] mt-1">Minimum seconds between runs. Default: 300 (5 min).</p>
+                                <p className="text-[11px] text-pulse-faint mt-1">Minimum seconds between runs. Default: 300 (5 min).</p>
                             </div>
                         </div>
                         <div className="flex justify-end">
@@ -871,7 +871,7 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                                         <td className={`${ui.td} font-medium`}>{job.name}</td>
                                         <td className={ui.tdMuted}>{job.agentName || "—"}</td>
                                         <td className={ui.td}>
-                                            <code className="text-[11px] bg-[#141417] text-[#B5B5BA] px-2 py-1 rounded">{schedule}</code>
+                                            <code className="text-[11px] bg-pulse-hover text-pulse-text-soft px-2 py-1 rounded">{schedule}</code>
                                         </td>
                                         <td className={ui.tdMuted}>{job.timezone || "UTC"}</td>
                                         <td className={ui.td}>
@@ -948,8 +948,8 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
         <div className="space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="text-[13px] font-semibold text-[#EDEDED]">Model Pricing</h2>
-                    <p className="text-[13px] text-[#8A8A90] mt-1">
+                    <h2 className="text-[13px] font-semibold text-pulse-text">Model Pricing</h2>
+                    <p className="text-[13px] text-pulse-muted mt-1">
                         Set base cost (what you pay) and customer price (what you charge). The difference is your profit.
                     </p>
                 </div>
@@ -1090,8 +1090,8 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                     ) : (
                                         <tr key={model.id} className={ui.row}>
                                             <td className={ui.td}>
-                                                <div className="font-medium text-[#EDEDED]">{model.displayName}</div>
-                                                <div className="text-[11px] text-[#5A5A61] font-mono">{model.modelId}</div>
+                                                <div className="font-medium text-pulse-text">{model.displayName}</div>
+                                                <div className="text-[11px] text-pulse-faint font-mono">{model.modelId}</div>
                                             </td>
                                             <td className={ui.td}>
                                                 <Badge variant={
@@ -1109,7 +1109,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                                 {formatPrice(model.customerInputPerMillion)} / {formatPrice(model.customerOutputPerMillion)}
                                             </td>
                                             <td className={ui.tdRight}>
-                                                <span className={model.customerInputPerMillion > model.baseInputPerMillion ? "text-[#3FB950]" : "text-[#5A5A61]"}>
+                                                <span className={model.customerInputPerMillion > model.baseInputPerMillion ? "text-pulse-profit" : "text-pulse-faint"}>
                                                     {calcMarkup(model.baseInputPerMillion, model.customerInputPerMillion)}
                                                 </span>
                                             </td>
@@ -1127,7 +1127,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(model.id)}
-                                                    className="text-[13px] font-medium text-[#F0503C] hover:text-[#F0503C]/80 transition-colors"
+                                                    className="text-[13px] font-medium text-pulse-loss hover:text-pulse-loss/80 transition-colors"
                                                 >
                                                     Delete
                                                 </button>
@@ -1144,8 +1144,8 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
             {models.length === 0 && (
                 <Panel>
                     <div className="text-center py-10">
-                        <p className="text-[13px] font-medium text-[#EDEDED]">No models configured</p>
-                        <p className="text-[13px] text-[#8A8A90] mt-1">
+                        <p className="text-[13px] font-medium text-pulse-text">No models configured</p>
+                        <p className="text-[13px] text-pulse-muted mt-1">
                             Click &quot;Sync&quot; to auto-discover models from your connected providers, or add them manually.
                         </p>
                     </div>
@@ -1155,20 +1155,20 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
             {/* Profit Summary */}
             {models.length > 0 && (
                 <Panel label="Pricing Summary">
-                    <div className="grid grid-cols-3 gap-px bg-[#242429] border border-[#242429] rounded-md overflow-hidden">
-                        <div className="bg-[#0C0C0E] p-4">
+                    <div className="grid grid-cols-3 gap-px bg-pulse-border border border-pulse-border rounded-md overflow-hidden">
+                        <div className="bg-pulse-panel p-4">
                             <p className={ui.labelMicro}>Total Models</p>
-                            <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#EDEDED]">{models.length}</p>
+                            <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{models.length}</p>
                         </div>
-                        <div className="bg-[#0C0C0E] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.12em] text-[#3FB950]">Models with Markup</p>
-                            <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#3FB950]">
+                        <div className="bg-pulse-panel p-4">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-profit">Models with Markup</p>
+                            <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-profit">
                                 {models.filter((m) => m.customerInputPerMillion > m.baseInputPerMillion || m.customerOutputPerMillion > m.baseOutputPerMillion).length}
                             </p>
                         </div>
-                        <div className="bg-[#0C0C0E] p-4">
-                            <p className="text-[11px] uppercase tracking-[0.12em] text-[#8B5CF6]">Active Models</p>
-                            <p className="text-2xl font-semibold tabular-nums mt-1.5 text-[#8B5CF6]">
+                        <div className="bg-pulse-panel p-4">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-accent">Active Models</p>
+                            <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-accent">
                                 {models.filter((m) => m.isActive).length}
                             </p>
                         </div>
@@ -1189,7 +1189,7 @@ function DatabaseTab() {
                     type="text"
                     readOnly
                     value="postgres://pulseadmin:******@localhost:5432/pulse"
-                    className={`${ui.input} font-mono text-[#8A8A90]`}
+                    className={`${ui.input} font-mono text-pulse-muted`}
                 />
                 <div className="mt-4 flex gap-2">
                     <button className={ui.btnSecondary}>Test Connection</button>
@@ -1197,10 +1197,10 @@ function DatabaseTab() {
                 </div>
             </Panel>
             <Panel label="Security & Encryption">
-                <div className="flex items-center justify-between px-4 py-3 bg-[#101012] rounded-md border border-[#242429]">
+                <div className="flex items-center justify-between px-4 py-3 bg-pulse-panel-alt rounded-md border border-pulse-border">
                     <div>
-                        <p className="text-[13px] font-medium text-[#EDEDED]">ENCRYPTION_KEY Status</p>
-                        <p className="text-[13px] text-[#8A8A90]">Used for signing OAuth tokens and NextAuth sessions.</p>
+                        <p className="text-[13px] font-medium text-pulse-text">ENCRYPTION_KEY Status</p>
+                        <p className="text-[13px] text-pulse-muted">Used for signing OAuth tokens and NextAuth sessions.</p>
                     </div>
                     <Badge variant="success">Valid (64-byte Hex)</Badge>
                 </div>
@@ -1254,20 +1254,20 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
     return (
         <div className="space-y-5">
             <Panel label="Default Skills">
-                <p className="text-[13px] text-[#8A8A90]">
+                <p className="text-[13px] text-pulse-muted">
                     Select which built-in skills are enabled by default for all agents.
                     Individual agents can override these settings.
                 </p>
                 {noDefaultsSet && (
-                    <p className="text-[13px] text-[#8B5CF6] mt-2">
+                    <p className="text-[13px] text-pulse-accent mt-2">
                         No defaults configured yet — all skills are enabled for all agents. Save to set explicit defaults.
                     </p>
                 )}
 
                 <div className="flex items-center gap-2 mt-4 mb-5">
                     <button onClick={selectAll} className={ui.btnGhost}>Select All</button>
-                    <span className="text-[#5A5A61]">|</span>
-                    <button onClick={clearAll} className={`${ui.btnGhost} !text-[#8A8A90] hover:!text-[#B5B5BA]`}>Clear All</button>
+                    <span className="text-pulse-faint">|</span>
+                    <button onClick={clearAll} className={`${ui.btnGhost} !text-pulse-muted hover:!text-pulse-text-soft`}>Clear All</button>
                 </div>
 
                 <div className="space-y-5">
@@ -1285,20 +1285,20 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                                                 key={skill.name}
                                                 className={`flex items-center justify-between px-4 py-3 rounded-md border ${
                                                     isEnabled
-                                                        ? "border-[#8B5CF6]/40 bg-[#8B5CF6]/10"
-                                                        : "border-[#242429] bg-[#101012]"
+                                                        ? "border-pulse-accent/40 bg-pulse-accent/10"
+                                                        : "border-pulse-border bg-pulse-panel-alt"
                                                 }`}
                                             >
                                                 <div>
-                                                    <span className="text-[13px] font-medium text-[#EDEDED]">{skill.name}</span>
-                                                    <p className="text-[11px] text-[#8A8A90] mt-0.5">{skill.description}</p>
+                                                    <span className="text-[13px] font-medium text-pulse-text">{skill.name}</span>
+                                                    <p className="text-[11px] text-pulse-muted mt-0.5">{skill.description}</p>
                                                 </div>
                                                 <button
                                                     onClick={() => toggle(skill.name)}
                                                     role="switch"
                                                     aria-checked={isEnabled}
                                                     className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors motion-reduce:transition-none ${
-                                                        isEnabled ? "bg-[#3FB950]" : "bg-[#242429]"
+                                                        isEnabled ? "bg-pulse-profit" : "bg-pulse-border"
                                                     }`}
                                                 >
                                                     <span
@@ -1326,10 +1326,10 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                     {status.type === "saving" ? "Saving…" : "Save Defaults"}
                 </button>
                 {status.type === "success" && (
-                    <span className="text-[13px] text-[#3FB950]">{status.message}</span>
+                    <span className="text-[13px] text-pulse-profit">{status.message}</span>
                 )}
                 {status.type === "error" && (
-                    <span className="text-[13px] text-[#F0503C]">{status.message}</span>
+                    <span className="text-[13px] text-pulse-loss">{status.message}</span>
                 )}
             </div>
         </div>

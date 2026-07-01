@@ -76,64 +76,64 @@ export default async function SchedulingSettingsPage() {
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href="/admin/settings" className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">&larr; Back to Settings</a>
+                <a href="/admin/settings" className="text-sm text-pulse-accent hover:text-pulse-accent-hi mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[#8B5CF6]/10 rounded-lg">
-                        <ClockIcon className="w-6 h-6 text-[#8B5CF6]" />
+                    <div className="p-2 bg-pulse-accent/10 rounded-lg">
+                        <ClockIcon className="w-6 h-6 text-pulse-accent" />
                     </div>
-                    <h1 className="text-3xl font-bold text-[#EDEDED] tracking-tight">Scheduling</h1>
+                    <h1 className="text-3xl font-bold text-pulse-text tracking-tight">Scheduling</h1>
                 </div>
-                <p className="text-[#8A8A90]">Configure global scheduling settings for cron jobs and scheduled tasks.</p>
+                <p className="text-pulse-muted">Configure global scheduling settings for cron jobs and scheduled tasks.</p>
             </div>
 
             <div className="space-y-6">
                 {/* Settings Form */}
-                <form action={saveSchedulingSettings} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                <form action={saveSchedulingSettings} className="bg-pulse-panel rounded-xl border border-pulse-border overflow-hidden">
                     <div className="p-6 space-y-6">
                         <label className="flex items-center gap-3 cursor-pointer">
                             <input
                                 type="checkbox"
                                 name="enabled"
                                 defaultChecked={sched.enabled !== false}
-                                className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
+                                className="w-4 h-4 text-pulse-accent border-pulse-border rounded focus:ring-pulse-accent"
                             />
                             <div>
-                                <span className="text-sm font-medium text-[#EDEDED]">Enable Scheduling System</span>
-                                <p className="text-xs text-[#8A8A90]">When disabled, no scheduled jobs will execute.</p>
+                                <span className="text-sm font-medium text-pulse-text">Enable Scheduling System</span>
+                                <p className="text-xs text-pulse-muted">When disabled, no scheduled jobs will execute.</p>
                             </div>
                         </label>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Max Jobs per Tenant</label>
+                                <label className="block text-sm font-medium text-pulse-text-soft mb-1">Max Jobs per Tenant</label>
                                 <input
                                     type="number"
                                     name="maxJobsPerTenant"
                                     defaultValue={sched.max_jobs_per_tenant || 50}
                                     min={1}
-                                    className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Max Jobs per Agent</label>
+                                <label className="block text-sm font-medium text-pulse-text-soft mb-1">Max Jobs per Agent</label>
                                 <input
                                     type="number"
                                     name="maxJobsPerAgent"
                                     defaultValue={sched.max_jobs_per_agent || 10}
                                     min={1}
-                                    className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Min Interval (seconds)</label>
+                                <label className="block text-sm font-medium text-pulse-text-soft mb-1">Min Interval (seconds)</label>
                                 <input
                                     type="number"
                                     name="minInterval"
                                     defaultValue={sched.min_interval_seconds || 300}
                                     min={60}
-                                    className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text"
                                 />
-                                <p className="text-xs text-[#5A5A61] mt-1">Minimum seconds between runs. Default: 300 (5 min).</p>
+                                <p className="text-xs text-pulse-faint mt-1">Minimum seconds between runs. Default: 300 (5 min).</p>
                             </div>
                         </div>
 
@@ -144,16 +144,16 @@ export default async function SchedulingSettingsPage() {
                 </form>
 
                 {/* Active Jobs Overview */}
-                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
-                    <div className="p-6 border-b border-[#242429]">
-                        <h2 className="text-lg font-semibold text-[#EDEDED]">All Scheduled Jobs</h2>
-                        <p className="text-sm text-[#8A8A90] mt-1">{allJobs.length} total jobs, {enabledCount} enabled</p>
+                <div className="bg-pulse-panel rounded-xl border border-pulse-border overflow-hidden">
+                    <div className="p-6 border-b border-pulse-border">
+                        <h2 className="text-lg font-semibold text-pulse-text">All Scheduled Jobs</h2>
+                        <p className="text-sm text-pulse-muted mt-1">{allJobs.length} total jobs, {enabledCount} enabled</p>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="text-left text-xs text-[#8A8A90] border-b border-[#242429]">
+                                <tr className="text-left text-xs text-pulse-muted border-b border-pulse-border">
                                     <th className="px-6 py-3 font-medium">Name</th>
                                     <th className="px-6 py-3 font-medium">Agent</th>
                                     <th className="px-6 py-3 font-medium">Schedule</th>
@@ -165,7 +165,7 @@ export default async function SchedulingSettingsPage() {
                             <tbody>
                                 {allJobs.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-[#5A5A61]">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-pulse-faint">
                                             No scheduled jobs across any tenant.
                                         </td>
                                     </tr>
@@ -175,23 +175,23 @@ export default async function SchedulingSettingsPage() {
                                         job.cronExpression ||
                                         (job.intervalSeconds ? `every ${job.intervalSeconds}s` : `once at ${job.runAt ? new Date(job.runAt).toLocaleString() : "—"}`);
                                     return (
-                                        <tr key={job.id} className="border-b border-[#242429] hover:bg-[#101012]">
-                                            <td className="px-6 py-3 text-sm font-medium text-[#EDEDED]">{job.name}</td>
-                                            <td className="px-6 py-3 text-sm text-[#8A8A90]">{job.agentName || "—"}</td>
+                                        <tr key={job.id} className="border-b border-pulse-border hover:bg-pulse-panel-alt">
+                                            <td className="px-6 py-3 text-sm font-medium text-pulse-text">{job.name}</td>
+                                            <td className="px-6 py-3 text-sm text-pulse-muted">{job.agentName || "—"}</td>
                                             <td className="px-6 py-3">
-                                                <code className="text-xs bg-[#141417] text-[#B5B5BA] px-2 py-1 rounded">{schedule}</code>
+                                                <code className="text-xs bg-pulse-hover text-pulse-text-soft px-2 py-1 rounded">{schedule}</code>
                                             </td>
-                                            <td className="px-6 py-3 text-sm text-[#8A8A90]">{job.timezone || "UTC"}</td>
+                                            <td className="px-6 py-3 text-sm text-pulse-muted">{job.timezone || "UTC"}</td>
                                             <td className="px-6 py-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                                                     job.enabled
-                                                        ? "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
-                                                        : "bg-[#141417] text-[#8A8A90] border border-[#242429]"
+                                                        ? "bg-pulse-profit/10 text-pulse-profit border border-pulse-profit/40"
+                                                        : "bg-pulse-hover text-pulse-muted border border-pulse-border"
                                                 }`}>
                                                     {job.enabled ? "Enabled" : "Disabled"}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-3 text-xs text-[#5A5A61]">
+                                            <td className="px-6 py-3 text-xs text-pulse-faint">
                                                 {job.lastRunAt ? new Date(job.lastRunAt).toLocaleString() : "Never"}
                                             </td>
                                         </tr>

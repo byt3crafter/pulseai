@@ -3,6 +3,7 @@ import SidebarUserMenu from "../../components/SidebarUserMenu";
 import AdminNav from "../../components/AdminNav";
 import CommandPalette from "../../components/admin/CommandPalette";
 import StatusBar from "../../components/admin/StatusBar";
+import ThemeToggle from "../../components/admin/ThemeToggle";
 import { auth } from "../../auth";
 import { getAdminStatus } from "./overview-data";
 import { db } from "../../storage/db";
@@ -28,29 +29,34 @@ export default async function AdminLayout({
     ]);
 
     return (
-        <div className="flex flex-col h-screen bg-[#0A0A0B] text-[#EDEDED] font-sans">
+        <div className="flex flex-col h-screen bg-pulse-bg text-pulse-text font-sans">
+            <script
+                dangerouslySetInnerHTML={{
+                    __html: `(function(){try{var t=localStorage.getItem('pulse-admin-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;}}catch(e){}})();`,
+                }}
+            />
             <div className="flex flex-1 min-h-0">
                 {/* Sidebar */}
-                <aside className="w-[232px] flex-shrink-0 bg-[#0C0C0E] border-r border-[#242429] flex flex-col">
+                <aside className="w-[232px] flex-shrink-0 bg-pulse-panel border-r border-pulse-border flex flex-col">
                     {/* Brand */}
-                    <div className="h-14 px-4 flex items-center gap-2.5 border-b border-[#242429]">
-                        <span className="w-7 h-7 rounded bg-[#8B5CF6] flex items-center justify-center flex-shrink-0">
+                    <div className="h-14 px-4 flex items-center gap-2.5 border-b border-pulse-border">
+                        <span className="w-7 h-7 rounded bg-pulse-accent flex items-center justify-center flex-shrink-0">
                             <span className="text-white font-bold text-sm">P</span>
                         </span>
                         <div className="min-w-0">
-                            <p className="text-sm font-bold text-[#EDEDED] leading-none">PULSE</p>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-[#5A5A61] mt-1">Admin Console</p>
+                            <p className="text-sm font-bold text-pulse-text leading-none">PULSE</p>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-pulse-faint mt-1">Admin Console</p>
                         </div>
                     </div>
 
                     {/* Environment */}
-                    <div className="mx-3 mt-3 border border-[#242429] rounded-md p-2.5">
-                        <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Environment</p>
+                    <div className="mx-3 mt-3 border border-pulse-border rounded-md p-2.5">
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Environment</p>
                         <div className="flex items-center gap-1.5 mt-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" aria-hidden="true" />
-                            <span className="text-[#EDEDED] text-xs">PRODUCTION</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-pulse-profit" aria-hidden="true" />
+                            <span className="text-pulse-text text-xs">PRODUCTION</span>
                         </div>
-                        <p className="text-[11px] text-[#5A5A61] mt-0.5">pulse.runstate.mu</p>
+                        <p className="text-[11px] text-pulse-faint mt-0.5">pulse.runstate.mu</p>
                     </div>
 
                     <div className="flex-1 overflow-y-auto mt-2">
@@ -58,7 +64,7 @@ export default async function AdminLayout({
                     </div>
 
                     {/* User */}
-                    <div className="border-t border-[#242429] p-2">
+                    <div className="border-t border-pulse-border p-2">
                         <SidebarUserMenu
                             name={userName}
                             role="Administrator"
@@ -73,14 +79,15 @@ export default async function AdminLayout({
                 {/* Main column */}
                 <div className="flex-1 flex flex-col min-w-0">
                     {/* Top command bar */}
-                    <header className="h-12 flex-shrink-0 border-b border-[#242429] bg-[#0A0A0B] px-4 flex items-center gap-4">
+                    <header className="h-12 flex-shrink-0 border-b border-pulse-border bg-pulse-bg px-4 flex items-center gap-4">
                         <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-[#8B5CF6]">&#9656;</span>
-                            <span className="text-[#EDEDED]">ADMIN</span>
-                            <span className="text-[#5A5A61]">&middot; platform control plane</span>
+                            <span className="text-pulse-accent">&#9656;</span>
+                            <span className="text-pulse-text">ADMIN</span>
+                            <span className="text-pulse-faint">&middot; platform control plane</span>
                         </div>
                         <div className="ml-auto flex items-center gap-2">
                             <CommandPalette tenants={tenantRows} />
+                            <ThemeToggle />
                             <Link href="/admin/tenants" className={ui.btnPrimary}>
                                 <span aria-hidden="true">+</span> New Workspace
                             </Link>

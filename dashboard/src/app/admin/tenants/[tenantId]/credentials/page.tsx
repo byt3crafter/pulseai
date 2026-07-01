@@ -56,9 +56,9 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
             </div>
 
             <Panel bodyClassName="p-0">
-                <div className="px-4 py-3 border-b border-[#242429]">
-                    <span className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Stored Credentials</span>
-                    <span className="text-[11px] text-[#5A5A61] ml-2">{creds.length} credential(s)</span>
+                <div className="px-4 py-3 border-b border-pulse-border">
+                    <span className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Stored Credentials</span>
+                    <span className="text-[11px] text-pulse-faint ml-2">{creds.length} credential(s)</span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className={ui.table}>
@@ -74,7 +74,7 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
                         <tbody>
                             {creds.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-[#5A5A61]">
+                                    <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-pulse-faint">
                                         No credentials stored for this tenant.
                                     </td>
                                 </tr>

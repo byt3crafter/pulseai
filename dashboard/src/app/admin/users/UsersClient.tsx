@@ -67,11 +67,11 @@ export default function UsersClient({ users, tenants }: Props) {
             />
 
             {error && (
-                <div role="alert" className="p-3 bg-[#F0503C]/10 border border-[#F0503C]/40 rounded-lg text-[13px] text-[#F0503C] flex items-center justify-between gap-2">
+                <div role="alert" className="p-3 bg-pulse-loss/10 border border-pulse-loss/40 rounded-lg text-[13px] text-pulse-loss flex items-center justify-between gap-2">
                     <span>{error}</span>
                     <button
                         onClick={() => setError("")}
-                        className="text-[#F0503C] hover:text-[#F0503C]/80"
+                        className="text-pulse-loss hover:text-pulse-loss/80"
                         aria-label="Dismiss error"
                     >
                         &times;
@@ -81,12 +81,12 @@ export default function UsersClient({ users, tenants }: Props) {
 
             {/* Temp password display */}
             {tempPassword && actionUserId && (
-                <div className="p-4 bg-[#8B5CF6]/10 border border-[#8B5CF6]/40 rounded-lg">
-                    <p className="text-[13px] font-medium text-[#8B5CF6]">
+                <div className="p-4 bg-pulse-accent/10 border border-pulse-accent/40 rounded-lg">
+                    <p className="text-[13px] font-medium text-pulse-accent">
                         Temporary password generated:
                     </p>
                     <div className="flex items-center gap-2 mt-1.5">
-                        <code className="text-[13px] font-sans bg-[#0C0C0E] px-3 py-1 rounded border border-[#8B5CF6]/40 text-[#EDEDED]">
+                        <code className="text-[13px] font-sans bg-pulse-panel px-3 py-1 rounded border border-pulse-accent/40 text-pulse-text">
                             {tempPassword}
                         </code>
                         <button
@@ -102,7 +102,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                 setTempPassword(null);
                                 setActionUserId(null);
                             }}
-                            className="text-[13px] text-[#8A8A90] hover:text-[#B5B5BA] ml-2 transition-colors"
+                            className="text-[13px] text-pulse-muted hover:text-pulse-text-soft ml-2 transition-colors"
                         >
                             Dismiss
                         </button>
@@ -127,10 +127,10 @@ export default function UsersClient({ users, tenants }: Props) {
                             {users.map((user) => (
                                 <tr key={user.id} className={ui.row}>
                                     <td className={ui.td}>
-                                        <div className="text-[13px] font-medium text-[#EDEDED]">
+                                        <div className="text-[13px] font-medium text-pulse-text">
                                             {user.name || "—"}
                                         </div>
-                                        <div className="text-[11px] text-[#5A5A61] mt-0.5">
+                                        <div className="text-[11px] text-pulse-faint mt-0.5">
                                             {user.email}
                                         </div>
                                     </td>
@@ -164,7 +164,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                             </button>
                                             <button
                                                 onClick={() => setDeleteUserId(user.id)}
-                                                className="text-[13px] font-medium text-[#F0503C] hover:text-[#F0503C]/80 transition-colors focus-visible:outline-none"
+                                                className="text-[13px] font-medium text-pulse-loss hover:text-pulse-loss/80 transition-colors focus-visible:outline-none"
                                             >
                                                 Delete
                                             </button>
@@ -174,7 +174,7 @@ export default function UsersClient({ users, tenants }: Props) {
                             ))}
                             {users.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-[#5A5A61]">
+                                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-pulse-faint">
                                         No users found.
                                     </td>
                                 </tr>

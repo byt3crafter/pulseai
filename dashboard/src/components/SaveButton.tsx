@@ -22,7 +22,7 @@ export default function SaveButton({ label = "Save", className }: SaveButtonProp
         prevPending.current = pending;
     }, [pending]);
 
-    const baseClass = className || "px-4 py-2 bg-[#8B5CF6] text-white rounded-lg font-medium hover:bg-[#A78BFA] transition-colors";
+    const baseClass = className || "px-4 py-2 bg-pulse-accent text-white rounded-lg font-medium hover:bg-pulse-accent-hi transition-colors";
 
     return (
         <button

@@ -66,11 +66,11 @@ export default async function TenantDetailPage({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Panel>
                     <div className={ui.labelMicro}>Channels</div>
-                    <div className="text-lg font-semibold text-[#EDEDED] mt-1.5">{channels.length}</div>
+                    <div className="text-lg font-semibold text-pulse-text mt-1.5">{channels.length}</div>
                 </Panel>
                 <Panel>
                     <div className={ui.labelMicro}>Pending Approvals</div>
-                    <div className="text-lg font-semibold text-[#EDEDED] mt-1.5 flex items-center gap-2">
+                    <div className="text-lg font-semibold text-pulse-text mt-1.5 flex items-center gap-2">
                         {pendingCount}
                         {Number(pendingCount) > 0 && (
                             <Link
@@ -84,7 +84,7 @@ export default async function TenantDetailPage({
                 </Panel>
                 <Panel>
                     <div className={ui.labelMicro}>OAuth Client</div>
-                    <div className="text-[13px] font-mono text-[#B5B5BA] truncate mt-1.5">
+                    <div className="text-[13px] font-mono text-pulse-text-soft truncate mt-1.5">
                         {oauthClient?.clientId ?? "None"}
                     </div>
                 </Panel>

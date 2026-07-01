@@ -56,36 +56,36 @@ export default async function SandboxConfigPage() {
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href="/admin/settings" className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">&larr; Back to Settings</a>
+                <a href="/admin/settings" className="text-sm text-pulse-accent hover:text-pulse-accent-hi mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[#8B5CF6]/10 rounded-lg">
-                        <Cog6ToothIcon className="w-6 h-6 text-[#8B5CF6]" />
+                    <div className="p-2 bg-pulse-accent/10 rounded-lg">
+                        <Cog6ToothIcon className="w-6 h-6 text-pulse-accent" />
                     </div>
-                    <h1 className="text-3xl font-bold text-[#EDEDED] tracking-tight">Sandbox Configuration</h1>
+                    <h1 className="text-3xl font-bold text-pulse-text tracking-tight">Sandbox Configuration</h1>
                 </div>
-                <p className="text-[#8A8A90]">Configure the Python sandbox Docker image and resource limits for agent code execution.</p>
+                <p className="text-pulse-muted">Configure the Python sandbox Docker image and resource limits for agent code execution.</p>
             </div>
 
-            <form action={saveSandboxSettings} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+            <form action={saveSandboxSettings} className="bg-pulse-panel rounded-xl border border-pulse-border overflow-hidden">
                 <div className="p-6 space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Python Docker Image</label>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Python Docker Image</label>
                         <input
                             type="text"
                             name="pythonImage"
                             defaultValue={sandbox.image || "pulse-python-sandbox:latest"}
-                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED] font-sans"
+                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text font-sans"
                         />
-                        <p className="text-xs text-[#5A5A61] mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
+                        <p className="text-xs text-pulse-faint mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Memory Limit</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Memory Limit</label>
                             <select
                                 name="memoryLimit"
                                 defaultValue={sandbox.memory_limit || "256m"}
-                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text"
                             >
                                 <option value="128m">128 MB</option>
                                 <option value="256m">256 MB</option>
@@ -94,11 +94,11 @@ export default async function SandboxConfigPage() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-[#B5B5BA] mb-1">CPU Limit</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">CPU Limit</label>
                             <select
                                 name="cpuLimit"
                                 defaultValue={sandbox.cpu_limit || "1.0"}
-                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text"
                             >
                                 <option value="0.5">0.5 CPU</option>
                                 <option value="1.0">1.0 CPU</option>
@@ -109,21 +109,21 @@ export default async function SandboxConfigPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Default Timeout (seconds)</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Default Timeout (seconds)</label>
                             <input
                                 type="number"
                                 name="defaultTimeout"
                                 defaultValue={sandbox.default_timeout || 60}
-                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Max Timeout (seconds)</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Max Timeout (seconds)</label>
                             <input
                                 type="number"
                                 name="maxTimeout"
                                 defaultValue={sandbox.max_timeout || 300}
-                                className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED]"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel-alt text-pulse-text"
                             />
                         </div>
                     </div>
@@ -133,11 +133,11 @@ export default async function SandboxConfigPage() {
                             type="checkbox"
                             name="networkEnabled"
                             defaultChecked={sandbox.network_enabled !== false}
-                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
+                            className="w-4 h-4 text-pulse-accent border-pulse-border rounded focus:ring-pulse-accent"
                         />
                         <div>
-                            <span className="text-sm font-medium text-[#EDEDED]">Network Access</span>
-                            <p className="text-xs text-[#8A8A90]">Allow sandbox containers to make outbound API calls</p>
+                            <span className="text-sm font-medium text-pulse-text">Network Access</span>
+                            <p className="text-xs text-pulse-muted">Allow sandbox containers to make outbound API calls</p>
                         </div>
                     </label>
 
