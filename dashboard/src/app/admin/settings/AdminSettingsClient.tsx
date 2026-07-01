@@ -674,6 +674,7 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
             </Panel>
 
             <ConfirmDialog
+                theme="pulse"
                 open={!!deleteRuleId}
                 title="Delete Policy Rule"
                 message="Are you sure you want to delete this policy rule? This action cannot be undone."

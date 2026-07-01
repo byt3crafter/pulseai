@@ -185,6 +185,7 @@ export default function UsersClient({ users, tenants }: Props) {
             </Panel>
 
             <ConfirmDialog
+                theme="pulse"
                 open={!!deleteUserId}
                 title="Delete User"
                 message="This will permanently delete this user account. This action cannot be undone."

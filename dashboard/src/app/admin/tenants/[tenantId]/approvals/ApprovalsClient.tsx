@@ -254,6 +254,7 @@ export default function ApprovalsClient({
             </Panel>
 
             <ConfirmDialog
+                theme="pulse"
                 open={!!confirmAction}
                 title={confirmAction?.type === "block" ? "Block Contact" : "Remove from Allowlist"}
                 message={

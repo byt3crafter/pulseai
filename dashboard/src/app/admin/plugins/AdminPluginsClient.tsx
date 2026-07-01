@@ -234,6 +234,7 @@ export default function AdminPluginsClient({
             )}
 
             <ConfirmDialog
+                theme="pulse"
                 open={!!removePluginId}
                 title="Remove Plugin"
                 message="This will uninstall the plugin and remove it from all tenants. This action cannot be undone."
