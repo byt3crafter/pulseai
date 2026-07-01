@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.7] - 2026-07-01
+
+### Features
+- admin theme — violet accent + Geist sans font
+
 ## [0.10.6] - 2026-07-01
 
 ### Features
