@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.8] - 2026-07-01
+
+### Refactoring
+- unify all pages on shared UI primitives
+
 ## [0.10.7] - 2026-07-01
 
 ### Features
