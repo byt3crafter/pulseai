@@ -75,16 +75,16 @@ export default function AdminPluginsClient({
             {plugins.length === 0 ? (
                 <Panel>
                     <div className="p-8 text-center">
-                        <PuzzleIcon className="w-10 h-10 text-[#5A5A61] mx-auto mb-4" />
-                        <p className="text-[#8A8A90] text-[13px]">
+                        <PuzzleIcon className="w-10 h-10 text-pulse-faint mx-auto mb-4" />
+                        <p className="text-pulse-muted text-[13px]">
                             No plugins discovered. Place plugins in{" "}
-                            <code className="text-[11px] bg-[#141417] px-1.5 py-0.5 rounded">pulse/plugins/</code> and restart the backend.
+                            <code className="text-[11px] bg-pulse-hover px-1.5 py-0.5 rounded">pulse/plugins/</code> and restart the backend.
                         </p>
                     </div>
                 </Panel>
             ) : (
                 <div className="space-y-4">
-                    <p className="text-[13px] text-[#8A8A90]">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} discovered</p>
+                    <p className="text-[13px] text-pulse-muted">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} discovered</p>
 
                     {plugins.map((plugin) => {
                         const isExpanded = expandedPlugins.has(plugin.id);
@@ -105,12 +105,12 @@ export default function AdminPluginsClient({
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-1.5">
-                                                <h3 className="text-[15px] font-semibold text-[#EDEDED]">{plugin.name}</h3>
+                                                <h3 className="text-[15px] font-semibold text-pulse-text">{plugin.name}</h3>
                                                 <Badge variant="neutral">v{plugin.version || "?"}</Badge>
                                                 <Badge variant="neutral">{plugin.source}</Badge>
                                             </div>
-                                            <p className="text-[13px] text-[#8A8A90] mb-3">{description}</p>
-                                            {author && <p className="text-[11px] text-[#5A5A61] mb-3">by {author}</p>}
+                                            <p className="text-[13px] text-pulse-muted mb-3">{description}</p>
+                                            {author && <p className="text-[11px] text-pulse-faint mb-3">by {author}</p>}
 
                                             {/* Stats badges */}
                                             <div className="flex flex-wrap gap-2">
@@ -153,11 +153,11 @@ export default function AdminPluginsClient({
                                                 <button
                                                     type="submit"
                                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                        plugin.enabled ? "bg-[#3FB950]" : "bg-[#242429]"
+                                                        plugin.enabled ? "bg-pulse-profit" : "bg-pulse-border"
                                                     }`}
                                                     title={plugin.enabled ? "Disable globally" : "Enable globally"}
                                                 >
-                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-[#EDEDED] transition-transform ${
+                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-pulse-text transition-transform ${
                                                         plugin.enabled ? "translate-x-6" : "translate-x-1"
                                                     }`} />
                                                 </button>
@@ -182,10 +182,10 @@ export default function AdminPluginsClient({
 
                                 {/* Expanded: Tenant List */}
                                 {isExpanded && (
-                                    <div className="border-t border-[#1C1C1F] bg-[#101012] px-5 py-4">
+                                    <div className="border-t border-pulse-border-subtle bg-pulse-panel-alt px-5 py-4">
                                         <h4 className={`${ui.labelMicro} mb-3`}>Per-Tenant Access</h4>
                                         {tenants.length === 0 ? (
-                                            <p className="text-[11px] text-[#5A5A61]">No tenants found.</p>
+                                            <p className="text-[11px] text-pulse-faint">No tenants found.</p>
                                         ) : (
                                             <div className="space-y-2">
                                                 {tenants.map((tenant) => {
@@ -194,10 +194,10 @@ export default function AdminPluginsClient({
                                                     const isEnabled = override ? override.enabled : true;
 
                                                     return (
-                                                        <div key={tenant.id} className="flex items-center justify-between py-2 px-3 bg-[#0C0C0E] rounded-lg border border-[#242429]">
+                                                        <div key={tenant.id} className="flex items-center justify-between py-2 px-3 bg-pulse-panel rounded-lg border border-pulse-border">
                                                             <div>
-                                                                <span className="text-[13px] font-medium text-[#EDEDED]">{tenant.name}</span>
-                                                                <span className="text-[11px] text-[#5A5A61] ml-2">({tenant.slug})</span>
+                                                                <span className="text-[13px] font-medium text-pulse-text">{tenant.name}</span>
+                                                                <span className="text-[11px] text-pulse-faint ml-2">({tenant.slug})</span>
                                                             </div>
                                                             <div className="flex items-center gap-3">
                                                                 <Badge variant={isEnabled ? "success" : "neutral"}>
@@ -211,10 +211,10 @@ export default function AdminPluginsClient({
                                                                     <button
                                                                         type="submit"
                                                                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                                                            isEnabled ? "bg-[#3FB950]" : "bg-[#242429]"
+                                                                            isEnabled ? "bg-pulse-profit" : "bg-pulse-border"
                                                                         }`}
                                                                     >
-                                                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[#EDEDED] transition-transform ${
+                                                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-pulse-text transition-transform ${
                                                                             isEnabled ? "translate-x-4" : "translate-x-0.5"
                                                                         }`} />
                                                                     </button>

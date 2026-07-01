@@ -18,13 +18,13 @@ interface Conversation {
 }
 
 const channelBadge: Record<string, string> = {
-    telegram: "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/30",
-    whatsapp: "bg-[#3FB950]/10 text-[#3FB950] border-[#3FB950]/30",
-    webchat: "bg-[#A78BFA]/10 text-[#A78BFA] border-[#A78BFA]/30",
+    telegram: "bg-pulse-info/10 text-pulse-info border-pulse-info/30",
+    whatsapp: "bg-pulse-profit/10 text-pulse-profit border-pulse-profit/30",
+    webchat: "bg-pulse-accent-hi/10 text-pulse-accent-hi border-pulse-accent-hi/30",
 };
 
 function ChannelBadge({ channelType }: { channelType: string }) {
-    const cls = channelBadge[channelType] ?? "bg-[#141417] text-[#8A8A90] border-[#242429]";
+    const cls = channelBadge[channelType] ?? "bg-pulse-hover text-pulse-muted border-pulse-border";
     return (
         <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium capitalize ${cls}`}>
             {channelType}
@@ -86,11 +86,11 @@ export default function AdminConversationsClient({
                                     <td className={ui.td}>{c.tenantName}</td>
                                     <td className={ui.td}>
                                         <Link href={`/admin/conversations/${c.id}`} className="block">
-                                            <div className="font-medium text-[#8B5CF6] hover:text-[#A78BFA]">
+                                            <div className="font-medium text-pulse-accent hover:text-pulse-accent-hi">
                                                 {c.contactName || c.channelContactId}
                                             </div>
                                             {c.contactName && (
-                                                <div className="text-[11px] text-[#5A5A61] mt-0.5">
+                                                <div className="text-[11px] text-pulse-faint mt-0.5">
                                                     {c.channelContactId}
                                                 </div>
                                             )}
@@ -112,7 +112,7 @@ export default function AdminConversationsClient({
                             ))}
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-[#5A5A61]">
+                                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-pulse-faint">
                                         No conversations found.
                                     </td>
                                 </tr>

@@ -61,9 +61,9 @@ export default async function TenantManagerPage() {
 
       <Panel bodyClassName="p-0">
         {/* Toolbar */}
-        <div className="p-4 border-b border-[#242429]">
+        <div className="p-4 border-b border-pulse-border">
           <div className="relative w-full max-w-md">
-            <MagnifyingGlassIcon className="w-4 h-4 text-[#5A5A61] absolute left-3 top-1/2 -translate-y-1/2" />
+            <MagnifyingGlassIcon className="w-4 h-4 text-pulse-faint absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by name or slug..."
@@ -95,10 +95,10 @@ export default async function TenantManagerPage() {
                   <tr key={tenant.id} className={ui.row}>
                     <td className={ui.td}>
                       <Link href={`/admin/tenants/${tenant.id}`} className="block group">
-                        <div className="text-[13px] font-medium text-[#EDEDED] group-hover:text-[#8B5CF6] transition-colors">
+                        <div className="text-[13px] font-medium text-pulse-text group-hover:text-pulse-accent transition-colors">
                           {tenant.name}
                         </div>
-                        <div className="text-[11px] text-[#5A5A61] font-mono mt-0.5">{tenant.id}</div>
+                        <div className="text-[11px] text-pulse-faint font-mono mt-0.5">{tenant.id}</div>
                       </Link>
                     </td>
                     <td className={ui.td}>
@@ -107,7 +107,7 @@ export default async function TenantManagerPage() {
                       </Badge>
                     </td>
                     <td className={ui.tdRight}>
-                      <span className={balance < 0 ? "text-[#F0503C] font-medium" : "text-[#EDEDED] font-medium"}>
+                      <span className={balance < 0 ? "text-pulse-loss font-medium" : "text-pulse-text font-medium"}>
                         ${balance.toFixed(2)}
                       </span>
                     </td>
@@ -142,7 +142,7 @@ export default async function TenantManagerPage() {
               })}
               {allTenants.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-[#8A8A90]">
+                  <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-pulse-muted">
                     No tenants found. Play the seed script to create one!
                   </td>
                 </tr>

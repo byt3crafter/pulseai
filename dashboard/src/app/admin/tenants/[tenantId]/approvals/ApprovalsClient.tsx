@@ -100,42 +100,42 @@ export default function ApprovalsClient({
     return (
         <div className="space-y-4">
             {errorMsg && (
-                <div role="alert" className="bg-[#F0503C]/10 text-[#F0503C] p-3 rounded-lg text-[13px] border border-[#F0503C]/40">
+                <div role="alert" className="bg-pulse-loss/10 text-pulse-loss p-3 rounded-lg text-[13px] border border-pulse-loss/40">
                     {errorMsg}
-                    <button onClick={() => setErrorMsg(null)} aria-label="Dismiss error" className="ml-2 text-[#F0503C]/70 hover:text-[#F0503C] font-bold">&times;</button>
+                    <button onClick={() => setErrorMsg(null)} aria-label="Dismiss error" className="ml-2 text-pulse-loss/70 hover:text-pulse-loss font-bold">&times;</button>
                 </div>
             )}
             {/* Pending Pairing Requests */}
             <Panel bodyClassName="p-6">
-                <h2 className="text-[15px] font-semibold text-[#EDEDED] mb-4">
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-4">
                     Pending Pairing Requests
                     {pendingPairings.length > 0 && (
-                        <span className="ml-2 text-[13px] font-normal text-[#8B5CF6]">
+                        <span className="ml-2 text-[13px] font-normal text-pulse-accent">
                             ({pendingPairings.length} pending)
                         </span>
                     )}
                 </h2>
                 {pendingPairings.length === 0 ? (
-                    <p className="text-[13px] text-[#8A8A90]">No pending pairing requests.</p>
+                    <p className="text-[13px] text-pulse-muted">No pending pairing requests.</p>
                 ) : (
                     <div className="space-y-3">
                         {pendingPairings.map((p) => (
                             <div
                                 key={p.id}
-                                className="flex items-center justify-between bg-[#101012] border border-[#242429] rounded-md p-3"
+                                className="flex items-center justify-between bg-pulse-panel-alt border border-pulse-border rounded-md p-3"
                             >
                                 <div>
-                                    <div className="text-[13px] font-medium text-[#EDEDED]">
+                                    <div className="text-[13px] font-medium text-pulse-text">
                                         {p.contactName || "Unknown User"}
                                     </div>
-                                    <div className="text-[11px] text-[#8A8A90]">
+                                    <div className="text-[11px] text-pulse-muted">
                                         ID: {p.contactId} &middot; Code:{" "}
-                                        <code className="font-mono bg-[#141417] px-1 rounded">
+                                        <code className="font-mono bg-pulse-hover px-1 rounded">
                                             {p.code}
                                         </code>
                                     </div>
                                     {p.createdAt && (
-                                        <div className="text-[11px] text-[#5A5A61]">
+                                        <div className="text-[11px] text-pulse-faint">
                                             {new Date(p.createdAt).toLocaleString()}
                                         </div>
                                     )}
@@ -164,21 +164,21 @@ export default function ApprovalsClient({
 
             {/* Approved Users */}
             <Panel bodyClassName="p-6">
-                <h2 className="text-[15px] font-semibold text-[#EDEDED] mb-4">Approved Contacts</h2>
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-4">Approved Contacts</h2>
                 {approvedUsers.length === 0 ? (
-                    <p className="text-[13px] text-[#8A8A90]">No approved contacts yet.</p>
+                    <p className="text-[13px] text-pulse-muted">No approved contacts yet.</p>
                 ) : (
                     <div className="space-y-2">
                         {approvedUsers.map((u) => (
                             <div
                                 key={u.id}
-                                className="flex items-center justify-between bg-[#101012] border border-[#242429] rounded-md p-3"
+                                className="flex items-center justify-between bg-pulse-panel-alt border border-pulse-border rounded-md p-3"
                             >
                                 <div>
-                                    <div className="text-[13px] font-medium text-[#EDEDED]">
+                                    <div className="text-[13px] font-medium text-pulse-text">
                                         {u.contactName || "Unknown"}
                                     </div>
-                                    <div className="text-[11px] text-[#8A8A90] font-mono">{u.contactId}</div>
+                                    <div className="text-[11px] text-pulse-muted font-mono">{u.contactId}</div>
                                 </div>
                                 <button
                                     onClick={() => setConfirmAction({ type: "remove", contactId: u.contactId })}
@@ -195,21 +195,21 @@ export default function ApprovalsClient({
 
             {/* Approved Groups */}
             <Panel bodyClassName="p-6">
-                <h2 className="text-[15px] font-semibold text-[#EDEDED] mb-4">Approved Groups</h2>
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-4">Approved Groups</h2>
                 {approvedGroups.length === 0 ? (
-                    <p className="text-[13px] text-[#8A8A90]">No approved groups yet.</p>
+                    <p className="text-[13px] text-pulse-muted">No approved groups yet.</p>
                 ) : (
                     <div className="space-y-2 mb-4">
                         {approvedGroups.map((g) => (
                             <div
                                 key={g.id}
-                                className="flex items-center justify-between bg-[#101012] border border-[#242429] rounded-md p-3"
+                                className="flex items-center justify-between bg-pulse-panel-alt border border-pulse-border rounded-md p-3"
                             >
                                 <div>
-                                    <div className="text-[13px] font-medium text-[#EDEDED]">
+                                    <div className="text-[13px] font-medium text-pulse-text">
                                         {g.contactName || "Unnamed Group"}
                                     </div>
-                                    <div className="text-[11px] text-[#8A8A90] font-mono">{g.contactId}</div>
+                                    <div className="text-[11px] text-pulse-muted font-mono">{g.contactId}</div>
                                 </div>
                                 <button
                                     onClick={() => setConfirmAction({ type: "remove", contactId: g.contactId })}
@@ -224,8 +224,8 @@ export default function ApprovalsClient({
                 )}
 
                 {/* Add Group Form */}
-                <div className="border-t border-[#242429] pt-4 mt-4">
-                    <h3 className="text-[13px] font-medium text-[#B5B5BA] mb-3">Add Group to Allowlist</h3>
+                <div className="border-t border-pulse-border pt-4 mt-4">
+                    <h3 className="text-[13px] font-medium text-pulse-text-soft mb-3">Add Group to Allowlist</h3>
                     <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
@@ -249,7 +249,7 @@ export default function ApprovalsClient({
                             {addingGroup ? "Adding..." : "Add Group"}
                         </button>
                     </div>
-                    {errorMsg && <p className="text-[11px] text-[#F0503C] mt-2">{errorMsg}</p>}
+                    {errorMsg && <p className="text-[11px] text-pulse-loss mt-2">{errorMsg}</p>}
                 </div>
             </Panel>
 

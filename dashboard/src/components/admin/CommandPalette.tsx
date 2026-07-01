@@ -190,12 +190,12 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
             <button
                 type="button"
                 onClick={openPalette}
-                className="flex items-center gap-2 border border-[#242429] bg-[#101012] rounded px-3 py-1.5 text-[11px] text-[#8A8A90] hover:border-[#33333B] transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6]"
+                className="flex items-center gap-2 border border-pulse-border bg-pulse-panel-alt rounded px-3 py-1.5 text-[11px] text-pulse-muted hover:border-pulse-border-strong transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-accent"
                 aria-haspopup="dialog"
             >
                 <MagnifyingGlassIcon className="w-3.5 h-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline uppercase tracking-[0.08em]">Search or jump to&hellip;</span>
-                <kbd className="ml-2 border border-[#242429] rounded px-1 text-[10px] text-[#5A5A61]">&#8984;K</kbd>
+                <kbd className="ml-2 border border-pulse-border rounded px-1 text-[10px] text-pulse-faint">&#8984;K</kbd>
             </button>
 
             {open && (
@@ -214,10 +214,10 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                         role="dialog"
                         aria-modal="true"
                         aria-label="Command palette"
-                        className="relative w-full max-w-xl rounded-lg border border-[#33333B] bg-[#0C0C0E] shadow-2xl overflow-hidden font-sans"
+                        className="relative w-full max-w-xl rounded-lg border border-pulse-border-strong bg-pulse-panel shadow-2xl overflow-hidden font-sans"
                     >
-                        <div className="flex items-center gap-3 border-b border-[#242429] px-4 py-3.5">
-                            <MagnifyingGlassIcon className="w-4 h-4 text-[#5A5A61] flex-shrink-0" aria-hidden="true" />
+                        <div className="flex items-center gap-3 border-b border-pulse-border px-4 py-3.5">
+                            <MagnifyingGlassIcon className="w-4 h-4 text-pulse-faint flex-shrink-0" aria-hidden="true" />
                             <input
                                 ref={inputRef}
                                 type="text"
@@ -228,13 +228,13 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                                 }}
                                 onKeyDown={handleInputKeyDown}
                                 placeholder="Search pages, workspaces, actions…"
-                                className="w-full bg-transparent text-[13px] text-[#EDEDED] placeholder:text-[#5A5A61] outline-none"
+                                className="w-full bg-transparent text-[13px] text-pulse-text placeholder:text-pulse-faint outline-none"
                                 role="combobox"
                                 aria-expanded="true"
                                 aria-controls="command-palette-listbox"
                                 aria-autocomplete="list"
                             />
-                            <kbd className="hidden sm:inline text-[10px] text-[#5A5A61] border border-[#242429] rounded px-1.5 py-0.5">
+                            <kbd className="hidden sm:inline text-[10px] text-pulse-faint border border-pulse-border rounded px-1.5 py-0.5">
                                 ESC
                             </kbd>
                         </div>
@@ -247,7 +247,7 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                             className="max-h-80 overflow-y-auto p-2"
                         >
                             {groups.length === 0 && (
-                                <p className="px-3 py-8 text-center text-[13px] text-[#5A5A61]">
+                                <p className="px-3 py-8 text-center text-[13px] text-pulse-faint">
                                     No results for &ldquo;{query}&rdquo;.
                                 </p>
                             )}
@@ -255,7 +255,7 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                                 const GroupIcon = GROUP_ICONS[group];
                                 return (
                                     <div key={group} className="mb-2 last:mb-0">
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] text-[#5A5A61]">
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] text-pulse-faint">
                                             <GroupIcon className="w-3.5 h-3.5" aria-hidden="true" />
                                             {group}
                                         </div>
@@ -274,19 +274,19 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                                                     onMouseEnter={() => setActiveIndex(runningIndex)}
                                                     onClick={() => handleSelect(item)}
                                                     className={`relative flex w-full items-center gap-3 rounded px-3 py-2.5 text-left text-[13px] transition-colors motion-reduce:transition-none focus-visible:outline-none ${
-                                                        isActive ? "bg-[#17132B] text-[#8B5CF6]" : "text-[#8A8A90] hover:bg-[#141417] hover:text-[#EDEDED]"
+                                                        isActive ? "bg-pulse-tint text-pulse-accent" : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                                                     }`}
                                                 >
                                                     {isActive && (
                                                         <span
                                                             aria-hidden="true"
-                                                            className="absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded-r bg-[#8B5CF6]"
+                                                            className="absolute left-0 top-1/2 -translate-y-1/2 h-3.5 w-[2px] rounded-r bg-pulse-accent"
                                                         />
                                                     )}
-                                                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-[#8B5CF6]" : "text-[#5A5A61]"}`} aria-hidden="true" />
+                                                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-pulse-accent" : "text-pulse-faint"}`} aria-hidden="true" />
                                                     <span className="flex-1 truncate">{item.label}</span>
                                                     {item.sublabel && (
-                                                        <span className="text-[11px] uppercase tracking-[0.08em] text-[#5A5A61] flex-shrink-0">{item.sublabel}</span>
+                                                        <span className="text-[11px] uppercase tracking-[0.08em] text-pulse-faint flex-shrink-0">{item.sublabel}</span>
                                                     )}
                                                 </button>
                                             );
@@ -296,15 +296,15 @@ export default function CommandPalette({ tenants }: CommandPaletteProps) {
                             })}
                         </div>
 
-                        <div className="flex items-center gap-4 border-t border-[#242429] px-4 py-2.5 text-[10px] uppercase tracking-[0.08em] text-[#5A5A61]">
+                        <div className="flex items-center gap-4 border-t border-pulse-border px-4 py-2.5 text-[10px] uppercase tracking-[0.08em] text-pulse-faint">
                             <span className="flex items-center gap-1">
-                                <kbd className="border border-[#242429] rounded px-1 py-0.5 text-[#8A8A90]">&uarr;&darr;</kbd> navigate
+                                <kbd className="border border-pulse-border rounded px-1 py-0.5 text-pulse-muted">&uarr;&darr;</kbd> navigate
                             </span>
                             <span className="flex items-center gap-1">
-                                <kbd className="border border-[#242429] rounded px-1 py-0.5 text-[#8A8A90]">&crarr;</kbd> open
+                                <kbd className="border border-pulse-border rounded px-1 py-0.5 text-pulse-muted">&crarr;</kbd> open
                             </span>
                             <span className="flex items-center gap-1">
-                                <kbd className="border border-[#242429] rounded px-1 py-0.5 text-[#8A8A90]">esc</kbd> close
+                                <kbd className="border border-pulse-border rounded px-1 py-0.5 text-pulse-muted">esc</kbd> close
                             </span>
                         </div>
                     </div>

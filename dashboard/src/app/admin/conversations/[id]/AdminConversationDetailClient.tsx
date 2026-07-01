@@ -23,13 +23,13 @@ interface ConversationInfo {
 }
 
 const channelBadge: Record<string, string> = {
-    telegram: "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/30",
-    whatsapp: "bg-[#3FB950]/10 text-[#3FB950] border-[#3FB950]/30",
-    webchat: "bg-[#A78BFA]/10 text-[#A78BFA] border-[#A78BFA]/30",
+    telegram: "bg-pulse-info/10 text-pulse-info border-pulse-info/30",
+    whatsapp: "bg-pulse-profit/10 text-pulse-profit border-pulse-profit/30",
+    webchat: "bg-pulse-accent-hi/10 text-pulse-accent-hi border-pulse-accent-hi/30",
 };
 
 function ChannelBadge({ channelType }: { channelType: string }) {
-    const cls = channelBadge[channelType] ?? "bg-[#141417] text-[#8A8A90] border-[#242429]";
+    const cls = channelBadge[channelType] ?? "bg-pulse-hover text-pulse-muted border-pulse-border";
     return (
         <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-medium capitalize ${cls}`}>
             {channelType}
@@ -40,15 +40,15 @@ function ChannelBadge({ channelType }: { channelType: string }) {
 function roleStyling(role: string) {
     switch (role) {
         case "user":
-            return "bg-[#141417] text-[#EDEDED] ml-12";
+            return "bg-pulse-hover text-pulse-text ml-12";
         case "assistant":
-            return "bg-[#101012] border border-[#242429] text-[#EDEDED] mr-12";
+            return "bg-pulse-panel-alt border border-pulse-border text-pulse-text mr-12";
         case "tool":
-            return "bg-[#8B5CF6]/10 border border-[#8B5CF6]/40 text-[#8B5CF6] font-sans text-xs mr-12";
+            return "bg-pulse-accent/10 border border-pulse-accent/40 text-pulse-accent font-sans text-xs mr-12";
         case "system":
-            return "bg-[#101012] border border-[#242429] text-[#8A8A90] italic text-center mx-16 text-xs";
+            return "bg-pulse-panel-alt border border-pulse-border text-pulse-muted italic text-center mx-16 text-xs";
         default:
-            return "bg-[#101012] text-[#B5B5BA] mr-12";
+            return "bg-pulse-panel-alt text-pulse-text-soft mr-12";
     }
 }
 
@@ -113,8 +113,8 @@ function MarkdownContent({ content }: { content: string }) {
             }
             i++; // skip closing ```
             elements.push(
-                <pre key={`code-${i}`} className="bg-[#050506] text-[#EDEDED] rounded-lg p-4 overflow-x-auto text-xs my-2">
-                    {lang && <div className="text-xs text-[#5A5A61] mb-2">{lang}</div>}
+                <pre key={`code-${i}`} className="bg-pulse-code text-pulse-text rounded-lg p-4 overflow-x-auto text-xs my-2">
+                    {lang && <div className="text-xs text-pulse-faint mb-2">{lang}</div>}
                     <code>{codeLines.join("\n")}</code>
                 </pre>
             );
@@ -204,7 +204,7 @@ function renderInline(text: string): (string | React.ReactElement)[] {
         const m = match[0];
         if (m.startsWith("`")) {
             parts.push(
-                <code key={key++} className="bg-[#141417] text-[#EDEDED] px-1.5 py-0.5 rounded text-xs font-sans">
+                <code key={key++} className="bg-pulse-hover text-pulse-text px-1.5 py-0.5 rounded text-xs font-sans">
                     {m.slice(1, -1)}
                 </code>
             );
@@ -216,7 +216,7 @@ function renderInline(text: string): (string | React.ReactElement)[] {
             const linkMatch = m.match(/\[([^\]]+)\]\(([^)]+)\)/);
             if (linkMatch) {
                 parts.push(
-                    <a key={key++} href={linkMatch[2]} className="text-[#8B5CF6] hover:underline" target="_blank" rel="noopener noreferrer">
+                    <a key={key++} href={linkMatch[2]} className="text-pulse-accent hover:underline" target="_blank" rel="noopener noreferrer">
                         {linkMatch[1]}
                     </a>
                 );
@@ -251,7 +251,7 @@ export default function AdminConversationDetailClient({
         <div className={ui.page}>
             <Link
                 href="/admin/conversations"
-                className="text-[13px] text-[#8A8A90] hover:text-[#B5B5BA] transition-colors inline-block"
+                className="text-[13px] text-pulse-muted hover:text-pulse-text-soft transition-colors inline-block"
             >
                 &larr; Back to Conversations
             </Link>
@@ -279,15 +279,15 @@ export default function AdminConversationDetailClient({
                                 onClick={() => toggleDate(group.date)}
                                 className="flex items-center gap-3 w-full py-2 group"
                             >
-                                <div className="h-px flex-1 bg-[#242429]" />
-                                <span className="text-xs font-medium text-[#5A5A61] group-hover:text-[#B5B5BA] transition-colors flex items-center gap-1.5">
+                                <div className="h-px flex-1 bg-pulse-border" />
+                                <span className="text-xs font-medium text-pulse-faint group-hover:text-pulse-text-soft transition-colors flex items-center gap-1.5">
                                     <svg className={`w-3 h-3 transition-transform ${collapsed[group.date] ? "-rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                                     </svg>
                                     {group.date}
-                                    <span className="text-[#5A5A61]">({group.messages.length})</span>
+                                    <span className="text-pulse-faint">({group.messages.length})</span>
                                 </span>
-                                <div className="h-px flex-1 bg-[#242429]" />
+                                <div className="h-px flex-1 bg-pulse-border" />
                             </button>
 
                             {/* Messages within date */}
@@ -299,10 +299,10 @@ export default function AdminConversationDetailClient({
                                             className={`rounded-lg px-5 py-3 ${roleStyling(msg.role)}`}
                                         >
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-xs font-semibold text-[#8A8A90] uppercase tracking-wide">
+                                                <span className="text-xs font-semibold text-pulse-muted uppercase tracking-wide">
                                                     {roleLabel(msg.role)}
                                                 </span>
-                                                <span className="text-xs text-[#5A5A61]">
+                                                <span className="text-xs text-pulse-faint">
                                                     {msg.createdAt
                                                         ? new Date(msg.createdAt).toLocaleTimeString()
                                                         : ""}
@@ -320,7 +320,7 @@ export default function AdminConversationDetailClient({
                         </div>
                     ))}
                     {messages.length === 0 && (
-                        <div className="text-center py-12 text-[13px] text-[#5A5A61]">
+                        <div className="text-center py-12 text-[13px] text-pulse-faint">
                             No messages in this conversation.
                         </div>
                     )}

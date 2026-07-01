@@ -102,19 +102,19 @@ export default function CreateUserModal({
                 className="absolute inset-0 bg-black/40"
                 onClick={handleClose}
             />
-            <div ref={modalRef} className="relative bg-[#0C0C0E] border border-[#242429] rounded-lg w-full max-w-lg mx-4 p-6">
+            <div ref={modalRef} className="relative bg-pulse-panel border border-pulse-border rounded-lg w-full max-w-lg mx-4 p-6">
                 {credentials ? (
                     /* Success state — show credentials */
                     <div>
-                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-[#EDEDED] mb-4">
+                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-pulse-text mb-4">
                             User Created
                         </h2>
-                        <div className="space-y-3 bg-[#3FB950]/10 border border-[#3FB950]/40 rounded-lg p-4">
+                        <div className="space-y-3 bg-pulse-profit/10 border border-pulse-profit/40 rounded-lg p-4">
                             <div>
                                 <p className={ui.labelMicro}>
                                     Email
                                 </p>
-                                <p className="text-[13px] font-sans text-[#EDEDED] mt-1">
+                                <p className="text-[13px] font-sans text-pulse-text mt-1">
                                     {credentials.email}
                                 </p>
                             </div>
@@ -123,7 +123,7 @@ export default function CreateUserModal({
                                     Temporary Password
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <code className="text-[13px] font-sans bg-[#0C0C0E] px-2 py-1 rounded border border-[#3FB950]/40 text-[#EDEDED]">
+                                    <code className="text-[13px] font-sans bg-pulse-panel px-2 py-1 rounded border border-pulse-profit/40 text-pulse-text">
                                         {credentials.password}
                                     </code>
                                     <button
@@ -132,13 +132,13 @@ export default function CreateUserModal({
                                                 credentials.password
                                             )
                                         }
-                                        className="text-[13px] font-medium text-[#3FB950] hover:text-[#3FB950]/80 transition-colors"
+                                        className="text-[13px] font-medium text-pulse-profit hover:text-pulse-profit/80 transition-colors"
                                     >
                                         Copy
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-[11px] text-[#3FB950]">
+                            <p className="text-[11px] text-pulse-profit">
                                 User will be prompted to change their password on
                                 first login.
                             </p>
@@ -152,12 +152,12 @@ export default function CreateUserModal({
                 ) : (
                     /* Form state */
                     <div>
-                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-[#EDEDED] mb-4">
+                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-pulse-text mb-4">
                             Create User
                         </h2>
 
                         {error && (
-                            <div role="alert" className="mb-4 p-3 bg-[#F0503C]/10 border border-[#F0503C]/40 rounded-lg text-[13px] text-[#F0503C]">
+                            <div role="alert" className="mb-4 p-3 bg-pulse-loss/10 border border-pulse-loss/40 rounded-lg text-[13px] text-pulse-loss">
                                 {error}
                             </div>
                         )}

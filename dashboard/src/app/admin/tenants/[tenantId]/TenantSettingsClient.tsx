@@ -52,25 +52,25 @@ export default function TenantSettingsClient({
         <div className="space-y-4">
             {/* OAuth Settings */}
             <Panel bodyClassName="p-6">
-                <h2 className="text-[15px] font-semibold text-[#EDEDED] mb-1">OAuth / CLI Settings</h2>
-                <p className="text-[13px] text-[#8A8A90] mb-4">Control whether third-party developer tools can authenticate with this tenant's workspace.</p>
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-1">OAuth / CLI Settings</h2>
+                <p className="text-[13px] text-pulse-muted mb-4">Control whether third-party developer tools can authenticate with this tenant's workspace.</p>
                 <div className="space-y-4">
                     <label className="flex items-center gap-3 cursor-pointer">
                         <input
                             type="checkbox"
                             checked={enableCli}
                             onChange={(e) => setEnableCli(e.target.checked)}
-                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
+                            className="w-4 h-4 text-pulse-accent border-pulse-border rounded focus:ring-pulse-accent"
                         />
                         <div>
-                            <span className="text-[13px] font-medium text-[#EDEDED]">Enable Third-Party CLI Access</span>
-                            <p className="text-[11px] text-[#8A8A90]">Allow tools like Claude Code and Codex to authenticate via OAuth</p>
+                            <span className="text-[13px] font-medium text-pulse-text">Enable Third-Party CLI Access</span>
+                            <p className="text-[11px] text-pulse-muted">Allow tools like Claude Code and Codex to authenticate via OAuth</p>
                         </div>
                     </label>
                     {clientId && (
-                        <div className="mt-2 bg-[#101012] border border-[#242429] rounded-md p-3">
+                        <div className="mt-2 bg-pulse-panel-alt border border-pulse-border rounded-md p-3">
                             <div className={ui.metaMicro}>OAuth Client ID</div>
-                            <code className="text-[13px] font-mono text-[#B5B5BA]">{clientId}</code>
+                            <code className="text-[13px] font-mono text-pulse-text-soft">{clientId}</code>
                         </div>
                     )}
                 </div>
@@ -78,19 +78,19 @@ export default function TenantSettingsClient({
 
             {/* Heartbeat Defaults */}
             <Panel bodyClassName="p-6">
-                <h2 className="text-[15px] font-semibold text-[#EDEDED] mb-1">Heartbeat Defaults</h2>
-                <p className="text-[13px] text-[#8A8A90] mb-4">Set the default behavior for the automated pacemaker scheduler when new agents are created.</p>
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-1">Heartbeat Defaults</h2>
+                <p className="text-[13px] text-pulse-muted mb-4">Set the default behavior for the automated pacemaker scheduler when new agents are created.</p>
                 <div className="space-y-6">
                     <label className="flex items-center gap-3 cursor-pointer">
                         <input
                             type="checkbox"
                             checked={heartbeatEnabled}
                             onChange={(e) => setHeartbeatEnabled(e.target.checked)}
-                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
+                            className="w-4 h-4 text-pulse-accent border-pulse-border rounded focus:ring-pulse-accent"
                         />
                         <div>
-                            <span className="text-[13px] font-medium text-[#EDEDED]">Enable Heartbeat by Default</span>
-                            <p className="text-[11px] text-[#8A8A90]">Automatically start the scheduler for new agents</p>
+                            <span className="text-[13px] font-medium text-pulse-text">Enable Heartbeat by Default</span>
+                            <p className="text-[11px] text-pulse-muted">Automatically start the scheduler for new agents</p>
                         </div>
                     </label>
                     <div className={!heartbeatEnabled ? "opacity-50 pointer-events-none" : ""}>
@@ -110,24 +110,24 @@ export default function TenantSettingsClient({
 
             {/* Multi-Agent Routing */}
             <Panel bodyClassName="p-6">
-                <h2 className="text-[15px] font-semibold text-[#EDEDED] mb-1">Multi-Agent Routing</h2>
-                <p className="text-[13px] text-[#8A8A90] mb-4">Allow this tenant to create routing rules that dispatch messages to different agents based on contact, group, keywords, or channel.</p>
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-1">Multi-Agent Routing</h2>
+                <p className="text-[13px] text-pulse-muted mb-4">Allow this tenant to create routing rules that dispatch messages to different agents based on contact, group, keywords, or channel.</p>
                 <label className="flex items-center gap-3 cursor-pointer">
                     <input
                         type="checkbox"
                         checked={routingEnabled}
                         onChange={(e) => setRoutingEnabled(e.target.checked)}
-                        className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
+                        className="w-4 h-4 text-pulse-accent border-pulse-border rounded focus:ring-pulse-accent"
                     />
                     <div>
-                        <span className="text-[13px] font-medium text-[#EDEDED]">Enable Multi-Agent Routing</span>
-                        <p className="text-[11px] text-[#8A8A90]">When disabled, all messages go to the channel&apos;s assigned agent</p>
+                        <span className="text-[13px] font-medium text-pulse-text">Enable Multi-Agent Routing</span>
+                        <p className="text-[11px] text-pulse-muted">When disabled, all messages go to the channel&apos;s assigned agent</p>
                     </div>
                 </label>
             </Panel>
 
-            <div className="bg-[#8B5CF6]/10 border border-[#8B5CF6]/40 rounded-lg p-4">
-                <p className="text-[13px] text-[#8B5CF6]">
+            <div className="bg-pulse-accent/10 border border-pulse-accent/40 rounded-lg p-4">
+                <p className="text-[13px] text-pulse-accent">
                     Telegram policies (DM pairing, group access, allowlists) are managed by the tenant from their own dashboard under <span className="font-semibold">Settings &rarr; Telegram</span>.
                 </p>
             </div>
@@ -142,7 +142,7 @@ export default function TenantSettingsClient({
                     {saving ? "Saving..." : "Save Settings"}
                 </button>
                 {message && (
-                    <span className={`text-[13px] ${message.includes("success") ? "text-[#3FB950]" : "text-[#F0503C]"}`}>
+                    <span className={`text-[13px] ${message.includes("success") ? "text-pulse-profit" : "text-pulse-loss"}`}>
                         {message}
                     </span>
                 )}
