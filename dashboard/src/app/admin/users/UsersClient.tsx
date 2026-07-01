@@ -61,10 +61,10 @@ export default function UsersClient({ users, tenants }: Props) {
         <div className="p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+                    <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">
                         User Management
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-[#8A8A90] mt-1">
                         Manage platform users and their access.
                     </p>
                 </div>
@@ -72,11 +72,11 @@ export default function UsersClient({ users, tenants }: Props) {
             </div>
 
             {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <div className="mb-4 p-3 bg-[#F0503C]/10 border border-[#F0503C]/40 rounded-lg text-sm text-[#F0503C]">
                     {error}
                     <button
                         onClick={() => setError("")}
-                        className="ml-2 text-red-500 hover:text-red-700"
+                        className="ml-2 text-[#F0503C] hover:text-[#F0503C]/80"
                     >
                         &times;
                     </button>
@@ -85,19 +85,19 @@ export default function UsersClient({ users, tenants }: Props) {
 
             {/* Temp password display */}
             {tempPassword && actionUserId && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm font-medium text-amber-800">
+                <div className="mb-4 p-4 bg-[#F5A524]/10 border border-[#F5A524]/40 rounded-lg">
+                    <p className="text-sm font-medium text-[#F5A524]">
                         Temporary password generated:
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                        <code className="text-sm font-mono bg-white px-3 py-1 rounded border border-amber-200">
+                        <code className="text-sm font-mono bg-[#0C0C0E] px-3 py-1 rounded border border-[#F5A524]/40">
                             {tempPassword}
                         </code>
                         <button
                             onClick={() => {
                                 navigator.clipboard.writeText(tempPassword);
                             }}
-                            className="text-xs text-amber-700 hover:text-amber-900 font-medium"
+                            className="text-xs text-[#F5A524] hover:text-[#FFC24B] font-medium"
                         >
                             Copy
                         </button>
@@ -106,7 +106,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                 setTempPassword(null);
                                 setActionUserId(null);
                             }}
-                            className="text-xs text-slate-500 hover:text-slate-700 ml-2"
+                            className="text-xs text-[#8A8A90] hover:text-[#B5B5BA] ml-2"
                         >
                             Dismiss
                         </button>
@@ -114,10 +114,10 @@ export default function UsersClient({ users, tenants }: Props) {
                 </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429]">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                        <tr className="bg-[#101012] text-[#5A5A61] text-xs uppercase tracking-wider border-b border-[#1C1C1F]">
                             <th className="px-6 py-4 font-medium">User</th>
                             <th className="px-6 py-4 font-medium">Role</th>
                             <th className="px-6 py-4 font-medium">Workspace</th>
@@ -128,35 +128,35 @@ export default function UsersClient({ users, tenants }: Props) {
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-[#1C1C1F]">
                         {users.map((user) => (
                             <tr
                                 key={user.id}
-                                className="hover:bg-gray-50 transition-colors"
+                                className="hover:bg-[#101012] transition-colors"
                             >
                                 <td className="px-6 py-4">
-                                    <div className="font-medium text-gray-900">
+                                    <div className="font-medium text-[#EDEDED]">
                                         {user.name || "—"}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-0.5">
+                                    <div className="text-xs text-[#8A8A90] mt-0.5">
                                         {user.email}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <span
-                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                                             user.role === "ADMIN"
-                                                ? "bg-purple-100 text-purple-800"
-                                                : "bg-blue-100 text-blue-800"
+                                                ? "bg-[#F5A524]/10 text-[#F5A524] border-[#F5A524]/40"
+                                                : "bg-[#141417] text-[#8A8A90] border-[#242429]"
                                         }`}
                                     >
                                         {user.role}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-sm text-gray-600">
+                                <td className="px-6 py-4 text-sm text-[#B5B5BA]">
                                     {user.tenantName || "—"}
                                 </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
+                                <td className="px-6 py-4 text-sm text-[#8A8A90]">
                                     {user.lastLoginAt
                                         ? new Date(
                                               user.lastLoginAt
@@ -165,12 +165,12 @@ export default function UsersClient({ users, tenants }: Props) {
                                 </td>
                                 <td className="px-6 py-4">
                                     {user.mustChangePassword ? (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40">
                                             Pending Setup
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center gap-1 text-xs text-green-700">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                        <span className="inline-flex items-center gap-1 text-xs text-[#3FB950]">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" />
                                             Active
                                         </span>
                                     )}
@@ -181,7 +181,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                             onClick={() =>
                                                 handleResetPassword(user.id)
                                             }
-                                            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded hover:bg-indigo-50"
+                                            className="text-xs font-medium text-[#F5A524] hover:text-[#FFC24B] px-2 py-1 rounded hover:bg-[#F5A524]/10"
                                         >
                                             Reset Password
                                         </button>
@@ -189,7 +189,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                             onClick={() =>
                                                 setDeleteUserId(user.id)
                                             }
-                                            className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                                            className="text-xs font-medium text-[#F0503C] hover:text-[#F0503C]/80 px-2 py-1 rounded hover:bg-[#F0503C]/10"
                                         >
                                             Delete
                                         </button>
@@ -201,7 +201,7 @@ export default function UsersClient({ users, tenants }: Props) {
                             <tr>
                                 <td
                                     colSpan={6}
-                                    className="px-6 py-12 text-center text-sm text-gray-400"
+                                    className="px-6 py-12 text-center text-sm text-[#5A5A61]"
                                 >
                                     No users found.
                                 </td>

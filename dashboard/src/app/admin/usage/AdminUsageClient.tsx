@@ -51,10 +51,10 @@ export default function AdminUsageClient({
     return (
         <div className="p-8">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+                <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">
                     Usage Analytics
                 </h1>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-[#8A8A90] mt-1">
                     Platform-wide usage metrics and cost analysis.
                 </p>
             </div>
@@ -85,15 +85,15 @@ export default function AdminUsageClient({
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Top Tenants by Cost */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-900">
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                    <div className="px-6 py-4 border-b border-[#242429]">
+                        <h2 className="text-sm font-semibold text-[#EDEDED]">
                             Top Tenants by Cost
                         </h2>
                     </div>
                     <div className="p-6 space-y-4">
                         {topTenants.length === 0 && (
-                            <p className="text-sm text-gray-400">
+                            <p className="text-sm text-[#5A5A61]">
                                 No usage data yet.
                             </p>
                         )}
@@ -102,17 +102,17 @@ export default function AdminUsageClient({
                             return (
                                 <div key={t.tenantId}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-medium text-gray-700">
+                                        <span className="text-sm font-medium text-[#B5B5BA]">
                                             {t.tenantName}
                                         </span>
-                                        <span className="text-xs text-gray-500">
+                                        <span className="text-xs text-[#8A8A90]">
                                             ${t.totalCost.toFixed(4)} &middot;{" "}
                                             {t.requestCount} requests
                                         </span>
                                     </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-2.5">
+                                    <div className="w-full bg-[#1C1C1F] rounded-full h-2.5">
                                         <div
-                                            className="bg-indigo-500 h-2.5 rounded-full transition-all"
+                                            className="bg-[#F5A524] h-2.5 rounded-full transition-all"
                                             style={{ width: `${pct}%` }}
                                         />
                                     </div>
@@ -123,15 +123,15 @@ export default function AdminUsageClient({
                 </div>
 
                 {/* Model Distribution */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100">
-                        <h2 className="text-sm font-semibold text-gray-900">
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
+                    <div className="px-6 py-4 border-b border-[#242429]">
+                        <h2 className="text-sm font-semibold text-[#EDEDED]">
                             Model Distribution
                         </h2>
                     </div>
                     <div className="p-6 space-y-4">
                         {modelDistribution.length === 0 && (
-                            <p className="text-sm text-gray-400">
+                            <p className="text-sm text-[#5A5A61]">
                                 No usage data yet.
                             </p>
                         )}
@@ -141,18 +141,18 @@ export default function AdminUsageClient({
                             return (
                                 <div key={m.model}>
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-medium text-gray-700">
-                                            <span className="text-xs text-gray-400 mr-1">{getProviderName(m.model)}</span>
+                                        <span className="text-sm font-medium text-[#B5B5BA]">
+                                            <span className="text-xs text-[#5A5A61] mr-1">{getProviderName(m.model)}</span>
                                             {getModelDisplayName(m.model)}
                                         </span>
-                                        <span className="text-xs text-gray-500">
+                                        <span className="text-xs text-[#8A8A90]">
                                             {formatNumber(m.totalTokens)} tokens
                                             &middot; ${m.totalCost.toFixed(4)}
                                         </span>
                                     </div>
-                                    <div className="w-full bg-gray-100 rounded-full h-2.5">
+                                    <div className="w-full bg-[#1C1C1F] rounded-full h-2.5">
                                         <div
-                                            className="bg-purple-500 h-2.5 rounded-full transition-all"
+                                            className="bg-[#A78BFA] h-2.5 rounded-full transition-all"
                                             style={{ width: `${pct}%` }}
                                         />
                                     </div>
@@ -168,11 +168,11 @@ export default function AdminUsageClient({
 
 function StatCard({ label, value }: { label: string; value: string }) {
     return (
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-5">
+            <p className="text-xs font-medium text-[#8A8A90] uppercase tracking-wide">
                 {label}
             </p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+            <p className="text-2xl font-bold text-[#EDEDED] mt-1">{value}</p>
         </div>
     );
 }

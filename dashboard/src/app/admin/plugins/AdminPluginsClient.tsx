@@ -67,24 +67,24 @@ export default function AdminPluginsClient({
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href="/admin/settings" className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">&larr; Back to Settings</a>
+                <a href="/admin/settings" className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-violet-50 rounded-lg">
-                        <PuzzleIcon className="w-6 h-6 text-violet-600" />
+                    <div className="p-2 bg-[#F5A524]/10 rounded-lg">
+                        <PuzzleIcon className="w-6 h-6 text-[#F5A524]" />
                     </div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Plugins</h1>
+                    <h1 className="text-3xl font-bold text-[#EDEDED] tracking-tight">Plugins</h1>
                 </div>
-                <p className="text-slate-500">Manage plugins and control per-tenant access.</p>
+                <p className="text-[#8A8A90]">Manage plugins and control per-tenant access.</p>
             </div>
 
             {plugins.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                    <PuzzleIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500 text-sm">No plugins discovered. Place plugins in <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">pulse/plugins/</code> and restart the backend.</p>
+                <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] p-12 text-center">
+                    <PuzzleIcon className="w-12 h-12 text-[#5A5A61] mx-auto mb-4" />
+                    <p className="text-[#8A8A90] text-sm">No plugins discovered. Place plugins in <code className="text-xs bg-[#141417] px-1.5 py-0.5 rounded">pulse/plugins/</code> and restart the backend.</p>
                 </div>
             ) : (
                 <div className="space-y-4">
-                    <p className="text-sm text-slate-500">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} discovered</p>
+                    <p className="text-sm text-[#8A8A90]">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} discovered</p>
 
                     {plugins.map((plugin) => {
                         const isExpanded = expandedPlugins.has(plugin.id);
@@ -99,38 +99,38 @@ export default function AdminPluginsClient({
                         const tenantConfigLookup = new Map(pluginTenantConfigs.map((c) => [c.tenantId, c]));
 
                         return (
-                            <div key={plugin.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div key={plugin.id} className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
                                 {/* Plugin Header */}
                                 <div className="p-5">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-1.5">
-                                                <h3 className="text-lg font-semibold text-slate-900">{plugin.name}</h3>
-                                                <span className="text-xs text-slate-400">v{plugin.version || "?"}</span>
-                                                <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-500 rounded-full">{plugin.source}</span>
+                                                <h3 className="text-lg font-semibold text-[#EDEDED]">{plugin.name}</h3>
+                                                <span className="text-xs text-[#5A5A61]">v{plugin.version || "?"}</span>
+                                                <span className="px-2 py-0.5 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">{plugin.source}</span>
                                             </div>
-                                            <p className="text-sm text-slate-500 mb-3">{description}</p>
-                                            {author && <p className="text-xs text-slate-400 mb-3">by {author}</p>}
+                                            <p className="text-sm text-[#8A8A90] mb-3">{description}</p>
+                                            {author && <p className="text-xs text-[#5A5A61] mb-3">by {author}</p>}
 
                                             {/* Stats badges */}
                                             <div className="flex flex-wrap gap-2">
                                                 {toolCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">
                                                         <WrenchIcon className="w-3 h-3" /> {toolCount} tool{toolCount !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
                                                 {routeCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">
                                                         <RouteIcon className="w-3 h-3" /> {routeCount} route{routeCount !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
                                                 {hookNames.length > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-amber-50 text-amber-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40 rounded-full">
                                                         <HookIcon className="w-3 h-3" /> {hookNames.length} hook{hookNames.length !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
                                                 {credentialSchema.length > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-violet-50 text-violet-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">
                                                         <KeyIcon className="w-3 h-3" /> {credentialSchema.length} credential{credentialSchema.length !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
@@ -145,11 +145,11 @@ export default function AdminPluginsClient({
                                                 <button
                                                     type="submit"
                                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                        plugin.enabled ? "bg-green-500" : "bg-slate-300"
+                                                        plugin.enabled ? "bg-[#3FB950]" : "bg-[#242429]"
                                                     }`}
                                                     title={plugin.enabled ? "Disable globally" : "Enable globally"}
                                                 >
-                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-[#EDEDED] transition-transform ${
                                                         plugin.enabled ? "translate-x-6" : "translate-x-1"
                                                     }`} />
                                                 </button>
@@ -157,14 +157,14 @@ export default function AdminPluginsClient({
 
                                             <button
                                                 onClick={() => toggleExpand(plugin.id)}
-                                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap"
+                                                className="text-xs text-[#F5A524] hover:text-[#FFC24B] font-medium whitespace-nowrap"
                                             >
                                                 {isExpanded ? "Hide tenants" : "Manage tenants"}
                                             </button>
 
                                             <button
                                                 onClick={() => setRemovePluginId(plugin.id)}
-                                                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                                                className="text-xs text-[#F0503C] hover:text-[#F0503C]/80 font-medium"
                                             >
                                                 Remove
                                             </button>
@@ -174,10 +174,10 @@ export default function AdminPluginsClient({
 
                                 {/* Expanded: Tenant List */}
                                 {isExpanded && (
-                                    <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
-                                        <h4 className="text-sm font-medium text-slate-700 mb-3">Per-Tenant Access</h4>
+                                    <div className="border-t border-[#1C1C1F] bg-[#101012] px-5 py-4">
+                                        <h4 className="text-sm font-medium text-[#B5B5BA] mb-3">Per-Tenant Access</h4>
                                         {tenants.length === 0 ? (
-                                            <p className="text-xs text-slate-400">No tenants found.</p>
+                                            <p className="text-xs text-[#5A5A61]">No tenants found.</p>
                                         ) : (
                                             <div className="space-y-2">
                                                 {tenants.map((tenant) => {
@@ -186,15 +186,15 @@ export default function AdminPluginsClient({
                                                     const isEnabled = override ? override.enabled : true;
 
                                                     return (
-                                                        <div key={tenant.id} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-200">
+                                                        <div key={tenant.id} className="flex items-center justify-between py-2 px-3 bg-[#0C0C0E] rounded-lg border border-[#242429]">
                                                             <div>
-                                                                <span className="text-sm font-medium text-slate-800">{tenant.name}</span>
-                                                                <span className="text-xs text-slate-400 ml-2">({tenant.slug})</span>
+                                                                <span className="text-sm font-medium text-[#EDEDED]">{tenant.name}</span>
+                                                                <span className="text-xs text-[#5A5A61] ml-2">({tenant.slug})</span>
                                                             </div>
                                                             <div className="flex items-center gap-3">
-                                                                <span className={`text-xs font-medium ${isEnabled ? "text-green-600" : "text-slate-400"}`}>
+                                                                <span className={`text-xs font-medium ${isEnabled ? "text-[#3FB950]" : "text-[#5A5A61]"}`}>
                                                                     {isEnabled ? "Enabled" : "Disabled"}
-                                                                    {!override && <span className="text-slate-300 ml-1">(default)</span>}
+                                                                    {!override && <span className="text-[#5A5A61] ml-1">(default)</span>}
                                                                 </span>
                                                                 <form action={setTenantPluginOverride}>
                                                                     <input type="hidden" name="tenantId" value={tenant.id} />
@@ -203,10 +203,10 @@ export default function AdminPluginsClient({
                                                                     <button
                                                                         type="submit"
                                                                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                                                            isEnabled ? "bg-green-500" : "bg-slate-300"
+                                                                            isEnabled ? "bg-[#3FB950]" : "bg-[#242429]"
                                                                         }`}
                                                                     >
-                                                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-[#EDEDED] transition-transform ${
                                                                             isEnabled ? "translate-x-4" : "translate-x-0.5"
                                                                         }`} />
                                                                     </button>

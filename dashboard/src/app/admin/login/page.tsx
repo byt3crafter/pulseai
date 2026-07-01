@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
         <div className="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
             <div className="w-full max-w-sm">
                 <div className="flex items-center gap-2 mb-8 justify-center">
-                    <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center">
+                    <div className="w-7 h-7 bg-[#F5A524] rounded-lg flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-white">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                         </svg>
@@ -63,7 +63,7 @@ export default function AdminLoginPage() {
                                 required
                                 autoComplete="email"
                                 placeholder="admin@runstate.com"
-                                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none text-sm"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
                                 <label htmlFor="admin-login-password" className="block text-xs font-medium text-slate-400 uppercase tracking-wider">Password</label>
-                                <Link href="/forgot" className="text-xs font-medium text-indigo-400 hover:text-indigo-300 normal-case tracking-normal">Forgot password?</Link>
+                                <Link href="/forgot" className="text-xs font-medium text-[#F5A524] hover:text-[#FFC24B] normal-case tracking-normal">Forgot password?</Link>
                             </div>
                             <input
                                 id="admin-login-password"
@@ -79,7 +79,7 @@ export default function AdminLoginPage() {
                                 required
                                 autoComplete="current-password"
                                 placeholder="••••••••"
-                                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+                                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none text-sm"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
@@ -87,7 +87,7 @@ export default function AdminLoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg transition-colors mt-2 disabled:opacity-60 flex items-center justify-center gap-2 text-sm"
+                            className="w-full bg-[#F5A524] hover:bg-[#FFC24B] text-black font-semibold py-2.5 rounded-lg transition-colors mt-2 disabled:opacity-60 flex items-center justify-center gap-2 text-sm"
                         >
                             {loading ? (
                                 <>
