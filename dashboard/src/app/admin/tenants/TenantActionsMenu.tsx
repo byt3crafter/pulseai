@@ -108,6 +108,7 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
             </div>
 
             <ConfirmDialog
+                theme="pulse"
                 open={showDeleteConfirm}
                 title="Delete Workspace"
                 message="This will permanently destroy this workspace and all its users, data, and configurations. This action cannot be undone."

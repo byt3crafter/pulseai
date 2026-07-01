@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
     confirmLabel?: string;
     cancelLabel?: string;
     variant?: "danger" | "warning" | "default";
+    theme?: "light" | "pulse";
     onConfirm: () => void;
     onCancel: () => void;
 }
@@ -20,6 +21,7 @@ export default function ConfirmDialog({
     confirmLabel = "Confirm",
     cancelLabel = "Cancel",
     variant = "danger",
+    theme = "light",
     onConfirm,
     onCancel,
 }: ConfirmDialogProps) {
@@ -61,19 +63,38 @@ export default function ConfirmDialog({
 
     if (!open) return null;
 
-    const confirmColors =
-        variant === "danger"
-            ? "bg-red-600 hover:bg-red-700 text-white"
-            : variant === "warning"
-            ? "bg-amber-600 hover:bg-amber-700 text-white"
-            : "bg-slate-900 hover:bg-slate-800 text-white";
+    const isPulse = theme === "pulse";
 
-    const iconBg =
-        variant === "danger"
-            ? "bg-red-100 text-red-600"
+    const confirmColors = isPulse
+        ? variant === "danger"
+            ? "bg-pulse-loss hover:opacity-90 text-white"
+            : "bg-pulse-accent hover:bg-pulse-accent-hi text-white"
+        : variant === "danger"
+        ? "bg-red-600 hover:bg-red-700 text-white"
+        : variant === "warning"
+        ? "bg-amber-600 hover:bg-amber-700 text-white"
+        : "bg-slate-900 hover:bg-slate-800 text-white";
+
+    const iconBg = isPulse
+        ? variant === "danger"
+            ? "bg-pulse-loss/10 text-pulse-loss"
             : variant === "warning"
-            ? "bg-amber-100 text-amber-600"
-            : "bg-slate-100 text-slate-600";
+            ? "bg-pulse-accent/10 text-pulse-accent"
+            : "bg-pulse-hover text-pulse-muted"
+        : variant === "danger"
+        ? "bg-red-100 text-red-600"
+        : variant === "warning"
+        ? "bg-amber-100 text-amber-600"
+        : "bg-slate-100 text-slate-600";
+
+    const surface = isPulse
+        ? "bg-pulse-panel rounded-lg border border-pulse-border"
+        : "bg-white rounded-2xl border border-slate-200";
+    const titleColor = isPulse ? "text-pulse-text" : "text-slate-900";
+    const messageColor = isPulse ? "text-pulse-muted" : "text-slate-500";
+    const cancelColors = isPulse
+        ? "text-pulse-text-soft bg-pulse-hover hover:bg-pulse-border"
+        : "text-slate-700 bg-slate-100 hover:bg-slate-200";
 
     return (
         <div
@@ -88,7 +109,7 @@ export default function ConfirmDialog({
             {/* Dialog */}
             <div
                 ref={dialogRef}
-                className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95"
+                className={`relative shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 ${surface}`}
             >
                 <div className="p-6">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4 ${iconBg}`}>
@@ -107,14 +128,14 @@ export default function ConfirmDialog({
                         )}
                     </div>
 
-                    <h3 id={titleId} className="text-base font-semibold text-slate-900 text-center mb-1">{title}</h3>
-                    <p className="text-sm text-slate-500 text-center">{message}</p>
+                    <h3 id={titleId} className={`text-base font-semibold text-center mb-1 ${titleColor}`}>{title}</h3>
+                    <p className={`text-sm text-center ${messageColor}`}>{message}</p>
                 </div>
 
                 <div className="flex gap-3 px-6 pb-6">
                     <button
                         onClick={onCancel}
-                        className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                        className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${cancelColors}`}
                     >
                         {cancelLabel}
                     </button>
