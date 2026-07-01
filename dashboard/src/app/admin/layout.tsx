@@ -1,4 +1,4 @@
-import { ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import SidebarUserMenu from "../../components/SidebarUserMenu";
 import AdminNav from "../../components/AdminNav";
 import { auth } from "../../auth";
@@ -16,33 +16,38 @@ export default async function AdminLayout({
     const userName = session?.user?.name || "Admin";
 
     return (
-        <div className="flex h-screen bg-slate-50 w-full font-sans">
+        <div className="flex h-screen bg-white w-full font-sans">
 
             {/* Sidebar */}
-            <aside className="w-64 bg-slate-900 text-slate-300 h-screen flex-shrink-0 flex flex-col border-r border-slate-800">
-                <div className="h-14 px-5 flex items-center border-b border-slate-800 gap-2">
-                    <ShieldCheckIcon className="w-5 h-5 text-indigo-400" />
-                    <span className="text-sm font-bold text-white tracking-tight">
-                        Pulse <span className="text-indigo-400">Admin</span>
+            <aside className="flex w-64 shrink-0 bg-[#F0F4F9] text-[#444746] h-screen flex-col border-r border-[#E1E5EA] overflow-y-auto">
+                <div className="h-16 px-5 flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-[#4285F4] via-[#9B72CB] to-[#D96570]">
+                        <SparklesIcon className="w-4 h-4 text-white" aria-hidden="true" />
+                    </span>
+                    <span className="text-base tracking-tight leading-none">
+                        <span className="font-bold text-[#1F1F1F]">Pulse</span>{" "}
+                        <span className="font-normal text-[#5F6368]">Admin</span>
                     </span>
                 </div>
 
                 <AdminNav />
 
-                <div className="p-3 border-t border-slate-800">
-                    <SidebarUserMenu
-                        name={userName}
-                        role="Administrator"
-                        initials={userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2)}
-                        callbackUrl="/admin/login"
-                        variant="dark"
-                        settingsHref="/admin/settings"
-                    />
+                <div className="p-3">
+                    <div className="bg-white rounded-xl border border-[#E1E5EA] p-1.5">
+                        <SidebarUserMenu
+                            name={userName}
+                            role="Administrator"
+                            initials={userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2)}
+                            callbackUrl="/admin/login"
+                            variant="light"
+                            settingsHref="/admin/settings"
+                        />
+                    </div>
                 </div>
             </aside>
 
             {/* Main content */}
-            <main className="flex-1 overflow-auto bg-slate-50">
+            <main className="flex-1 overflow-auto bg-white">
                 {children}
             </main>
         </div>
