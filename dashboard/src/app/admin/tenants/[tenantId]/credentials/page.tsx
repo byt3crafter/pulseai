@@ -1,10 +1,10 @@
-import { KeyIcon } from "@heroicons/react/24/outline";
 import { db } from "../../../../../storage/db";
 import { credentials, tenants } from "../../../../../storage/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "../../../../../utils/admin-auth";
+import { ui, PageHeader, Panel, Badge } from "../../../../../components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -44,61 +44,56 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
     });
 
     return (
-        <div className="p-8">
-            <div className="mb-8">
-                <a href={`/admin/tenants/${tenantId}`} className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">
+        <div className={ui.page}>
+            <div>
+                <a href={`/admin/tenants/${tenantId}`} className={`${ui.btnGhost} inline-block mb-2`}>
                     &larr; Back to {tenant.name}
                 </a>
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#8B5CF6]/10 rounded-lg">
-                        <KeyIcon className="w-6 h-6 text-[#8B5CF6]" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#EDEDED]">Credentials — {tenant.name}</h1>
-                        <p className="text-[#8A8A90] text-sm">Admin view of tenant API credentials (values never shown).</p>
-                    </div>
-                </div>
+                <PageHeader
+                    title={`Credentials — ${tenant.name}`}
+                    subtitle="Admin view of tenant API credentials (values never shown)."
+                />
             </div>
 
-            <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
-                <div className="p-6 border-b border-[#242429]">
-                    <h2 className="text-lg font-semibold text-[#EDEDED]">Stored Credentials</h2>
-                    <p className="text-sm text-[#8A8A90] mt-1">{creds.length} credential(s).</p>
+            <Panel bodyClassName="p-0">
+                <div className="px-4 py-3 border-b border-[#242429]">
+                    <span className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Stored Credentials</span>
+                    <span className="text-[11px] text-[#5A5A61] ml-2">{creds.length} credential(s)</span>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className={ui.table}>
                         <thead>
-                            <tr className="text-left text-xs text-[#5A5A61] border-b border-[#1C1C1F]">
-                                <th className="px-6 py-3 font-medium">Name</th>
-                                <th className="px-6 py-3 font-medium">Type</th>
-                                <th className="px-6 py-3 font-medium">Description</th>
-                                <th className="px-6 py-3 font-medium">Updated</th>
-                                <th className="px-6 py-3 font-medium">Admin Action</th>
+                            <tr>
+                                <th className={ui.th}>Name</th>
+                                <th className={ui.th}>Type</th>
+                                <th className={ui.th}>Description</th>
+                                <th className={ui.th}>Updated</th>
+                                <th className={ui.thRight}>Admin Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {creds.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#5A5A61]">
+                                    <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-[#5A5A61]">
                                         No credentials stored for this tenant.
                                     </td>
                                 </tr>
                             )}
                             {creds.map((cred) => (
-                                <tr key={cred.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
-                                    <td className="px-6 py-3 font-sans text-sm font-medium text-[#EDEDED]">{cred.name}</td>
-                                    <td className="px-6 py-3">
-                                        <span className="px-2 py-1 text-xs bg-[#141417] text-[#8A8A90] border border-[#242429] rounded-full">{cred.credentialType}</span>
+                                <tr key={cred.id} className={ui.row}>
+                                    <td className={ui.td}>{cred.name}</td>
+                                    <td className={ui.td}>
+                                        <Badge variant="neutral">{cred.credentialType}</Badge>
                                     </td>
-                                    <td className="px-6 py-3 text-sm text-[#8A8A90]">{cred.description || "—"}</td>
-                                    <td className="px-6 py-3 text-xs text-[#5A5A61]">
+                                    <td className={ui.tdMuted}>{cred.description || "—"}</td>
+                                    <td className={ui.tdMuted}>
                                         {cred.updatedAt ? new Date(cred.updatedAt).toLocaleDateString() : "—"}
                                     </td>
-                                    <td className="px-6 py-3">
-                                        <form action={deleteCredentialAction}>
+                                    <td className={ui.tdRight}>
+                                        <form action={deleteCredentialAction} className="inline">
                                             <input type="hidden" name="credentialId" value={cred.id} />
                                             <input type="hidden" name="tenantId" value={tenantId} />
-                                            <button type="submit" className="text-xs text-[#F0503C] hover:text-[#F0503C]/80 font-medium">
+                                            <button type="submit" className={ui.btnDanger}>
                                                 Delete (Admin)
                                             </button>
                                         </form>
@@ -108,7 +103,7 @@ export default async function AdminTenantCredentialsPage({ params }: { params: P
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </Panel>
         </div>
     );
 }

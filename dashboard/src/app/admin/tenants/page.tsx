@@ -1,6 +1,6 @@
 import { db } from "../../../storage/db";
 import { tenants, tenantBalances, pairingCodes } from "../../../storage/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   MagnifyingGlassIcon
 } from "@heroicons/react/24/outline";
@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import CreateTenantModal from "./CreateTenantModal";
 import TenantActionsMenu from "./TenantActionsMenu";
+import { ui, PageHeader, Panel, Badge } from "../../../components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -51,99 +52,89 @@ export default async function TenantManagerPage() {
   const pendingMap = new Map(pendingCounts.map((p) => [p.tenantId, Number(p.count)]));
 
   return (
-    <div className="p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">Tenant Management</h1>
-          <p className="text-sm text-[#8A8A90] mt-1">View and manage all client workspaces on the Pulse Gateway.</p>
-        </div>
+    <div className={ui.page}>
+      <PageHeader
+        title="Tenant Management"
+        subtitle="View and manage all client workspaces on the Pulse Gateway."
+        action={<CreateTenantModal />}
+      />
 
-        <CreateTenantModal />
-      </div>
-
-      <div className="bg-[#0C0C0E] rounded-xl border border-[#242429]">
+      <Panel bodyClassName="p-0">
         {/* Toolbar */}
-        <div className="p-4 border-b border-[#242429] flex justify-between items-center bg-[#101012]">
+        <div className="p-4 border-b border-[#242429]">
           <div className="relative w-full max-w-md">
-            <MagnifyingGlassIcon className="w-5 h-5 text-[#5A5A61] absolute left-3 top-1/2 -translate-y-1/2" />
+            <MagnifyingGlassIcon className="w-4 h-4 text-[#5A5A61] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by name or slug..."
-              className="w-full pl-10 pr-4 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none"
+              className={`${ui.input} pl-9`}
             />
           </div>
         </div>
 
         {/* Table */}
-        <div>
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto">
+          <table className={ui.table}>
             <thead>
-              <tr className="bg-[#101012] text-[#5A5A61] text-xs uppercase tracking-wider border-b border-[#242429]">
-                <th className="px-6 py-4 font-medium">Tenant Name</th>
-                <th className="px-6 py-4 font-medium">Slug</th>
-                <th className="px-6 py-4 font-medium">Credit Balance</th>
-                <th className="px-6 py-4 font-medium">Features</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
+              <tr>
+                <th className={ui.th}>Tenant Name</th>
+                <th className={ui.th}>Slug</th>
+                <th className={ui.thRight}>Credit Balance</th>
+                <th className={ui.th}>Features</th>
+                <th className={ui.th}>Status</th>
+                <th className={ui.thRight}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1C1C1F]">
+            <tbody>
               {allTenants.map((tenant) => {
                 const cfg = (tenant.config as Record<string, any>) || {};
                 const pendingCount = pendingMap.get(tenant.id) || 0;
+                const balance = parseFloat(tenant.balance || "0");
 
                 return (
-                  <tr key={tenant.id} className="hover:bg-[#101012] transition-colors">
-                    <td className="px-6 py-4">
-                      <Link href={`/admin/tenants/${tenant.id}`} className="block">
-                        <div className="font-medium text-[#8B5CF6] hover:text-[#A78BFA]">{tenant.name}</div>
-                        <div className="text-xs text-[#8A8A90] font-sans mt-0.5">{tenant.id}</div>
+                  <tr key={tenant.id} className={ui.row}>
+                    <td className={ui.td}>
+                      <Link href={`/admin/tenants/${tenant.id}`} className="block group">
+                        <div className="text-[13px] font-medium text-[#EDEDED] group-hover:text-[#8B5CF6] transition-colors">
+                          {tenant.name}
+                        </div>
+                        <div className="text-[11px] text-[#5A5A61] font-mono mt-0.5">{tenant.id}</div>
                       </Link>
                     </td>
-                    <td className="px-6 py-4 text-sm text-[#B5B5BA]">
-                      <span className="bg-[#141417] text-[#8A8A90] border border-[#242429] px-2 py-1 rounded-md text-xs font-sans">
-                        {tenant.slug}
+                    <td className={ui.td}>
+                      <Badge variant="neutral">
+                        <span className="font-mono">{tenant.slug}</span>
+                      </Badge>
+                    </td>
+                    <td className={ui.tdRight}>
+                      <span className={balance < 0 ? "text-[#F0503C] font-medium" : "text-[#EDEDED] font-medium"}>
+                        ${balance.toFixed(2)}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className={`text-sm font-semibold ${parseFloat(tenant.balance || "0") < 0 ? 'text-[#F0503C]' : 'text-[#EDEDED]'}`}>
-                        ${parseFloat(tenant.balance || "0").toFixed(2)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
+                    <td className={ui.td}>
                       <div className="flex flex-wrap gap-1">
                         {cfg.enable_third_party_cli && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#141417] text-[#8A8A90] border border-[#242429]">
-                            OAuth
-                          </span>
+                          <Badge variant="neutral">OAuth</Badge>
                         )}
                         {cfg.telegram_group_policy && cfg.telegram_group_policy !== "disabled" && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#141417] text-[#8A8A90] border border-[#242429]">
-                            Groups
-                          </span>
+                          <Badge variant="neutral">Groups</Badge>
                         )}
                         {cfg.telegram_dm_policy === "pairing" && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40">
-                            Pairing
-                          </span>
+                          <Badge variant="accent">Pairing</Badge>
                         )}
                         {pendingCount > 0 && (
                           <Link href={`/admin/tenants/${tenant.id}/approvals`}>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40 cursor-pointer">
-                              {pendingCount} pending
-                            </span>
+                            <Badge variant="danger">{pendingCount} pending</Badge>
                           </Link>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                        ${tenant.status === 'active' ? 'bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40' : 'bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40'}
-                      `}>
-                        {tenant.status}
-                      </span>
+                    <td className={ui.td}>
+                      <Badge variant={tenant.status === "active" ? "success" : "danger"}>
+                        <span className="capitalize">{tenant.status}</span>
+                      </Badge>
                     </td>
-                    <td className="px-6 py-4 text-right relative">
+                    <td className={ui.tdRight}>
                       <TenantActionsMenu tenantId={tenant.id} currentStatus={tenant.status as string} />
                     </td>
                   </tr>
@@ -151,7 +142,7 @@ export default async function TenantManagerPage() {
               })}
               {allTenants.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-[#8A8A90]">
+                  <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-[#8A8A90]">
                     No tenants found. Play the seed script to create one!
                   </td>
                 </tr>
@@ -159,7 +150,7 @@ export default async function TenantManagerPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

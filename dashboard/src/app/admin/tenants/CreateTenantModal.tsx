@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createTenantAction } from "./actions";
+import { ui } from "../../../components/admin/ui";
 
 export default function CreateTenantModal() {
     const [isOpen, setIsOpen] = useState(false);
@@ -91,7 +92,7 @@ export default function CreateTenantModal() {
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 bg-[#8B5CF6] hover:bg-[#A78BFA] text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                className={ui.btnPrimary}
             >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -106,7 +107,7 @@ export default function CreateTenantModal() {
                     aria-modal="true"
                     aria-labelledby="create-tenant-modal-title"
                 >
-                    <div ref={modalRef} className="bg-[#0C0C0E] rounded-xl border border-[#242429] w-full max-w-lg overflow-hidden transform transition-all my-8">
+                    <div ref={modalRef} className="bg-[#0C0C0E] rounded-lg border border-[#242429] w-full max-w-lg overflow-hidden transform transition-all my-8">
                         <div className="px-6 py-4 border-b border-[#242429] flex justify-between items-center bg-[#101012]">
                             <h3 id="create-tenant-modal-title" className="text-lg font-semibold text-[#EDEDED]">
                                 {credentials ? "Workspace Created" : "Add New Tenant"}
@@ -136,7 +137,7 @@ export default function CreateTenantModal() {
 
                                 {/* User Login Credentials */}
                                 {credentials.initialUser && (
-                                    <div className="bg-[#0C0C0E] border border-[#8B5CF6]/40 rounded-xl overflow-hidden">
+                                    <div className="bg-[#0C0C0E] border border-[#8B5CF6]/40 rounded-lg overflow-hidden">
                                         <div className="bg-[#8B5CF6]/10 px-4 py-3 border-b border-[#8B5CF6]/40">
                                             <h3 className="text-sm font-semibold text-[#8B5CF6]">Customer Login</h3>
                                             <p className="text-xs text-[#8B5CF6] mt-0.5">Primary workspace access</p>
@@ -165,7 +166,7 @@ export default function CreateTenantModal() {
                                 )}
 
                                 {/* OAuth Credentials */}
-                                <div className="bg-[#0C0C0E] border border-[#242429] rounded-xl overflow-hidden">
+                                <div className="bg-[#0C0C0E] border border-[#242429] rounded-lg overflow-hidden">
                                     <div className="bg-[#101012] px-4 py-3 border-b border-[#242429]">
                                         <h3 className="text-sm font-semibold text-[#EDEDED]">OAuth Credentials</h3>
                                         <p className="text-xs text-[#B5B5BA] mt-0.5">For CLI/API integrations (Claude Code, etc.)</p>
@@ -194,7 +195,7 @@ export default function CreateTenantModal() {
 
                                 <button
                                     onClick={handleClose}
-                                    className="w-full px-4 py-2 bg-[#141417] hover:bg-[#1C1C1F] text-[#EDEDED] border border-[#242429] font-medium rounded-lg transition-colors"
+                                    className={`${ui.btnSecondary} w-full`}
                                 >
                                     Done
                                 </button>
@@ -211,7 +212,7 @@ export default function CreateTenantModal() {
                                 )}
 
                                 <div>
-                                    <label htmlFor="name" className="block text-sm font-medium text-[#B5B5BA] mb-1.5">
+                                    <label htmlFor="name" className={ui.label}>
                                         Company Name <span className="text-[#F0503C]">*</span>
                                     </label>
                                     <input
@@ -225,12 +226,12 @@ export default function CreateTenantModal() {
                                             setCompanyName(e.target.value);
                                             if (!slugEdited) setSlug(toSlug(e.target.value));
                                         }}
-                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
+                                        className={ui.input}
                                     />
                                 </div>
 
                                 <div>
-                                    <label htmlFor="customerEmail" className="block text-sm font-medium text-[#B5B5BA] mb-1.5">
+                                    <label htmlFor="customerEmail" className={ui.label}>
                                         Customer Admin Email <span className="text-[#F0503C]">*</span>
                                     </label>
                                     <input
@@ -239,13 +240,13 @@ export default function CreateTenantModal() {
                                         name="customerEmail"
                                         required
                                         placeholder="admin@acmecorp.com"
-                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
+                                        className={ui.input}
                                     />
-                                    <p className="mt-1.5 text-xs text-[#8A8A90]">The customer's real email. They'll use this to log in.</p>
+                                    <p className="mt-1.5 text-[11px] text-[#8A8A90]">The customer's real email. They'll use this to log in.</p>
                                 </div>
 
                                 <div>
-                                    <label htmlFor="slug" className="block text-sm font-medium text-[#B5B5BA] mb-1.5">
+                                    <label htmlFor="slug" className={ui.label}>
                                         Routing Slug <span className="text-[#F0503C]">*</span>
                                     </label>
                                     <div className="relative">
@@ -262,7 +263,7 @@ export default function CreateTenantModal() {
                                             placeholder="acme-corp"
                                             pattern="[-a-z0-9]+"
                                             title="Lowercase letters, numbers, and hyphens only"
-                                            className="w-full px-3 py-2 pr-9 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm font-sans focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all placeholder:font-sans"
+                                            className={`${ui.input} pr-9 font-mono placeholder:font-mono`}
                                         />
                                         {/* Lock/unlock icon — click to re-enable auto-gen */}
                                         <button
@@ -283,19 +284,19 @@ export default function CreateTenantModal() {
                                             )}
                                         </button>
                                     </div>
-                                    <p className="mt-1.5 text-xs text-[#8A8A90] flex items-center gap-1.5">
+                                    <p className="mt-1.5 text-[11px] text-[#8A8A90] flex items-center gap-1.5">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                                         Webhook: /webhooks/telegram/<strong>{slug || "acme-corp"}</strong>
                                     </p>
                                 </div>
 
                                 <div>
-                                    <label htmlFor="initialBalance" className="block text-sm font-medium text-[#B5B5BA] mb-1.5">
+                                    <label htmlFor="initialBalance" className={ui.label}>
                                         Starting Credit Balance ($)
                                     </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <span className="text-[#8A8A90] sm:text-sm">$</span>
+                                            <span className="text-[#8A8A90] text-[13px]">$</span>
                                         </div>
                                         <input
                                             type="number"
@@ -304,14 +305,14 @@ export default function CreateTenantModal() {
                                             step="0.01"
                                             min="0"
                                             defaultValue="0.00"
-                                            className="w-full pl-7 pr-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
+                                            className={`${ui.input} pl-7`}
                                         />
                                     </div>
-                                    <p className="mt-1.5 text-xs text-[#8A8A90]">1 credit = $0.01 USD equivalent</p>
+                                    <p className="mt-1.5 text-[11px] text-[#8A8A90]">1 credit = $0.01 USD equivalent</p>
                                 </div>
 
                                 <div>
-                                    <label htmlFor="apiMode" className="block text-sm font-medium text-[#B5B5BA] mb-1.5">
+                                    <label htmlFor="apiMode" className={ui.label}>
                                         API Mode
                                     </label>
                                     <select
@@ -319,12 +320,12 @@ export default function CreateTenantModal() {
                                         name="apiMode"
                                         value={apiMode}
                                         onChange={(e) => setApiMode(e.target.value as "platform" | "byok")}
-                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
+                                        className={ui.input}
                                     >
                                         <option value="platform">Platform API (uses global keys)</option>
                                         <option value="byok">Bring Your Own Key (tenant provides keys)</option>
                                     </select>
-                                    <p className="mt-1.5 text-xs text-[#8A8A90]">
+                                    <p className="mt-1.5 text-[11px] text-[#8A8A90]">
                                         {apiMode === "platform"
                                             ? "Tenant uses your global API keys. AI Provider onboarding step is skipped."
                                             : "Tenant must configure their own API keys during onboarding."}
@@ -335,14 +336,14 @@ export default function CreateTenantModal() {
                                     <button
                                         type="button"
                                         onClick={handleClose}
-                                        className="px-4 py-2 text-sm font-medium text-[#B5B5BA] bg-[#101012] border border-[#242429] rounded-lg hover:bg-[#1C1C1F] transition-colors"
+                                        className={ui.btnSecondary}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="px-5 py-2 text-sm font-medium text-white bg-[#8B5CF6] rounded-lg hover:bg-[#A78BFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-[140px]"
+                                        className={`${ui.btnPrimary} min-w-[140px]`}
                                     >
                                         {loading ? (
                                             <>
@@ -368,18 +369,18 @@ export default function CreateTenantModal() {
 function CredentialRow({ label, value, onCopy, copied, secret }: { label: string; value: string; onCopy: () => void; copied: boolean; secret?: boolean }) {
     return (
         <div>
-            <label className="block text-xs font-medium text-[#8A8A90] mb-1">{label}</label>
+            <label className="block text-[11px] font-medium text-[#8A8A90] mb-1">{label}</label>
             <div className="flex items-center gap-2">
-                <code className={`flex-1 text-xs px-3 py-2 rounded-lg border ${
+                <code className={`flex-1 text-[13px] px-3 py-2 rounded-md border ${
                     secret
-                        ? "bg-[#101012] border-[#242429] text-[#EDEDED] font-sans"
-                        : "bg-[#101012] border-[#242429] text-[#B5B5BA] font-sans"
+                        ? "bg-[#101012] border-[#242429] text-[#EDEDED] font-mono"
+                        : "bg-[#101012] border-[#242429] text-[#B5B5BA] font-mono"
                 } break-all`}>
                     {value}
                 </code>
                 <button
                     onClick={onCopy}
-                    className="px-3 py-2 text-xs font-medium bg-[#101012] border border-[#242429] rounded-lg hover:bg-[#1C1C1F] transition-colors flex-shrink-0"
+                    className={`${ui.btnSecondary} flex-shrink-0`}
                 >
                     {copied ? "Copied!" : "Copy"}
                 </button>

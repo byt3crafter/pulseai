@@ -3,6 +3,7 @@ import { pairingCodes, allowlists } from "../../../../../storage/schema";
 import { eq, and } from "drizzle-orm";
 import Link from "next/link";
 import ApprovalsClient from "./ApprovalsClient";
+import { ui, PageHeader } from "../../../../../components/admin/ui";
 
 export default async function ApprovalsPage({
     params,
@@ -65,20 +66,18 @@ export default async function ApprovalsPage({
         );
 
     return (
-        <div className="p-8">
-            <div className="mb-8">
+        <div className={ui.page}>
+            <div>
                 <Link
                     href={`/admin/tenants/${tenantId}`}
-                    className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block"
+                    className={`${ui.btnGhost} inline-block mb-2`}
                 >
                     &larr; Back to Tenant Settings
                 </Link>
-                <h1 className="text-2xl font-bold text-[#EDEDED] tracking-tight">
-                    Approvals & Allowlists
-                </h1>
-                <p className="text-sm text-[#8A8A90] mt-1">
-                    Manage DM pairing approvals and group chat access.
-                </p>
+                <PageHeader
+                    title="Approvals & Allowlists"
+                    subtitle="Manage DM pairing approvals and group chat access."
+                />
             </div>
 
             <ApprovalsClient

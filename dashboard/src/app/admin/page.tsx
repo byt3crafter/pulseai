@@ -4,6 +4,7 @@ import { auth } from "../../auth";
 import { getAdminOverview } from "./overview-data";
 import type { AttentionItem, HealthRow, TenantRow, ActivityRow } from "./overview-data";
 import PulseChart from "../../components/admin/PulseChart";
+import { ui, PageHeader, Panel, Badge, StatusDot } from "../../components/admin/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -46,71 +47,22 @@ function TrendLine({ pct }: { pct: number | null }) {
 function TenantStatusBadge({ status }: { status: string }) {
     const normalized = status.toLowerCase();
     if (normalized === "active") {
-        return (
-            <span className="text-[#3FB950] border border-[#3FB950]/40 bg-[#3FB950]/10 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] rounded">
-                Active
-            </span>
-        );
+        return <Badge variant="success">Active</Badge>;
     }
     if (normalized === "suspended") {
-        return (
-            <span className="text-[#F0503C] border border-[#F0503C]/40 bg-[#F0503C]/10 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] rounded">
-                Suspended
-            </span>
-        );
+        return <Badge variant="danger">Suspended</Badge>;
     }
-    return (
-        <span className="text-[#5A5A61] border border-[#242429] px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] rounded">
-            {status}
-        </span>
-    );
+    return <Badge variant="neutral">{status}</Badge>;
 }
 
 function HealthStatus({ status }: { status: HealthRow["status"] }) {
     if (status === "operational") {
-        return (
-            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-[#3FB950]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#3FB950]" aria-hidden="true" />
-                Operational
-            </span>
-        );
+        return <StatusDot variant="success">Operational</StatusDot>;
     }
     if (status === "degraded") {
-        return (
-            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-[#8B5CF6]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]" aria-hidden="true" />
-                Degraded
-            </span>
-        );
+        return <StatusDot variant="warn">Degraded</StatusDot>;
     }
-    return (
-        <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-[#5A5A61]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#5A5A61]" aria-hidden="true" />
-            Unknown
-        </span>
-    );
-}
-
-function Panel({
-    label,
-    meta,
-    children,
-    className = "",
-}: {
-    label: string;
-    meta?: string;
-    children: React.ReactNode;
-    className?: string;
-}) {
-    return (
-        <div className={`border border-[#242429] bg-[#0C0C0E] rounded-md overflow-hidden flex flex-col ${className}`}>
-            <div className="px-4 py-2.5 border-b border-[#242429] flex items-center justify-between gap-2 flex-shrink-0">
-                <span className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">{label}</span>
-                {meta && <span className="text-[11px] uppercase tracking-[0.08em] text-[#5A5A61]">{meta}</span>}
-            </div>
-            <div className="p-4 flex-1">{children}</div>
-        </div>
-    );
+    return <StatusDot variant="neutral">Unknown</StatusDot>;
 }
 
 export default async function AdminOverviewPage() {
@@ -126,12 +78,8 @@ export default async function AdminOverviewPage() {
     const { kpis, series, tenants, attention, activity, health } = data;
 
     return (
-        <div className="p-5 space-y-4">
-            {/* Title row */}
-            <div>
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[#8A8A90]">Platform &middot; Overview</p>
-                <p className="text-[11px] text-[#5A5A61] mt-0.5">Live figures from the Pulse Gateway platform.</p>
-            </div>
+        <div className={ui.page}>
+            <PageHeader title="Platform Overview" subtitle="Live figures from the Pulse Gateway platform." />
 
             {/* KPI strip */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-px bg-[#242429] border border-[#242429] rounded-md overflow-hidden">
@@ -193,45 +141,38 @@ export default async function AdminOverviewPage() {
                             <p className="p-4 text-[13px] uppercase tracking-[0.06em] text-[#5A5A61]">No workspaces yet.</p>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-[13px]">
+                                <table className={ui.table}>
                                     <thead>
-                                        <tr className="text-[11px] uppercase tracking-[0.08em] text-[#5A5A61]">
-                                            <th className="text-left font-normal px-4 py-2">Workspace</th>
-                                            <th className="text-right font-normal px-4 py-2">Balance</th>
-                                            <th className="text-right font-normal px-4 py-2">Spend 30D</th>
-                                            <th className="text-right font-normal px-4 py-2">Margin 30D</th>
-                                            <th className="text-right font-normal px-4 py-2">Last Active</th>
+                                        <tr>
+                                            <th className={ui.th}>Workspace</th>
+                                            <th className={ui.thRight}>Balance</th>
+                                            <th className={ui.thRight}>Spend 30D</th>
+                                            <th className={ui.thRight}>Margin 30D</th>
+                                            <th className={ui.thRight}>Last Active</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {tenants.map((t: TenantRow) => {
                                             const marginOfSpendPct = t.spend30d > 0 ? (t.margin30d / t.spend30d) * 100 : 0;
                                             return (
-                                                <tr
-                                                    key={t.id}
-                                                    className="border-t border-[#1C1C1F] hover:bg-[#101012] transition-colors motion-reduce:transition-none"
-                                                >
-                                                    <td className="px-4 py-2.5">
+                                                <tr key={t.id} className={ui.row}>
+                                                    <td className={ui.td}>
                                                         <Link
                                                             href="/admin/tenants"
                                                             className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] rounded"
                                                         >
-                                                            <span className="text-[#EDEDED] truncate">{t.name}</span>
+                                                            <span className="text-[13px] font-medium text-[#EDEDED] truncate">{t.name}</span>
                                                             <TenantStatusBadge status={t.status} />
                                                         </Link>
                                                     </td>
-                                                    <td className="px-4 py-2.5 text-right tabular-nums text-[#EDEDED]">
-                                                        {t.balance.toLocaleString()}
-                                                    </td>
-                                                    <td className="px-4 py-2.5 text-right tabular-nums text-[#EDEDED]">
-                                                        {formatUsd(t.spend30d)}
-                                                    </td>
-                                                    <td className="px-4 py-2.5 text-right tabular-nums">
+                                                    <td className={ui.tdRight}>{t.balance.toLocaleString()}</td>
+                                                    <td className={ui.tdRight}>{formatUsd(t.spend30d)}</td>
+                                                    <td className={ui.tdRight}>
                                                         <span className={marginClass(t.margin30d)}>{formatUsd(t.margin30d)}</span>{" "}
                                                         <span className="text-[11px] text-[#5A5A61]">({marginOfSpendPct.toFixed(0)}%)</span>
                                                     </td>
-                                                    <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5A61]">
-                                                        {relativeTime(t.lastActiveAt)}
+                                                    <td className={ui.tdRight}>
+                                                        <span className="text-[#5A5A61]">{relativeTime(t.lastActiveAt)}</span>
                                                     </td>
                                                 </tr>
                                             );
