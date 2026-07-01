@@ -86,7 +86,7 @@ export default function CreateUserModal({
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="px-4 py-2 bg-[#F5A524] hover:bg-[#FFC24B] text-black text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-[#8B5CF6] hover:bg-[#A78BFA] text-white text-sm font-medium rounded-lg transition-colors"
             >
                 Create User
             </button>
@@ -116,7 +116,7 @@ export default function CreateUserModal({
                                 <p className="text-xs font-medium text-[#3FB950] uppercase tracking-wide">
                                     Email
                                 </p>
-                                <p className="text-sm font-mono text-[#EDEDED]">
+                                <p className="text-sm font-sans text-[#EDEDED]">
                                     {credentials.email}
                                 </p>
                             </div>
@@ -125,7 +125,7 @@ export default function CreateUserModal({
                                     Temporary Password
                                 </p>
                                 <div className="flex items-center gap-2">
-                                    <code className="text-sm font-mono bg-[#0C0C0E] px-2 py-1 rounded border border-[#3FB950]/40 text-[#EDEDED]">
+                                    <code className="text-sm font-sans bg-[#0C0C0E] px-2 py-1 rounded border border-[#3FB950]/40 text-[#EDEDED]">
                                         {credentials.password}
                                     </code>
                                     <button
@@ -148,7 +148,7 @@ export default function CreateUserModal({
                         <div className="flex justify-end mt-4">
                             <button
                                 onClick={handleClose}
-                                className="px-4 py-2 text-sm font-medium text-black bg-[#F5A524] rounded-lg hover:bg-[#FFC24B] transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-white bg-[#8B5CF6] rounded-lg hover:bg-[#A78BFA] transition-colors"
                             >
                                 Done
                             </button>
@@ -177,7 +177,7 @@ export default function CreateUserModal({
                                     name="email"
                                     type="email"
                                     required
-                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none"
+                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none"
                                 />
                             </div>
 
@@ -190,7 +190,7 @@ export default function CreateUserModal({
                                     name="name"
                                     type="text"
                                     required
-                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none"
+                                    className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none"
                                 />
                             </div>
 
@@ -203,7 +203,7 @@ export default function CreateUserModal({
                                     name="role"
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
-                                    className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none bg-[#101012]"
+                                    className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none bg-[#101012]"
                                 >
                                     <option value="TENANT">Tenant User</option>
                                     <option value="ADMIN">Admin</option>
@@ -219,7 +219,7 @@ export default function CreateUserModal({
                                         id="create-user-tenantId"
                                         name="tenantId"
                                         required
-                                        className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none bg-[#101012]"
+                                        className="w-full px-3 py-2 border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none bg-[#101012]"
                                     >
                                         <option value="">
                                             Select a workspace...
@@ -244,7 +244,7 @@ export default function CreateUserModal({
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="px-4 py-2 text-sm font-medium text-black bg-[#F5A524] rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-sm font-medium text-white bg-[#8B5CF6] rounded-lg hover:bg-[#A78BFA] transition-colors disabled:opacity-50"
                                 >
                                     {loading ? "Creating..." : "Create User"}
                                 </button>

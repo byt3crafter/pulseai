@@ -160,7 +160,7 @@ export default function PulseChart({ series }: PulseChartProps) {
         <div className="relative">
             <div className="flex items-center gap-5 mb-2 text-[11px] uppercase tracking-[0.08em]">
                 <span className="inline-flex items-center gap-1.5 text-[#8A8A90]">
-                    <span className="w-2 h-2 rounded-full bg-[#F5A524]" aria-hidden="true" />
+                    <span className="w-2 h-2 rounded-full bg-[#8B5CF6]" aria-hidden="true" />
                     Messages
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-[#5A5A61]">
@@ -170,12 +170,12 @@ export default function PulseChart({ series }: PulseChartProps) {
                 <span className="ml-auto flex items-center gap-4 text-[#5A5A61] tabular-nums">
                     <span>Peak <strong className="text-[#EDEDED] font-semibold">{peak.toLocaleString()}</strong></span>
                     <span>Low <strong className="text-[#EDEDED] font-semibold">{low.toLocaleString()}</strong></span>
-                    <span>Latest <strong className="text-[#F5A524] font-semibold">{latest.toLocaleString()}</strong></span>
+                    <span>Latest <strong className="text-[#8B5CF6] font-semibold">{latest.toLocaleString()}</strong></span>
                 </span>
             </div>
 
             <div
-                className="relative outline-none focus-visible:ring-1 focus-visible:ring-[#F5A524] rounded"
+                className="relative outline-none focus-visible:ring-1 focus-visible:ring-[#8B5CF6] rounded"
                 tabIndex={0}
                 role="img"
                 aria-label={`Messages and revenue over the last ${series.length} days. Latest day: ${latest.toLocaleString()} messages.`}
@@ -194,8 +194,8 @@ export default function PulseChart({ series }: PulseChartProps) {
                 >
                     <defs>
                         <linearGradient id={`${uid}-area`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#F5A524" stopOpacity="0.18" />
-                            <stop offset="100%" stopColor="#F5A524" stopOpacity="0" />
+                            <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.18" />
+                            <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
                         </linearGradient>
                         <clipPath id={`${uid}-reveal`}>
                             <rect
@@ -215,7 +215,7 @@ export default function PulseChart({ series }: PulseChartProps) {
                     <g clipPath={`url(#${uid}-reveal)`}>
                         <path d={areaPath} fill={`url(#${uid}-area)`} stroke="none" />
                         <path d={revenuePath} fill="none" stroke="#5A5A61" strokeWidth={1.25} strokeDasharray="4 4" opacity={0.8} />
-                        <path d={linePath} fill="none" stroke="#F5A524" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        <path d={linePath} fill="none" stroke="#8B5CF6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                     </g>
 
                     {activePoint && (
@@ -225,12 +225,12 @@ export default function PulseChart({ series }: PulseChartProps) {
                                 y1={PAD_TOP}
                                 x2={activePoint.x}
                                 y2={HEIGHT - PAD_BOTTOM}
-                                stroke="#F5A524"
+                                stroke="#8B5CF6"
                                 strokeWidth={1}
                                 strokeDasharray="3 3"
                                 opacity={0.6}
                             />
-                            <circle cx={activePoint.x} cy={activePoint.y} r={3.5} fill="#F5A524" stroke="#0A0A0B" strokeWidth={2} />
+                            <circle cx={activePoint.x} cy={activePoint.y} r={3.5} fill="#8B5CF6" stroke="#0A0A0B" strokeWidth={2} />
                         </g>
                     )}
                 </svg>
@@ -242,7 +242,7 @@ export default function PulseChart({ series }: PulseChartProps) {
 
                 {active && activePoint && (
                     <div
-                        className="pointer-events-none absolute z-10 -translate-y-full rounded border border-[#33333B] bg-[#0C0C0E] px-3 py-2 shadow-2xl text-[11px] whitespace-nowrap font-mono"
+                        className="pointer-events-none absolute z-10 -translate-y-full rounded border border-[#33333B] bg-[#0C0C0E] px-3 py-2 shadow-2xl text-[11px] whitespace-nowrap font-sans"
                         style={{
                             top: `${(activePoint.y / HEIGHT) * 220 - 10}px`,
                             left: tooltipAlignRight ? undefined : `${tooltipLeftPct}%`,

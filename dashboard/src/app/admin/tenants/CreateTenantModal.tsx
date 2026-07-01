@@ -91,7 +91,7 @@ export default function CreateTenantModal() {
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 bg-[#F5A524] hover:bg-[#FFC24B] text-black px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                className="flex items-center gap-2 bg-[#8B5CF6] hover:bg-[#A78BFA] text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -136,10 +136,10 @@ export default function CreateTenantModal() {
 
                                 {/* User Login Credentials */}
                                 {credentials.initialUser && (
-                                    <div className="bg-[#0C0C0E] border border-[#F5A524]/40 rounded-xl overflow-hidden">
-                                        <div className="bg-[#F5A524]/10 px-4 py-3 border-b border-[#F5A524]/40">
-                                            <h3 className="text-sm font-semibold text-[#F5A524]">Customer Login</h3>
-                                            <p className="text-xs text-[#F5A524] mt-0.5">Primary workspace access</p>
+                                    <div className="bg-[#0C0C0E] border border-[#8B5CF6]/40 rounded-xl overflow-hidden">
+                                        <div className="bg-[#8B5CF6]/10 px-4 py-3 border-b border-[#8B5CF6]/40">
+                                            <h3 className="text-sm font-semibold text-[#8B5CF6]">Customer Login</h3>
+                                            <p className="text-xs text-[#8B5CF6] mt-0.5">Primary workspace access</p>
                                         </div>
                                         <div className="p-4 space-y-3">
                                             <CredentialRow
@@ -156,8 +156,8 @@ export default function CreateTenantModal() {
                                                 secret
                                             />
                                         </div>
-                                        <div className="bg-[#F5A524]/10 px-4 py-2 border-t border-[#F5A524]/40">
-                                            <p className="text-xs text-[#F5A524]">
+                                        <div className="bg-[#8B5CF6]/10 px-4 py-2 border-t border-[#8B5CF6]/40">
+                                            <p className="text-xs text-[#8B5CF6]">
                                                 ⚠️ Customer will be required to change password on first login
                                             </p>
                                         </div>
@@ -225,7 +225,7 @@ export default function CreateTenantModal() {
                                             setCompanyName(e.target.value);
                                             if (!slugEdited) setSlug(toSlug(e.target.value));
                                         }}
-                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none transition-all"
+                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
                                     />
                                 </div>
 
@@ -239,7 +239,7 @@ export default function CreateTenantModal() {
                                         name="customerEmail"
                                         required
                                         placeholder="admin@acmecorp.com"
-                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none transition-all"
+                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
                                     />
                                     <p className="mt-1.5 text-xs text-[#8A8A90]">The customer's real email. They'll use this to log in.</p>
                                 </div>
@@ -262,14 +262,14 @@ export default function CreateTenantModal() {
                                             placeholder="acme-corp"
                                             pattern="[-a-z0-9]+"
                                             title="Lowercase letters, numbers, and hyphens only"
-                                            className="w-full px-3 py-2 pr-9 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none transition-all placeholder:font-sans"
+                                            className="w-full px-3 py-2 pr-9 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm font-sans focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all placeholder:font-sans"
                                         />
                                         {/* Lock/unlock icon — click to re-enable auto-gen */}
                                         <button
                                             type="button"
                                             tabIndex={-1}
                                             onClick={() => { setSlugEdited(false); setSlug(toSlug(companyName)); }}
-                                            className="absolute inset-y-0 right-2 flex items-center text-[#5A5A61] hover:text-[#F5A524] transition-colors"
+                                            className="absolute inset-y-0 right-2 flex items-center text-[#5A5A61] hover:text-[#8B5CF6] transition-colors"
                                             title={slugEdited ? "Click to re-sync with company name" : "Auto-syncing with company name"}
                                         >
                                             {slugEdited ? (
@@ -277,7 +277,7 @@ export default function CreateTenantModal() {
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                                                 </svg>
                                             ) : (
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-[#F5A524]">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-[#8B5CF6]">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 00-9 0v3.75M3.75 21.75h16.5M16.5 10.5h.008v.008H16.5V10.5zm-9 0h.008v.008H7.5V10.5z" />
                                                 </svg>
                                             )}
@@ -304,7 +304,7 @@ export default function CreateTenantModal() {
                                             step="0.01"
                                             min="0"
                                             defaultValue="0.00"
-                                            className="w-full pl-7 pr-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none transition-all"
+                                            className="w-full pl-7 pr-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
                                         />
                                     </div>
                                     <p className="mt-1.5 text-xs text-[#8A8A90]">1 credit = $0.01 USD equivalent</p>
@@ -319,7 +319,7 @@ export default function CreateTenantModal() {
                                         name="apiMode"
                                         value={apiMode}
                                         onChange={(e) => setApiMode(e.target.value as "platform" | "byok")}
-                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none transition-all"
+                                        className="w-full px-3 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none transition-all"
                                     >
                                         <option value="platform">Platform API (uses global keys)</option>
                                         <option value="byok">Bring Your Own Key (tenant provides keys)</option>
@@ -342,11 +342,11 @@ export default function CreateTenantModal() {
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="px-5 py-2 text-sm font-medium text-black bg-[#F5A524] rounded-lg hover:bg-[#FFC24B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-[140px]"
+                                        className="px-5 py-2 text-sm font-medium text-white bg-[#8B5CF6] rounded-lg hover:bg-[#A78BFA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-[140px]"
                                     >
                                         {loading ? (
                                             <>
-                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
@@ -372,8 +372,8 @@ function CredentialRow({ label, value, onCopy, copied, secret }: { label: string
             <div className="flex items-center gap-2">
                 <code className={`flex-1 text-xs px-3 py-2 rounded-lg border ${
                     secret
-                        ? "bg-[#101012] border-[#242429] text-[#EDEDED] font-mono"
-                        : "bg-[#101012] border-[#242429] text-[#B5B5BA] font-mono"
+                        ? "bg-[#101012] border-[#242429] text-[#EDEDED] font-sans"
+                        : "bg-[#101012] border-[#242429] text-[#B5B5BA] font-sans"
                 } break-all`}>
                     {value}
                 </code>

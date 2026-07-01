@@ -101,7 +101,7 @@ export default function AdminSettingsClient({
                                     href={`/admin/settings?tab=${t.id}`}
                                     className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                         tab === t.id
-                                            ? "bg-[#141210] text-[#F5A524]"
+                                            ? "bg-[#17132B] text-[#8B5CF6]"
                                             : "text-[#8A8A90] hover:text-[#EDEDED] hover:bg-[#101012]"
                                     }`}
                                 >
@@ -242,7 +242,7 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
                     value={apiKey}
                     onChange={(e) => { setApiKey(e.target.value); setMessage(null); }}
                     placeholder={hasKey ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (enter new key to replace)" : placeholder}
-                    className="flex-1 px-3 py-1.5 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] transition-all text-[#EDEDED] placeholder:text-[#5A5A61]"
+                    className="flex-1 px-3 py-1.5 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] transition-all text-[#EDEDED] placeholder:text-[#5A5A61]"
                 />
                 <button
                     type="button"
@@ -256,7 +256,7 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
                     type="button"
                     onClick={handleSave}
                     disabled={!apiKey.trim() || saving}
-                    className="px-3 py-1.5 text-xs font-medium bg-[#F5A524] text-black rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-40"
+                    className="px-3 py-1.5 text-xs font-medium bg-[#8B5CF6] text-white rounded-lg hover:bg-[#A78BFA] transition-colors disabled:opacity-40"
                 >
                     {saving ? "Saving..." : "Save"}
                 </button>
@@ -330,7 +330,7 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
             : { type: "error", text: result.message || "Test failed" });
     };
 
-    const inputClass = "w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] transition-all text-[#EDEDED] placeholder:text-[#5A5A61]";
+    const inputClass = "w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] transition-all text-[#EDEDED] placeholder:text-[#5A5A61]";
 
     return (
         <div className="bg-[#0C0C0E] rounded-xl border border-[#242429] overflow-hidden">
@@ -380,7 +380,7 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
 
                 <div className="flex items-center gap-2 pt-2">
                     <button type="button" onClick={handleSave} disabled={saving}
-                        className="px-4 py-2 text-sm font-medium bg-[#F5A524] text-black rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-40">
+                        className="px-4 py-2 text-sm font-medium bg-[#8B5CF6] text-white rounded-lg hover:bg-[#A78BFA] transition-colors disabled:opacity-40">
                         {saving ? "Saving..." : "Save settings"}
                     </button>
                 </div>
@@ -423,7 +423,7 @@ function SystemTab({ settings }: { settings: any }) {
                             type="checkbox"
                             name="enableHotReload"
                             defaultChecked={settings.gatewayConfig?.enable_hot_reload ?? true}
-                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
+                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
                         />
                         <div>
                             <span className="text-sm font-medium text-[#EDEDED]">Enable Hot-Reload</span>
@@ -435,7 +435,7 @@ function SystemTab({ settings }: { settings: any }) {
                             type="checkbox"
                             name="lanDiscovery"
                             defaultChecked={settings.gatewayConfig?.lan_discovery ?? false}
-                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
+                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
                         />
                         <div>
                             <span className="text-sm font-medium text-[#EDEDED]">LAN Discovery / Bonjour</span>
@@ -449,7 +449,7 @@ function SystemTab({ settings }: { settings: any }) {
                             name="trustedProxy"
                             placeholder="10.0.0.0/8, 192.168.0.0/16"
                             defaultValue={settings.gatewayConfig?.trusted_proxy || ""}
-                            className="w-full px-3 py-2 border border-[#242429] rounded-lg outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61]"
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg outline-none focus:ring-2 focus:ring-[#8B5CF6] text-[#EDEDED] placeholder:text-[#5A5A61]"
                         />
                         <p className="text-xs text-[#8A8A90] mt-1">Comma-separated CIDR list for trusted LB proxies.</p>
                     </div>
@@ -458,7 +458,7 @@ function SystemTab({ settings }: { settings: any }) {
                         <select
                             name="cliBackends"
                             defaultValue={settings.gatewayConfig?.cli_backends || "disabled"}
-                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED]"
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] outline-none focus:ring-2 focus:ring-[#8B5CF6] text-[#EDEDED]"
                         >
                             <option value="disabled">Disabled</option>
                             <option value="enabled">Enabled (Local Only)</option>
@@ -493,7 +493,7 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                 <div className="p-6 space-y-6">
                     <label className="flex items-center gap-3 cursor-pointer">
                         <input type="checkbox" name="enabled" defaultChecked={execSafety.enabled}
-                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
+                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]" />
                         <div>
                             <span className="text-sm font-medium text-[#EDEDED]">Enable Exec Safety</span>
                             <p className="text-xs text-[#8A8A90]">When disabled, all commands are allowed without checks.</p>
@@ -502,7 +502,7 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                     <div>
                         <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Default Policy</label>
                         <select name="defaultPolicy" defaultValue={execSafety.defaultPolicy}
-                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED]">
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#0C0C0E] outline-none focus:ring-2 focus:ring-[#8B5CF6] text-[#EDEDED]">
                             <option value="allow_all">Allow All (log everything)</option>
                             <option value="allowlist_only">Allowlist Only (safe commands only)</option>
                             <option value="deny_all">Deny All (block everything)</option>
@@ -512,13 +512,13 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                         <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Global Deny Patterns</label>
                         <textarea name="denyPatterns" rows={3} defaultValue={execSafety.globalDenyPatterns}
                             placeholder={"One pattern per line, e.g.:\nrm -rf *\n/DROP\\s+TABLE/i"}
-                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61] font-mono" />
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#8B5CF6] text-[#EDEDED] placeholder:text-[#5A5A61] font-sans" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Global Allow Patterns</label>
                         <textarea name="allowPatterns" rows={3} defaultValue={execSafety.globalAllowPatterns}
                             placeholder={"One pattern per line, e.g.:\npython3 *\nls *"}
-                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#F5A524] text-[#EDEDED] placeholder:text-[#5A5A61] font-mono" />
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#8B5CF6] text-[#EDEDED] placeholder:text-[#5A5A61] font-sans" />
                     </div>
                     <div className="flex justify-end">
                         <SaveButton label="Save Policy" />
@@ -539,13 +539,13 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                             <option value="allow">Allow</option>
                         </select>
                         <input type="text" name="pattern" placeholder='Pattern (glob or /regex/)' required
-                            className="px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] placeholder:text-[#5A5A61] font-mono md:col-span-2" />
+                            className="px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] placeholder:text-[#5A5A61] font-sans md:col-span-2" />
                         <input type="text" name="description" placeholder="Description"
                             className="px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] placeholder:text-[#5A5A61]" />
                         <div className="flex gap-2">
                             <input type="number" name="priority" placeholder="Priority" defaultValue="0"
                                 className="w-20 px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED]" />
-                            <SaveButton label="Add" className="px-4 py-2 bg-[#F5A524] text-black rounded-lg text-sm font-medium hover:bg-[#FFC24B] transition-colors disabled:opacity-60" />
+                            <SaveButton label="Add" className="px-4 py-2 bg-[#8B5CF6] text-white rounded-lg text-sm font-medium hover:bg-[#A78BFA] transition-colors disabled:opacity-60" />
                         </div>
                     </div>
                 </form>
@@ -573,7 +573,7 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                                             rule.ruleType === "deny" ? "bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40" : "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
                                         }`}>{rule.ruleType}</span>
                                     </td>
-                                    <td className="px-6 py-3 font-mono text-sm text-[#B5B5BA]">{rule.pattern}</td>
+                                    <td className="px-6 py-3 font-sans text-sm text-[#B5B5BA]">{rule.pattern}</td>
                                     <td className="px-6 py-3 text-sm text-[#8A8A90]">{rule.description || "\u2014"}</td>
                                     <td className="px-6 py-3 text-sm text-[#8A8A90]">{rule.priority}</td>
                                     <td className="px-6 py-3">
@@ -621,11 +621,11 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
                                     <td className="px-6 py-3">
                                         <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                                             log.decision === "denied" ? "bg-[#F0503C]/10 text-[#F0503C] border border-[#F0503C]/40"
-                                                : log.decision === "sandboxed" ? "bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40"
+                                                : log.decision === "sandboxed" ? "bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40"
                                                     : "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40"
                                         }`}>{log.decision}</span>
                                     </td>
-                                    <td className="px-6 py-3 font-mono text-xs text-[#B5B5BA] max-w-xs truncate">
+                                    <td className="px-6 py-3 font-sans text-xs text-[#B5B5BA] max-w-xs truncate">
                                         {log.command.length > 100 ? log.command.substring(0, 100) + "..." : log.command}
                                     </td>
                                     <td className="px-6 py-3 text-xs text-[#8A8A90] max-w-xs truncate">
@@ -668,7 +668,7 @@ function MemoryTab({ config }: { config: any }) {
             <div className="p-6 space-y-6">
                 <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" name="enabled" defaultChecked={config.enabled !== false}
-                        className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
+                        className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]" />
                     <div>
                         <span className="text-sm font-medium text-[#EDEDED]">Enable Memory System</span>
                         <p className="text-xs text-[#8A8A90]">When disabled, agents cannot store or recall memories.</p>
@@ -722,7 +722,7 @@ function SandboxTab({ config }: { config: any }) {
                 <div>
                     <label className="block text-sm font-medium text-[#B5B5BA] mb-1">Python Docker Image</label>
                     <input type="text" name="pythonImage" defaultValue={config.image || "pulse-python-sandbox:latest"}
-                        className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] font-mono" />
+                        className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm text-[#EDEDED] font-sans" />
                     <p className="text-xs text-[#5A5A61] mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -760,7 +760,7 @@ function SandboxTab({ config }: { config: any }) {
                 </div>
                 <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" name="networkEnabled" defaultChecked={config.network_enabled !== false}
-                        className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
+                        className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]" />
                     <div>
                         <span className="text-sm font-medium text-[#EDEDED]">Network Access</span>
                         <p className="text-xs text-[#8A8A90]">Allow sandbox containers to make outbound API calls</p>
@@ -788,7 +788,7 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                 <div className="p-6 space-y-6">
                     <label className="flex items-center gap-3 cursor-pointer">
                         <input type="checkbox" name="enabled" defaultChecked={config.enabled !== false}
-                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]" />
+                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]" />
                         <div>
                             <span className="text-sm font-medium text-[#EDEDED]">Enable Scheduling System</span>
                             <p className="text-xs text-[#8A8A90]">When disabled, no scheduled jobs will execute.</p>
@@ -939,7 +939,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                         <button
                             key={p}
                             onClick={() => handleSync(p)}
-                            className="px-3 py-1.5 text-xs font-medium bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40 rounded-lg hover:bg-[#F5A524]/20"
+                            className="px-3 py-1.5 text-xs font-medium bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40 rounded-lg hover:bg-[#8B5CF6]/20"
                         >
                             Sync {p.charAt(0).toUpperCase() + p.slice(1)}
                         </button>
@@ -954,7 +954,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
             </div>
 
             {syncStatus && (
-                <div className="bg-[#F5A524]/10 border border-[#F5A524]/40 text-[#F5A524] rounded-lg p-3 text-sm">
+                <div className="bg-[#8B5CF6]/10 border border-[#8B5CF6]/40 text-[#8B5CF6] rounded-lg p-3 text-sm">
                     {syncStatus}
                 </div>
             )}
@@ -1010,7 +1010,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                             <input name="maxTokens" type="number" defaultValue="8192" className="w-full border border-[#242429] rounded-lg px-3 py-2 text-sm" />
                         </div>
                         <div className="flex items-end gap-2">
-                            <button type="submit" className="px-4 py-2 bg-[#F5A524] text-black text-sm rounded-lg hover:bg-[#FFC24B]">
+                            <button type="submit" className="px-4 py-2 bg-[#8B5CF6] text-white text-sm rounded-lg hover:bg-[#A78BFA]">
                                 Save
                             </button>
                             <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-[#141417] text-[#B5B5BA] text-sm rounded-lg hover:bg-[#1C1C1F]">
@@ -1082,7 +1082,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                                         <input name="maxTokens" type="number" defaultValue={model.maxTokens} className="w-full border border-[#242429] rounded px-2 py-1 text-sm" />
                                                     </div>
                                                     <div className="flex items-end gap-2">
-                                                        <button type="submit" className="px-3 py-1 bg-[#F5A524] text-black text-xs rounded hover:bg-[#FFC24B]">Save</button>
+                                                        <button type="submit" className="px-3 py-1 bg-[#8B5CF6] text-white text-xs rounded hover:bg-[#A78BFA]">Save</button>
                                                         <button type="button" onClick={() => setEditingId(null)} className="px-3 py-1 bg-[#141417] text-[#B5B5BA] text-xs rounded hover:bg-[#1C1C1F]">Cancel</button>
                                                     </div>
                                                 </form>
@@ -1092,22 +1092,22 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                         <tr key={model.id} className="border-b border-[#1C1C1F] hover:bg-[#101012]">
                                             <td className="px-4 py-2.5">
                                                 <div className="font-medium text-[#EDEDED]">{model.displayName}</div>
-                                                <div className="text-xs text-[#5A5A61] font-mono">{model.modelId}</div>
+                                                <div className="text-xs text-[#5A5A61] font-sans">{model.modelId}</div>
                                             </td>
                                             <td className="px-4 py-2.5">
                                                 <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                                    model.category === "flagship" ? "bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40" :
+                                                    model.category === "flagship" ? "bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40" :
                                                     model.category === "fast" ? "bg-[#3FB950]/10 text-[#3FB950] border border-[#3FB950]/40" :
-                                                    model.category === "reasoning" ? "bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40" :
+                                                    model.category === "reasoning" ? "bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40" :
                                                     "bg-[#141417] text-[#8A8A90] border border-[#242429]"
                                                 }`}>
                                                     {model.category}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-[#B5B5BA]">
+                                            <td className="px-4 py-2.5 text-right font-sans text-xs text-[#B5B5BA]">
                                                 {formatPrice(model.baseInputPerMillion)} / {formatPrice(model.baseOutputPerMillion)}
                                             </td>
-                                            <td className="px-4 py-2.5 text-right font-mono text-xs text-[#EDEDED] font-medium">
+                                            <td className="px-4 py-2.5 text-right font-sans text-xs text-[#EDEDED] font-medium">
                                                 {formatPrice(model.customerInputPerMillion)} / {formatPrice(model.customerOutputPerMillion)}
                                             </td>
                                             <td className="px-4 py-2.5 text-right">
@@ -1123,7 +1123,7 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                             <td className="px-4 py-2.5 text-right">
                                                 <button
                                                     onClick={() => setEditingId(model.id)}
-                                                    className="text-xs text-[#F5A524] hover:text-[#FFC24B] mr-2"
+                                                    className="text-xs text-[#8B5CF6] hover:text-[#A78BFA] mr-2"
                                                 >
                                                     Edit
                                                 </button>
@@ -1165,9 +1165,9 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                 {models.filter((m) => m.customerInputPerMillion > m.baseInputPerMillion || m.customerOutputPerMillion > m.baseOutputPerMillion).length}
                             </p>
                         </div>
-                        <div className="bg-[#F5A524]/10 rounded-lg p-4">
-                            <p className="text-xs text-[#F5A524] mb-1">Active Models</p>
-                            <p className="text-2xl font-bold text-[#F5A524]">
+                        <div className="bg-[#8B5CF6]/10 rounded-lg p-4">
+                            <p className="text-xs text-[#8B5CF6] mb-1">Active Models</p>
+                            <p className="text-2xl font-bold text-[#8B5CF6]">
                                 {models.filter((m) => m.isActive).length}
                             </p>
                         </div>
@@ -1189,12 +1189,12 @@ function DatabaseTab() {
                 <div className="p-6">
                     <label className="block text-sm font-medium text-[#B5B5BA] mb-1">DATABASE_URL</label>
                     <input type="text" readOnly value="postgres://pulseadmin:******@localhost:5432/pulse"
-                        className="w-full px-4 py-2 bg-[#101012] border border-[#242429] rounded-lg text-[#8A8A90] focus:outline-none font-mono text-sm" />
+                        className="w-full px-4 py-2 bg-[#101012] border border-[#242429] rounded-lg text-[#8A8A90] focus:outline-none font-sans text-sm" />
                     <div className="mt-4 flex gap-3">
                         <button className="px-4 py-2 text-sm bg-[#141417] text-[#B5B5BA] rounded-lg font-medium hover:bg-[#1C1C1F] transition-colors">
                             Test Connection
                         </button>
-                        <button className="px-4 py-2 text-sm bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40 rounded-lg font-medium hover:bg-[#F5A524]/20 transition-colors">
+                        <button className="px-4 py-2 text-sm bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40 rounded-lg font-medium hover:bg-[#8B5CF6]/20 transition-colors">
                             Run Migrations
                         </button>
                     </div>
@@ -1270,14 +1270,14 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                         Individual agents can override these settings.
                     </p>
                     {noDefaultsSet && (
-                        <p className="text-xs text-[#F5A524] mt-2">
+                        <p className="text-xs text-[#8B5CF6] mt-2">
                             No defaults configured yet — all skills are enabled for all agents. Save to set explicit defaults.
                         </p>
                     )}
                 </div>
                 <div className="p-6 space-y-6">
                     <div className="flex gap-2">
-                        <button onClick={selectAll} className="text-xs text-[#F5A524] hover:text-[#FFC24B] font-medium">
+                        <button onClick={selectAll} className="text-xs text-[#8B5CF6] hover:text-[#A78BFA] font-medium">
                             Select All
                         </button>
                         <span className="text-xs text-[#5A5A61]">|</span>
@@ -1300,7 +1300,7 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                                                 key={skill.name}
                                                 className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
                                                     isEnabled
-                                                        ? "border-[#F5A524]/40 bg-[#F5A524]/10"
+                                                        ? "border-[#8B5CF6]/40 bg-[#8B5CF6]/10"
                                                         : "border-[#242429] bg-[#101012]/50"
                                                 }`}
                                             >
@@ -1334,7 +1334,7 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                 <button
                     onClick={handleSave}
                     disabled={status.type === "saving"}
-                    className="px-6 py-2.5 text-sm font-medium text-black bg-[#F5A524] rounded-lg hover:bg-[#FFC24B] transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-[#8B5CF6] rounded-lg hover:bg-[#A78BFA] transition-colors disabled:opacity-50"
                 >
                     {status.type === "saving" ? "Saving..." : "Save Defaults"}
                 </button>

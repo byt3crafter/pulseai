@@ -69,7 +69,7 @@ export default async function TenantManagerPage() {
             <input
               type="text"
               placeholder="Search by name or slug..."
-              className="w-full pl-10 pr-4 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none"
+              className="w-full pl-10 pr-4 py-2 bg-[#101012] border border-[#242429] text-[#EDEDED] placeholder:text-[#5A5A61] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none"
             />
           </div>
         </div>
@@ -96,12 +96,12 @@ export default async function TenantManagerPage() {
                   <tr key={tenant.id} className="hover:bg-[#101012] transition-colors">
                     <td className="px-6 py-4">
                       <Link href={`/admin/tenants/${tenant.id}`} className="block">
-                        <div className="font-medium text-[#F5A524] hover:text-[#FFC24B]">{tenant.name}</div>
-                        <div className="text-xs text-[#8A8A90] font-mono mt-0.5">{tenant.id}</div>
+                        <div className="font-medium text-[#8B5CF6] hover:text-[#A78BFA]">{tenant.name}</div>
+                        <div className="text-xs text-[#8A8A90] font-sans mt-0.5">{tenant.id}</div>
                       </Link>
                     </td>
                     <td className="px-6 py-4 text-sm text-[#B5B5BA]">
-                      <span className="bg-[#141417] text-[#8A8A90] border border-[#242429] px-2 py-1 rounded-md text-xs font-mono">
+                      <span className="bg-[#141417] text-[#8A8A90] border border-[#242429] px-2 py-1 rounded-md text-xs font-sans">
                         {tenant.slug}
                       </span>
                     </td>
@@ -123,7 +123,7 @@ export default async function TenantManagerPage() {
                           </span>
                         )}
                         {cfg.telegram_dm_policy === "pairing" && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40">
                             Pairing
                           </span>
                         )}

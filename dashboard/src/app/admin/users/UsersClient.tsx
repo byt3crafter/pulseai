@@ -85,19 +85,19 @@ export default function UsersClient({ users, tenants }: Props) {
 
             {/* Temp password display */}
             {tempPassword && actionUserId && (
-                <div className="mb-4 p-4 bg-[#F5A524]/10 border border-[#F5A524]/40 rounded-lg">
-                    <p className="text-sm font-medium text-[#F5A524]">
+                <div className="mb-4 p-4 bg-[#8B5CF6]/10 border border-[#8B5CF6]/40 rounded-lg">
+                    <p className="text-sm font-medium text-[#8B5CF6]">
                         Temporary password generated:
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                        <code className="text-sm font-mono bg-[#0C0C0E] px-3 py-1 rounded border border-[#F5A524]/40">
+                        <code className="text-sm font-sans bg-[#0C0C0E] px-3 py-1 rounded border border-[#8B5CF6]/40">
                             {tempPassword}
                         </code>
                         <button
                             onClick={() => {
                                 navigator.clipboard.writeText(tempPassword);
                             }}
-                            className="text-xs text-[#F5A524] hover:text-[#FFC24B] font-medium"
+                            className="text-xs text-[#8B5CF6] hover:text-[#A78BFA] font-medium"
                         >
                             Copy
                         </button>
@@ -146,7 +146,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                     <span
                                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                                             user.role === "ADMIN"
-                                                ? "bg-[#F5A524]/10 text-[#F5A524] border-[#F5A524]/40"
+                                                ? "bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/40"
                                                 : "bg-[#141417] text-[#8A8A90] border-[#242429]"
                                         }`}
                                     >
@@ -165,7 +165,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                 </td>
                                 <td className="px-6 py-4">
                                     {user.mustChangePassword ? (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#F5A524]/10 text-[#F5A524] border border-[#F5A524]/40">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/40">
                                             Pending Setup
                                         </span>
                                     ) : (
@@ -181,7 +181,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                             onClick={() =>
                                                 handleResetPassword(user.id)
                                             }
-                                            className="text-xs font-medium text-[#F5A524] hover:text-[#FFC24B] px-2 py-1 rounded hover:bg-[#F5A524]/10"
+                                            className="text-xs font-medium text-[#8B5CF6] hover:text-[#A78BFA] px-2 py-1 rounded hover:bg-[#8B5CF6]/10"
                                         >
                                             Reset Password
                                         </button>

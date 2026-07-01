@@ -56,10 +56,10 @@ export default async function SandboxConfigPage() {
     return (
         <div className="p-8">
             <div className="mb-8">
-                <a href="/admin/settings" className="text-sm text-[#F5A524] hover:text-[#FFC24B] mb-2 inline-block">&larr; Back to Settings</a>
+                <a href="/admin/settings" className="text-sm text-[#8B5CF6] hover:text-[#A78BFA] mb-2 inline-block">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-[#F5A524]/10 rounded-lg">
-                        <Cog6ToothIcon className="w-6 h-6 text-[#F5A524]" />
+                    <div className="p-2 bg-[#8B5CF6]/10 rounded-lg">
+                        <Cog6ToothIcon className="w-6 h-6 text-[#8B5CF6]" />
                     </div>
                     <h1 className="text-3xl font-bold text-[#EDEDED] tracking-tight">Sandbox Configuration</h1>
                 </div>
@@ -74,7 +74,7 @@ export default async function SandboxConfigPage() {
                             type="text"
                             name="pythonImage"
                             defaultValue={sandbox.image || "pulse-python-sandbox:latest"}
-                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED] font-mono"
+                            className="w-full px-3 py-2 border border-[#242429] rounded-lg text-sm bg-[#101012] text-[#EDEDED] font-sans"
                         />
                         <p className="text-xs text-[#5A5A61] mt-1">Build with: docker build -t pulse-python-sandbox pulse/docker/python-sandbox/</p>
                     </div>
@@ -133,7 +133,7 @@ export default async function SandboxConfigPage() {
                             type="checkbox"
                             name="networkEnabled"
                             defaultChecked={sandbox.network_enabled !== false}
-                            className="w-4 h-4 text-[#F5A524] border-[#242429] rounded focus:ring-[#F5A524]"
+                            className="w-4 h-4 text-[#8B5CF6] border-[#242429] rounded focus:ring-[#8B5CF6]"
                         />
                         <div>
                             <span className="text-sm font-medium text-[#EDEDED]">Network Access</span>

@@ -112,7 +112,7 @@ export default function AdminUsageClient({
                                     </div>
                                     <div className="w-full bg-[#1C1C1F] rounded-full h-2.5">
                                         <div
-                                            className="bg-[#F5A524] h-2.5 rounded-full transition-all"
+                                            className="bg-[#8B5CF6] h-2.5 rounded-full transition-all"
                                             style={{ width: `${pct}%` }}
                                         />
                                     </div>

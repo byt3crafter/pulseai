@@ -51,7 +51,7 @@ export default function AdminConversationsClient({
                 <select
                     value={filterTenant}
                     onChange={(e) => setFilterTenant(e.target.value)}
-                    className="px-3 py-2 border border-[#242429] rounded-lg text-sm focus:ring-2 focus:ring-[#F5A524] focus:border-[#F5A524] outline-none bg-[#101012] text-[#EDEDED]"
+                    className="px-3 py-2 border border-[#242429] rounded-lg text-sm focus:ring-2 focus:ring-[#8B5CF6] focus:border-[#8B5CF6] outline-none bg-[#101012] text-[#EDEDED]"
                 >
                     <option value="all">All Tenants</option>
                     {tenantNames.map((name) => (
@@ -95,12 +95,12 @@ export default function AdminConversationsClient({
                                             href={`/admin/conversations/${c.id}`}
                                             className="block"
                                         >
-                                            <div className="font-medium text-[#F5A524] hover:text-[#FFC24B]">
+                                            <div className="font-medium text-[#8B5CF6] hover:text-[#A78BFA]">
                                                 {c.contactName ||
                                                     c.channelContactId}
                                             </div>
                                             {c.contactName && (
-                                                <div className="text-xs text-[#5A5A61] font-mono mt-0.5">
+                                                <div className="text-xs text-[#5A5A61] font-sans mt-0.5">
                                                     {c.channelContactId}
                                                 </div>
                                             )}
