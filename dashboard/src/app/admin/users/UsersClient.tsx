@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { KeyIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { resetPasswordAction, deleteUserAction } from "./actions";
 import CreateUserModal from "./CreateUserModal";
 import ConfirmDialog from "../../../components/ConfirmDialog";
@@ -155,18 +156,22 @@ export default function UsersClient({ users, tenants }: Props) {
                                         )}
                                     </td>
                                     <td className={ui.tdRight}>
-                                        <div className="flex items-center justify-end gap-4">
+                                        <div className="flex items-center justify-end gap-1">
                                             <button
                                                 onClick={() => handleResetPassword(user.id)}
-                                                className={ui.btnGhost}
+                                                aria-label="Reset password"
+                                                title="Reset password"
+                                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-accent hover:bg-pulse-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-accent"
                                             >
-                                                Reset Password
+                                                <KeyIcon aria-hidden="true" className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => setDeleteUserId(user.id)}
-                                                className="text-[13px] font-medium text-pulse-loss hover:text-pulse-loss/80 transition-colors focus-visible:outline-none"
+                                                aria-label="Delete user"
+                                                title="Delete user"
+                                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-loss hover:bg-pulse-loss/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-loss"
                                             >
-                                                Delete
+                                                <TrashIcon aria-hidden="true" className="w-4 h-4" />
                                             </button>
                                         </div>
                                     </td>
