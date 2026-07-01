@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createUserAction } from "./actions";
 
@@ -23,6 +23,40 @@ export default function CreateUserModal({
         password: string;
     } | null>(null);
     const router = useRouter();
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") handleClose();
+        };
+        document.addEventListener("keydown", handleKey);
+        return () => document.removeEventListener("keydown", handleKey);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const modal = modalRef.current;
+        if (!modal) return;
+        const focusable = modal.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        first?.focus();
+        const trap = (e: KeyboardEvent) => {
+            if (e.key !== "Tab") return;
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last?.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first?.focus();
+            }
+        };
+        modal.addEventListener("keydown", trap);
+        return () => modal.removeEventListener("keydown", trap);
+    }, [isOpen]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -60,16 +94,21 @@ export default function CreateUserModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-user-modal-title"
+        >
             <div
                 className="absolute inset-0 bg-black/40"
                 onClick={handleClose}
             />
-            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+            <div ref={modalRef} className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
                 {credentials ? (
                     /* Success state — show credentials */
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-slate-900 mb-4">
                             User Created
                         </h2>
                         <div className="space-y-3 bg-green-50 border border-green-200 rounded-lg p-4">
@@ -118,22 +157,23 @@ export default function CreateUserModal({
                 ) : (
                     /* Form state */
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                        <h2 id="create-user-modal-title" className="text-lg font-semibold text-slate-900 mb-4">
                             Create User
                         </h2>
 
                         {error && (
-                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                            <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                                 {error}
                             </div>
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="create-user-email" className="block text-sm font-medium text-slate-700 mb-1">
                                     Email
                                 </label>
                                 <input
+                                    id="create-user-email"
                                     name="email"
                                     type="email"
                                     required
@@ -142,10 +182,11 @@ export default function CreateUserModal({
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="create-user-name" className="block text-sm font-medium text-slate-700 mb-1">
                                     Name
                                 </label>
                                 <input
+                                    id="create-user-name"
                                     name="name"
                                     type="text"
                                     required
@@ -154,10 +195,11 @@ export default function CreateUserModal({
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                <label htmlFor="create-user-role" className="block text-sm font-medium text-slate-700 mb-1">
                                     Role
                                 </label>
                                 <select
+                                    id="create-user-role"
                                     name="role"
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
@@ -170,10 +212,11 @@ export default function CreateUserModal({
 
                             {role === "TENANT" && (
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    <label htmlFor="create-user-tenantId" className="block text-sm font-medium text-slate-700 mb-1">
                                         Workspace
                                     </label>
                                     <select
+                                        id="create-user-tenantId"
                                         name="tenantId"
                                         required
                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"

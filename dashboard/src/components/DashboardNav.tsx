@@ -35,12 +35,13 @@ export default function DashboardNav({ isAdmin }: { isAdmin?: boolean }) {
                     <Link
                         key={href}
                         href={href}
+                        aria-current={isActive ? "page" : undefined}
                         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
                                 ? "bg-indigo-50 text-indigo-700"
                                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                             }`}
                     >
-                        <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} style={{ width: 18, height: 18 }} />
+                        <Icon aria-hidden="true" className={`w-4.5 h-4.5 flex-shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} style={{ width: 18, height: 18 }} />
                         {label}
                     </Link>
                 );

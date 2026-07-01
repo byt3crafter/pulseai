@@ -294,16 +294,18 @@ export async function saveTelegramOnboardingAction(formData: FormData) {
             )
             .limit(1);
 
+        const encryptedToken = encrypt(token);
+
         if (existing.length > 0) {
             await db
                 .update(channelConnections)
-                .set({ channelConfig: { botToken: token }, status: "active" })
+                .set({ channelConfig: { botToken: encryptedToken }, status: "active" })
                 .where(eq(channelConnections.id, existing[0].id));
         } else {
             await db.insert(channelConnections).values({
                 tenantId,
                 channelType: "telegram",
-                channelConfig: { botToken: token },
+                channelConfig: { botToken: encryptedToken },
                 status: "active",
             });
         }

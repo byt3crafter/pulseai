@@ -14,6 +14,8 @@ export default auth((req) => {
     const isRoot = nextUrl.pathname === "/";
     const isLoginRoute = nextUrl.pathname === "/login";
     const isAdminLoginRoute = nextUrl.pathname === "/admin/login";
+    const isForgotRoute = nextUrl.pathname === "/forgot";
+    const isResetRoute = nextUrl.pathname.startsWith("/reset");
 
     // Rate limit POST requests to auth endpoints (login attempts)
     if (isApiAuthRoute && req.method === "POST") {
@@ -31,7 +33,7 @@ export default auth((req) => {
     // Always allow: API auth callbacks, OAuth popup callback, public landing, login pages
     // Login pages are always accessible — if the user is already logged in and wants
     // to switch accounts (e.g. admin → tenant), let them. A new signIn overwrites the JWT.
-    if (isApiAuthRoute || isOAuthCallbackRoute || isRoot || isLoginRoute || isAdminLoginRoute) {
+    if (isApiAuthRoute || isOAuthCallbackRoute || isRoot || isLoginRoute || isAdminLoginRoute || isForgotRoute || isResetRoute) {
         return NextResponse.next();
     }
 

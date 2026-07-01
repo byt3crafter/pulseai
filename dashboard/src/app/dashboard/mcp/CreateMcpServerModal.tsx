@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createMcpServerAction } from "./actions";
 
@@ -9,6 +9,7 @@ export default function CreateMcpServerModal() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const modalRef = useRef<HTMLDivElement>(null);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -27,6 +28,39 @@ export default function CreateMcpServerModal() {
         }
     };
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setIsOpen(false);
+        };
+        document.addEventListener("keydown", handleKey);
+        return () => document.removeEventListener("keydown", handleKey);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const modal = modalRef.current;
+        if (!modal) return;
+        const focusable = modal.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        first?.focus();
+        const trap = (e: KeyboardEvent) => {
+            if (e.key !== "Tab") return;
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last?.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first?.focus();
+            }
+        };
+        modal.addEventListener("keydown", trap);
+        return () => modal.removeEventListener("keydown", trap);
+    }, [isOpen]);
+
     if (!isOpen) {
         return (
             <button
@@ -39,28 +73,34 @@ export default function CreateMcpServerModal() {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-mcp-modal-title"
+        >
             <div
                 className="absolute inset-0 bg-black/40"
                 onClick={() => setIsOpen(false)}
             />
-            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4">
+            <div ref={modalRef} className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+                <h2 id="create-mcp-modal-title" className="text-lg font-semibold text-slate-900 mb-4">
                     Add MCP Server
                 </h2>
 
                 {error && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label htmlFor="mcp-server-name" className="block text-sm font-medium text-slate-700 mb-1">
                             Server Name
                         </label>
                         <input
+                            id="mcp-server-name"
                             name="name"
                             type="text"
                             required
@@ -70,10 +110,11 @@ export default function CreateMcpServerModal() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label htmlFor="mcp-server-url" className="block text-sm font-medium text-slate-700 mb-1">
                             Server URL
                         </label>
                         <input
+                            id="mcp-server-url"
                             name="url"
                             type="url"
                             required
@@ -83,10 +124,11 @@ export default function CreateMcpServerModal() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label htmlFor="mcp-server-authHeaders" className="block text-sm font-medium text-slate-700 mb-1">
                             Auth Headers (JSON, optional)
                         </label>
                         <textarea
+                            id="mcp-server-authHeaders"
                             name="authHeaders"
                             rows={3}
                             placeholder='{"Authorization": "Bearer sk-..."}'

@@ -2,13 +2,14 @@
 
 import { db } from "../../../../../storage/db";
 import { memoryEntries } from "../../../../../storage/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../../../utils/tenant-auth";
 
 export async function getAgentMemories(agentId: string, page = 0, pageSize = 30) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return { memories: [], total: 0, page, pageSize };
+    const tenantId = tenantCheck.tenantId;
 
     const offset = page * pageSize;
     const memories = await db
@@ -22,7 +23,7 @@ export async function getAgentMemories(agentId: string, page = 0, pageSize = 30)
             accessedAt: memoryEntries.accessedAt,
         })
         .from(memoryEntries)
-        .where(eq(memoryEntries.agentId, agentId))
+        .where(and(eq(memoryEntries.agentId, agentId), eq(memoryEntries.tenantId, tenantId)))
         .orderBy(desc(memoryEntries.createdAt))
         .limit(pageSize)
         .offset(offset);
@@ -30,7 +31,7 @@ export async function getAgentMemories(agentId: string, page = 0, pageSize = 30)
     const countResult = await db
         .select({ count: sql<number>`count(*)` })
         .from(memoryEntries)
-        .where(eq(memoryEntries.agentId, agentId));
+        .where(and(eq(memoryEntries.agentId, agentId), eq(memoryEntries.tenantId, tenantId)));
     const total = Number(countResult[0]?.count || 0);
 
     return { memories, total, page, pageSize };
@@ -39,6 +40,7 @@ export async function getAgentMemories(agentId: string, page = 0, pageSize = 30)
 export async function getMemoryStats(agentId: string) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return {};
+    const tenantId = tenantCheck.tenantId;
 
     const result = await db.execute(sql`
         SELECT
@@ -50,7 +52,7 @@ export async function getMemoryStats(agentId: string) {
             count(*) FILTER (WHERE category = 'relationship') as relationships,
             count(*) FILTER (WHERE category = 'general') as general
         FROM memory_entries
-        WHERE agent_id = ${agentId}
+        WHERE agent_id = ${agentId} AND tenant_id = ${tenantId}
     `);
     return (result as any[])[0] || {};
 }
@@ -58,25 +60,27 @@ export async function getMemoryStats(agentId: string) {
 export async function deleteMemory(formData: FormData) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
 
     const memoryId = formData.get("memoryId") as string;
     const agentId = formData.get("agentId") as string;
-    await db.delete(memoryEntries).where(eq(memoryEntries.id, memoryId));
+    await db.delete(memoryEntries).where(and(eq(memoryEntries.id, memoryId), eq(memoryEntries.tenantId, tenantId)));
     revalidatePath(`/dashboard/agents/${agentId}/memory`);
 }
 
 export async function bulkDeleteMemories(formData: FormData) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
 
     const agentId = formData.get("agentId") as string;
     const category = formData.get("category") as string;
 
     if (category === "all") {
-        await db.delete(memoryEntries).where(eq(memoryEntries.agentId, agentId));
+        await db.delete(memoryEntries).where(and(eq(memoryEntries.agentId, agentId), eq(memoryEntries.tenantId, tenantId)));
     } else if (category) {
         await db.delete(memoryEntries).where(
-            sql`${memoryEntries.agentId} = ${agentId} AND ${memoryEntries.category} = ${category}`
+            and(eq(memoryEntries.agentId, agentId), eq(memoryEntries.tenantId, tenantId), eq(memoryEntries.category, category))
         );
     }
 

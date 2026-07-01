@@ -40,11 +40,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             credentials: {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
+                loginType: { label: "Login Type", type: "text" },
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) {
                     return null;
                 }
+
+                const loginType = (credentials.loginType as string) || "";
 
                 try {
                     const [userRecord] = await db
@@ -60,6 +63,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     const isValid = await bcrypt.compare(credentials.password as string, userRecord.passwordHash);
 
                     if (!isValid) {
+                        return null;
+                    }
+
+                    // Enforce login page/role separation
+                    if (loginType === "tenant" && userRecord.role === "ADMIN") {
+                        return null;
+                    }
+                    if (loginType === "admin" && userRecord.role !== "ADMIN") {
                         return null;
                     }
 

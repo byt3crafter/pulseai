@@ -66,56 +66,7 @@ const PLUGIN_TOOLS: Tool[] = [
 
 const ALL_TOOLS: Tool[] = [...BUILT_IN_TOOLS, ...PLUGIN_TOOLS];
 
-// ─── Schema validation helpers ───────────────────────────────────────────────
-
-interface SchemaError {
-    path: string;
-    message: string;
-}
-
-function validateSchemaNode(node: any, path: string, errors: SchemaError[]): void {
-    if (!node || typeof node !== "object") return;
-
-    // Arrays MUST have `items`
-    if (node.type === "array" && !node.items) {
-        errors.push({ path, message: "type 'array' missing 'items'" });
-    }
-
-    // Objects MUST have `properties` or `additionalProperties`
-    if (
-        node.type === "object" &&
-        !node.properties &&
-        node.additionalProperties === undefined
-    ) {
-        errors.push({ path, message: "type 'object' missing 'properties' or 'additionalProperties'" });
-    }
-
-    // Recurse into properties
-    if (node.properties && typeof node.properties === "object") {
-        for (const [key, value] of Object.entries(node.properties)) {
-            validateSchemaNode(value, `${path}.properties.${key}`, errors);
-        }
-    }
-
-    // Recurse into items
-    if (node.items && typeof node.items === "object") {
-        validateSchemaNode(node.items, `${path}.items`, errors);
-    }
-
-    // Recurse into additionalProperties (if object)
-    if (node.additionalProperties && typeof node.additionalProperties === "object") {
-        validateSchemaNode(node.additionalProperties, `${path}.additionalProperties`, errors);
-    }
-
-    // Recurse into anyOf / oneOf / allOf
-    for (const keyword of ["anyOf", "oneOf", "allOf"] as const) {
-        if (Array.isArray(node[keyword])) {
-            node[keyword].forEach((item: any, i: number) => {
-                validateSchemaNode(item, `${path}.${keyword}[${i}]`, errors);
-            });
-        }
-    }
-}
+import { validateSchemaNode, type SchemaError } from "./helpers/schema-validator.js";
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 

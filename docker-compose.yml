@@ -19,6 +19,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # -----------------------------------------------------------------
   # Redis (Rate Limiting, Job Queue via BullMQ)
@@ -37,6 +41,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   # -----------------------------------------------------------------
   # Fastify Gateway Service (API, Webhooks, Websockets)
@@ -46,7 +54,7 @@ services:
       context: .
       dockerfile: ./pulse/Dockerfile
     container_name: pulse-gateway
-    restart: unless-stopped
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +75,18 @@ services:
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
     volumes:
       - pulse-workspace-data:/app/data/workspaces
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
   # -----------------------------------------------------------------
   # Next.js Dashboard (Frontend Admin Panel)
@@ -77,7 +97,7 @@ services:
       context: .
       dockerfile: ./dashboard/Dockerfile
     container_name: pulse-dashboard
-    restart: unless-stopped
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,6 +112,18 @@ services:
       - WORKSPACE_BASE_DIR=/app/data/workspaces
     volumes:
       - pulse-workspace-data:/app/data/workspaces
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
   # -----------------------------------------------------------------
   # Python Sandbox Image (Agent Code Execution)

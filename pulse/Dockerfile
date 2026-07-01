@@ -43,8 +43,13 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=8080
 
+# Run as non-root user for security
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 pulse
+RUN chown -R pulse:nodejs /app
+USER pulse
+
 EXPOSE 8080
 
 # Exécute the server (no tsx watcher needed)
-# Using 'node' directly for performance 
+# Using 'node' directly for performance
 CMD ["node", "dist/src/index.js"]

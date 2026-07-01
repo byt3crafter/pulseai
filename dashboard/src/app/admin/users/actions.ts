@@ -1,12 +1,36 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { users, tenants } from "../../../storage/schema";
+import { users, tenants, passwordResetTokens } from "../../../storage/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { generateSecurePassword } from "../../../utils/password";
 import { requireAdmin } from "../../../utils/admin-auth";
+import { generateToken, hashToken } from "../../../utils/tokens";
+import { sendInviteEmail, appBaseUrl } from "../../../utils/mailer";
+
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/**
+ * Create an invite token for a freshly-created user and email them a
+ * set-password link. Best-effort: never throws, so account creation succeeds
+ * even if email delivery fails.
+ */
+async function sendInvite(userId: string, email: string, name: string | null) {
+    try {
+        const raw = generateToken();
+        await db.insert(passwordResetTokens).values({
+            userId,
+            tokenHash: hashToken(raw),
+            type: "invite",
+            expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+        });
+        await sendInviteEmail(email, name, `${appBaseUrl()}/reset/${raw}`);
+    } catch (error) {
+        console.error("Failed to send invite email:", error);
+    }
+}
 
 export async function createUserAction(formData: FormData) {
     try {
@@ -31,14 +55,16 @@ export async function createUserAction(formData: FormData) {
         const tempPassword = generateSecurePassword(16);
         const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-        await db.insert(users).values({
+        const [created] = await db.insert(users).values({
             email,
             name,
             passwordHash,
             role,
             tenantId: role === "TENANT" ? tenantId : null,
             mustChangePassword: true,
-        });
+        }).returning({ id: users.id });
+
+        await sendInvite(created.id, email, name);
 
         revalidatePath("/admin/users");
         return {

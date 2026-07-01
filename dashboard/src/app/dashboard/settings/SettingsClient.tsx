@@ -332,6 +332,7 @@ function TelegramTab({
     const [groupName, setGroupName] = useState("");
     const [addingGroup, setAddingGroup] = useState(false);
     const [groupError, setGroupError] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: "block" | "remove"; contactId: string } | null>(null);
 
     const handleSavePolicies = async () => {
@@ -348,22 +349,25 @@ function TelegramTab({
 
     const handleApprove = async (code: string) => {
         setProcessing(code);
+        setActionError(null);
         const result = await approvePairingAction(code);
-        if (!result.success) alert(result.message);
+        if (!result.success) setActionError(result.message ?? "Failed to approve pairing.");
         setProcessing(null);
     };
 
     const handleReject = async (contactId: string) => {
         setProcessing(contactId);
+        setActionError(null);
         const result = await rejectPairingAction(contactId);
-        if (!result.success) alert(result.message);
+        if (!result.success) setActionError(result.message ?? "Failed to reject pairing.");
         setProcessing(null);
     };
 
     const handleRemove = async (contactId: string) => {
         setProcessing(contactId);
+        setActionError(null);
         const result = await removeFromAllowlistAction(contactId);
-        if (!result.success) alert(result.message);
+        if (!result.success) setActionError(result.message ?? "Failed to remove contact.");
         setProcessing(null);
     };
 
@@ -396,6 +400,12 @@ function TelegramTab({
 
     return (
         <div className="space-y-6">
+            {actionError && (
+                <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100 mb-4">
+                    {actionError}
+                    <button onClick={() => setActionError(null)} aria-label="Dismiss error" className="ml-2 text-red-400 hover:text-red-600 font-bold">&times;</button>
+                </div>
+            )}
             {/* Policies */}
             <Section title="Telegram Policies" description="Control how the bot handles DMs and group messages.">
                 <div className="space-y-5 max-w-md">
@@ -1138,6 +1148,7 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
     const [newToken, setNewToken] = useState<string | null>(null);
     const [revoking, setRevoking] = useState<string | null>(null);
     const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
+    const [apiError, setApiError] = useState<string | null>(null);
 
     const router = useRouter();
 
@@ -1149,23 +1160,25 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
 
     const handleToggleCli = async () => {
         setToggling(true);
+        setApiError(null);
         const newValue = !cliEnabled;
         const result = await toggleCliAccessAction(newValue);
         if (result.success) {
             setCliEnabled(newValue);
             router.refresh();
         } else {
-            alert(result.message);
+            setApiError(result.message ?? "Failed to update CLI access.");
         }
         setToggling(false);
     };
 
     const handleConnect = async () => {
         setConnecting(true);
+        setApiError(null);
         // Ensure dashboard client exists, then navigate to the consent page
         const result = await ensureDashboardClientAction();
         if (result.error || !result.clientId) {
-            alert(result.error ?? "Failed to initialize. Please try again.");
+            setApiError(result.error ?? "Failed to initialize. Please try again.");
             setConnecting(false);
             return;
         }
@@ -1176,6 +1189,7 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
     const handleGenerateApiToken = async () => {
         setGeneratingToken(true);
         setNewToken(null);
+        setApiError(null);
         const { generateApiTokenAction } = await import("./actions");
 
         const fd = new FormData();
@@ -1185,7 +1199,7 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
             setNewToken(result.token);
             router.refresh();
         } else {
-            alert(result.message);
+            setApiError(result.message ?? "Failed to generate token.");
         }
         setGeneratingToken(false);
     };
@@ -1193,19 +1207,26 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
     const handleRevokeToken = async () => {
         if (!revokeTokenId) return;
         setRevoking(revokeTokenId);
+        setApiError(null);
         const { revokeApiTokenAction } = await import("./actions");
         const result = await revokeApiTokenAction(revokeTokenId);
         setRevokeTokenId(null);
         if (result.success) {
             router.refresh();
         } else {
-            alert(result.message);
+            setApiError(result.message ?? "Failed to revoke token.");
         }
         setRevoking(null);
     };
 
     return (
         <div className="space-y-6">
+            {apiError && (
+                <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100 mb-4">
+                    {apiError}
+                    <button onClick={() => setApiError(null)} aria-label="Dismiss error" className="ml-2 text-red-400 hover:text-red-600 font-bold">&times;</button>
+                </div>
+            )}
             {/* CLI Access Toggle */}
             <Section
                 title="Third-Party CLI Access"

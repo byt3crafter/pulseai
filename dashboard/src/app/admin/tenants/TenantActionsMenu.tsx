@@ -10,6 +10,7 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
     const [isDeleting, setIsDeleting] = useState(false);
     const [isToggling, setIsToggling] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [error, setError] = useState("");
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -25,9 +26,10 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
     const handleDelete = async () => {
         setShowDeleteConfirm(false);
         setIsDeleting(true);
+        setError("");
         const result = await deleteTenantAction(tenantId);
         if (!result.success) {
-            alert(result.message);
+            setError(result.message ?? "Failed to delete workspace.");
             setIsDeleting(false);
         }
         setIsOpen(false);
@@ -35,9 +37,10 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
 
     const handleToggleStatus = async () => {
         setIsToggling(true);
+        setError("");
         const result = await toggleTenantStatusAction(tenantId, currentStatus);
         if (!result.success) {
-            alert(result.message);
+            setError(result.message ?? "Failed to update workspace status.");
         }
         setIsToggling(false);
         setIsOpen(false);
@@ -45,12 +48,27 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
 
     return (
         <>
+            {error && (
+                <div role="alert" className="fixed bottom-4 right-4 z-50 bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100 shadow-md max-w-xs">
+                    {error}
+                    <button
+                        onClick={() => setError("")}
+                        aria-label="Dismiss error"
+                        className="ml-2 text-red-400 hover:text-red-600 font-bold"
+                    >
+                        &times;
+                    </button>
+                </div>
+            )}
             <div className="relative inline-block text-left" ref={menuRef}>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
+                    aria-label="Tenant actions"
+                    aria-haspopup="true"
+                    aria-expanded={isOpen}
                     className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
                 >
-                    <EllipsisVerticalIcon className="w-5 h-5" />
+                    <EllipsisVerticalIcon aria-hidden="true" className="w-5 h-5" />
                 </button>
 
                 {isOpen && (
@@ -64,12 +82,12 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                             >
                                 {currentStatus === "active" ? (
                                     <>
-                                        <NoSymbolIcon className="w-4 h-4 text-amber-500" />
+                                        <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-amber-500" />
                                         Suspend Workspace
                                     </>
                                 ) : (
                                     <>
-                                        <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                                        <CheckCircleIcon aria-hidden="true" className="w-4 h-4 text-green-500" />
                                         Activate Workspace
                                     </>
                                 )}
@@ -81,7 +99,7 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 flex items-center gap-2 disabled:opacity-50"
                                 role="menuitem"
                             >
-                                <TrashIcon className="w-4 h-4" />
+                                <TrashIcon aria-hidden="true" className="w-4 h-4" />
                                 {isDeleting ? "Deleting..." : "Delete Permanently"}
                             </button>
                         </div>

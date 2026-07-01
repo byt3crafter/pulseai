@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { tenants, tenantBalances, users, oauthClients } from "../../../storage/schema";
+import { tenants, tenantBalances, users, oauthClients, passwordResetTokens } from "../../../storage/schema";
 import { revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -9,6 +9,8 @@ import * as crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { generateSecurePassword } from "../../../utils/password";
 import { requireAdmin } from "../../../utils/admin-auth";
+import { generateToken, hashToken } from "../../../utils/tokens";
+import { sendInviteEmail, appBaseUrl } from "../../../utils/mailer";
 
 const createTenantSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -63,7 +65,7 @@ export async function createTenantAction(formData: FormData) {
             const tempPassword = generateSecurePassword(16);
             const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-            await tx.insert(users).values({
+            const [createdUser] = await tx.insert(users).values({
                 name: `${validatedData.name} Admin`,
                 email: userEmail,
                 passwordHash,
@@ -71,10 +73,33 @@ export async function createTenantAction(formData: FormData) {
                 tenantId: newTenant.id,
                 mustChangePassword: true,
                 onboardingComplete: false,
-            });
+            }).returning({ id: users.id });
 
-            return { clientId, clientSecret, initialUser: { email: userEmail, password: tempPassword } };
+            return {
+                clientId,
+                clientSecret,
+                userId: createdUser.id,
+                initialUser: { email: userEmail, password: tempPassword },
+            };
         });
+
+        // Best-effort invite email (outside the transaction). Never blocks creation.
+        try {
+            const raw = generateToken();
+            await db.insert(passwordResetTokens).values({
+                userId: credentials.userId,
+                tokenHash: hashToken(raw),
+                type: "invite",
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            });
+            await sendInviteEmail(
+                credentials.initialUser.email,
+                `${validatedData.name} Admin`,
+                `${appBaseUrl()}/reset/${raw}`,
+            );
+        } catch (error) {
+            console.error("Failed to send tenant invite email:", error);
+        }
 
         revalidatePath("/admin/tenants");
         return { success: true, credentials };

@@ -301,10 +301,31 @@ export const users = pgTable("users", {
     tenantId: uuid("tenant_id").references(() => tenants.id), // Nullable for global admins
     mustChangePassword: boolean("must_change_password").notNull().default(false),
     onboardingComplete: boolean("onboarding_complete").notNull().default(true),
+    emailVerified: timestamp("email_verified", { withTimezone: true }),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+// -- Password Reset / Invite Tokens (email-based account flows) --
+export const passwordResetTokens = pgTable(
+    "password_reset_tokens",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        userId: uuid("user_id")
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        tokenHash: text("token_hash").notNull(), // sha256 of the raw token sent by email
+        type: varchar("type", { length: 20 }).notNull().default("reset"), // 'reset' | 'invite'
+        expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+        usedAt: timestamp("used_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_password_reset_token_hash").on(table.tokenHash),
+        index("idx_password_reset_user").on(table.userId),
+    ]
+);
 
 // -- Workspace Revisions (Agent file-based workspace revision tracking) --
 export const workspaceRevisions = pgTable(

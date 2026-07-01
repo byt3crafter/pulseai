@@ -74,15 +74,17 @@ export async function saveTelegramTokenAction(formData: FormData) {
         const existing = await db.select().from(channelConnections)
             .where(eq(channelConnections.tenantId, session.user.tenantId!)).limit(1);
 
+        const encryptedToken = encrypt(token);
+
         if (existing.length > 0) {
             await db.update(channelConnections)
-                .set({ channelConfig: { botToken: token }, status: "active", agentProfileId })
+                .set({ channelConfig: { botToken: encryptedToken }, status: "active", agentProfileId })
                 .where(eq(channelConnections.id, existing[0].id));
         } else {
             await db.insert(channelConnections).values({
                 tenantId: session.user.tenantId!,
                 channelType: "telegram",
-                channelConfig: { botToken: token },
+                channelConfig: { botToken: encryptedToken },
                 status: "active",
                 agentProfileId,
             });
@@ -739,6 +741,7 @@ export async function testEmailConnectionAction(formData: FormData) {
 
         return { success: true, message: results.join("; ") || "Connection successful." };
     } catch (err: any) {
-        return { success: false, message: err.message || "Connection test failed." };
+        console.error("Connection test failed:", err);
+        return { success: false, message: "Connection test failed." };
     }
 }

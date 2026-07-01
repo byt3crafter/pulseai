@@ -8,6 +8,8 @@ import CreateAgentModal from "./CreateAgentModal";
 import { CpuChipIcon } from "@heroicons/react/24/outline";
 import { getModelDisplayName, getProviderName } from "../../../utils/models";
 
+export const dynamic = "force-dynamic";
+
 export default async function AgentsPage() {
     const session = await auth();
     if (!session?.user?.tenantId) {

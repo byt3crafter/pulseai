@@ -2,7 +2,7 @@
 
 import { db } from "../../../../storage/db";
 import { credentials, agentProfiles } from "../../../../storage/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../../utils/tenant-auth";
 
@@ -107,10 +107,11 @@ export async function addCredential(formData: FormData) {
 export async function deleteCredential(formData: FormData) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
 
     try {
         const credentialId = formData.get("credentialId") as string;
-        await db.delete(credentials).where(eq(credentials.id, credentialId));
+        await db.delete(credentials).where(and(eq(credentials.id, credentialId), eq(credentials.tenantId, tenantId)));
         revalidatePath("/dashboard/settings/credentials");
     } catch (error) {
         console.error("Failed to delete credential:", error);

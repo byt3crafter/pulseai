@@ -25,3 +25,6 @@ scripts/migrations/.applied
 # OS
 .DS_Store
 Thumbs.db
+
+# Ad-hoc notes / credentials — never commit
+info.txt

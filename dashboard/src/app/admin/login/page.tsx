@@ -2,6 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import Link from "next/link";
 
 export default function AdminLoginPage() {
     const [email, setEmail] = useState("");
@@ -17,11 +18,12 @@ export default function AdminLoginPage() {
         const result = await signIn("credentials", {
             email,
             password,
+            loginType: "admin",
             redirect: false,
         });
 
         if (result?.error) {
-            setError("Invalid credentials.");
+            setError("Invalid credentials. Only admin accounts can sign in here.");
             setLoading(false);
         } else {
             window.location.href = "/admin";
@@ -49,13 +51,14 @@ export default function AdminLoginPage() {
                     </div>
 
                     {error && (
-                        <div className="bg-red-950/60 text-red-400 p-3 rounded-lg text-sm mb-5 border border-red-900/60">{error}</div>
+                        <div role="alert" className="bg-red-950/60 text-red-400 p-3 rounded-lg text-sm mb-5 border border-red-900/60">{error}</div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Email</label>
+                            <label htmlFor="admin-login-email" className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Email</label>
                             <input
+                                id="admin-login-email"
                                 type="email"
                                 required
                                 autoComplete="email"
@@ -66,8 +69,12 @@ export default function AdminLoginPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Password</label>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label htmlFor="admin-login-password" className="block text-xs font-medium text-slate-400 uppercase tracking-wider">Password</label>
+                                <Link href="/forgot" className="text-xs font-medium text-indigo-400 hover:text-indigo-300 normal-case tracking-normal">Forgot password?</Link>
+                            </div>
                             <input
+                                id="admin-login-password"
                                 type="password"
                                 required
                                 autoComplete="current-password"

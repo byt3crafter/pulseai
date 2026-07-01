@@ -31,12 +31,13 @@ export default function AdminNav() {
                     <Link
                         key={href}
                         href={href}
+                        aria-current={isActive ? "page" : undefined}
                         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
                                 ? "bg-indigo-500/10 text-indigo-300"
                                 : "text-slate-400 hover:bg-slate-800 hover:text-white"
                             }`}
                     >
-                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <Icon aria-hidden="true" className="w-5 h-5 flex-shrink-0" />
                         {label}
                     </Link>
                 );

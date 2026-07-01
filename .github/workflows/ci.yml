@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg15
+        env:
+          POSTGRES_USER: pulseadmin
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: pulse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            pulse/package-lock.json
+            dashboard/package-lock.json
+
+      - name: Install pulse dependencies
+        run: cd pulse && npm ci
+
+      - name: Install dashboard dependencies
+        run: cd dashboard && npm ci
+
+      - name: Typecheck pulse
+        run: cd pulse && npx tsc --noEmit
+
+      - name: Typecheck dashboard
+        run: cd dashboard && npx tsc --noEmit
+
+      - name: Test pulse
+        run: cd pulse && npm test
+        env:
+          DATABASE_URL: postgres://pulseadmin:testpassword@localhost:5432/pulse
+          ENCRYPTION_KEY: 8e3e98f7d768490100de0434d00a8efc30dee11a2fcc289c6721db1bf71ce4bc
+          NEXTAUTH_SECRET: testsecret1234567890123456789012
+          NODE_ENV: test
+
+      - name: Build dashboard
+        run: cd dashboard && npx next build
+        env:
+          DATABASE_URL: postgres://pulseadmin:testpassword@localhost:5432/pulse
+          ENCRYPTION_KEY: 8e3e98f7d768490100de0434d00a8efc30dee11a2fcc289c6721db1bf71ce4bc
+          NEXTAUTH_SECRET: testsecret1234567890123456789012

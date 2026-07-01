@@ -3,6 +3,7 @@ import { ChannelAdapter, ChannelConnectionConfig } from "../channel.interface.js
 import { InboundMessage, OutboundMessage } from "../types.js";
 import { logger } from "../../utils/logger.js";
 import { randomUUID } from "node:crypto";
+import { decrypt } from "../../utils/crypto.js";
 import { enqueueMessage, messageQueue } from "../../queue/message-queue.js";
 import { isGroupChat, hasBotMention, isReplyToBot, stripBotMention } from "./group-helpers.js";
 import { checkDmAccess, getOrCreatePairingCode } from "./pairing.js";
@@ -116,9 +117,17 @@ export class TelegramAdapter implements ChannelAdapter {
         for (const conn of connections) {
             if (conn.channelType !== this.channelType) continue;
 
-            const { botToken } = conn.channelConfig;
-            if (!botToken) {
+            const { botToken: rawBotToken } = conn.channelConfig;
+            if (!rawBotToken) {
                 logger.warn({ tenantId: conn.tenantId }, "Missing botToken for telegram connection");
+                continue;
+            }
+
+            let botToken: string;
+            try {
+                botToken = decrypt(rawBotToken);
+            } catch {
+                logger.warn({ tenantId: conn.tenantId }, "Failed to decrypt botToken for telegram connection");
                 continue;
             }
 

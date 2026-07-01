@@ -1,6 +1,8 @@
 import { db } from "../../../storage/db";
 import { users, tenants } from "../../../storage/schema";
 import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { auth } from "../../../auth";
 import UsersClient from "./UsersClient";
 
 export default async function UsersPage() {
@@ -8,6 +10,9 @@ export default async function UsersPage() {
         process.env.npm_lifecycle_event === "build" ||
         process.env.NEXT_PHASE === "phase-production-build";
     if (isNextBuild) return <div>Building Component</div>;
+
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== "ADMIN") redirect("/admin/login");
 
     const allUsers = await db
         .select({
