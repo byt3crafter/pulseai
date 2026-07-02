@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
 import { resolveSso, provisionSsoUser } from "./utils/sso";
-import { verifyTotp } from "./utils/totp";
+import { checkSecondFactor } from "./utils/totp";
 import { decrypt } from "./utils/crypto";
 
 function credentialsProvider() {
@@ -49,17 +49,25 @@ function credentialsProvider() {
                     return null;
                 }
 
-                // Two-factor: if enabled, require a valid TOTP code
-                if ((userRecord as any).twoFactorEnabled && (userRecord as any).twoFactorSecret) {
-                    const totp = (credentials.totp as string) || "";
-                    let secret = "";
+                // Two-factor: if enabled, require a valid TOTP code OR a one-time
+                // recovery code (which is consumed on use).
+                if ((userRecord as any).twoFactorEnabled) {
+                    const code = (credentials.totp as string) || "";
+                    let secret: string | null = null;
                     try {
-                        secret = decrypt((userRecord as any).twoFactorSecret);
+                        secret = (userRecord as any).twoFactorSecret ? decrypt((userRecord as any).twoFactorSecret) : null;
                     } catch {
-                        return null;
+                        secret = null;
                     }
-                    if (!totp || !verifyTotp(secret, totp)) {
-                        return null;
+                    const backup = Array.isArray((userRecord as any).twoFactorBackupCodes)
+                        ? ((userRecord as any).twoFactorBackupCodes as string[])
+                        : [];
+                    const check = checkSecondFactor(secret, backup, code);
+                    if (!check.ok) return null;
+                    if (check.viaBackup) {
+                        await db.update(users)
+                            .set({ twoFactorBackupCodes: check.remaining })
+                            .where(eq(users.id, userRecord.id));
                     }
                 }
 

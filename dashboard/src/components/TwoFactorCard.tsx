@@ -5,6 +5,7 @@ import {
     getTwoFactorStatus,
     startTwoFactorSetup,
     confirmTwoFactor,
+    regenerateBackupCodes,
     disableTwoFactor,
 } from "../app/account/two-factor/actions";
 
@@ -14,7 +15,7 @@ interface TwoFactorCardProps {
     variant?: Variant;
 }
 
-type Phase = "loading" | "disabled" | "setup" | "enabled" | "disabling";
+type Phase = "loading" | "disabled" | "setup" | "enabled" | "disabling" | "backup-codes";
 
 // Per-variant class sets — "pulse" uses the theme-aware admin token layer,
 // "light" uses the tenant-side slate/indigo palette. Mirrors the pattern in
@@ -52,6 +53,11 @@ const V = {
     successSub: { light: "text-emerald-600", pulse: "text-pulse-profit/80" },
     errorText: { light: "text-red-600", pulse: "text-pulse-loss" },
     infoText: { light: "text-slate-500", pulse: "text-pulse-muted" },
+    warnText: { light: "text-amber-600", pulse: "text-pulse-loss" },
+    warnBox: {
+        light: "bg-amber-50 border-amber-200",
+        pulse: "bg-pulse-loss/10 border-pulse-loss/30",
+    },
     mono: {
         light: "bg-slate-50 border-slate-200 text-slate-700",
         pulse: "bg-pulse-panel-alt border-pulse-border text-pulse-text",
@@ -72,6 +78,10 @@ export default function TwoFactorCard({ variant = "light" }: TwoFactorCardProps)
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const [copied, setCopied] = useState(false);
+    const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+    const [backupCodesRemaining, setBackupCodesRemaining] = useState(0);
+    const [backupCodesSource, setBackupCodesSource] = useState<"enable" | "regenerate">("enable");
+    const [copiedCodes, setCopiedCodes] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -79,6 +89,7 @@ export default function TwoFactorCard({ variant = "light" }: TwoFactorCardProps)
             .then((res) => {
                 if (cancelled) return;
                 setPhase(res.enabled ? "enabled" : "disabled");
+                setBackupCodesRemaining(res.backupCodesRemaining ?? 0);
             })
             .catch(() => {
                 if (!cancelled) setPhase("disabled");
@@ -129,11 +140,67 @@ export default function TwoFactorCard({ variant = "light" }: TwoFactorCardProps)
             setQr("");
             setSecret("");
             setCode("");
-            setPhase("enabled");
-            setNotice("Two-factor authentication is now enabled.");
+            if (result.backupCodes && result.backupCodes.length > 0) {
+                setBackupCodes(result.backupCodes);
+                setBackupCodesRemaining(result.backupCodes.length);
+                setBackupCodesSource("enable");
+                setPhase("backup-codes");
+            } else {
+                setPhase("enabled");
+                setNotice("Two-factor authentication is now enabled.");
+            }
         } else {
             setError(result.message || "Invalid code. Try again.");
         }
+    };
+
+    const handleRegenerate = async () => {
+        resetMessages();
+        setBusy(true);
+        const result = await regenerateBackupCodes();
+        setBusy(false);
+        if (result.success && result.backupCodes) {
+            setBackupCodes(result.backupCodes);
+            setBackupCodesRemaining(result.backupCodes.length);
+            setBackupCodesSource("regenerate");
+            setPhase("backup-codes");
+        } else {
+            setError(result.message || "Failed to regenerate recovery codes.");
+        }
+    };
+
+    const handleDoneBackupCodes = () => {
+        setBackupCodes(null);
+        setPhase("enabled");
+        setNotice(
+            backupCodesSource === "enable"
+                ? "Two-factor authentication is now enabled."
+                : "Recovery codes regenerated. Your old codes no longer work.",
+        );
+    };
+
+    const handleCopyCodes = async () => {
+        if (!backupCodes) return;
+        try {
+            await navigator.clipboard.writeText(backupCodes.join("\n"));
+            setCopiedCodes(true);
+            setTimeout(() => setCopiedCodes(false), 2000);
+        } catch {
+            /* clipboard unavailable — ignore */
+        }
+    };
+
+    const handleDownloadCodes = () => {
+        if (!backupCodes) return;
+        const blob = new Blob([backupCodes.join("\n") + "\n"], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "pulse-recovery-codes.txt";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
     };
 
     const handleStartDisable = () => {
@@ -294,6 +361,52 @@ export default function TwoFactorCard({ variant = "light" }: TwoFactorCardProps)
                 </div>
             )}
 
+            {phase === "backup-codes" && backupCodes && (
+                <div className="mt-4 space-y-4">
+                    <div className={`rounded-lg border px-3.5 py-3 ${v("warnBox")}`}>
+                        <p className={`text-sm font-semibold ${v("warnText")}`}>Save your recovery codes</p>
+                        <p className={`text-xs mt-1 ${v("desc")}`}>
+                            Each code works once. Store them somewhere safe — they&apos;re the only way in if you lose your authenticator.
+                        </p>
+                    </div>
+
+                    <ul
+                        aria-label="Recovery codes"
+                        className={`grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg border p-3 list-none ${v("mono")}`}
+                    >
+                        {backupCodes.map((c) => (
+                            <li key={c} className="text-xs font-mono text-center py-0.5">
+                                {c}
+                            </li>
+                        ))}
+                    </ul>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleCopyCodes}
+                            className={`text-xs font-medium px-3 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 ${v("btnSecondary")} ${v("ring")}`}
+                        >
+                            {copiedCodes ? "Copied" : "Copy codes"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDownloadCodes}
+                            className={`text-xs font-medium px-3 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 ${v("btnSecondary")} ${v("ring")}`}
+                        >
+                            Download .txt
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDoneBackupCodes}
+                            className={`ml-auto inline-flex items-center justify-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${v("btnPrimary")} ${v("ring")}`}
+                        >
+                            Done
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {(phase === "enabled" || phase === "disabling") && (
                 <div className="mt-4">
                     <div className={`flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 ${v("successBox")}`}>
@@ -306,6 +419,22 @@ export default function TwoFactorCard({ variant = "light" }: TwoFactorCardProps)
                     )}
 
                     {phase === "enabled" && (
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <p className={`text-xs font-medium ${backupCodesRemaining <= 2 ? v("warnText") : v("infoText")}`}>
+                                Recovery codes: {backupCodesRemaining} remaining
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleRegenerate}
+                                disabled={busy}
+                                className={`text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 ${v("btnSecondary")} ${v("ring")}`}
+                            >
+                                {busy ? "Regenerating…" : "Regenerate recovery codes"}
+                            </button>
+                        </div>
+                    )}
+
+                    {phase === "enabled" && (
                         <button
                             type="button"
                             onClick={handleStartDisable}
@@ -315,22 +444,26 @@ export default function TwoFactorCard({ variant = "light" }: TwoFactorCardProps)
                         </button>
                     )}
 
+                    {phase === "enabled" && error && (
+                        <p role="alert" className={`text-xs mt-2 ${v("errorText")}`}>{error}</p>
+                    )}
+
                     {phase === "disabling" && (
                         <div className={`mt-3 pt-3 border-t ${v("divider")}`}>
                             <label htmlFor={`${uid}-disable-code`} className={`block text-xs font-medium mb-1.5 ${v("label")}`}>
-                                Enter your current 6-digit code to confirm
+                                Enter a 6-digit code or one of your recovery codes.
                             </label>
                             <div className="flex flex-col sm:flex-row gap-2 max-w-xs">
                                 <input
                                     id={`${uid}-disable-code`}
                                     type="text"
-                                    inputMode="numeric"
+                                    inputMode="text"
                                     autoComplete="one-time-code"
-                                    pattern="[0-9]*"
-                                    maxLength={6}
-                                    placeholder="123456"
+                                    pattern="[0-9a-zA-Z-]*"
+                                    maxLength={9}
+                                    placeholder="123456 or ab12-cd34"
                                     value={code}
-                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                    onChange={(e) => setCode(e.target.value.replace(/[^0-9a-zA-Z-]/g, "").slice(0, 9))}
                                     className={`flex-1 px-3 py-2 rounded-lg border text-sm font-mono outline-none focus:ring-2 transition-all ${v("input")}`}
                                 />
                             </div>

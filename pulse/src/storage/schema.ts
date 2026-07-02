@@ -302,6 +302,7 @@ export const users = pgTable("users", {
     accessRole: varchar("access_role", { length: 20 }).notNull().default("owner"), // granular RBAC role within plane
     twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
     twoFactorSecret: text("two_factor_secret"), // AES-encrypted TOTP secret
+    twoFactorBackupCodes: jsonb("two_factor_backup_codes").notNull().default([]), // sha256 hashes of one-time recovery codes
     tenantId: uuid("tenant_id").references(() => tenants.id), // Nullable for global admins
     mustChangePassword: boolean("must_change_password").notNull().default(false),
     onboardingComplete: boolean("onboarding_complete").notNull().default(true),
