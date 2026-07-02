@@ -42,7 +42,7 @@ export async function getRoutingRules() {
 }
 
 export async function createRoutingRule(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return { success: false, message: "Unauthorized." };
     const tenantId = tenantCheck.tenantId;
 
@@ -91,7 +91,7 @@ export async function createRoutingRule(formData: FormData) {
 }
 
 export async function updateRoutingRule(ruleId: string, formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return { success: false, message: "Unauthorized." };
     const tenantId = tenantCheck.tenantId;
 
@@ -135,7 +135,7 @@ export async function updateRoutingRule(ruleId: string, formData: FormData) {
 }
 
 export async function deleteRoutingRule(ruleId: string) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return { success: false, message: "Unauthorized." };
     const tenantId = tenantCheck.tenantId;
 
@@ -152,7 +152,7 @@ export async function deleteRoutingRule(ruleId: string) {
 }
 
 export async function toggleRoutingRule(ruleId: string) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return { success: false, message: "Unauthorized." };
     const tenantId = tenantCheck.tenantId;
 

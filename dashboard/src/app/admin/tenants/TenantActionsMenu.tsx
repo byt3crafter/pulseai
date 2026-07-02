@@ -8,7 +8,17 @@ import ConfirmDialog from "../../../components/ConfirmDialog";
 
 const MENU_WIDTH = 192; // w-48
 
-export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantId: string, currentStatus: string }) {
+export default function TenantActionsMenu({
+    tenantId,
+    currentStatus,
+    canSuspend,
+    canDelete,
+}: {
+    tenantId: string;
+    currentStatus: string;
+    canSuspend: boolean;
+    canDelete: boolean;
+}) {
     const [isOpen, setIsOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isToggling, setIsToggling] = useState(false);
@@ -70,6 +80,10 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
         setIsOpen(false);
     };
 
+    if (!canSuspend && !canDelete) {
+        return null;
+    }
+
     return (
         <>
             {error && (
@@ -104,34 +118,38 @@ export default function TenantActionsMenu({ tenantId, currentStatus }: { tenantI
                         role="menu"
                         aria-orientation="vertical"
                     >
-                        <button
-                            onClick={handleToggleStatus}
-                            disabled={isToggling}
-                            className="w-full text-left px-4 py-2 text-sm text-pulse-text-soft hover:bg-pulse-hover hover:text-pulse-text flex items-center gap-2 disabled:opacity-50"
-                            role="menuitem"
-                        >
-                            {currentStatus === "active" ? (
-                                <>
-                                    <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-pulse-accent" />
-                                    Suspend Workspace
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircleIcon aria-hidden="true" className="w-4 h-4 text-pulse-profit" />
-                                    Activate Workspace
-                                </>
-                            )}
-                        </button>
+                        {canSuspend && (
+                            <button
+                                onClick={handleToggleStatus}
+                                disabled={isToggling}
+                                className="w-full text-left px-4 py-2 text-sm text-pulse-text-soft hover:bg-pulse-hover hover:text-pulse-text flex items-center gap-2 disabled:opacity-50"
+                                role="menuitem"
+                            >
+                                {currentStatus === "active" ? (
+                                    <>
+                                        <NoSymbolIcon aria-hidden="true" className="w-4 h-4 text-pulse-accent" />
+                                        Suspend Workspace
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircleIcon aria-hidden="true" className="w-4 h-4 text-pulse-profit" />
+                                        Activate Workspace
+                                    </>
+                                )}
+                            </button>
+                        )}
 
-                        <button
-                            onClick={() => { setIsOpen(false); setShowDeleteConfirm(true); }}
-                            disabled={isDeleting}
-                            className="w-full text-left px-4 py-2 text-sm text-pulse-loss hover:bg-pulse-loss/10 hover:text-pulse-loss flex items-center gap-2 disabled:opacity-50"
-                            role="menuitem"
-                        >
-                            <TrashIcon aria-hidden="true" className="w-4 h-4" />
-                            {isDeleting ? "Deleting..." : "Delete Permanently"}
-                        </button>
+                        {canDelete && (
+                            <button
+                                onClick={() => { setIsOpen(false); setShowDeleteConfirm(true); }}
+                                disabled={isDeleting}
+                                className="w-full text-left px-4 py-2 text-sm text-pulse-loss hover:bg-pulse-loss/10 hover:text-pulse-loss flex items-center gap-2 disabled:opacity-50"
+                                role="menuitem"
+                            >
+                                <TrashIcon aria-hidden="true" className="w-4 h-4" />
+                                {isDeleting ? "Deleting..." : "Delete Permanently"}
+                            </button>
+                        )}
                     </div>,
                     document.body,
                 )}

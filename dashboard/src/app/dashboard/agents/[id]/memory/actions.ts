@@ -58,7 +58,7 @@ export async function getMemoryStats(agentId: string) {
 }
 
 export async function deleteMemory(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 
@@ -69,7 +69,7 @@ export async function deleteMemory(formData: FormData) {
 }
 
 export async function bulkDeleteMemories(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 

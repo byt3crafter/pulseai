@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../../../utils/tenant-auth";
 
 export async function saveDelegationConfig(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 

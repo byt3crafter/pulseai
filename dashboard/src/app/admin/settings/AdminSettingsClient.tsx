@@ -55,6 +55,8 @@ interface Props {
     modelPricing: ModelPricingEntry[];
     providerStatuses: Array<{ provider: string; hasKey: boolean }>;
     emailSettings: EmailSettingsView | null;
+    canWrite: boolean;
+    canBilling: boolean;
 }
 
 interface ModelPricingEntry {
@@ -138,6 +140,8 @@ export default function AdminSettingsClient({
     modelPricing,
     providerStatuses,
     emailSettings,
+    canWrite,
+    canBilling,
 }: Props) {
     return (
         <div className={ui.page}>
@@ -183,17 +187,17 @@ export default function AdminSettingsClient({
 
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
-                    {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} />}
-                    {tab === "system" && <SystemTab settings={settings} />}
-                    {tab === "email" && <EmailTab settings={emailSettings} />}
+                    {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} canWrite={canWrite} />}
+                    {tab === "system" && <SystemTab settings={settings} canWrite={canWrite} />}
+                    {tab === "email" && <EmailTab settings={emailSettings} canWrite={canWrite} />}
                     {tab === "exec-safety" && (
                         <ExecSafetyTab execSafety={execSafety} auditLogs={auditLogs} policyRules={policyRules} />
                     )}
-                    {tab === "memory" && <MemoryTab config={memoryConfig} />}
-                    {tab === "sandbox" && <SandboxTab config={sandboxConfig} />}
-                    {tab === "scheduling" && <SchedulingTab config={schedulingConfig} allJobs={allJobs} />}
-                    {tab === "skills" && <SkillsDefaultsTab defaultSkills={defaultSkills} />}
-                    {tab === "model-pricing" && <ModelPricingTab models={modelPricing} />}
+                    {tab === "memory" && <MemoryTab config={memoryConfig} canWrite={canWrite} />}
+                    {tab === "sandbox" && <SandboxTab config={sandboxConfig} canWrite={canWrite} />}
+                    {tab === "scheduling" && <SchedulingTab config={schedulingConfig} allJobs={allJobs} canWrite={canWrite} />}
+                    {tab === "skills" && <SkillsDefaultsTab defaultSkills={defaultSkills} canWrite={canWrite} />}
+                    {tab === "model-pricing" && <ModelPricingTab models={modelPricing} canBilling={canBilling} />}
                     {tab === "database" && <DatabaseTab />}
                 </div>
             </div>
@@ -211,7 +215,7 @@ const PROVIDER_CARDS = [
     { id: "minimax", name: "MiniMax", description: "MiniMax M2.5 models", placeholder: "eyJ..." },
 ];
 
-function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider: string; hasKey: boolean }> }) {
+function ProvidersTab({ providerStatuses, canWrite }: { providerStatuses: Array<{ provider: string; hasKey: boolean }>; canWrite: boolean }) {
     const statusMap = Object.fromEntries(providerStatuses.map((s) => [s.provider, s.hasKey]));
 
     return (
@@ -219,6 +223,11 @@ function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider
             <p className="text-[13px] text-pulse-muted mb-4">
                 Configure global API keys. Platform-mode tenants use these keys automatically.
             </p>
+            {!canWrite && (
+                <div className="mb-4">
+                    <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify provider keys." />
+                </div>
+            )}
             <div className="space-y-3">
                 {PROVIDER_CARDS.map((pc) => (
                     <ProviderKeyCard
@@ -229,6 +238,7 @@ function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider
                         placeholder={pc.placeholder}
                         hasKey={statusMap[pc.id] ?? false}
                         required={pc.required}
+                        canWrite={canWrite}
                     />
                 ))}
             </div>
@@ -236,13 +246,14 @@ function ProvidersTab({ providerStatuses }: { providerStatuses: Array<{ provider
     );
 }
 
-function ProviderKeyCard({ provider, name, description, placeholder, hasKey, required }: {
+function ProviderKeyCard({ provider, name, description, placeholder, hasKey, required, canWrite }: {
     provider: string;
     name: string;
     description: string;
     placeholder: string;
     hasKey: boolean;
     required?: boolean;
+    canWrite: boolean;
 }) {
     const [apiKey, setApiKey] = useState("");
     const [saving, setSaving] = useState(false);
@@ -297,12 +308,13 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
                     value={apiKey}
                     onChange={(e) => { setApiKey(e.target.value); setMessage(null); }}
                     placeholder={hasKey ? "•••••••••••• (enter new key to replace)" : placeholder}
-                    className={`${ui.input} flex-1`}
+                    disabled={!canWrite}
+                    className={`${ui.input} flex-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                 />
                 <button
                     type="button"
                     onClick={handleTest}
-                    disabled={!apiKey.trim() || testing}
+                    disabled={!apiKey.trim() || testing || !canWrite}
                     className={`${ui.btnGhost} px-1 disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                     {testing ? "Testing…" : "Test"}
@@ -310,7 +322,7 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
                 <button
                     type="button"
                     onClick={handleSave}
-                    disabled={!apiKey.trim() || saving}
+                    disabled={!apiKey.trim() || saving || !canWrite}
                     className={ui.btnPrimary}
                 >
                     {saving ? "Saving…" : "Save"}
@@ -326,7 +338,7 @@ function ProviderKeyCard({ provider, name, description, placeholder, hasKey, req
 }
 
 /* ─── Email (SMTP) Tab ────────────────────────────────────────── */
-function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
+function EmailTab({ settings, canWrite }: { settings: EmailSettingsView | null; canWrite: boolean }) {
     const s = settings ?? {
         enabled: false, host: "", port: 587, secure: false,
         user: "", from: "", fromName: "", hasPassword: false,
@@ -390,7 +402,12 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
             <p className="text-[13px] text-pulse-muted mb-4">
                 Used for account emails — password resets and user invitations. The password is encrypted at rest.
             </p>
-            <div className="space-y-4">
+            {!canWrite && (
+                <div className="mb-4">
+                    <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify email settings." />
+                </div>
+            )}
+            <fieldset disabled={!canWrite} className="space-y-4 border-0 p-0 m-0 min-w-0">
                 <Toggle checked={enabled} onChange={setEnabled} label="Enable email sending" />
 
                 <div className="grid grid-cols-2 gap-4">
@@ -450,13 +467,13 @@ function EmailTab({ settings }: { settings: EmailSettingsView | null }) {
                 </div>
 
                 {message && <InlineMessage variant={message.type === "success" ? "success" : "danger"} text={message.text} />}
-            </div>
+            </fieldset>
         </Panel>
     );
 }
 
 /* ─── System Services Tab ─────────────────────────────────────── */
-function SystemTab({ settings }: { settings: any }) {
+function SystemTab({ settings, canWrite }: { settings: any; canWrite: boolean }) {
     return (
         <form action={saveGlobalSettingsAction}>
             <input type="hidden" name="section" value="pulse_system" />
@@ -464,7 +481,12 @@ function SystemTab({ settings }: { settings: any }) {
                 <p className="text-[13px] text-pulse-muted mb-4">
                     Enable advanced features like hot-reload, trusted proxies, local discovery, and CLI backends.
                 </p>
-                <div className="space-y-6">
+                {!canWrite && (
+                    <div className="mb-4">
+                        <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify system services." />
+                    </div>
+                )}
+                <fieldset disabled={!canWrite} className="space-y-6 border-0 p-0 m-0 min-w-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Toggle
                             name="enableHotReload"
@@ -505,7 +527,7 @@ function SystemTab({ settings }: { settings: any }) {
                     <div className="flex justify-end">
                         <SaveButton label="Save System Services" className={ui.btnPrimary} />
                     </div>
-                </div>
+                </fieldset>
             </Panel>
         </form>
     );
@@ -695,12 +717,17 @@ function ExecSafetyTab({ execSafety, auditLogs, policyRules }: {
 }
 
 /* ─── Memory Tab ──────────────────────────────────────────────── */
-function MemoryTab({ config }: { config: any }) {
+function MemoryTab({ config, canWrite }: { config: any; canWrite: boolean }) {
     return (
         <form action={saveMemorySettingsAction}>
             <Panel label="Memory System">
                 <p className="text-[13px] text-pulse-muted mb-4">Configure agent long-term memory and vector search.</p>
-                <div className="space-y-6">
+                {!canWrite && (
+                    <div className="mb-4">
+                        <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify memory settings." />
+                    </div>
+                )}
+                <fieldset disabled={!canWrite} className="space-y-6 border-0 p-0 m-0 min-w-0">
                     <Toggle
                         name="enabled"
                         defaultChecked={config.enabled !== false}
@@ -734,21 +761,26 @@ function MemoryTab({ config }: { config: any }) {
                     <div className="flex justify-end">
                         <SaveButton label="Save Memory Settings" className={ui.btnPrimary} />
                     </div>
-                </div>
+                </fieldset>
             </Panel>
         </form>
     );
 }
 
 /* ─── Sandbox Tab ─────────────────────────────────────────────── */
-function SandboxTab({ config }: { config: any }) {
+function SandboxTab({ config, canWrite }: { config: any; canWrite: boolean }) {
     return (
         <form action={saveSandboxSettingsAction}>
             <Panel label="Python Sandbox">
                 <p className="text-[13px] text-pulse-muted mb-4">
                     Docker image, resource limits, timeouts, and network access for agent code execution.
                 </p>
-                <div className="space-y-6">
+                {!canWrite && (
+                    <div className="mb-4">
+                        <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify sandbox settings." />
+                    </div>
+                )}
+                <fieldset disabled={!canWrite} className="space-y-6 border-0 p-0 m-0 min-w-0">
                     <div>
                         <label className={ui.label}>Python Docker Image</label>
                         <input
@@ -797,14 +829,14 @@ function SandboxTab({ config }: { config: any }) {
                     <div className="flex justify-end">
                         <SaveButton label="Save Sandbox Settings" className={ui.btnPrimary} />
                     </div>
-                </div>
+                </fieldset>
             </Panel>
         </form>
     );
 }
 
 /* ─── Scheduling Tab ──────────────────────────────────────────── */
-function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
+function SchedulingTab({ config, allJobs, canWrite }: { config: any; allJobs: any[]; canWrite: boolean }) {
     const enabledCount = allJobs.filter((j: any) => j.enabled).length;
 
     return (
@@ -814,7 +846,12 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                     <p className="text-[13px] text-pulse-muted mb-4">
                         Configure global scheduling settings for cron jobs and scheduled tasks.
                     </p>
-                    <div className="space-y-6">
+                    {!canWrite && (
+                        <div className="mb-4">
+                            <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify scheduling settings." />
+                        </div>
+                    )}
+                    <fieldset disabled={!canWrite} className="space-y-6 border-0 p-0 m-0 min-w-0">
                         <Toggle
                             name="enabled"
                             defaultChecked={config.enabled !== false}
@@ -839,7 +876,7 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
                         <div className="flex justify-end">
                             <SaveButton label="Save Scheduling Settings" className={ui.btnPrimary} />
                         </div>
-                    </div>
+                    </fieldset>
                 </Panel>
             </form>
 
@@ -894,7 +931,7 @@ function SchedulingTab({ config, allJobs }: { config: any; allJobs: any[] }) {
 }
 
 /* ─── Model Pricing Tab ──────────────────────────────────────── */
-function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
+function ModelPricingTab({ models, canBilling }: { models: ModelPricingEntry[]; canBilling: boolean }) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<string>("");
     const [showAddForm, setShowAddForm] = useState(false);
@@ -955,21 +992,27 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                         Set base cost (what you pay) and customer price (what you charge). The difference is your profit.
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    {["anthropic", "openai", "google", "openrouter", "minimax"].map((p) => (
-                        <button key={p} onClick={() => handleSync(p)} className={ui.btnSecondary}>
-                            Sync {p.charAt(0).toUpperCase() + p.slice(1)}
+                {canBilling && (
+                    <div className="flex flex-wrap gap-2">
+                        {["anthropic", "openai", "google", "openrouter", "minimax"].map((p) => (
+                            <button key={p} onClick={() => handleSync(p)} className={ui.btnSecondary}>
+                                Sync {p.charAt(0).toUpperCase() + p.slice(1)}
+                            </button>
+                        ))}
+                        <button onClick={() => setShowAddForm(!showAddForm)} className={ui.btnPrimary}>
+                            + Add Model
                         </button>
-                    ))}
-                    <button onClick={() => setShowAddForm(!showAddForm)} className={ui.btnPrimary}>
-                        + Add Model
-                    </button>
-                </div>
+                    </div>
+                )}
             </div>
+
+            {!canBilling && (
+                <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify model pricing." />
+            )}
 
             {syncStatus && <InlineMessage variant="accent" text={syncStatus} />}
 
-            {showAddForm && (
+            {showAddForm && canBilling && (
                 <Panel label="Add New Model">
                     <form onSubmit={handleSave} className="grid grid-cols-2 gap-4">
                         <div>
@@ -1121,26 +1164,30 @@ function ModelPricingTab({ models }: { models: ModelPricingEntry[] }) {
                                                 </span>
                                             </td>
                                             <td className={ui.tdRight}>
-                                                <div className="inline-flex items-center justify-end gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setEditingId(model.id)}
-                                                        aria-label="Edit model pricing"
-                                                        title="Edit"
-                                                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-accent hover:bg-pulse-hover transition-colors"
-                                                    >
-                                                        <PencilSquareIcon aria-hidden="true" className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDelete(model.id)}
-                                                        aria-label="Delete model"
-                                                        title="Delete"
-                                                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-loss hover:bg-pulse-loss/10 transition-colors"
-                                                    >
-                                                        <TrashIcon aria-hidden="true" className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                                {canBilling ? (
+                                                    <div className="inline-flex items-center justify-end gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditingId(model.id)}
+                                                            aria-label="Edit model pricing"
+                                                            title="Edit"
+                                                            className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-accent hover:bg-pulse-hover transition-colors"
+                                                        >
+                                                            <PencilSquareIcon aria-hidden="true" className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDelete(model.id)}
+                                                            aria-label="Delete model"
+                                                            title="Delete"
+                                                            className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-loss hover:bg-pulse-loss/10 transition-colors"
+                                                        >
+                                                            <TrashIcon aria-hidden="true" className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-pulse-faint">—</span>
+                                                )}
                                             </td>
                                         </tr>
                                     )
@@ -1220,7 +1267,7 @@ function DatabaseTab() {
 }
 
 /* ─── Skills Defaults Tab ────────────────────────────────────────── */
-function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
+function SkillsDefaultsTab({ defaultSkills, canWrite }: { defaultSkills: string[]; canWrite: boolean }) {
     const [enabled, setEnabled] = useState<string[]>(defaultSkills);
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
         type: "idle",
@@ -1262,12 +1309,17 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
     ];
 
     return (
-        <div className="space-y-5">
+        <fieldset disabled={!canWrite} className="space-y-5 border-0 p-0 m-0 min-w-0">
             <Panel label="Default Skills">
                 <p className="text-[13px] text-pulse-muted">
                     Select which built-in skills are enabled by default for all agents.
                     Individual agents can override these settings.
                 </p>
+                {!canWrite && (
+                    <p className="text-[13px] text-pulse-accent mt-2">
+                        Read-only access — you do not have permission to modify default skills.
+                    </p>
+                )}
                 {noDefaultsSet && (
                     <p className="text-[13px] text-pulse-accent mt-2">
                         No defaults configured yet — all skills are enabled for all agents. Save to set explicit defaults.
@@ -1331,7 +1383,7 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
             <div className="flex items-center gap-3">
                 <button
                     onClick={handleSave}
-                    disabled={status.type === "saving"}
+                    disabled={status.type === "saving" || !canWrite}
                     className={ui.btnPrimary}
                 >
                     {status.type === "saving" ? "Saving…" : "Save Defaults"}
@@ -1343,6 +1395,6 @@ function SkillsDefaultsTab({ defaultSkills }: { defaultSkills: string[] }) {
                     <span className="text-[13px] text-pulse-loss">{status.message}</span>
                 )}
             </div>
-        </div>
+        </fieldset>
     );
 }

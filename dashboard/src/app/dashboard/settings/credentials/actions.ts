@@ -60,7 +60,7 @@ export async function getTenantAgents(tenantId: string) {
 }
 
 export async function addCredential(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.credentials.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 
@@ -105,7 +105,7 @@ export async function addCredential(formData: FormData) {
 }
 
 export async function deleteCredential(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.credentials.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 

@@ -30,15 +30,23 @@ interface Tenant {
 interface Props {
     users: User[];
     tenants: Tenant[];
+    canCreate: boolean;
+    canDelete: boolean;
+    canReset: boolean;
+    canChangeRole: boolean;
 }
 
-function AccessRoleSelect({ user }: { user: User }) {
+function AccessRoleSelect({ user, canChangeRole }: { user: User; canChangeRole: boolean }) {
     const router = useRouter();
     const [value, setValue] = useState(user.accessRole);
     const [failed, setFailed] = useState(false);
     const [isPending, startTransition] = useTransition();
 
     const options = user.role === "ADMIN" ? PLATFORM_ROLES : TENANT_ROLES;
+
+    if (!canChangeRole) {
+        return <Badge variant="neutral">{ROLE_LABELS[user.accessRole] ?? user.accessRole}</Badge>;
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const previous = value;
@@ -77,7 +85,7 @@ function AccessRoleSelect({ user }: { user: User }) {
     );
 }
 
-export default function UsersClient({ users, tenants }: Props) {
+export default function UsersClient({ users, tenants, canCreate, canDelete, canReset, canChangeRole }: Props) {
     const router = useRouter();
     const [actionUserId, setActionUserId] = useState<string | null>(null);
     const [tempPassword, setTempPassword] = useState<string | null>(null);
@@ -111,7 +119,7 @@ export default function UsersClient({ users, tenants }: Props) {
             <PageHeader
                 title="User Management"
                 subtitle="Manage platform users and their access."
-                action={<CreateUserModal tenants={tenants} />}
+                action={canCreate ? <CreateUserModal tenants={tenants} /> : undefined}
             />
 
             {error && (
@@ -187,7 +195,7 @@ export default function UsersClient({ users, tenants }: Props) {
                                             <Badge variant={user.role === "ADMIN" ? "accent" : "neutral"}>
                                                 {user.role}
                                             </Badge>
-                                            <AccessRoleSelect user={user} />
+                                            <AccessRoleSelect user={user} canChangeRole={canChangeRole} />
                                         </div>
                                     </td>
                                     <td className={ui.tdMuted}>
@@ -206,24 +214,32 @@ export default function UsersClient({ users, tenants }: Props) {
                                         )}
                                     </td>
                                     <td className={ui.tdRight}>
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button
-                                                onClick={() => handleResetPassword(user.id)}
-                                                aria-label="Reset password"
-                                                title="Reset password"
-                                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-accent hover:bg-pulse-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-accent"
-                                            >
-                                                <KeyIcon aria-hidden="true" className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setDeleteUserId(user.id)}
-                                                aria-label="Delete user"
-                                                title="Delete user"
-                                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-loss hover:bg-pulse-loss/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-loss"
-                                            >
-                                                <TrashIcon aria-hidden="true" className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                        {canReset || canDelete ? (
+                                            <div className="flex items-center justify-end gap-1">
+                                                {canReset && (
+                                                    <button
+                                                        onClick={() => handleResetPassword(user.id)}
+                                                        aria-label="Reset password"
+                                                        title="Reset password"
+                                                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-accent hover:bg-pulse-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-accent"
+                                                    >
+                                                        <KeyIcon aria-hidden="true" className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => setDeleteUserId(user.id)}
+                                                        aria-label="Delete user"
+                                                        title="Delete user"
+                                                        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-muted hover:text-pulse-loss hover:bg-pulse-loss/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-pulse-loss"
+                                                    >
+                                                        <TrashIcon aria-hidden="true" className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-pulse-faint">—</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
