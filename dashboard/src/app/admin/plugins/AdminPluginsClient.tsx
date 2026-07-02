@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { ui, PageHeader, Panel, Badge } from "../../../components/admin/ui";
+import { approvePluginAction } from "./actions";
+
+interface DeclaredPermissions {
+    network?: string[];
+    filesystem?: string[];
+    commands?: string[];
+}
 
 interface PluginData {
     id: string;
@@ -13,6 +21,10 @@ interface PluginData {
     enabled: boolean;
     config: Record<string, any>;
     installedAt: string | null;
+    manifestHash: string | null;
+    approvedHash: string | null;
+    declaredPermissions: DeclaredPermissions;
+    approvedAt: string | null;
 }
 
 interface TenantData {
@@ -48,6 +60,18 @@ export default function AdminPluginsClient({
 }: Props) {
     const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(new Set());
     const [removePluginId, setRemovePluginId] = useState<string | null>(null);
+    const [isApproving, startApproving] = useTransition();
+    const [approvingId, setApprovingId] = useState<string | null>(null);
+    const router = useRouter();
+
+    const handleApprove = (pluginId: string) => {
+        setApprovingId(pluginId);
+        startApproving(async () => {
+            await approvePluginAction(pluginId);
+            router.refresh();
+            setApprovingId(null);
+        });
+    };
 
     const toggleExpand = (pluginId: string) => {
         setExpandedPlugins((prev) => {
@@ -98,6 +122,18 @@ export default function AdminPluginsClient({
                         const pluginTenantConfigs = configMap.get(plugin.id) || [];
                         const tenantConfigLookup = new Map(pluginTenantConfigs.map((c) => [c.tenantId, c]));
 
+                        const approvalStatus: "approved" | "pending" | "changed" =
+                            plugin.approvedHash == null
+                                ? "pending"
+                                : plugin.approvedHash !== plugin.manifestHash
+                                  ? "changed"
+                                  : "approved";
+                        const permissions = plugin.declaredPermissions || {};
+                        const hasAnyPermissions =
+                            (permissions.network?.length || 0) > 0 ||
+                            (permissions.filesystem?.length || 0) > 0 ||
+                            (permissions.commands?.length || 0) > 0;
+
                         return (
                             <Panel key={plugin.id} bodyClassName="p-0">
                                 {/* Plugin Header */}
@@ -108,6 +144,15 @@ export default function AdminPluginsClient({
                                                 <h3 className="text-[15px] font-semibold text-pulse-text">{plugin.name}</h3>
                                                 <Badge variant="neutral">v{plugin.version || "?"}</Badge>
                                                 <Badge variant="neutral">{plugin.source}</Badge>
+                                                {approvalStatus === "approved" && (
+                                                    <Badge variant="success">Approved</Badge>
+                                                )}
+                                                {approvalStatus === "pending" && (
+                                                    <Badge variant="warn">Pending approval</Badge>
+                                                )}
+                                                {approvalStatus === "changed" && (
+                                                    <Badge variant="danger">Capabilities changed — re-approve</Badge>
+                                                )}
                                             </div>
                                             <p className="text-[13px] text-pulse-muted mb-3">{description}</p>
                                             {author && <p className="text-[11px] text-pulse-faint mb-3">by {author}</p>}
@@ -178,6 +223,66 @@ export default function AdminPluginsClient({
                                             </button>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* Declared Permissions & Capability Approval */}
+                                <div className="border-t border-pulse-border-subtle px-5 py-4">
+                                    <h4 className={`${ui.labelMicro} mb-2`}>Declared permissions</h4>
+                                    {hasAnyPermissions ? (
+                                        <div className="space-y-1.5">
+                                            {(permissions.network?.length || 0) > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <span className="text-[11px] text-pulse-faint">Network:</span>
+                                                    {permissions.network!.map((item) => (
+                                                        <Badge key={`network-${item}`} variant="neutral">{item}</Badge>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {(permissions.filesystem?.length || 0) > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <span className="text-[11px] text-pulse-faint">Filesystem:</span>
+                                                    {permissions.filesystem!.map((item) => (
+                                                        <Badge key={`filesystem-${item}`} variant="neutral">{item}</Badge>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {(permissions.commands?.length || 0) > 0 && (
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <span className="text-[11px] text-pulse-faint">Commands:</span>
+                                                    {permissions.commands!.map((item) => (
+                                                        <Badge key={`commands-${item}`} variant="neutral">{item}</Badge>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-pulse-faint">No special permissions declared.</p>
+                                    )}
+
+                                    {(approvalStatus === "pending" || approvalStatus === "changed") && (
+                                        <div className="mt-3">
+                                            {approvalStatus === "changed" && (
+                                                <p className="text-[11px] text-pulse-loss mb-2">
+                                                    This plugin&apos;s capabilities changed since it was last approved; it&apos;s deactivated until re-approved.
+                                                </p>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleApprove(plugin.id)}
+                                                disabled={isApproving && approvingId === plugin.id}
+                                                className={ui.btnPrimary}
+                                            >
+                                                {isApproving && approvingId === plugin.id
+                                                    ? "Approving…"
+                                                    : approvalStatus === "changed"
+                                                      ? "Review & re-approve"
+                                                      : "Approve capabilities"}
+                                            </button>
+                                            <p className="text-[11px] text-pulse-faint mt-1.5">
+                                                Takes effect on the next gateway restart.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Expanded: Tenant List */}

@@ -13,6 +13,17 @@ export interface PluginCredentialField {
     helpText?: string;
 }
 
+/**
+ * Least-privilege declaration. A plugin must declare the resources it needs;
+ * the platform records these, an admin approves them, and drift (a changed
+ * capability/permission set) disables the plugin until re-approved.
+ */
+export interface PluginPermissions {
+    network?: string[]; // allowed outbound hosts, e.g. ["*.erpnext.com"]
+    filesystem?: string[]; // allowed path prefixes
+    commands?: string[]; // allowed shell commands
+}
+
 export interface PluginManifest {
     name: string;
     version: string;
@@ -22,6 +33,7 @@ export interface PluginManifest {
     hooks?: Partial<PluginHooks>;
     routes?: PluginRoute[];
     credentialSchema?: PluginCredentialField[];
+    permissions?: PluginPermissions;
 }
 
 export interface PluginContext {

@@ -92,6 +92,10 @@ export default async function AdminPluginsPage() {
                 enabled: p.enabled ?? true,
                 config: (p.config as Record<string, any>) || {},
                 installedAt: p.installedAt?.toISOString() || null,
+                manifestHash: p.manifestHash,
+                approvedHash: p.approvedHash,
+                declaredPermissions: (p.declaredPermissions as Record<string, any>) || {},
+                approvedAt: p.approvedAt?.toISOString() || null,
             }))}
             tenants={allTenants.map((t) => ({
                 id: t.id,

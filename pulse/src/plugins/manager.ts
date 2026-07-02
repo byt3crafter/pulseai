@@ -12,10 +12,12 @@ import { Tool } from "../agent/tools/tool.interface.js";
 import { db } from "../storage/db.js";
 import { installedPlugins } from "../storage/schema.js";
 import { eq } from "drizzle-orm";
+import { computeManifestHash, summarizeCapabilities, CapabilitySummary } from "./manifest-hash.js";
 
 export class PluginManager {
     private loadedPlugins: Map<string, LoadedPlugin> = new Map();
     private pluginTools: Tool[] = [];
+    private activePlugins: Set<string> = new Set();
 
     /**
      * Initialize: discover and load all plugins.
@@ -24,21 +26,55 @@ export class PluginManager {
         const discovered = await discoverPlugins();
 
         for (const d of discovered) {
-            if (!d.enabled || !d.sourcePath) continue;
+            if (!d.sourcePath) continue;
 
             const loaded = await loadPluginFromPath(d.sourcePath);
-            if (loaded) {
-                this.loadedPlugins.set(loaded.manifest.name, loaded);
-                this.registerPlugin(loaded.manifest);
+            if (!loaded) continue;
+            this.loadedPlugins.set(loaded.manifest.name, loaded);
 
-                if (d.source === "local") {
-                    await this.upsertPluginToDB(loaded);
-                }
+            const manifestHash = computeManifestHash(loaded.manifest);
+            const summary = summarizeCapabilities(loaded.manifest);
+
+            const [existing] = await db
+                .select()
+                .from(installedPlugins)
+                .where(eq(installedPlugins.name, loaded.manifest.name))
+                .limit(1);
+
+            // Grandfather a pre-existing plugin (installed before approvals existed)
+            // so nothing breaks. Truly new plugins stay unapproved until an admin
+            // approves them; a changed capability set (hash drift) also needs re-approval.
+            let approvedHash = (existing as any)?.approvedHash ?? null;
+            let grandfathered = false;
+            if (existing && !approvedHash) {
+                approvedHash = manifestHash;
+                grandfathered = true;
+            }
+
+            const enabled = existing ? existing.enabled !== false : true;
+            const approved = approvedHash === manifestHash;
+            const active = enabled && approved;
+
+            await this.upsertPluginToDB(loaded, manifestHash, summary, grandfathered ? manifestHash : undefined);
+
+            if (active) {
+                this.registerPlugin(loaded.manifest);
+                this.activePlugins.add(loaded.manifest.name);
+            } else {
+                const reason = !enabled
+                    ? "disabled"
+                    : !existing
+                    ? "pending admin approval"
+                    : "capabilities changed — needs re-approval";
+                logger.warn(
+                    { name: loaded.manifest.name, reason },
+                    "Plugin loaded but NOT activated (capabilities withheld)"
+                );
             }
         }
 
         logger.info(
-            { loadedCount: this.loadedPlugins.size },
+            { loadedCount: this.loadedPlugins.size, activeCount: this.activePlugins.size },
             "Plugin manager initialized"
         );
     }
@@ -72,7 +108,12 @@ export class PluginManager {
      * Sync a loaded plugin's metadata to the installed_plugins DB table.
      * Upserts on name — refreshes metadata but never overwrites `enabled`.
      */
-    private async upsertPluginToDB(loaded: LoadedPlugin): Promise<void> {
+    private async upsertPluginToDB(
+        loaded: LoadedPlugin,
+        manifestHash: string,
+        summary: CapabilitySummary,
+        approvedHashToSet?: string,
+    ): Promise<void> {
         const { manifest, sourcePath } = loaded;
         const config = {
             description: manifest.description || "",
@@ -81,7 +122,17 @@ export class PluginManager {
             hookNames: manifest.hooks ? Object.keys(manifest.hooks) : [],
             routeCount: manifest.routes?.length || 0,
             credentialSchema: manifest.credentialSchema || [],
+            capabilities: summary,
         };
+
+        const updateSet: any = {
+            version: manifest.version,
+            sourcePath,
+            config,
+            manifestHash,
+            declaredPermissions: summary.permissions,
+        };
+        if (approvedHashToSet) updateSet.approvedHash = approvedHashToSet;
 
         try {
             await db
@@ -93,14 +144,13 @@ export class PluginManager {
                     sourcePath,
                     config,
                     enabled: true,
+                    manifestHash,
+                    declaredPermissions: summary.permissions,
+                    ...(approvedHashToSet ? { approvedHash: approvedHashToSet } : {}),
                 })
                 .onConflictDoUpdate({
                     target: installedPlugins.name,
-                    set: {
-                        version: manifest.version,
-                        sourcePath,
-                        config,
-                    },
+                    set: updateSet,
                 });
 
             logger.info({ name: manifest.name }, "Plugin synced to DB");
@@ -123,6 +173,7 @@ export class PluginManager {
         const routes: Array<{ method: string; path: string; handler: Function; pluginName: string }> = [];
 
         for (const [name, loaded] of this.loadedPlugins) {
+            if (!this.activePlugins.has(name)) continue; // only approved+enabled plugins expose routes
             if (loaded.manifest.routes) {
                 for (const route of loaded.manifest.routes) {
                     routes.push({
@@ -166,6 +217,7 @@ export class PluginManager {
     async shutdown(): Promise<void> {
         await this.onGatewayStop();
         this.loadedPlugins.clear();
+        this.activePlugins.clear();
         this.pluginTools.length = 0;
         hookRegistry.clear();
         logger.info("Plugin manager shut down");
