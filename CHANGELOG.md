@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.17] - 2026-07-02
+
+### Features
+- finish — tenant-plane enforcement + admin UI gating
+
 ## [0.10.16] - 2026-07-02
 
 ### Features
