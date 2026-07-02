@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.15] - 2026-07-02
+
+### Features
+- platform audit logging + viewer (enterprise Tier 0)
+
+### Documentation
+- enterprise roadmap — what Pulse needs vs OpenClaw/Hermes
+
 ## [0.10.14] - 2026-07-02
 
 ### Bug Fixes
