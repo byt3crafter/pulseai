@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.14] - 2026-07-02
+
+### Bug Fixes
+- align top command bar height with sidebar brand header
+
 ## [0.10.13] - 2026-07-01
 
 ### Bug Fixes
