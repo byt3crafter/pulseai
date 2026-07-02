@@ -252,6 +252,31 @@ export const channelMemberAgents = pgTable(
     ]
 );
 
+// -- Custom Tools: per-tenant HTTP tools that connect a customer's own API/software. --
+// Each row becomes an agent tool at runtime. Secrets (auth headers) are encrypted at rest.
+export const customTools = pgTable(
+    "custom_tools",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        name: varchar("name", { length: 64 }).notNull(), // tool name exposed to the LLM (snake_case)
+        description: text("description").notNull(),       // what it does — the LLM reads this
+        method: varchar("method", { length: 8 }).notNull().default("GET"),
+        urlTemplate: text("url_template").notNull(),      // supports {param} placeholders
+        headersEnc: text("headers_enc"),                  // encrypted JSON of static/auth headers
+        bodyTemplate: text("body_template"),              // optional; supports {param} placeholders
+        paramSchema: jsonb("param_schema").notNull().default({}), // { properties, required }
+        timeoutMs: integer("timeout_ms").notNull().default(15000),
+        enabled: boolean("enabled").notNull().default(true),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_custom_tools_tenant").on(table.tenantId),
+        unique("idx_unique_custom_tool_name").on(table.tenantId, table.name),
+    ]
+);
+
 // -- Usage tracking (Billing and credits) --
 export const usageRecords = pgTable(
     "usage_records",

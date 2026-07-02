@@ -12,6 +12,7 @@ import {
     ShieldCheckIcon,
     ArrowsRightLeftIcon,
     BuildingOffice2Icon,
+    WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 
 const links = [
@@ -19,6 +20,7 @@ const links = [
     { href: "/dashboard/agents", label: "Agent Profiles", icon: CpuChipIcon, exact: false, exclude: "/dashboard/agents/routing" },
     { href: "/dashboard/agents/routing", label: "Routing", icon: ArrowsRightLeftIcon, exact: false },
     { href: "/dashboard/departments", label: "Departments", icon: BuildingOffice2Icon, exact: false },
+    { href: "/dashboard/tools", label: "Custom Tools", icon: WrenchScrewdriverIcon, exact: false },
     { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },
     { href: "/dashboard/mcp", label: "MCP Servers", icon: ServerStackIcon, exact: false },
     { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, exact: false },
