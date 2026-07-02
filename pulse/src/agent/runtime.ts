@@ -104,6 +104,10 @@ export class AgentRuntime {
                 role: "user",
                 content: inbound.content,
                 metadata: messageMetadata,
+                // Org-channel attribution (null for legacy 1:1 threads)
+                channelId: inbound.channelId ?? null,
+                senderType: inbound.channelId ? "human" : null,
+                senderUserId: inbound.channelId ? (inbound.senderUserId ?? null) : null,
             });
 
             // 3. Sliding Context Window: Fetch last 20 messages for Context limit. (Adapting OpenClaw strategy)
@@ -121,8 +125,12 @@ export class AgentRuntime {
                 content: m.content,
             }));
 
-            // 3.5. Resolve agentProfileId via routing rules (or channel default / tenant fallback)
-            let resolvedAgentProfileId = await resolveAgent(inbound);
+            // 3.5. Resolve agentProfileId via routing rules (or channel default / tenant fallback).
+            // For org-channel messages the responder is pre-resolved (lead or @mentioned agent),
+            // so we honor it directly and bypass tenant routing rules.
+            let resolvedAgentProfileId = inbound.channelId && inbound.agentProfileId
+                ? inbound.agentProfileId
+                : await resolveAgent(inbound);
             if (!resolvedAgentProfileId) {
                 const fallbackProfile = await db.query.agentProfiles.findFirst({
                     where: eq(agentProfiles.tenantId, inbound.tenantId),
@@ -461,6 +469,10 @@ export class AgentRuntime {
                     tenantId: inbound.tenantId,
                     role: "assistant",
                     content: llmResponse.content,
+                    // Attribute the reply to the responding agent in a shared channel thread
+                    channelId: inbound.channelId ?? null,
+                    senderType: inbound.channelId ? "agent" : null,
+                    senderAgentId: inbound.channelId ? (resolvedAgentProfileId ?? null) : null,
                 });
             }
 

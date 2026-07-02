@@ -17,6 +17,12 @@ import { checkSecondFactor } from "../../utils/totp.js";
 import { signAppToken, verifyAppToken, AppTokenPayload } from "../app-token.js";
 import { AgentRuntime } from "../../agent/runtime.js";
 import { logger } from "../../utils/logger.js";
+import {
+    listUserChannels,
+    getChannelContext,
+    resolveResponder,
+    channelContactFor,
+} from "../channel-service.js";
 
 const CHANNEL = "webapp";
 const contactFor = (userId: string) => `app-${userId}`;
@@ -135,5 +141,89 @@ export const appApiRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: "Failed to process message." });
         }
         return reply.send({ reply: replyText });
+    });
+
+    // ── Channels (org: departments/groups the user belongs to) ──
+    fastify.get("/api/app/channels", async (request, reply) => {
+        const auth = await requireApp(request, reply); if (!auth) return;
+        const rows = await listUserChannels(auth.tid!, auth.sub);
+        return reply.send({ channels: rows });
+    });
+
+    // Shared channel thread history
+    fastify.get<{ Params: { id: string } }>("/api/app/channels/:id/history", async (request, reply) => {
+        const auth = await requireApp(request, reply); if (!auth) return;
+        const ctx = await getChannelContext(auth.tid!, auth.sub, request.params.id);
+        if (!ctx) return reply.code(404).send({ error: "Channel not found." });
+
+        const [conv] = await db.select().from(conversations)
+            .where(and(
+                eq(conversations.tenantId, auth.tid!),
+                eq(conversations.channelType, "channel"),
+                eq(conversations.channelContactId, channelContactFor(ctx.channel.id)),
+            )).limit(1);
+        if (!conv) return reply.send({ channelId: ctx.channel.id, agents: ctx.agents, access: ctx.membership.access, messages: [] });
+
+        const msgs = await db.select({
+            role: messages.role, content: messages.content,
+            senderType: messages.senderType, senderUserId: messages.senderUserId,
+            senderAgentId: messages.senderAgentId, createdAt: messages.createdAt,
+        })
+            .from(messages).where(eq(messages.conversationId, conv.id))
+            .orderBy(desc(messages.createdAt)).limit(100);
+        return reply.send({
+            channelId: ctx.channel.id,
+            agents: ctx.agents,
+            access: ctx.membership.access,
+            messages: msgs.reverse(),
+        });
+    });
+
+    // Post to a channel → resolve responder (lead or @mention) → run agent → reply
+    fastify.post<{ Params: { id: string } }>("/api/app/channels/:id/messages", async (request, reply) => {
+        const auth = await requireApp(request, reply); if (!auth) return;
+        const { content } = (request.body || {}) as { content?: string };
+        if (!content?.trim()) return reply.code(400).send({ error: "content is required." });
+
+        const ctx = await getChannelContext(auth.tid!, auth.sub, request.params.id);
+        if (!ctx) return reply.code(404).send({ error: "Channel not found." });
+        if (ctx.membership.access !== "talk") {
+            return reply.code(403).send({ error: "You have read-only access to this channel." });
+        }
+
+        const responder = resolveResponder(ctx, content.trim());
+        if (!responder) return reply.code(409).send({ error: "No agent is available to you in this channel." });
+
+        const runtime: AgentRuntime = (fastify as any).agentRuntime;
+        if (!runtime) return reply.code(503).send({ error: "Agent runtime unavailable." });
+
+        const inbound = {
+            id: randomUUID(),
+            tenantId: auth.tid!,
+            agentProfileId: responder.agentProfileId,
+            channelType: "channel" as const,
+            channelContactId: channelContactFor(ctx.channel.id),
+            channelId: ctx.channel.id,
+            contactName: "App User",
+            senderUserId: auth.sub,
+            content: content.trim(),
+            receivedAt: new Date().toISOString(),
+        };
+
+        let replyText = "";
+        try {
+            await runtime.processMessage(inbound, async (outbound) => {
+                replyText = outbound.content;
+                return { channelMessageId: randomUUID() };
+            });
+        } catch (err) {
+            logger.error({ err, tenantId: auth.tid, channelId: ctx.channel.id }, "Channel chat failed");
+            return reply.code(500).send({ error: "Failed to process message." });
+        }
+        return reply.send({
+            reply: replyText,
+            agent: { id: responder.agentProfileId, name: responder.name },
+            viaMention: responder.viaMention,
+        });
     });
 };
