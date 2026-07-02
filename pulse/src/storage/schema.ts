@@ -328,6 +328,31 @@ export const passwordResetTokens = pgTable(
     ]
 );
 
+// -- Platform Audit Log (enterprise "who did what, when" trail) --
+export const auditLogs = pgTable(
+    "audit_logs",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id), // nullable: platform-level events
+        actorId: uuid("actor_id").references(() => users.id), // nullable: system / unauthenticated
+        actorEmail: varchar("actor_email", { length: 255 }),
+        actorRole: varchar("actor_role", { length: 20 }),
+        action: varchar("action", { length: 100 }).notNull(), // e.g. "tenant.create", "user.delete"
+        targetType: varchar("target_type", { length: 50 }), // "tenant" | "user" | "settings" | ...
+        targetId: varchar("target_id", { length: 255 }),
+        summary: text("summary"), // human-readable one-liner
+        metadata: jsonb("metadata").notNull().default({}),
+        ip: varchar("ip", { length: 64 }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_audit_created").on(table.createdAt),
+        index("idx_audit_actor").on(table.actorId),
+        index("idx_audit_action").on(table.action),
+        index("idx_audit_tenant").on(table.tenantId),
+    ]
+);
+
 // -- Workspace Revisions (Agent file-based workspace revision tracking) --
 export const workspaceRevisions = pgTable(
     "workspace_revisions",

@@ -11,6 +11,7 @@ import { generateSecurePassword } from "../../../utils/password";
 import { requireAdmin } from "../../../utils/admin-auth";
 import { generateToken, hashToken } from "../../../utils/tokens";
 import { sendInviteEmail, appBaseUrl } from "../../../utils/mailer";
+import { logAudit } from "../../../utils/audit";
 
 const createTenantSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -101,6 +102,13 @@ export async function createTenantAction(formData: FormData) {
             console.error("Failed to send tenant invite email:", error);
         }
 
+        await logAudit({
+            action: "tenant.create",
+            targetType: "tenant",
+            summary: `Created workspace "${validatedData.name}" (${validatedData.slug})`,
+            metadata: { slug: validatedData.slug, apiMode: validatedData.apiMode },
+        });
+
         revalidatePath("/admin/tenants");
         return { success: true, credentials };
     } catch (error) {
@@ -160,8 +168,16 @@ export async function deleteTenantAction(tenantId: string) {
             await tx.execute(sql`DELETE FROM users WHERE tenant_id = ${tenantId}::uuid`);
             await tx.execute(sql`DELETE FROM oauth_clients WHERE tenant_id = ${tenantId}::uuid`);
             await tx.execute(sql`DELETE FROM tenant_balances WHERE tenant_id = ${tenantId}::uuid`);
+            await tx.execute(sql`DELETE FROM audit_logs WHERE tenant_id = ${tenantId}::uuid`);
             // Finally, delete the tenant itself
             await tx.execute(sql`DELETE FROM tenants WHERE id = ${tenantId}::uuid`);
+        });
+
+        await logAudit({
+            action: "tenant.delete",
+            targetType: "tenant",
+            targetId: tenantId,
+            summary: `Deleted workspace ${tenantId}`,
         });
 
         revalidatePath("/admin/tenants");
@@ -185,6 +201,14 @@ export async function toggleTenantStatusAction(tenantId: string, currentStatus: 
         await db.update(tenants)
             .set({ status: newStatus, updatedAt: new Date() })
             .where(eq(tenants.id, tenantId));
+
+        await logAudit({
+            action: newStatus === "active" ? "tenant.activate" : "tenant.suspend",
+            targetType: "tenant",
+            targetId: tenantId,
+            tenantId,
+            summary: `Workspace ${newStatus === "active" ? "activated" : "suspended"}`,
+        });
 
         revalidatePath("/admin/tenants");
         return { success: true };

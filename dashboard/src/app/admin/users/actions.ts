@@ -9,6 +9,7 @@ import { generateSecurePassword } from "../../../utils/password";
 import { requireAdmin } from "../../../utils/admin-auth";
 import { generateToken, hashToken } from "../../../utils/tokens";
 import { sendInviteEmail, appBaseUrl } from "../../../utils/mailer";
+import { logAudit } from "../../../utils/audit";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -65,6 +66,13 @@ export async function createUserAction(formData: FormData) {
         }).returning({ id: users.id });
 
         await sendInvite(created.id, email, name);
+        await logAudit({
+            action: "user.create",
+            targetType: "user",
+            targetId: created.id,
+            summary: `Created user ${email} (${role})`,
+            metadata: { email, role },
+        });
 
         revalidatePath("/admin/users");
         return {
@@ -95,6 +103,7 @@ export async function resetPasswordAction(userId: string) {
             .set({ passwordHash, mustChangePassword: true, updatedAt: new Date() })
             .where(eq(users.id, userId));
 
+        await logAudit({ action: "user.reset_password", targetType: "user", targetId: userId });
         revalidatePath("/admin/users");
         return { success: true, tempPassword };
     } catch (error) {
@@ -122,6 +131,7 @@ export async function deleteUserAction(userId: string) {
         }
 
         await db.delete(users).where(eq(users.id, userId));
+        await logAudit({ action: "user.delete", targetType: "user", targetId: userId });
         revalidatePath("/admin/users");
         return { success: true };
     } catch (error) {

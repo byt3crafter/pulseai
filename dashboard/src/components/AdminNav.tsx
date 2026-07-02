@@ -8,6 +8,7 @@ import {
     ChartBarIcon,
     PresentationChartBarIcon,
     ChatBubbleLeftRightIcon,
+    ClipboardDocumentListIcon,
     Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 
@@ -17,6 +18,7 @@ const links = [
     { href: "/admin/users", label: "User Management", icon: UserGroupIcon, exact: false },
     { href: "/admin/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },
     { href: "/admin/usage", label: "Usage Analytics", icon: PresentationChartBarIcon, exact: false },
+    { href: "/admin/audit", label: "Audit Log", icon: ClipboardDocumentListIcon, exact: false },
     { href: "/admin/settings", label: "Global Settings", icon: Cog6ToothIcon, exact: false },
 ];
 
