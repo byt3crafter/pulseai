@@ -6,6 +6,8 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
 import { resolveSso, provisionSsoUser } from "./utils/sso";
+import { verifyTotp } from "./utils/totp";
+import { decrypt } from "./utils/crypto";
 
 function credentialsProvider() {
     return Credentials({
@@ -13,6 +15,7 @@ function credentialsProvider() {
             email: { label: "Email", type: "email" },
             password: { label: "Password", type: "password" },
             loginType: { label: "Login Type", type: "text" },
+            totp: { label: "2FA Code", type: "text" },
         },
         async authorize(credentials) {
             if (!credentials?.email || !credentials?.password) {
@@ -44,6 +47,20 @@ function credentialsProvider() {
                 }
                 if (loginType === "admin" && userRecord.role !== "ADMIN") {
                     return null;
+                }
+
+                // Two-factor: if enabled, require a valid TOTP code
+                if ((userRecord as any).twoFactorEnabled && (userRecord as any).twoFactorSecret) {
+                    const totp = (credentials.totp as string) || "";
+                    let secret = "";
+                    try {
+                        secret = decrypt((userRecord as any).twoFactorSecret);
+                    } catch {
+                        return null;
+                    }
+                    if (!totp || !verifyTotp(secret, totp)) {
+                        return null;
+                    }
                 }
 
                 // Update last login timestamp
