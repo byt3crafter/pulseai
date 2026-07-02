@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.22] - 2026-07-02
+
+### Features
+- 2FA recovery (backup) codes
+
 ## [0.10.21] - 2026-07-02
 
 ### Features
