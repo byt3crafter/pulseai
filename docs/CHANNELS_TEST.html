@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pulse — Channels Test Checklist</title>
+<style>
+  :root{--bg:#0b0b0f;--card:#141419;--bd:#26262e;--tx:#e8e8ea;--mut:#9a9aa2;--acc:#8b5cf6;--ok:#3fb950;--warn:#e3b341}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;padding:32px}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 4px}
+  .sub{color:var(--mut);margin:0 0 24px}
+  h2{font-size:17px;margin:28px 0 10px;padding-top:16px;border-top:1px solid var(--bd);display:flex;align-items:center;gap:8px}
+  h2 .n{background:var(--acc);color:#fff;width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px 18px;margin:10px 0}
+  label.step{display:flex;gap:10px;align-items:flex-start;padding:7px 0;cursor:pointer}
+  label.step input{margin-top:5px;width:16px;height:16px;accent-color:var(--acc);flex-shrink:0}
+  .exp{color:var(--mut);font-size:13.5px;margin:2px 0 0 26px}
+  code{background:#000;border:1px solid var(--bd);border-radius:5px;padding:1px 6px;font-size:13px;color:#c9b8ff}
+  .cred{background:#17132b;border:1px solid #3a2f63;border-radius:10px;padding:12px 16px;margin:12px 0}
+  .warn{color:var(--warn)}
+  .ok{color:var(--ok)}
+  .tip{font-size:13px;color:var(--mut);border-left:2px solid var(--acc);padding-left:10px;margin:8px 0 8px 26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pulse — Channels Test Checklist</h1>
+  <p class="sub">End-to-end test of the department/org model. Work top to bottom — later steps depend on earlier ones. Tick as you go.</p>
+
+  <div class="cred">
+    <strong>Admin login</strong> — <code>pulse.runstate.mu/admin</code><br>
+    Email <code>admin@runstate.mu</code> &nbsp; Password <code>Pulse-Admin-2026!</code>
+    <div class="warn" style="font-size:13px;margin-top:6px">⚠ Change this password (Settings) once testing is done, and re-enable 2FA (save the recovery codes this time).</div>
+  </div>
+
+  <h2><span class="n">1</span> Login & show-password</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Open <code>/admin</code>, click the eye icon in the password field.</label>
+    <div class="exp">Expected: the password toggles between dots and plain text.</div>
+    <label class="step"><input type="checkbox">Sign in with the credentials above.</label>
+    <div class="exp">Expected: lands on Platform Overview.</div>
+    <label class="step"><input type="checkbox">Check the KPI row and panels look like soft rounded cards (no hard grid lines).</label>
+  </div>
+
+  <h2><span class="n">2</span> Make a tenant user (if you don't have one)</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Admin → <strong>User Management</strong> → create a user with role <strong>TENANT</strong> in the Runstate workspace. Note its email + password.</label>
+    <div class="exp">You'll log into the desktop app as this person. (You can also use the admin account — it has a workspace — but a real tenant user is the true test.)</div>
+    <label class="step"><input type="checkbox">Confirm the workspace has at least <strong>2 agents</strong> (Dashboard → Agent Profiles). If only one, create a second (e.g. "Marcus").</label>
+  </div>
+
+  <h2><span class="n">3</span> Build a department</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Go to <strong>Dashboard → Departments</strong>. Click <em>New department</em>, name it <code>Sales</code>, set <em>Multiple people</em>, Create.</label>
+    <label class="step"><input type="checkbox">In the Sales card, add your first agent as <strong>Lead</strong> (role = Lead).</label>
+    <div class="exp">Expected: a ⭐ appears next to it and it shows a "Lead" tag.</div>
+    <label class="step"><input type="checkbox">Add the second agent as <strong>Member</strong>.</label>
+    <label class="step"><input type="checkbox">Add your tenant user as a person with <strong>Can talk</strong>.</label>
+    <label class="step"><input type="checkbox">(Optional) Add a second person as <strong>Read-only</strong>.</label>
+    <label class="step"><input type="checkbox">(Optional) Create a <em>Group</em> under Sales (e.g. <code>EU Team</code>) and add an agent to it.</label>
+  </div>
+
+  <h2><span class="n">4</span> Desktop app — connect</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">On Linux: <code>cd desktop &amp;&amp; npm install &amp;&amp; npm start</code></label>
+    <label class="step"><input type="checkbox">Log in as your <strong>tenant user</strong> (eye toggle works here too).</label>
+    <div class="exp">Expected: sidebar shows <strong>Departments → Sales</strong> (and any group indented), plus a <strong>Direct</strong> list of agents.</div>
+    <label class="step"><input type="checkbox">Click <strong>Sales</strong>.</label>
+    <div class="exp">Expected: header subtitle lists the channel's agents; composer is enabled.</div>
+  </div>
+
+  <h2><span class="n">5</span> Lead answers &amp; @mention</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Send a normal message (no @).</label>
+    <div class="exp">Expected: the <strong>Lead</strong> answers — its name shows above the reply bubble.</div>
+    <label class="step"><input type="checkbox">Send <code>@Marcus &lt;something&gt;</code> (use the member agent's name).</label>
+    <div class="exp">Expected: <strong>Marcus</strong> answers (its name labels the bubble), not the lead.</div>
+    <div class="tip">Routing: ask the lead something clearly in a teammate's domain (e.g. "have Marcus draft the quote"). The lead should delegate and come back with the teammate's work. This exercises the new lead auto-routing.</div>
+  </div>
+
+  <h2><span class="n">6</span> Access control</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Log in as the <strong>read-only</strong> person (step 3). Open Sales.</label>
+    <div class="exp">Expected: no composer — a "read-only access" bar instead. You can read history but not send.</div>
+    <label class="step"><input type="checkbox">(Per-user agents) Back in the dashboard, on a person click the "all agents" link and restrict them to ONE agent. Save.</label>
+    <label class="step"><input type="checkbox">As that person, @mention the OTHER (disallowed) agent.</label>
+    <div class="exp">Expected: the allowed agent answers instead — they can't reach an unassigned agent.</div>
+  </div>
+
+  <h2><span class="n">7</span> Direct fallback</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Click an agent under <strong>Direct</strong> and send a message.</label>
+    <div class="exp">Expected: classic 1:1 chat with that agent still works (unchanged).</div>
+  </div>
+
+  <p class="sub" style="margin-top:28px">Tell me which steps failed (by number) and what you saw — I'll fix from there. <span class="ok">✓</span></p>
+</div>
+</body>
+</html>
