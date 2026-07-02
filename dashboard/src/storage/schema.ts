@@ -252,6 +252,30 @@ export const channelMemberAgents = pgTable(
     ]
 );
 
+// -- Custom Tools: per-tenant HTTP tools that connect a customer's own API/software. --
+export const customTools = pgTable(
+    "custom_tools",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        name: varchar("name", { length: 64 }).notNull(),
+        description: text("description").notNull(),
+        method: varchar("method", { length: 8 }).notNull().default("GET"),
+        urlTemplate: text("url_template").notNull(),
+        headersEnc: text("headers_enc"),
+        bodyTemplate: text("body_template"),
+        paramSchema: jsonb("param_schema").notNull().default({}),
+        timeoutMs: integer("timeout_ms").notNull().default(15000),
+        enabled: boolean("enabled").notNull().default(true),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_custom_tools_tenant").on(table.tenantId),
+        unique("idx_unique_custom_tool_name").on(table.tenantId, table.name),
+    ]
+);
+
 // -- Usage tracking (Billing and credits) --
 export const usageRecords = pgTable(
     "usage_records",

@@ -20,6 +20,7 @@ import { sandboxTool, createSandboxTool } from "./built-in/sandbox.js";
 import { workspaceUpdateTool } from "./built-in/workspace-update.js";
 import { filterTools, ToolPolicy } from "./tool-policy.js";
 import { pluginManager } from "../../plugins/manager.js";
+import { getTenantCustomTools } from "./custom-tools.js";
 
 /**
  * Tool Registry - Manages available tools and their execution
@@ -125,6 +126,10 @@ export class ToolRegistry {
                 // 3. Inject plugin-contributed tools
                 const pluginTools = pluginManager.getPluginTools();
                 tools.push(...pluginTools);
+
+                // 3.5 Inject per-tenant custom tools (customer's own API/software)
+                const customToolList = await getTenantCustomTools(tenantId);
+                tools.push(...customToolList);
 
                 // 4. Apply tool policy filtering
                 if (profile?.toolPolicy) {
