@@ -614,6 +614,11 @@ export const installedPlugins = pgTable(
         sourcePath: text("source_path"),
         config: jsonb("config").default({}),
         enabled: boolean("enabled").default(true),
+        manifestHash: varchar("manifest_hash", { length: 64 }), // integrity hash of declared capabilities
+        approvedHash: varchar("approved_hash", { length: 64 }), // hash an admin approved; must match to activate
+        declaredPermissions: jsonb("declared_permissions").default({}),
+        approvedBy: uuid("approved_by"),
+        approvedAt: timestamp("approved_at", { withTimezone: true }),
         installedAt: timestamp("installed_at", { withTimezone: true }).defaultNow(),
     }
 );

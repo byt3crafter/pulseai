@@ -64,6 +64,12 @@ export default definePlugin({
     description: "ERPNext integration — CRUD, reports, and server methods for business data management",
     author: "Pulse AI",
 
+    // Least-privilege: this plugin only makes outbound calls to the tenant's
+    // configured ERPNext host. Declared for admin review + approval.
+    permissions: {
+        network: ["*.erpnext.com", "${ERPNEXT_URL}"],
+    },
+
     credentialSchema: [
         {
             name: "ERPNEXT_URL",
