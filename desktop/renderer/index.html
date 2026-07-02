@@ -35,16 +35,26 @@
   <div id="app" class="app-wrap" hidden>
     <aside class="sidebar">
       <div class="brand small"><span class="logo">P</span><span id="brandName2">Pulse</span></div>
-      <div class="agents-label">Agents</div>
-      <div id="agentList" class="agent-list"></div>
+      <div id="channelSection" hidden>
+        <div class="agents-label">Departments</div>
+        <div id="channelList" class="agent-list"></div>
+      </div>
+      <div id="agentSection" hidden>
+        <div class="agents-label">Direct</div>
+        <div id="agentList" class="agent-list"></div>
+      </div>
       <div class="spacer"></div>
       <div class="user-row"><span id="userName" class="uname"></span><button id="logout" class="link">Sign out</button></div>
     </aside>
     <main class="chat">
-      <header class="chat-head"><span id="activeAgent">Assistant</span></header>
+      <header class="chat-head">
+        <span id="activeAgent">Select a conversation</span>
+        <span id="headSub" class="head-sub"></span>
+      </header>
       <div id="messages" class="messages"></div>
+      <div id="readonlyBar" class="readonly-bar" hidden>You have read-only access here — you can read but not send messages.</div>
       <form id="composer" class="composer">
-        <textarea id="input" rows="1" placeholder="Message your agent…"></textarea>
+        <textarea id="input" rows="1" placeholder="Message… (use @Name to address a specific agent)"></textarea>
         <button id="send" type="submit">Send</button>
       </form>
     </main>
