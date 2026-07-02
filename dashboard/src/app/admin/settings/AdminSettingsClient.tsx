@@ -1426,18 +1426,18 @@ function ModelPricingTab({ models, canBilling }: { models: ModelPricingEntry[]; 
             {/* Profit Summary */}
             {models.length > 0 && (
                 <Panel label="Pricing Summary">
-                    <div className="grid grid-cols-3 gap-px bg-pulse-border border border-pulse-border rounded-md overflow-hidden">
-                        <div className="bg-pulse-panel p-4">
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-pulse-panel-alt border border-pulse-border-subtle rounded-lg p-4">
                             <p className={ui.labelMicro}>Total Models</p>
                             <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{models.length}</p>
                         </div>
-                        <div className="bg-pulse-panel p-4">
+                        <div className="bg-pulse-panel-alt border border-pulse-border-subtle rounded-lg p-4">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-profit">Models with Markup</p>
                             <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-profit">
                                 {models.filter((m) => m.customerInputPerMillion > m.baseInputPerMillion || m.customerOutputPerMillion > m.baseOutputPerMillion).length}
                             </p>
                         </div>
-                        <div className="bg-pulse-panel p-4">
+                        <div className="bg-pulse-panel-alt border border-pulse-border-subtle rounded-lg p-4">
                             <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-accent">Active Models</p>
                             <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-accent">
                                 {models.filter((m) => m.isActive).length}
