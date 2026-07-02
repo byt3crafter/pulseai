@@ -78,8 +78,8 @@ export default async function AdminLayout({
 
                 {/* Main column */}
                 <div className="flex-1 flex flex-col min-w-0">
-                    {/* Top command bar */}
-                    <header className="h-12 flex-shrink-0 border-b border-pulse-border bg-pulse-bg px-4 flex items-center gap-4">
+                    {/* Top command bar — h-14 to align its bottom border with the sidebar brand header */}
+                    <header className="h-14 flex-shrink-0 border-b border-pulse-border bg-pulse-bg px-4 flex items-center gap-4">
                         <div className="flex items-center gap-1.5 text-xs">
                             <span className="text-pulse-accent">&#9656;</span>
                             <span className="text-pulse-text">ADMIN</span>
