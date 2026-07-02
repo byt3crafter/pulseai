@@ -13,7 +13,7 @@ import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-buil
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
 import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader.js";
 import { db } from "../storage/db.js";
-import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles } from "../storage/schema.js";
+import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles, globalSettings } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
 import { sanitizeToolSchema } from "./tools/schema-sanitizer.js";
@@ -41,22 +41,31 @@ export class AgentRuntime {
         const tenantLog = logger.child({ tenantId: inbound.tenantId, channel: inbound.channelType });
 
         try {
-            // 0. Pre-Flight Check: Verify tenant has sufficient credits
-            const balanceRecord = await db.query.tenantBalances.findFirst({
-                where: eq(tenantBalances.tenantId, inbound.tenantId),
+            // 0. Pre-Flight Check: Verify tenant has sufficient credits.
+            // Skipped entirely in self-hosted / "unlimited" billing mode — used for
+            // dedicated client deployments running on the client's own API keys.
+            const rootSettings = await db.query.globalSettings.findFirst({
+                where: eq(globalSettings.id, "root"),
             });
+            const billingMode = (rootSettings?.config as any)?.billingMode ?? "credits";
 
-            const currentBalance = balanceRecord?.balance ? parseFloat(balanceRecord.balance as string) : 0;
-            if (currentBalance <= 0) {
-                tenantLog.warn({ currentBalance }, "Message rejected due to insufficient credits");
-                await sendMessageCallback({
-                    conversationId: randomUUID(), // Fallback conversation string
-                    tenantId: inbound.tenantId,
-                    channelType: inbound.channelType,
-                    channelContactId: inbound.channelContactId,
-                    content: "Your account has insufficient credits to process this message. Please top up your balance in the dashboard.",
+            if (billingMode !== "unlimited") {
+                const balanceRecord = await db.query.tenantBalances.findFirst({
+                    where: eq(tenantBalances.tenantId, inbound.tenantId),
                 });
-                return;
+
+                const currentBalance = balanceRecord?.balance ? parseFloat(balanceRecord.balance as string) : 0;
+                if (currentBalance <= 0) {
+                    tenantLog.warn({ currentBalance }, "Message rejected due to insufficient credits");
+                    await sendMessageCallback({
+                        conversationId: randomUUID(), // Fallback conversation string
+                        tenantId: inbound.tenantId,
+                        channelType: inbound.channelType,
+                        channelContactId: inbound.channelContactId,
+                        content: "Your account has insufficient credits to process this message. Please top up your balance in the dashboard.",
+                    });
+                    return;
+                }
             }
             // 1. Get or Create Conversation thread for Sliding Context Window
             let conversation = await db.query.conversations.findFirst({
