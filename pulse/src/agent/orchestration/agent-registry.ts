@@ -4,9 +4,26 @@
  */
 
 import { db } from "../../storage/db.js";
-import { agentProfiles } from "../../storage/schema.js";
-import { eq } from "drizzle-orm";
+import { agentProfiles, channelAgents } from "../../storage/schema.js";
+import { eq, inArray } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
+
+/** Do two agents belong to the same channel? (org teammates can route to each other) */
+async function shareChannel(agentA: string, agentB: string): Promise<boolean> {
+    const rows = await db
+        .select({ channelId: channelAgents.channelId, agentId: channelAgents.agentProfileId })
+        .from(channelAgents)
+        .where(inArray(channelAgents.agentProfileId, [agentA, agentB]));
+    const byChannel = new Map<string, Set<string>>();
+    for (const r of rows) {
+        if (!byChannel.has(r.channelId)) byChannel.set(r.channelId, new Set());
+        byChannel.get(r.channelId)!.add(r.agentId);
+    }
+    for (const set of byChannel.values()) {
+        if (set.has(agentA) && set.has(agentB)) return true;
+    }
+    return false;
+}
 
 export interface AgentInfo {
     id: string;
@@ -71,6 +88,12 @@ export async function getAgentDelegationConfig(agentId: string): Promise<Delegat
  * Check if agent A can delegate to agent B.
  */
 export async function canDelegateTo(sourceAgentId: string, targetAgentId: string): Promise<{ allowed: boolean; reason: string }> {
+    // Org routing: agents in the same channel can always route work to each other,
+    // regardless of per-agent delegation flags (the channel defines the relationship).
+    if (await shareChannel(sourceAgentId, targetAgentId)) {
+        return { allowed: true, reason: "Same-channel teammates" };
+    }
+
     const sourceConfig = await getAgentDelegationConfig(sourceAgentId);
     const targetConfig = await getAgentDelegationConfig(targetAgentId);
 

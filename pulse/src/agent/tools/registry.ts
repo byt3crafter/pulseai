@@ -57,6 +57,11 @@ export class ToolRegistry {
         );
     }
 
+    /** Get a built-in tool by name (used to inject routing tools for channel leads). */
+    getBuiltInTool(name: string): Tool | undefined {
+        return this.builtInTools.get(name);
+    }
+
     /**
      * Get tools enabled for a specific tenant and agent profile
      */

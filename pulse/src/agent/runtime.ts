@@ -8,6 +8,7 @@ import { providerKeyService } from "./providers/provider-key-service.js";
 import { memoryService } from "../memory/memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
 import { resolveAgent } from "./orchestration/agent-router.js";
+import { getChannelLeadTeammates } from "../gateway/channel-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
@@ -143,6 +144,27 @@ export class AgentRuntime {
 
             // 3.6. Get enabled tools for tenant and agent profile
             const enabledTools = await this.toolRegistry.getEnabledTools(inbound.tenantId, resolvedAgentProfileId ?? undefined);
+
+            // 3.65 Channel lead auto-routing: if this responder is the LEAD of the channel,
+            // it can route work to its teammates. Load them and ensure the routing tools
+            // are available even if the tenant hasn't enabled them as skills.
+            let channelTeammates: { id: string; name: string; specialization: string; modelId: string }[] = [];
+            if (inbound.channelId && resolvedAgentProfileId) {
+                try {
+                    channelTeammates = await getChannelLeadTeammates(inbound.channelId, resolvedAgentProfileId);
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to load channel teammates (non-fatal)");
+                }
+                if (channelTeammates.length > 0) {
+                    for (const name of ["delegate_to_agent", "list_agents"]) {
+                        if (!enabledTools.some((t) => t.name === name)) {
+                            const tool = this.toolRegistry.getBuiltInTool(name);
+                            if (tool) enabledTools.push(tool);
+                        }
+                    }
+                }
+            }
+
             const toolDefinitions = enabledTools.map((t) => ({
                 name: t.name,
                 description: t.description,
@@ -205,7 +227,13 @@ export class AgentRuntime {
             // 3.85 Gather delegation context
             let delegationActive = false;
             let availableAgents: DelegatableAgent[] = [];
-            if (resolvedAgentProfileId) {
+            if (channelTeammates.length > 0) {
+                // Channel lead: its teammates are the delegation set (org routing).
+                delegationActive = true;
+                availableAgents = channelTeammates.map((t) => ({
+                    id: t.id, name: t.name, specialization: t.specialization, modelId: t.modelId,
+                }));
+            } else if (resolvedAgentProfileId) {
                 try {
                     const delConfig = await getAgentDelegationConfig(resolvedAgentProfileId);
                     if (delConfig.canDelegate) {
