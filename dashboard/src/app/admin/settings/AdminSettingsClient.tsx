@@ -6,6 +6,7 @@ import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import SaveButton from "../../../components/SaveButton";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { ui, PageHeader, Panel, Badge, StatusDot } from "../../../components/admin/ui";
+import TwoFactorCard from "../../../components/TwoFactorCard";
 import { PLATFORM_ROLES, TENANT_ROLES, ROLE_LABELS } from "../../../utils/permissions";
 import {
     saveGlobalSettingsAction,
@@ -1452,6 +1453,9 @@ function ModelPricingTab({ models, canBilling }: { models: ModelPricingEntry[]; 
 function DatabaseTab() {
     return (
         <div className="space-y-5">
+            <Panel label="My Account Security">
+                <TwoFactorCard variant="pulse" />
+            </Panel>
             <Panel label="PostgreSQL Connection">
                 <label className={ui.label}>DATABASE_URL</label>
                 <input

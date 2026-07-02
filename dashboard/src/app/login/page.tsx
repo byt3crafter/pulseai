@@ -1,10 +1,11 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { preAuthCheck } from "../account/two-factor/actions";
 
 function LoginForm() {
     const searchParams = useSearchParams();
@@ -18,6 +19,13 @@ function LoginForm() {
     const [ssoEnabled, setSsoEnabled] = useState(false);
     const [ssoName, setSsoName] = useState("SSO");
     const [ssoLoading, setSsoLoading] = useState(false);
+    const [totpRequired, setTotpRequired] = useState(false);
+    const [totp, setTotp] = useState("");
+    const totpInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (totpRequired) totpInputRef.current?.focus();
+    }, [totpRequired]);
 
     useEffect(() => {
         let cancelled = false;
@@ -51,11 +59,24 @@ function LoginForm() {
             email,
             password,
             loginType: "tenant",
+            totp: totp || undefined,
             redirect: false,
         });
 
         if (result?.error) {
-            setError("Invalid email or password. If you are an admin, use the admin login page.");
+            if (!totpRequired) {
+                const check = await preAuthCheck(email, password);
+                if (check.rateLimited) {
+                    setError("Too many attempts. Please wait a moment and try again.");
+                } else if (check.valid && check.needs2fa) {
+                    setTotpRequired(true);
+                    setInfo("Enter the 6-digit code from your authenticator app.");
+                } else {
+                    setError("Invalid email or password. If you are an admin, use the admin login page.");
+                }
+            } else {
+                setError("Invalid authentication code.");
+            }
             setLoading(false);
         } else {
             window.location.href = "/dashboard";
@@ -155,6 +176,25 @@ function LoginForm() {
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
+                        {totpRequired && (
+                            <div>
+                                <label htmlFor="login-totp" className="block text-sm font-medium text-slate-700 mb-1.5">Authentication Code</label>
+                                <input
+                                    ref={totpInputRef}
+                                    id="login-totp"
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    pattern="[0-9]*"
+                                    maxLength={6}
+                                    required
+                                    placeholder="123456"
+                                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400 bg-white text-sm font-mono tracking-widest"
+                                    value={totp}
+                                    onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                />
+                            </div>
+                        )}
                         <button
                             type="submit"
                             disabled={loading}

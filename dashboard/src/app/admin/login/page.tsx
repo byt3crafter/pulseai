@@ -1,8 +1,9 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { preAuthCheck } from "../../account/two-factor/actions";
 
 export default function AdminLoginPage() {
     const [email, setEmail] = useState("");
@@ -12,6 +13,14 @@ export default function AdminLoginPage() {
     const [ssoEnabled, setSsoEnabled] = useState(false);
     const [ssoName, setSsoName] = useState("SSO");
     const [ssoLoading, setSsoLoading] = useState(false);
+    const [totpRequired, setTotpRequired] = useState(false);
+    const [totp, setTotp] = useState("");
+    const [info, setInfo] = useState("");
+    const totpInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (totpRequired) totpInputRef.current?.focus();
+    }, [totpRequired]);
 
     useEffect(() => {
         let cancelled = false;
@@ -39,16 +48,30 @@ export default function AdminLoginPage() {
         e.preventDefault();
         setLoading(true);
         setError("");
+        setInfo("");
 
         const result = await signIn("credentials", {
             email,
             password,
             loginType: "admin",
+            totp: totp || undefined,
             redirect: false,
         });
 
         if (result?.error) {
-            setError("Invalid credentials. Only admin accounts can sign in here.");
+            if (!totpRequired) {
+                const check = await preAuthCheck(email, password);
+                if (check.rateLimited) {
+                    setError("Too many attempts. Please wait a moment and try again.");
+                } else if (check.valid && check.needs2fa) {
+                    setTotpRequired(true);
+                    setInfo("Enter the 6-digit code from your authenticator app.");
+                } else {
+                    setError("Invalid credentials. Only admin accounts can sign in here.");
+                }
+            } else {
+                setError("Invalid authentication code.");
+            }
             setLoading(false);
         } else {
             window.location.href = "/admin";
@@ -75,6 +98,9 @@ export default function AdminLoginPage() {
                         <h1 className="text-lg font-semibold text-white">Platform Administration</h1>
                     </div>
 
+                    {info && (
+                        <div role="status" className="bg-slate-800 text-slate-300 p-3 rounded-lg text-sm mb-5 border border-slate-700">{info}</div>
+                    )}
                     {error && (
                         <div role="alert" className="bg-red-950/60 text-red-400 p-3 rounded-lg text-sm mb-5 border border-red-900/60">{error}</div>
                     )}
@@ -127,6 +153,25 @@ export default function AdminLoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
+                        {totpRequired && (
+                            <div>
+                                <label htmlFor="admin-login-totp" className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Authentication Code</label>
+                                <input
+                                    ref={totpInputRef}
+                                    id="admin-login-totp"
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    pattern="[0-9]*"
+                                    maxLength={6}
+                                    required
+                                    placeholder="123456"
+                                    className="w-full px-3 py-2.5 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-pulse-accent focus:border-pulse-accent outline-none text-sm font-mono tracking-widest"
+                                    value={totp}
+                                    onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                />
+                            </div>
+                        )}
                         <button
                             type="submit"
                             disabled={loading}

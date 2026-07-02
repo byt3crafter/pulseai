@@ -24,6 +24,7 @@ import { PROVIDERS } from "../../../utils/models";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../../utils/pkce";
 import { buildOpenAIAuthUrl, getCallbackUrl } from "../../../utils/openai-oauth";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+import TwoFactorCard from "../../../components/TwoFactorCard";
 
 const TABS = [
     { id: "account", label: "Account" },
@@ -229,6 +230,9 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
                     </button>
                 </form>
             </Section>
+
+            {/* Security */}
+            <TwoFactorCard variant="light" />
         </div>
     );
 }
