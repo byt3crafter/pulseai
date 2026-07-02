@@ -32,6 +32,10 @@ function marginClass(n: number): string {
     return n < 0 ? "text-pulse-loss" : "text-pulse-profit";
 }
 
+// Soft floating KPI card — subtle border, rounded, gentle hover (AI-studio style).
+const kpiCard =
+    "bg-pulse-panel border border-pulse-border-subtle rounded-xl p-4 transition-colors motion-reduce:transition-none hover:border-pulse-border";
+
 function TrendLine({ pct }: { pct: number | null }) {
     if (pct === null) {
         return <span className="text-[11px] text-pulse-faint">— vs prior period</span>;
@@ -81,9 +85,9 @@ export default async function AdminOverviewPage() {
         <div className={ui.page}>
             <PageHeader title="Platform Overview" subtitle="Live figures from the Pulse Gateway platform." />
 
-            {/* KPI strip */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-px bg-pulse-border border border-pulse-border rounded-md overflow-hidden">
-                <div className="bg-pulse-panel p-4">
+            {/* KPI strip — soft floating cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                <div className={kpiCard}>
                     <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Revenue 30D</p>
                     <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{formatUsd(kpis.revenue30d)}</p>
                     <div className="mt-1">
@@ -91,7 +95,7 @@ export default async function AdminOverviewPage() {
                     </div>
                 </div>
 
-                <div className="bg-pulse-panel p-4">
+                <div className={kpiCard}>
                     <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Margin 30D</p>
                     <p className={`text-2xl font-semibold tabular-nums mt-1.5 ${marginClass(kpis.margin30d)}`}>
                         {formatUsd(kpis.margin30d)}
@@ -99,13 +103,13 @@ export default async function AdminOverviewPage() {
                     <p className="text-[11px] text-pulse-faint mt-1">cost {formatUsd(kpis.cost30d)}</p>
                 </div>
 
-                <div className="bg-pulse-panel p-4">
+                <div className={kpiCard}>
                     <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Margin %</p>
                     <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-accent">{kpis.marginPct.toFixed(1)}%</p>
                     <p className="text-[11px] text-pulse-faint mt-1">of revenue</p>
                 </div>
 
-                <div className="bg-pulse-panel p-4">
+                <div className={kpiCard}>
                     <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Messages 24H</p>
                     <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{kpis.messages24h.toLocaleString()}</p>
                     <div className="mt-1">
@@ -113,7 +117,7 @@ export default async function AdminOverviewPage() {
                     </div>
                 </div>
 
-                <div className="bg-pulse-panel p-4">
+                <div className={kpiCard}>
                     <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Active Tenants</p>
                     <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">
                         {kpis.activeTenants}/{kpis.totalTenants}
@@ -121,7 +125,7 @@ export default async function AdminOverviewPage() {
                     <p className="text-[11px] text-pulse-faint mt-1">workspaces</p>
                 </div>
 
-                <div className="bg-pulse-panel p-4">
+                <div className={kpiCard}>
                     <p className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">Credits Out</p>
                     <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{kpis.creditsOutstanding.toLocaleString()}</p>
                     <p className="text-[11px] text-pulse-faint mt-1">outstanding balance</p>

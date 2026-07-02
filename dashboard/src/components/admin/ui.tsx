@@ -81,9 +81,9 @@ export function Panel({
 }) {
     const hasHeader = Boolean(label || meta || right);
     return (
-        <div className={`border border-pulse-border bg-pulse-panel rounded-lg overflow-hidden ${className}`}>
+        <div className={`border border-pulse-border-subtle bg-pulse-panel rounded-xl overflow-hidden ${className}`}>
             {hasHeader && (
-                <div className="px-4 py-3 border-b border-pulse-border flex items-center justify-between gap-2">
+                <div className="px-4 py-3 border-b border-pulse-border-subtle flex items-center justify-between gap-2">
                     {label && <span className="text-[11px] uppercase tracking-[0.12em] text-pulse-muted">{label}</span>}
                     {(meta || right) && (
                         <span className="text-[11px] uppercase tracking-[0.08em] text-pulse-faint flex items-center gap-2">

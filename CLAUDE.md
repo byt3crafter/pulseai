@@ -465,6 +465,48 @@ Plugin state is stored in `installedPlugins` and `tenantPluginConfigs` tables.
 
 ---
 
+## Channels & Org Model
+
+Pulse models a customer as a **company org chart of AI**. Full design + phase status:
+`docs/CHANNELS_DESIGN.md`.
+
+**Model:** Company (= tenant, one client per deployment) → **Department** → optional
+**Group/Topic**. Channels carry **name + description only** — the persona/"soul" lives on
+the **agent** (`agentProfiles`), never on the channel.
+
+**Tables** (in both schema copies; migration `0012_channels_org_model.sql`):
+- `channels` — `kind` (`department`|`group`), `parentId` tree, `leadAgentId`, `mode`
+  (`single_human`|`multi_human`).
+- `channel_agents` — `role` (`lead`|`member`), `level` rank, `respondsWhen`.
+- `channel_members` — humans + `access` (`talk`|`observe` = read-only).
+- `channel_member_agents` — per-user agent assignment (no rows = all channel agents).
+- `messages` — `channelId` / `senderType` / `senderUserId` / `senderAgentId` / `mentions`
+  (all nullable; legacy 1:1 DMs keep `channelId` NULL — **never break that path**).
+
+**Reply logic** (`pulse/src/gateway/channel-service.ts` → `resolveResponder`): a human
+posts → the channel **lead** answers & routes by default; an **@mention** addresses a
+specific agent directly. Enforces membership, `talk`/`observe`, and per-user assignment.
+The runtime honors a pre-resolved channel responder and **bypasses tenant routing rules**
+(`runtime.ts`, guarded by `inbound.channelId`).
+
+**Surfaces:** tenant UI `/dashboard/departments`; App API `GET /api/app/channels`,
+`GET /api/app/channels/:id/history`, `POST /api/app/channels/:id/messages`; desktop client
+in `desktop/`.
+
+**Shipped:** Phases 1–3 (schema + Departments UI + runtime + desktop). **Deferred, not
+abandoned** — track in the design doc:
+- **Phase 4** — cross-department routing (`route_to_channel` tool), multi-human presence,
+  a **hop budget** + per-message **agent-run cost cap** to prevent agent↔agent loops.
+- **Phase 5** — nested departments + agent ranks (the deliberately-complex hierarchy, last).
+- **Near-term refinement** — wire a channel's member agents into the lead's delegatable set
+  so "route to the proper agent" is automatic (today the lead delegates only per its own
+  `delegationConfig`).
+
+Deferral rationale: each phase is independently shippable and backward-compatible; the
+loop/hierarchy risk is isolated to Phases 4–5 so the flat model proves out first.
+
+---
+
 ## Testing
 
 ```bash

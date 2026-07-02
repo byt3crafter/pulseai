@@ -54,7 +54,7 @@ export default function AdminUsageClient({
             <PageHeader title="Usage Analytics" subtitle="Platform-wide usage metrics and cost analysis." />
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-pulse-border border border-pulse-border rounded-md overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <StatCard
                     label="Total Tokens"
                     value={formatNumber(totalInputTokens + totalOutputTokens)}
@@ -148,7 +148,7 @@ export default function AdminUsageClient({
 
 function StatCard({ label, value }: { label: string; value: string }) {
     return (
-        <div className="bg-pulse-panel p-4">
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl p-4 transition-colors motion-reduce:transition-none hover:border-pulse-border">
             <p className={ui.labelMicro}>{label}</p>
             <p className="text-2xl font-semibold tabular-nums mt-1.5 text-pulse-text">{value}</p>
         </div>
