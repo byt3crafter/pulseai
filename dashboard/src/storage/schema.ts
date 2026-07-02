@@ -10,6 +10,7 @@ import {
     integer,
     index,
     unique,
+    AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -142,11 +143,112 @@ export const messages = pgTable(
         content: text("content").notNull(),
         metadata: jsonb("metadata").default({}),
         // metadata will store things like: { tokens_used, model, tool_calls, channel_message_id }
+        // -- Channel/org fields (nullable = legacy 1:1 DM message, still works) --
+        channelId: uuid("channel_id").references(() => channels.id),
+        senderType: varchar("sender_type", { length: 10 }), // 'human' | 'agent'
+        senderUserId: uuid("sender_user_id").references(() => users.id),
+        senderAgentId: uuid("sender_agent_id").references(() => agentProfiles.id),
+        mentions: jsonb("mentions").default([]),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     },
     (table) => [
         index("idx_messages_conversation").on(table.conversationId, table.createdAt),
         index("idx_messages_tenant").on(table.tenantId, table.createdAt),
+        index("idx_messages_channel").on(table.channelId, table.createdAt),
+    ]
+);
+
+// -- Channels: the org tree. Company (= tenant) → Department → Group/Topic. --
+// Channels carry NAME + DESCRIPTION only; the "soul" (persona/prompt) lives on agents.
+export const channels = pgTable(
+    "channels",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(), // = the company
+        kind: varchar("kind", { length: 20 }).notNull().default("department"), // 'department' | 'group'
+        parentId: uuid("parent_id").references((): AnyPgColumn => channels.id),
+        name: varchar("name", { length: 255 }).notNull(),
+        description: text("description"),
+        mode: varchar("mode", { length: 20 }).notNull().default("single_human"), // 'single_human' | 'multi_human'
+        leadAgentId: uuid("lead_agent_id").references(() => agentProfiles.id),
+        settings: jsonb("settings").notNull().default({}),
+        status: varchar("status", { length: 20 }).notNull().default("active"),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_channels_tenant").on(table.tenantId),
+        index("idx_channels_parent").on(table.parentId),
+        unique("idx_unique_channel_name").on(table.tenantId, table.parentId, table.name),
+    ]
+);
+
+// -- Which agents belong to a channel, and their rank --
+export const channelAgents = pgTable(
+    "channel_agents",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        channelId: uuid("channel_id")
+            .references(() => channels.id, { onDelete: "cascade" })
+            .notNull(),
+        agentProfileId: uuid("agent_profile_id")
+            .references(() => agentProfiles.id, { onDelete: "cascade" })
+            .notNull(),
+        role: varchar("role", { length: 20 }).notNull().default("member"), // 'lead' | 'member'
+        level: integer("level").notNull().default(0),
+        respondsWhen: varchar("responds_when", { length: 20 }).notNull().default("mentioned"), // 'mentioned' | 'lead'
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_channel_agents_channel").on(table.channelId),
+        unique("idx_unique_channel_agent").on(table.channelId, table.agentProfileId),
+    ]
+);
+
+// -- Which humans belong to a channel + their access (talk vs read-only observe) --
+export const channelMembers = pgTable(
+    "channel_members",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        channelId: uuid("channel_id")
+            .references(() => channels.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        role: varchar("role", { length: 20 }).notNull().default("member"), // 'operator' | 'member'
+        access: varchar("access", { length: 20 }).notNull().default("talk"), // 'talk' | 'observe'
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_channel_members_channel").on(table.channelId),
+        unique("idx_unique_channel_member").on(table.channelId, table.userId),
+    ]
+);
+
+// -- Per-user agent assignment inside a channel. --
+// No rows for a user = they may talk to ALL channel agents (default).
+// Any rows = that user is restricted to just those agents ("own agent assigned").
+export const channelMemberAgents = pgTable(
+    "channel_member_agents",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        channelId: uuid("channel_id")
+            .references(() => channels.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        agentProfileId: uuid("agent_profile_id")
+            .references(() => agentProfiles.id, { onDelete: "cascade" })
+            .notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_channel_member_agents_lookup").on(table.channelId, table.userId),
+        unique("idx_unique_channel_member_agent").on(table.channelId, table.userId, table.agentProfileId),
     ]
 );
 
