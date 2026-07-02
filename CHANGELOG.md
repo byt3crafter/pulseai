@@ -3,6 +3,15 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.21] - 2026-07-02
+
+### Features
+- self-service change-password for admins
+
+### Documentation
+- interactive HTML test checklist + build summary for stakeholders
+- non-technical click-by-click test guide
+
 ## [0.10.20] - 2026-07-02
 
 ### Features
