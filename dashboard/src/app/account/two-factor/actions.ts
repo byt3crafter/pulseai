@@ -81,6 +81,31 @@ export async function disableTwoFactor(code: string) {
     return { success: true };
 }
 
+/** Self-service password change for the current user (any plane). */
+export async function changeMyPassword(currentPassword: string, newPassword: string) {
+    const uid = await currentUserId();
+    if (!uid) return { success: false, message: "Unauthorized" };
+    if (!newPassword || newPassword.length < 8) {
+        return { success: false, message: "New password must be at least 8 characters." };
+    }
+    try {
+        const [u] = await db.select().from(users).where(eq(users.id, uid)).limit(1);
+        if (!u) return { success: false, message: "Unauthorized" };
+        const ok = await bcrypt.compare(currentPassword, u.passwordHash);
+        if (!ok) return { success: false, message: "Current password is incorrect." };
+
+        const hash = await bcrypt.hash(newPassword, 10);
+        await db.update(users)
+            .set({ passwordHash: hash, mustChangePassword: false, updatedAt: new Date() })
+            .where(eq(users.id, uid));
+        await logAudit({ action: "user.password_change", targetType: "user", targetId: uid, summary: "Changed own password" });
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to change password:", error);
+        return { success: false, message: "Failed to change password." };
+    }
+}
+
 /**
  * Login step 1: verify email+password WITHOUT creating a session, and report
  * whether a TOTP code is required. Rate-limited per IP.
