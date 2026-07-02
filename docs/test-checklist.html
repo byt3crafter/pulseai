@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pulse AI — Test Checklist</title>
+<style>
+  :root{
+    --bg:#0a0a0b; --panel:#101012; --panel2:#141417; --border:#242429;
+    --text:#ededed; --muted:#8a8a90; --faint:#5a5a61;
+    --accent:#8b5cf6; --accent2:#a78bfa; --green:#3fb950; --red:#f0503c; --amber:#e8a23d;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.55;padding:0 0 80px}
+  .wrap{max-width:820px;margin:0 auto;padding:24px 20px}
+  header{display:flex;align-items:center;gap:12px;padding:20px 0 6px}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#4285f4,#8b5cf6,#d96570);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+  h1{font-size:22px;margin:0;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px;margin:2px 0 0}
+  .bar{position:sticky;top:0;background:rgba(10,10,11,.9);backdrop-filter:blur(8px);padding:12px 20px;border-bottom:1px solid var(--border);z-index:10}
+  .barIn{max-width:820px;margin:0 auto;display:flex;align-items:center;gap:14px}
+  .track{flex:1;height:8px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+  .pct{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);min-width:42px;text-align:right}
+  .creds{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:16px 0}
+  .creds code{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:13px}
+  .warn{border-left:3px solid var(--amber);background:rgba(232,162,61,.07)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:6px 18px 12px;margin:14px 0}
+  .card h2{font-size:15px;margin:16px 0 4px;display:flex;align-items:center;gap:9px}
+  .num{width:24px;height:24px;border-radius:7px;background:rgba(139,92,246,.15);color:var(--accent2);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+  .card p{color:var(--muted);font-size:14px;margin:6px 0 12px}
+  .step{display:flex;gap:11px;padding:9px 0;border-top:1px solid var(--border);align-items:flex-start}
+  .step:first-of-type{border-top:0}
+  .step input{appearance:none;width:20px;height:20px;border:2px solid var(--faint);border-radius:6px;margin-top:2px;cursor:pointer;flex-shrink:0;position:relative;transition:.15s}
+  .step input:checked{background:var(--green);border-color:var(--green)}
+  .step input:checked::after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#04140a;font-size:13px;font-weight:900}
+  .step label{cursor:pointer;font-size:14.5px}
+  .step .exp{display:block;color:var(--faint);font-size:13px;margin-top:2px}
+  .step.done label{color:var(--faint);text-decoration:line-through}
+  .ok{color:var(--green)} .k{color:var(--accent2);font-weight:600}
+  .done-panel{text-align:center;padding:26px;border:1px dashed var(--border);border-radius:14px;margin-top:20px;color:var(--muted)}
+  .done-panel.lit{border-color:var(--green);background:rgba(63,185,80,.06);color:var(--text)}
+  button.reset{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
+  a{color:var(--accent2)}
+</style>
+</head>
+<body>
+<div class="bar"><div class="barIn">
+  <strong style="font-size:14px">Test progress</strong>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <span class="pct" id="pct">0%</span>
+</div></div>
+
+<div class="wrap">
+<header>
+  <div class="logo">P</div>
+  <div><h1>Pulse AI — Test Checklist</h1><p class="sub">Tick each step as you go. Progress saves in this browser.</p></div>
+</header>
+
+<div class="creds">
+  <div><strong>Admin login</strong> — <a href="https://pulse.runstate.mu/admin/login" target="_blank">pulse.runstate.mu/admin/login</a></div>
+  <div style="margin-top:6px">Email <code>admin@runstate.mu</code> &nbsp; Password <code>pulseadmin2026</code></div>
+</div>
+
+<div class="card" style="border-color:#2c2550;background:linear-gradient(180deg,rgba(139,92,246,.06),transparent)">
+  <h2 style="font-size:17px"><span class="num">★</span> What we built — to explain to your customer</h2>
+  <p>A plain-language summary of everything delivered. Pulse is a multi-tenant AI-agent platform; this round made it <strong>enterprise-ready</strong>.</p>
+
+  <div style="font-size:14px">
+    <p style="color:var(--accent2);font-weight:700;margin:14px 0 4px">🛡️ Enterprise security &amp; compliance</p>
+    <ul style="margin:0 0 10px;padding-left:20px;color:var(--muted)">
+      <li><strong style="color:var(--text)">Audit log</strong> — every admin action is recorded (who did what, when, from where) and exportable to CSV. Answers the first question on any security review.</li>
+      <li><strong style="color:var(--text)">Role-based access control</strong> — granular roles (Owner / Admin / Support / Auditor for staff; Owner / Member / Viewer per workspace). People only see and do what their role allows, enforced on the server.</li>
+      <li><strong style="color:var(--text)">Single Sign-On (SSO)</strong> — staff sign in with the company's own identity provider (Okta / Microsoft / Google). IT controls access centrally; disable someone there and they lose access instantly.</li>
+      <li><strong style="color:var(--text)">Two-factor authentication (2FA)</strong> — optional per-user login codes via an authenticator app.</li>
+      <li><strong style="color:var(--text)">Signed plugin approvals</strong> — plugins must declare exactly what they can access, and an admin approves it. If a plugin update changes its powers, it's automatically disabled until re-approved (blocks supply-chain surprises).</li>
+      <li>All secrets encrypted at rest; every workspace's data isolated from every other.</li>
+    </ul>
+
+    <p style="color:var(--accent2);font-weight:700;margin:14px 0 4px">🎨 Complete admin redesign</p>
+    <ul style="margin:0 0 10px;padding-left:20px;color:var(--muted)">
+      <li>Rebuilt the entire admin console into a modern, consistent interface — a real operations command center with revenue/margin, live platform activity, workspace &amp; user management, and honest system-health.</li>
+      <li>Full <strong style="color:var(--text)">light &amp; dark mode</strong> with a one-click toggle, and one unified design system so every page looks and behaves the same.</li>
+    </ul>
+
+    <p style="color:var(--accent2);font-weight:700;margin:14px 0 4px">✉️ Accounts &amp; email</p>
+    <ul style="margin:0 0 10px;padding-left:20px;color:var(--muted)">
+      <li>Forgot-password and user-invitation emails; SMTP configured in-app (no code needed).</li>
+    </ul>
+
+    <p style="color:var(--accent2);font-weight:700;margin:14px 0 4px">⚙️ Reliability &amp; operations</p>
+    <ul style="margin:0 0 10px;padding-left:20px;color:var(--muted)">
+      <li>Fixed a production outage and added a <strong style="color:var(--text)">self-healing watchdog</strong> + auto-restart so the platform recovers on its own.</li>
+      <li>Automated database backups; a versioned release &amp; deploy process.</li>
+    </ul>
+
+    <p style="color:var(--accent2);font-weight:700;margin:14px 0 4px">🤖 Core platform (already in place, now hardened)</p>
+    <ul style="margin:0 0 4px;padding-left:20px;color:var(--muted)">
+      <li>AI agents over Telegram &amp; email, multi-provider (Anthropic / OpenAI / Google / others), credit billing with per-model cost/margin, usage analytics, conversation history, scheduling, agent memory, and a plugin system (e.g. ERPNext).</li>
+    </ul>
+
+    <p style="color:var(--faint);font-size:13px;margin-top:12px">Ready when you provide the accounts: SSO go-live (your Okta/Microsoft/Google), plus WhatsApp &amp; Slack channels and SAML/SCIM.</p>
+  </div>
+</div>
+
+<div class="card warn">
+  <h2><span class="num">0</span> Do this first (safety)</h2>
+  <div class="step"><input type="checkbox"><label>Change the admin password <span class="exp">Avatar (bottom-left) → Account settings → change it. The old one was in a deleted file.</span></label></div>
+  <div class="step"><input type="checkbox"><label>Create a backup Owner admin <span class="exp">User Management → Create User → role ADMIN + access role Owner. Your safety net before testing 2FA.</span></label></div>
+</div>
+
+<div class="card">
+  <h2><span class="num">1</span> Console & themes</h2>
+  <div class="step"><input type="checkbox"><label>Log in — you see the dark violet console + a ticking clock in the bottom bar. <span class="exp ok">✓ sidebar has Overview, Tenants, Users, Conversations, Usage, Audit Log, Settings</span></label></div>
+  <div class="step"><input type="checkbox"><label>Click the <span class="k">sun/moon</span> icon (top-right) — the whole console flips light ⇄ dark. <span class="exp ok">✓ colors flip, text stays readable</span></label></div>
+</div>
+
+<div class="card">
+  <h2><span class="num">2</span> Two-Factor (2FA)</h2>
+  <div class="step"><input type="checkbox"><label>Global Settings → Database &amp; Security → <span class="k">Enable</span> → a QR code appears</label></div>
+  <div class="step"><input type="checkbox"><label>Scan the QR with an authenticator app (Google Authenticator / Authy / 1Password)</label></div>
+  <div class="step"><input type="checkbox"><label>Enter the 6-digit code → <span class="k">Verify &amp; Enable</span> <span class="exp ok">✓ shows "two-factor is on"</span></label></div>
+  <div class="step"><input type="checkbox"><label>Sign out &amp; log back in — it now asks for the code after your password <span class="exp ok">✓ enter code → you're in</span></label></div>
+</div>
+
+<div class="card">
+  <h2><span class="num">3</span> Roles &amp; permissions</h2>
+  <div class="step"><input type="checkbox"><label>User Management → Create a test user, role ADMIN + access role <span class="k">Auditor</span> (copy the temp password)</label></div>
+  <div class="step"><input type="checkbox"><label>Open an incognito window → log in as that auditor <span class="exp ok">✓ console is read-only: no Create/Delete buttons, Save disabled, "Read-only access" notes</span></label></div>
+</div>
+
+<div class="card">
+  <h2><span class="num">4</span> Audit log</h2>
+  <div class="step"><input type="checkbox"><label>Do a few actions (create user, change a role, toggle a setting)</label></div>
+  <div class="step"><input type="checkbox"><label>Sidebar → Audit Log <span class="exp ok">✓ rows show who / what / when / IP</span></label></div>
+  <div class="step"><input type="checkbox"><label>Click <span class="k">Export CSV</span> → a spreadsheet downloads</label></div>
+</div>
+
+<div class="card">
+  <h2><span class="num">5</span> Email (SMTP)</h2>
+  <div class="step"><input type="checkbox"><label>Global Settings → Email (SMTP) → enter host/port/user/password/from → Enable → Save</label></div>
+  <div class="step"><input type="checkbox"><label>Put your email in "Send test" → <span class="k">Send test</span> <span class="exp ok">✓ arrives in your inbox</span></label></div>
+</div>
+
+<div class="card">
+  <h2><span class="num">6</span> Plugins &amp; the rest</h2>
+  <div class="step"><input type="checkbox"><label>Global Settings → Plugins <span class="exp ok">✓ ERPNext shows an "Approved" badge + declared permissions</span></label></div>
+  <div class="step"><input type="checkbox"><label>Tenant Management → the ⋮ menu on a row opens cleanly (Suspend/Delete). Don't delete a real one.</label></div>
+  <div class="step"><input type="checkbox"><label>Usage Analytics &amp; Conversations pages load</label></div>
+</div>
+
+<div class="done-panel" id="donePanel">
+  Finish all the steps above, then message me: <strong>"testing done"</strong> — plus a screenshot of anything that looked off.
+</div>
+
+<div style="margin-top:18px;display:flex;justify-content:flex-end">
+  <button class="reset" onclick="if(confirm('Clear all checkmarks?')){localStorage.removeItem(KEY);document.querySelectorAll('.step input').forEach(c=>c.checked=false);update();}">Reset checklist</button>
+</div>
+</div>
+
+<script>
+const KEY="pulse-test-checklist-v1";
+const boxes=[...document.querySelectorAll('.step input')];
+boxes.forEach((b,i)=>{b.dataset.i=i;b.addEventListener('change',()=>{save();update();});});
+function save(){localStorage.setItem(KEY,JSON.stringify(boxes.map(b=>b.checked)));}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||"[]");s.forEach((v,i)=>{if(boxes[i])boxes[i].checked=v;});}catch(e){}}
+function update(){
+  const done=boxes.filter(b=>b.checked).length, total=boxes.length, pct=Math.round(done/total*100);
+  document.getElementById('fill').style.width=pct+'%';
+  document.getElementById('pct').textContent=pct+'%';
+  boxes.forEach(b=>b.closest('.step').classList.toggle('done',b.checked));
+  document.getElementById('donePanel').classList.toggle('lit',done===total);
+  if(done===total)document.getElementById('donePanel').innerHTML='🎉 <strong>All tests passed!</strong> Message me <strong>"testing done"</strong> and I\'ll move on to the next steps.';
+}
+load();update();
+</script>
+</body>
+</html>
