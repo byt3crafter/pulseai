@@ -2,8 +2,11 @@ export interface InboundMessage {
   id: string; // the internal ID for this normalized message
   tenantId: string; // Which business does this belong to
   agentProfileId?: string; // The specific virtual employee/persona handling this
-  channelType: "telegram" | "whatsapp" | "webchat" | "api" | "heartbeat";
+  channelType: "telegram" | "whatsapp" | "webchat" | "api" | "heartbeat" | "webapp" | "channel";
   channelContactId: string;  // Telegram user ID (DM) or group chat ID (group)
+  // Org-channel context (Company→Dept→Group). When set, the message belongs to a
+  // shared channel thread and agentProfileId is the pre-resolved responder (lead or @mentioned).
+  channelId?: string;
   contactName?: string;
   content: string;
   mediaUrl?: string;
