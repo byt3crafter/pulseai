@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.20] - 2026-07-02
+
+### Features
+- signed manifests + capability approval (enterprise Tier 0)
+
 ## [0.10.19] - 2026-07-02
 
 ### Features
