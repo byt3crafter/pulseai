@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function AdminLoginPage() {
@@ -9,6 +9,31 @@ export default function AdminLoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [ssoEnabled, setSsoEnabled] = useState(false);
+    const [ssoName, setSsoName] = useState("SSO");
+    const [ssoLoading, setSsoLoading] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/sso-status")
+            .then((res) => res.json())
+            .then((data) => {
+                if (cancelled) return;
+                setSsoEnabled(!!data?.enabled);
+                setSsoName(data?.name || "SSO");
+            })
+            .catch(() => {
+                /* SSO status unavailable — keep default (hidden) */
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const handleSsoSignIn = () => {
+        setSsoLoading(true);
+        signIn("sso", { callbackUrl: "/admin" });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -52,6 +77,24 @@ export default function AdminLoginPage() {
 
                     {error && (
                         <div role="alert" className="bg-red-950/60 text-red-400 p-3 rounded-lg text-sm mb-5 border border-red-900/60">{error}</div>
+                    )}
+
+                    {ssoEnabled && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={handleSsoSignIn}
+                                disabled={ssoLoading}
+                                className="w-full flex items-center justify-center gap-2 border border-slate-700 hover:bg-slate-800 text-slate-200 font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                            >
+                                {ssoLoading ? "Redirecting…" : `Sign in with ${ssoName}`}
+                            </button>
+                            <div className="flex items-center gap-3 my-5">
+                                <span className="h-px flex-1 bg-slate-800" aria-hidden="true" />
+                                <span className="text-xs text-slate-600">or</span>
+                                <span className="h-px flex-1 bg-slate-800" aria-hidden="true" />
+                            </div>
+                        </>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">

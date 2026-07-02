@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import SaveButton from "../../../components/SaveButton";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { ui, PageHeader, Panel, Badge, StatusDot } from "../../../components/admin/ui";
+import { PLATFORM_ROLES, TENANT_ROLES, ROLE_LABELS } from "../../../utils/permissions";
 import {
     saveGlobalSettingsAction,
     saveMemorySettingsAction,
@@ -19,7 +20,9 @@ import {
     testProviderKeyAction,
     saveEmailSettingsAction,
     testEmailSettingsAction,
+    saveSsoSettingsAction,
     type EmailSettingsView,
+    type SsoSettingsView,
 } from "./actions";
 import { BUILTIN_SKILLS } from "../../../utils/skills-registry";
 import {
@@ -33,6 +36,7 @@ const TABS = [
     { id: "model-pricing", label: "Model Pricing" },
     { id: "system", label: "System Services" },
     { id: "email", label: "Email (SMTP)" },
+    { id: "sso", label: "SSO (OIDC)" },
     { id: "exec-safety", label: "Exec Safety" },
     { id: "memory", label: "Memory" },
     { id: "sandbox", label: "Sandbox" },
@@ -55,6 +59,7 @@ interface Props {
     modelPricing: ModelPricingEntry[];
     providerStatuses: Array<{ provider: string; hasKey: boolean }>;
     emailSettings: EmailSettingsView | null;
+    ssoSettings: SsoSettingsView | null;
     canWrite: boolean;
     canBilling: boolean;
 }
@@ -140,6 +145,7 @@ export default function AdminSettingsClient({
     modelPricing,
     providerStatuses,
     emailSettings,
+    ssoSettings,
     canWrite,
     canBilling,
 }: Props) {
@@ -190,6 +196,7 @@ export default function AdminSettingsClient({
                     {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} canWrite={canWrite} />}
                     {tab === "system" && <SystemTab settings={settings} canWrite={canWrite} />}
                     {tab === "email" && <EmailTab settings={emailSettings} canWrite={canWrite} />}
+                    {tab === "sso" && <SsoTab settings={ssoSettings} canWrite={canWrite} />}
                     {tab === "exec-safety" && (
                         <ExecSafetyTab execSafety={execSafety} auditLogs={auditLogs} policyRules={policyRules} />
                     )}
@@ -464,6 +471,211 @@ function EmailTab({ settings, canWrite }: { settings: EmailSettingsView | null; 
                         </button>
                     </div>
                     <p className="text-[11px] text-pulse-faint mt-1.5">Uses the values above (saving first is not required).</p>
+                </div>
+
+                {message && <InlineMessage variant={message.type === "success" ? "success" : "danger"} text={message.text} />}
+            </fieldset>
+        </Panel>
+    );
+}
+
+/* ─── SSO (OIDC) Tab ──────────────────────────────────────────── */
+function SsoTab({ settings, canWrite }: { settings: SsoSettingsView | null; canWrite: boolean }) {
+    const s = settings ?? {
+        enabled: false, name: "SSO", issuer: "", clientId: "", hasSecret: false,
+        allowedDomains: "", groupClaim: "groups", groupRoleMap: {} as Record<string, string>,
+        defaultRole: "auditor", plane: "platform" as const, tenantId: null,
+    };
+
+    const [enabled, setEnabled] = useState(s.enabled);
+    const [name, setName] = useState(s.name);
+    const [issuer, setIssuer] = useState(s.issuer);
+    const [clientId, setClientId] = useState(s.clientId);
+    const [clientSecret, setClientSecret] = useState("");
+    const [allowedDomains, setAllowedDomains] = useState(s.allowedDomains);
+    const [groupClaim, setGroupClaim] = useState(s.groupClaim);
+    const [groupRoleMap, setGroupRoleMap] = useState(
+        Object.entries(s.groupRoleMap).map(([g, r]) => `${g}=${r}`).join("\n")
+    );
+    const [defaultRole, setDefaultRole] = useState(s.defaultRole);
+    const [plane, setPlane] = useState<"platform" | "tenant">(s.plane);
+    const [tenantId, setTenantId] = useState(s.tenantId || "");
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [redirectUrl, setRedirectUrl] = useState("");
+    const [copied, setCopied] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            setRedirectUrl(`${window.location.origin}/api/auth/callback/sso`);
+        }
+    }, []);
+
+    const roleOptions = plane === "tenant" ? TENANT_ROLES : PLATFORM_ROLES;
+
+    const handleCopy = async () => {
+        if (!redirectUrl) return;
+        try {
+            await navigator.clipboard.writeText(redirectUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            /* clipboard unavailable — ignore */
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        setMessage(null);
+        const fd = new FormData();
+        if (enabled) fd.set("enabled", "on");
+        fd.set("name", name);
+        fd.set("issuer", issuer);
+        fd.set("clientId", clientId);
+        if (clientSecret) fd.set("clientSecret", clientSecret);
+        fd.set("allowedDomains", allowedDomains);
+        fd.set("groupClaim", groupClaim);
+        fd.set("groupRoleMap", groupRoleMap);
+        fd.set("defaultRole", defaultRole);
+        fd.set("plane", plane);
+        fd.set("tenantId", tenantId);
+        const result = await saveSsoSettingsAction(fd);
+        setSaving(false);
+        setMessage(result.success
+            ? { type: "success", text: result.message || "Saved" }
+            : { type: "error", text: result.message || "Failed to save" });
+        if (result.success) setClientSecret("");
+    };
+
+    return (
+        <Panel label="SSO (OIDC)">
+            <p className="text-[13px] text-pulse-muted mb-4">
+                Let users sign in via an external identity provider. Existing email/password login is unaffected unless you enable this.
+            </p>
+
+            <div className="mb-4 rounded-md border border-pulse-border bg-pulse-panel-alt px-3.5 py-3">
+                <p className="text-[11px] uppercase tracking-[0.1em] text-pulse-muted mb-1.5">Redirect / callback URL</p>
+                <div className="flex items-center gap-2">
+                    <code className="flex-1 text-[13px] text-pulse-text font-mono break-all">{redirectUrl || "…"}</code>
+                    <button
+                        type="button"
+                        onClick={handleCopy}
+                        disabled={!redirectUrl}
+                        className={`${ui.btnSecondary} whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                        {copied ? "Copied" : "Copy"}
+                    </button>
+                </div>
+                <p className="text-[11px] text-pulse-faint mt-1.5">
+                    Configure this in your identity provider (Okta, Entra ID, Google, Auth0).
+                </p>
+            </div>
+
+            {!canWrite && (
+                <div className="mb-4">
+                    <InlineMessage variant="accent" text="Read-only access — you do not have permission to modify SSO settings." />
+                </div>
+            )}
+
+            <fieldset disabled={!canWrite} className="space-y-4 border-0 p-0 m-0 min-w-0">
+                <Toggle
+                    checked={enabled}
+                    onChange={setEnabled}
+                    label="Enable SSO"
+                    description="Shows a 'Sign in with…' button on the login pages."
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className={ui.label}>Display name</label>
+                        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Okta" className={ui.input} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className={ui.label}>Issuer URL</label>
+                        <input
+                            value={issuer}
+                            onChange={(e) => setIssuer(e.target.value)}
+                            placeholder="https://your-org.okta.com"
+                            className={ui.input}
+                        />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className={ui.label}>Client ID</label>
+                        <input value={clientId} onChange={(e) => setClientId(e.target.value)} className={ui.input} autoComplete="off" />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className={ui.label}>Client Secret</label>
+                        <input
+                            type="password"
+                            value={clientSecret}
+                            onChange={(e) => setClientSecret(e.target.value)}
+                            placeholder={s.hasSecret ? "•••• (enter to replace)" : "Client secret"}
+                            className={ui.input}
+                            autoComplete="new-password"
+                        />
+                    </div>
+                    <div className="col-span-2">
+                        <label className={ui.label}>
+                            Allowed email domains <span className="text-pulse-faint font-normal">(optional, comma-separated)</span>
+                        </label>
+                        <input
+                            value={allowedDomains}
+                            onChange={(e) => setAllowedDomains(e.target.value)}
+                            placeholder="acme.com, acme.io"
+                            className={ui.input}
+                        />
+                        <p className="text-[11px] text-pulse-faint mt-1">Leave blank to allow any email domain.</p>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className={ui.label}>Group claim</label>
+                        <input value={groupClaim} onChange={(e) => setGroupClaim(e.target.value)} placeholder="groups" className={ui.input} />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className={ui.label}>Plane</label>
+                        <select value={plane} onChange={(e) => setPlane(e.target.value as "platform" | "tenant")} className={ui.input}>
+                            <option value="platform">Platform (admin)</option>
+                            <option value="tenant">Tenant</option>
+                        </select>
+                    </div>
+                    {plane === "tenant" && (
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className={ui.label}>Tenant ID</label>
+                            <input
+                                value={tenantId}
+                                onChange={(e) => setTenantId(e.target.value)}
+                                placeholder="Tenant UUID"
+                                className={`${ui.input} font-mono`}
+                            />
+                        </div>
+                    )}
+                    <div className="col-span-2 sm:col-span-1">
+                        <label className={ui.label}>Default role</label>
+                        <select value={defaultRole} onChange={(e) => setDefaultRole(e.target.value)} className={ui.input}>
+                            {roleOptions.map((r) => (
+                                <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+                            ))}
+                        </select>
+                        <p className="text-[11px] text-pulse-faint mt-1">Assigned when a user&apos;s groups match nothing below.</p>
+                    </div>
+                    <div className="col-span-2">
+                        <label className={ui.label}>Group → role map</label>
+                        <textarea
+                            value={groupRoleMap}
+                            onChange={(e) => setGroupRoleMap(e.target.value)}
+                            rows={4}
+                            placeholder={"One per line, e.g.:\nengineering=owner\nsupport-team=support"}
+                            className={`${ui.input} font-mono`}
+                        />
+                        <p className="text-[11px] text-pulse-faint mt-1">
+                            Valid roles: {roleOptions.map((r) => ROLE_LABELS[r] || r).join(", ")}.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                    <button type="button" onClick={handleSave} disabled={saving} className={ui.btnPrimary}>
+                        {saving ? "Saving…" : "Save settings"}
+                    </button>
                 </div>
 
                 {message && <InlineMessage variant={message.type === "success" ? "success" : "danger"} text={message.text} />}

@@ -15,6 +15,31 @@ function LoginForm() {
     const [error, setError] = useState("");
     const [info, setInfo] = useState(message || "");
     const [loading, setLoading] = useState(false);
+    const [ssoEnabled, setSsoEnabled] = useState(false);
+    const [ssoName, setSsoName] = useState("SSO");
+    const [ssoLoading, setSsoLoading] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/sso-status")
+            .then((res) => res.json())
+            .then((data) => {
+                if (cancelled) return;
+                setSsoEnabled(!!data?.enabled);
+                setSsoName(data?.name || "SSO");
+            })
+            .catch(() => {
+                /* SSO status unavailable — keep default (hidden) */
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const handleSsoSignIn = () => {
+        setSsoLoading(true);
+        signIn("sso", { callbackUrl: "/dashboard" });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -80,6 +105,24 @@ function LoginForm() {
                     )}
                     {error && (
                         <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 border border-red-100">{error}</div>
+                    )}
+
+                    {ssoEnabled && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={handleSsoSignIn}
+                                disabled={ssoLoading}
+                                className="w-full flex items-center justify-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                            >
+                                {ssoLoading ? "Redirecting…" : `Sign in with ${ssoName}`}
+                            </button>
+                            <div className="flex items-center gap-3 my-5">
+                                <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+                                <span className="text-xs text-slate-400">or</span>
+                                <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+                            </div>
+                        </>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-5">
