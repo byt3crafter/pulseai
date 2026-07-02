@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { encrypt, decrypt } from "../../../utils/crypto";
-import { generateTotpSecret, totpQrDataUrl, verifyTotp } from "../../../utils/totp";
+import { generateTotpSecret, totpQrDataUrl, verifyTotp, generateBackupCodes, hashBackupCode, checkSecondFactor } from "../../../utils/totp";
 import { logAudit } from "../../../utils/audit";
 import { isRateLimited } from "../../../utils/rate-limit";
 
@@ -18,9 +18,16 @@ async function currentUserId(): Promise<string | null> {
 
 export async function getTwoFactorStatus() {
     const uid = await currentUserId();
-    if (!uid) return { enabled: false };
-    const [u] = await db.select({ e: users.twoFactorEnabled }).from(users).where(eq(users.id, uid)).limit(1);
-    return { enabled: !!u?.e };
+    if (!uid) return { enabled: false, backupCodesRemaining: 0 };
+    const [u] = await db
+        .select({ e: users.twoFactorEnabled, codes: users.twoFactorBackupCodes })
+        .from(users)
+        .where(eq(users.id, uid))
+        .limit(1);
+    return {
+        enabled: !!u?.e,
+        backupCodesRemaining: Array.isArray(u?.codes) ? (u!.codes as string[]).length : 0,
+    };
 }
 
 /** Generate a fresh secret, store it (encrypted, not yet enabled), return QR + secret. */
@@ -54,9 +61,32 @@ export async function confirmTwoFactor(code: string) {
     }
     if (!verifyTotp(secret, code)) return { success: false, message: "Invalid code. Try again." };
 
-    await db.update(users).set({ twoFactorEnabled: true, updatedAt: new Date() }).where(eq(users.id, uid));
+    // Generate one-time recovery codes; store hashes, return plaintext once.
+    const backupCodes = generateBackupCodes(10);
+    await db.update(users)
+        .set({
+            twoFactorEnabled: true,
+            twoFactorBackupCodes: backupCodes.map(hashBackupCode),
+            updatedAt: new Date(),
+        })
+        .where(eq(users.id, uid));
     await logAudit({ action: "user.2fa.enable", targetType: "user", targetId: uid, summary: "Enabled two-factor auth" });
-    return { success: true };
+    return { success: true, backupCodes };
+}
+
+/** Generate a fresh set of recovery codes (invalidates the old set). Returns plaintext once. */
+export async function regenerateBackupCodes() {
+    const uid = await currentUserId();
+    if (!uid) return { success: false, message: "Unauthorized" };
+    const [u] = await db.select({ e: users.twoFactorEnabled }).from(users).where(eq(users.id, uid)).limit(1);
+    if (!u?.e) return { success: false, message: "2FA is not enabled." };
+
+    const backupCodes = generateBackupCodes(10);
+    await db.update(users)
+        .set({ twoFactorBackupCodes: backupCodes.map(hashBackupCode), updatedAt: new Date() })
+        .where(eq(users.id, uid));
+    await logAudit({ action: "user.2fa.backup_regenerate", targetType: "user", targetId: uid, summary: "Regenerated 2FA recovery codes" });
+    return { success: true, backupCodes };
 }
 
 /** Disable 2FA after confirming a current code. */
@@ -66,16 +96,18 @@ export async function disableTwoFactor(code: string) {
     const [u] = await db.select().from(users).where(eq(users.id, uid)).limit(1);
     if (!u?.twoFactorEnabled || !u.twoFactorSecret) return { success: false, message: "2FA is not enabled." };
 
-    let secret = "";
+    let secret: string | null = null;
     try {
         secret = decrypt(u.twoFactorSecret);
     } catch {
-        secret = "";
+        secret = null;
     }
-    if (!secret || !verifyTotp(secret, code)) return { success: false, message: "Invalid code." };
+    const backup = Array.isArray(u.twoFactorBackupCodes) ? (u.twoFactorBackupCodes as string[]) : [];
+    const check = checkSecondFactor(secret, backup, code);
+    if (!check.ok) return { success: false, message: "Invalid code or recovery code." };
 
     await db.update(users)
-        .set({ twoFactorEnabled: false, twoFactorSecret: null, updatedAt: new Date() })
+        .set({ twoFactorEnabled: false, twoFactorSecret: null, twoFactorBackupCodes: [], updatedAt: new Date() })
         .where(eq(users.id, uid));
     await logAudit({ action: "user.2fa.disable", targetType: "user", targetId: uid, summary: "Disabled two-factor auth" });
     return { success: true };
