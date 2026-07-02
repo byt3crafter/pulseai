@@ -6,8 +6,10 @@ const state = {
     server: localStorage.getItem("pulse.server") || DEFAULT_SERVER,
     token: localStorage.getItem("pulse.token") || "",
     user: JSON.parse(localStorage.getItem("pulse.user") || "null"),
+    channels: [],
     agents: [],
-    activeAgentId: null,
+    // active = { type: 'channel'|'agent', id, name, access, agents:[{agentProfileId,name}] }
+    active: null,
 };
 
 $("ver").textContent = window.pulse ? "v" + window.pulse.version : "";
@@ -16,9 +18,7 @@ function api(path, { method = "GET", body, auth = true } = {}) {
     const headers = { "Content-Type": "application/json" };
     if (auth && state.token) headers["Authorization"] = "Bearer " + state.token;
     return fetch(state.server.replace(/\/$/, "") + path, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
+        method, headers, body: body ? JSON.stringify(body) : undefined,
     });
 }
 
@@ -47,7 +47,7 @@ async function doLogin() {
         localStorage.setItem("pulse.token", state.token);
         localStorage.setItem("pulse.user", JSON.stringify(state.user));
         enterApp();
-    } catch (e) {
+    } catch {
         showLoginErr("Can't reach the server. Check the gateway URL in Server settings.");
     } finally {
         $("signin").disabled = false; $("signin").textContent = "Sign in";
@@ -61,68 +61,163 @@ $("signin").onclick = doLogin;
 async function enterApp() {
     $("login").hidden = true; $("app").hidden = false;
     $("userName").textContent = state.user?.name || state.user?.email || "You";
-    await loadAgents();
-    await loadHistory();
+    await Promise.all([loadChannels(), loadAgents()]);
+    renderSidebar();
+    // Prefer a channel; fall back to a direct agent.
+    if (state.channels.length) selectChannel(state.channels[0]);
+    else if (state.agents.length) selectAgent(state.agents[0]);
+    else emptyState();
 }
 
+async function loadChannels() {
+    try {
+        const res = await api("/api/app/channels");
+        if (res.status === 401) return logout();
+        const { channels } = await res.json();
+        state.channels = channels || [];
+    } catch { state.channels = []; }
+}
 async function loadAgents() {
     try {
         const res = await api("/api/app/agents");
         if (res.status === 401) return logout();
         const { agents } = await res.json();
         state.agents = agents || [];
-        state.activeAgentId = state.agents[0]?.id || null;
-        renderAgents();
-    } catch {}
-}
-function renderAgents() {
-    const list = $("agentList"); list.innerHTML = "";
-    if (!state.agents.length) { list.innerHTML = '<div style="color:var(--faint);font-size:13px;padding:8px">No agents yet</div>'; return; }
-    state.agents.forEach((a) => {
-        const b = document.createElement("button");
-        b.className = "agent-item" + (a.id === state.activeAgentId ? " active" : "");
-        b.textContent = a.name;
-        b.onclick = () => { state.activeAgentId = a.id; $("activeAgent").textContent = a.name; renderAgents(); };
-        list.appendChild(b);
-    });
-    const active = state.agents.find((a) => a.id === state.activeAgentId);
-    if (active) $("activeAgent").textContent = active.name;
+    } catch { state.agents = []; }
 }
 
-async function loadHistory() {
+function renderSidebar() {
+    // Channels (departments, groups indented under them)
+    const cl = $("channelList"); cl.innerHTML = "";
+    const depts = state.channels.filter((c) => c.kind === "department");
+    const groupsOf = (id) => state.channels.filter((c) => c.kind === "group" && c.parentId === id);
+    depts.forEach((d) => {
+        cl.appendChild(channelButton(d, false));
+        groupsOf(d.id).forEach((g) => cl.appendChild(channelButton(g, true)));
+    });
+    // Orphan groups (parent not visible to this user)
+    state.channels.filter((c) => c.kind === "group" && !depts.some((d) => d.id === c.parentId))
+        .forEach((g) => cl.appendChild(channelButton(g, true)));
+    $("channelSection").hidden = state.channels.length === 0;
+
+    // Direct agents
+    const al = $("agentList"); al.innerHTML = "";
+    state.agents.forEach((a) => {
+        const b = document.createElement("button");
+        b.className = "agent-item" + (state.active?.type === "agent" && state.active.id === a.id ? " active" : "");
+        b.textContent = a.name;
+        b.onclick = () => selectAgent(a);
+        al.appendChild(b);
+    });
+    $("agentSection").hidden = state.agents.length === 0;
+}
+
+function channelButton(c, indent) {
+    const b = document.createElement("button");
+    b.className = "agent-item" + (indent ? " indent" : "")
+        + (state.active?.type === "channel" && state.active.id === c.id ? " active" : "");
+    b.innerHTML = `<span class="ch-hash">${indent ? "•" : "#"}</span>${escapeHtml(c.name)}`
+        + (c.access === "observe" ? `<span class="ro-tag">read-only</span>` : "");
+    b.onclick = () => selectChannel(c);
+    return b;
+}
+
+function emptyState() {
+    $("activeAgent").textContent = "Nothing here yet";
+    $("headSub").textContent = "";
+    $("messages").innerHTML = '<div class="empty">You are not in any department yet, and no agents are available. Ask your operator to add you.</div>';
+    setComposer(false);
+}
+
+// ── Selecting a channel ──
+async function selectChannel(c) {
+    state.active = { type: "channel", id: c.id, name: c.name, access: c.access, agents: [] };
+    renderSidebar();
+    $("activeAgent").textContent = (c.kind === "group" ? "• " : "# ") + c.name;
+    $("headSub").textContent = "Loading…";
+    $("messages").innerHTML = "";
+    try {
+        const res = await api(`/api/app/channels/${c.id}/history`);
+        if (res.status === 401) return logout();
+        const data = await res.json();
+        state.active.agents = data.agents || [];
+        state.active.access = data.access || c.access;
+        $("headSub").textContent = (state.active.agents.map((a) => a.name).join(", ")) || "No agents";
+        (data.messages || []).forEach((m) => {
+            if (m.role === "user") addMsg("user", m.content);
+            else addMsg("assistant", m.content, agentNameById(m.senderAgentId));
+        });
+        setComposer(state.active.access !== "observe");
+        scrollDown();
+    } catch {
+        $("headSub").textContent = "";
+        setComposer(false);
+    }
+}
+function agentNameById(id) {
+    return state.active?.agents?.find((a) => a.agentProfileId === id)?.name || null;
+}
+
+// ── Selecting a direct agent (legacy 1:1) ──
+async function selectAgent(a) {
+    state.active = { type: "agent", id: a.id, name: a.name, access: "talk", agents: [a] };
+    renderSidebar();
+    $("activeAgent").textContent = a.name;
+    $("headSub").textContent = "Direct message";
+    $("messages").innerHTML = "";
     try {
         const res = await api("/api/app/history");
         if (res.status === 401) return logout();
         const { messages } = await res.json();
-        $("messages").innerHTML = "";
         (messages || []).forEach((m) => addMsg(m.role === "user" ? "user" : "assistant", m.content));
         scrollDown();
     } catch {}
+    setComposer(true);
 }
 
-function addMsg(role, content) {
-    const d = document.createElement("div");
-    d.className = "msg " + role;
-    d.textContent = content;
-    $("messages").appendChild(d);
-    return d;
+function setComposer(canTalk) {
+    $("composer").hidden = !canTalk;
+    $("readonlyBar").hidden = canTalk;
+}
+
+// ── Messages ──
+function addMsg(role, content, senderName) {
+    const wrap = document.createElement("div");
+    wrap.className = "msg " + role;
+    if (senderName && role === "assistant") {
+        const label = document.createElement("div");
+        label.className = "msg-sender";
+        label.textContent = senderName;
+        wrap.appendChild(label);
+    }
+    const body = document.createElement("div");
+    body.textContent = content;
+    wrap.appendChild(body);
+    $("messages").appendChild(wrap);
+    return wrap;
 }
 function scrollDown() { const m = $("messages"); m.scrollTop = m.scrollHeight; }
 
 $("composer").addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = $("input").value.trim();
-    if (!text) return;
+    if (!text || !state.active) return;
     $("input").value = ""; $("input").style.height = "auto";
     addMsg("user", text); scrollDown();
     const typing = addMsg("assistant typing", "…"); scrollDown();
     $("send").disabled = true;
     try {
-        const res = await api("/api/app/chat", { method: "POST", body: { content: text, agentProfileId: state.activeAgentId || undefined } });
+        let res, data;
+        if (state.active.type === "channel") {
+            res = await api(`/api/app/channels/${state.active.id}/messages`, { method: "POST", body: { content: text } });
+        } else {
+            res = await api("/api/app/chat", { method: "POST", body: { content: text, agentProfileId: state.active.id } });
+        }
         if (res.status === 401) return logout();
-        const data = await res.json();
+        data = await res.json();
         typing.remove();
-        addMsg("assistant", data.reply || data.error || "(no response)");
+        if (!res.ok) { addMsg("assistant", data.error || "Something went wrong."); }
+        else addMsg("assistant", data.reply || "(no response)", state.active.type === "channel" ? data.agent?.name : null);
     } catch {
         typing.remove();
         addMsg("assistant", "Couldn't reach the server.");
@@ -133,9 +228,11 @@ $("composer").addEventListener("submit", async (e) => {
 $("input").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; });
 $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("composer").requestSubmit(); } });
 
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
 function logout() {
     localStorage.removeItem("pulse.token"); localStorage.removeItem("pulse.user");
-    state.token = ""; state.user = null;
+    state.token = ""; state.user = null; state.active = null;
     $("app").hidden = true; $("login").hidden = false;
 }
 $("logout").onclick = logout;
