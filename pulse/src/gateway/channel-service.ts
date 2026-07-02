@@ -96,6 +96,47 @@ export async function getChannelContext(
     };
 }
 
+export type Teammate = { id: string; name: string; specialization: string; modelId: string };
+
+/**
+ * If `agentProfileId` is the LEAD of the channel, return its teammates (the other
+ * agents in the channel) so the lead can route work to them. Returns [] if the agent
+ * is not the lead or the channel has no other agents.
+ */
+export async function getChannelLeadTeammates(channelId: string, agentProfileId: string): Promise<Teammate[]> {
+    const [channel] = await db.select({ id: channels.id, name: channels.name, leadAgentId: channels.leadAgentId })
+        .from(channels).where(eq(channels.id, channelId)).limit(1);
+    if (!channel) return [];
+
+    const rows = await db
+        .select({
+            id: channelAgents.agentProfileId,
+            role: channelAgents.role,
+            level: channelAgents.level,
+            name: agentProfiles.name,
+            modelId: agentProfiles.modelId,
+            delegationConfig: agentProfiles.delegationConfig,
+        })
+        .from(channelAgents)
+        .innerJoin(agentProfiles, eq(channelAgents.agentProfileId, agentProfiles.id))
+        .where(eq(channelAgents.channelId, channelId));
+
+    // Is this agent the lead? (explicit leadAgentId, else a row with role 'lead')
+    const isLead = channel.leadAgentId
+        ? channel.leadAgentId === agentProfileId
+        : rows.some((r) => r.id === agentProfileId && r.role === "lead");
+    if (!isLead) return [];
+
+    return rows
+        .filter((r) => r.id !== agentProfileId)
+        .map((r) => ({
+            id: r.id,
+            name: r.name,
+            modelId: r.modelId || "claude-sonnet-4-20250514",
+            specialization: (r.delegationConfig as any)?.specialization || `${r.name} — ${channel.name} team`,
+        }));
+}
+
 /** Extract @mention tokens from message text (letters, digits, _, -). */
 export function parseMentions(text: string): string[] {
     const out: string[] = [];

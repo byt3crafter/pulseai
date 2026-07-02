@@ -17,6 +17,24 @@ export function setDelegationRuntime(runtime: any) {
     runtimeRef = runtime;
 }
 
+// ── Safety cap: bound total delegations per root conversation in a short window ──
+// Prevents agent↔agent routing loops (e.g. lead → member → lead) and runaway cost.
+const MAX_DELEGATIONS_PER_WINDOW = 8;
+const DELEGATION_WINDOW_MS = 60_000;
+const delegationCounters = new Map<string, { count: number; resetAt: number }>();
+
+function bumpDelegationCounter(conversationId: string): boolean {
+    const now = Date.now();
+    const entry = delegationCounters.get(conversationId);
+    if (!entry || now >= entry.resetAt) {
+        delegationCounters.set(conversationId, { count: 1, resetAt: now + DELEGATION_WINDOW_MS });
+        return true;
+    }
+    if (entry.count >= MAX_DELEGATIONS_PER_WINDOW) return false;
+    entry.count += 1;
+    return true;
+}
+
 export interface DelegationResult {
     success: boolean;
     result: string;
@@ -37,6 +55,12 @@ export async function delegateTask(
     currentDepth: number = 0
 ): Promise<DelegationResult> {
     const log = logger.child({ sourceAgentId, targetAgentId, tenantId });
+
+    // 0. Safety cap — prevent routing loops / runaway cost within one conversation
+    if (!bumpDelegationCounter(parentConversationId)) {
+        log.warn({ parentConversationId }, "Delegation cap reached for conversation");
+        return { success: false, result: "Delegation limit reached for this conversation. Please answer directly.", tokensUsed: 0, delegationId: "" };
+    }
 
     // 1. Validate delegation
     const check = await canDelegateTo(sourceAgentId, targetAgentId);
