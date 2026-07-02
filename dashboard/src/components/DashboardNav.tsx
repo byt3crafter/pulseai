@@ -11,12 +11,14 @@ import {
     Cog6ToothIcon,
     ShieldCheckIcon,
     ArrowsRightLeftIcon,
+    BuildingOffice2Icon,
 } from "@heroicons/react/24/outline";
 
 const links = [
     { href: "/dashboard", label: "Overview", icon: HomeIcon, exact: true },
     { href: "/dashboard/agents", label: "Agent Profiles", icon: CpuChipIcon, exact: false, exclude: "/dashboard/agents/routing" },
     { href: "/dashboard/agents/routing", label: "Routing", icon: ArrowsRightLeftIcon, exact: false },
+    { href: "/dashboard/departments", label: "Departments", icon: BuildingOffice2Icon, exact: false },
     { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },
     { href: "/dashboard/mcp", label: "MCP Servers", icon: ServerStackIcon, exact: false },
     { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, exact: false },
