@@ -7,6 +7,7 @@ import SaveButton from "../../../components/SaveButton";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { ui, PageHeader, Panel, Badge, StatusDot } from "../../../components/admin/ui";
 import TwoFactorCard from "../../../components/TwoFactorCard";
+import ChangePasswordCard from "../../../components/ChangePasswordCard";
 import { PLATFORM_ROLES, TENANT_ROLES, ROLE_LABELS } from "../../../utils/permissions";
 import {
     saveGlobalSettingsAction,
@@ -1454,7 +1455,10 @@ function DatabaseTab() {
     return (
         <div className="space-y-5">
             <Panel label="My Account Security">
-                <TwoFactorCard variant="pulse" />
+                <div className="space-y-4">
+                    <ChangePasswordCard variant="pulse" />
+                    <TwoFactorCard variant="pulse" />
+                </div>
             </Panel>
             <Panel label="PostgreSQL Connection">
                 <label className={ui.label}>DATABASE_URL</label>
