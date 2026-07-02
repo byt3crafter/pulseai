@@ -15,6 +15,7 @@ export const authConfig = {
             if (user) {
                 token.id = user.id!;
                 token.role = user.role as string;
+                token.accessRole = (user as any).accessRole as string;
                 token.tenantId = user.tenantId as string | null;
                 token.mustChangePassword = (user as any).mustChangePassword as boolean;
                 token.onboardingComplete = (user as any).onboardingComplete as boolean;
@@ -25,6 +26,7 @@ export const authConfig = {
             if (token && session.user) {
                 session.user.id = token.id as string;
                 session.user.role = token.role as string;
+                session.user.accessRole = (token.accessRole as string) || "owner";
                 session.user.tenantId = token.tenantId as string | null;
                 session.user.mustChangePassword = token.mustChangePassword as boolean;
                 session.user.onboardingComplete = token.onboardingComplete as boolean;

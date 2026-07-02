@@ -51,7 +51,7 @@ export async function getProviderKeyStatuses(): Promise<ProviderKeyStatus[]> {
 }
 
 export async function saveProviderKeyAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
 
     const provider = formData.get("provider") as string;
@@ -166,7 +166,7 @@ export async function testProviderKeyAction(formData: FormData) {
 }
 
 export async function saveGlobalSettingsAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return;
 
     try {
@@ -258,7 +258,7 @@ export async function getEmailSettings(): Promise<EmailSettingsView | null> {
 }
 
 export async function saveEmailSettingsAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
 
     try {
@@ -358,7 +358,7 @@ export async function testEmailSettingsAction(formData: FormData) {
 }
 
 export async function saveMemorySettingsAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return;
 
     try {
@@ -392,7 +392,7 @@ export async function saveMemorySettingsAction(formData: FormData) {
 }
 
 export async function saveSandboxSettingsAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return;
 
     try {
@@ -427,7 +427,7 @@ export async function saveSandboxSettingsAction(formData: FormData) {
 }
 
 export async function saveSchedulingSettingsAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return;
 
     try {
@@ -546,7 +546,7 @@ export async function getModelPricingList() {
 }
 
 export async function saveModelPricingAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.billing.write");
     if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
 
     const provider = formData.get("provider") as string;
@@ -603,7 +603,7 @@ export async function saveModelPricingAction(formData: FormData) {
 }
 
 export async function deleteModelPricingAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.billing.write");
     if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
 
     const id = formData.get("id") as string;
@@ -620,7 +620,7 @@ export async function deleteModelPricingAction(formData: FormData) {
 }
 
 export async function syncProviderModelsAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
 
     const provider = formData.get("provider") as string;

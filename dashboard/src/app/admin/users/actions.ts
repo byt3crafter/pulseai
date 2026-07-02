@@ -10,6 +10,7 @@ import { requireAdmin } from "../../../utils/admin-auth";
 import { generateToken, hashToken } from "../../../utils/tokens";
 import { sendInviteEmail, appBaseUrl } from "../../../utils/mailer";
 import { logAudit } from "../../../utils/audit";
+import { PLATFORM_ROLES, TENANT_ROLES } from "../../../utils/permissions";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -35,7 +36,7 @@ async function sendInvite(userId: string, email: string, name: string | null) {
 
 export async function createUserAction(formData: FormData) {
     try {
-        const adminCheck = await requireAdmin();
+        const adminCheck = await requireAdmin("platform.users.write");
         if (!adminCheck.authorized) {
             return { success: false, message: adminCheck.message };
         }
@@ -44,6 +45,7 @@ export async function createUserAction(formData: FormData) {
         const name = formData.get("name") as string;
         const role = formData.get("role") as string;
         const tenantId = formData.get("tenantId") as string;
+        const requestedAccessRole = (formData.get("accessRole") as string) || "owner";
 
         if (!email || !name || !role) {
             return { success: false, message: "Email, name, and role are required." };
@@ -53,6 +55,10 @@ export async function createUserAction(formData: FormData) {
             return { success: false, message: "Tenant users must be assigned to a workspace." };
         }
 
+        // Validate the granular role against the plane's allowed set.
+        const allowed: string[] = role === "ADMIN" ? PLATFORM_ROLES : TENANT_ROLES;
+        const accessRole = allowed.includes(requestedAccessRole) ? requestedAccessRole : "owner";
+
         const tempPassword = generateSecurePassword(16);
         const passwordHash = await bcrypt.hash(tempPassword, 10);
 
@@ -61,6 +67,7 @@ export async function createUserAction(formData: FormData) {
             name,
             passwordHash,
             role,
+            accessRole,
             tenantId: role === "TENANT" ? tenantId : null,
             mustChangePassword: true,
         }).returning({ id: users.id });
@@ -90,7 +97,7 @@ export async function createUserAction(formData: FormData) {
 
 export async function resetPasswordAction(userId: string) {
     try {
-        const adminCheck = await requireAdmin();
+        const adminCheck = await requireAdmin("platform.users.reset");
         if (!adminCheck.authorized) {
             return { success: false, message: adminCheck.message };
         }
@@ -114,7 +121,7 @@ export async function resetPasswordAction(userId: string) {
 
 export async function deleteUserAction(userId: string) {
     try {
-        const adminCheck = await requireAdmin();
+        const adminCheck = await requireAdmin("platform.users.delete");
         if (!adminCheck.authorized) {
             return { success: false, message: adminCheck.message };
         }
@@ -137,5 +144,32 @@ export async function deleteUserAction(userId: string) {
     } catch (error) {
         console.error("Failed to delete user:", error);
         return { success: false, message: "Failed to delete user." };
+    }
+}
+
+export async function updateUserRoleAction(userId: string, accessRole: string) {
+    const adminCheck = await requireAdmin("platform.users.write");
+    if (!adminCheck.authorized) return { success: false, message: adminCheck.message };
+
+    try {
+        const [target] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+        if (!target) return { success: false, message: "User not found." };
+
+        const allowed: string[] = target.role === "ADMIN" ? PLATFORM_ROLES : TENANT_ROLES;
+        if (!allowed.includes(accessRole)) return { success: false, message: "Invalid role for this user." };
+
+        await db.update(users).set({ accessRole, updatedAt: new Date() }).where(eq(users.id, userId));
+        await logAudit({
+            action: "user.role_change",
+            targetType: "user",
+            targetId: userId,
+            summary: `Changed role to ${accessRole}`,
+            metadata: { accessRole },
+        });
+        revalidatePath("/admin/users");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update user role:", error);
+        return { success: false, message: "Failed to update role." };
     }
 }

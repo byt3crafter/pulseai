@@ -1,44 +1,54 @@
 import { auth } from "../auth";
 import { cookies } from "next/headers";
 import { decode } from "next-auth/jwt";
+import { hasPermission, type Permission } from "./permissions";
 
 /**
- * Reliably check if the current request is from an authenticated tenant user.
- * Falls back to decoding the session JWT cookie when auth() returns null
- * (known issue with NextAuth v5 in certain server action contexts).
+ * Require an authenticated tenant (workspace-plane) user. ADMIN users with a
+ * tenantId can also access workspace features. Optionally require a specific
+ * tenant permission. No-arg calls only check plane membership (backward compatible).
  */
-export async function requireTenant(): Promise<{ authorized: true; tenantId: string } | { authorized: false; message: string }> {
-    // Try the standard auth() first
-    // ADMIN users with a tenantId can also access workspace features
+export async function requireTenant(
+    permission?: Permission,
+): Promise<{ authorized: true; tenantId: string; accessRole: string } | { authorized: false; message: string }> {
+    const resolved = await resolveTenantUser();
+    if (!resolved) return { authorized: false, message: "Unauthorized." };
+
+    // Platform admins (role ADMIN) acting inside a workspace keep full access.
+    const effectiveRole = resolved.isPlatform ? "owner" : resolved.accessRole;
+    if (permission && !hasPermission("tenant", effectiveRole, permission)) {
+        return { authorized: false, message: "You don't have permission to perform this action." };
+    }
+    return { authorized: true, tenantId: resolved.tenantId, accessRole: effectiveRole };
+}
+
+async function resolveTenantUser(): Promise<{ tenantId: string; accessRole: string; isPlatform: boolean } | null> {
     const session = await auth();
-    if ((session?.user?.role === "TENANT" || session?.user?.role === "ADMIN") && session.user.tenantId) {
-        return { authorized: true, tenantId: session.user.tenantId };
+    const u = session?.user;
+    if ((u?.role === "TENANT" || u?.role === "ADMIN") && u.tenantId) {
+        return { tenantId: u.tenantId, accessRole: (u as any).accessRole || "owner", isPlatform: u.role === "ADMIN" };
     }
 
-    // Fallback: manually decode the JWT from the session cookie
     try {
         const cookieStore = await cookies();
         const tokenCookie =
             cookieStore.get("authjs.session-token")?.value ||
             cookieStore.get("__Secure-authjs.session-token")?.value;
-
-        if (!tokenCookie) {
-            return { authorized: false, message: "Unauthorized." };
-        }
+        if (!tokenCookie) return null;
 
         const secret = process.env.ENCRYPTION_KEY;
-        if (!secret) {
-            return { authorized: false, message: "Unauthorized." };
-        }
+        if (!secret) return null;
 
         const decoded = await decode({ token: tokenCookie, secret, salt: "authjs.session-token" });
-
         if (decoded && (decoded.role === "TENANT" || decoded.role === "ADMIN") && decoded.tenantId) {
-            return { authorized: true, tenantId: decoded.tenantId as string };
+            return {
+                tenantId: decoded.tenantId as string,
+                accessRole: (decoded.accessRole as string) || "owner",
+                isPlatform: decoded.role === "ADMIN",
+            };
         }
-
-        return { authorized: false, message: "Unauthorized." };
+        return null;
     } catch {
-        return { authorized: false, message: "Unauthorized." };
+        return null;
     }
 }
