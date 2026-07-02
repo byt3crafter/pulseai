@@ -297,7 +297,8 @@ export const users = pgTable("users", {
     name: varchar("name", { length: 255 }),
     email: varchar("email", { length: 255 }).notNull().unique(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    role: varchar("role", { length: 20 }).notNull().default("TENANT"), // 'ADMIN', 'TENANT'
+    role: varchar("role", { length: 20 }).notNull().default("TENANT"), // 'ADMIN', 'TENANT' — plane
+    accessRole: varchar("access_role", { length: 20 }).notNull().default("owner"), // granular RBAC role within plane
     tenantId: uuid("tenant_id").references(() => tenants.id), // Nullable for global admins
     mustChangePassword: boolean("must_change_password").notNull().default(false),
     onboardingComplete: boolean("onboarding_complete").notNull().default(true),

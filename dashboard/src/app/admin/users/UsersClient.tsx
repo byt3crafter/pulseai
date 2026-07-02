@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { KeyIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { resetPasswordAction, deleteUserAction } from "./actions";
+import { resetPasswordAction, deleteUserAction, updateUserRoleAction } from "./actions";
 import CreateUserModal from "./CreateUserModal";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import { ui, PageHeader, Panel, Badge } from "../../../components/admin/ui";
+import { PLATFORM_ROLES, TENANT_ROLES, ROLE_LABELS } from "../../../utils/permissions";
 
 interface User {
     id: string;
     name: string | null;
     email: string;
     role: string;
+    accessRole: string;
     tenantId: string | null;
     tenantName: string | null;
     mustChangePassword: boolean;
@@ -28,6 +30,51 @@ interface Tenant {
 interface Props {
     users: User[];
     tenants: Tenant[];
+}
+
+function AccessRoleSelect({ user }: { user: User }) {
+    const router = useRouter();
+    const [value, setValue] = useState(user.accessRole);
+    const [failed, setFailed] = useState(false);
+    const [isPending, startTransition] = useTransition();
+
+    const options = user.role === "ADMIN" ? PLATFORM_ROLES : TENANT_ROLES;
+
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const previous = value;
+        const next = e.target.value;
+        setValue(next);
+        setFailed(false);
+        startTransition(async () => {
+            const result = await updateUserRoleAction(user.id, next);
+            if (result.success) {
+                router.refresh();
+            } else {
+                setValue(previous);
+                setFailed(true);
+            }
+        });
+    };
+
+    return (
+        <div className="flex items-center gap-1.5">
+            <select
+                value={value}
+                onChange={handleChange}
+                disabled={isPending}
+                aria-label={`Access role for ${user.email}`}
+                className={`${ui.input} w-auto py-1 text-[12px] ${failed ? "border-pulse-loss" : ""}`}
+            >
+                {options.map((role) => (
+                    <option key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                    </option>
+                ))}
+            </select>
+            {isPending && <span className="text-[11px] text-pulse-faint">Saving…</span>}
+            {failed && !isPending && <span className="text-[11px] text-pulse-loss">Failed</span>}
+        </div>
+    );
 }
 
 export default function UsersClient({ users, tenants }: Props) {
@@ -136,9 +183,12 @@ export default function UsersClient({ users, tenants }: Props) {
                                         </div>
                                     </td>
                                     <td className={ui.td}>
-                                        <Badge variant={user.role === "ADMIN" ? "accent" : "neutral"}>
-                                            {user.role}
-                                        </Badge>
+                                        <div className="flex flex-col gap-1.5">
+                                            <Badge variant={user.role === "ADMIN" ? "accent" : "neutral"}>
+                                                {user.role}
+                                            </Badge>
+                                            <AccessRoleSelect user={user} />
+                                        </div>
                                     </td>
                                     <td className={ui.tdMuted}>
                                         {user.tenantName || "—"}

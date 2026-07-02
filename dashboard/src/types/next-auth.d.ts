@@ -6,6 +6,7 @@ declare module "next-auth" {
         user: {
             id: string
             role: string
+            accessRole: string
             tenantId: string | null
             mustChangePassword: boolean
             onboardingComplete: boolean
@@ -14,6 +15,7 @@ declare module "next-auth" {
 
     interface User {
         role: string
+        accessRole: string
         tenantId: string | null
         mustChangePassword: boolean
         onboardingComplete: boolean
@@ -24,6 +26,7 @@ declare module "next-auth/jwt" {
     interface JWT {
         id: string
         role: string
+        accessRole: string
         tenantId: string | null
         mustChangePassword: boolean
         onboardingComplete: boolean

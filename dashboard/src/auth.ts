@@ -84,6 +84,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         name: userRecord.name,
                         email: userRecord.email,
                         role: userRecord.role,
+                        accessRole: (userRecord as any).accessRole || "owner",
                         tenantId: userRecord.tenantId,
                         mustChangePassword: userRecord.mustChangePassword,
                         onboardingComplete: userRecord.onboardingComplete,

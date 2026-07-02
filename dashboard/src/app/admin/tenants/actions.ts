@@ -22,7 +22,7 @@ const createTenantSchema = z.object({
 });
 
 export async function createTenantAction(formData: FormData) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.tenants.write");
     if (!adminCheck.authorized) {
         return { success: false, message: adminCheck.message };
     }
@@ -127,7 +127,7 @@ export async function createTenantAction(formData: FormData) {
 }
 
 export async function deleteTenantAction(tenantId: string) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.tenants.delete");
     if (!adminCheck.authorized) {
         return { success: false, message: adminCheck.message };
     }
@@ -190,7 +190,7 @@ export async function deleteTenantAction(tenantId: string) {
 }
 
 export async function toggleTenantStatusAction(tenantId: string, currentStatus: string) {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdmin("platform.tenants.write");
     if (!adminCheck.authorized) {
         return { success: false, message: adminCheck.message };
     }

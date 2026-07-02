@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createUserAction } from "./actions";
 import { ui } from "../../../components/admin/ui";
+import { PLATFORM_ROLES, TENANT_ROLES, ROLE_LABELS, ROLE_DESCRIPTIONS } from "../../../utils/permissions";
 
 interface Tenant {
     id: string;
@@ -19,6 +20,7 @@ export default function CreateUserModal({
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [role, setRole] = useState("TENANT");
+    const [accessRole, setAccessRole] = useState("owner");
     const [credentials, setCredentials] = useState<{
         email: string;
         password: string;
@@ -81,7 +83,10 @@ export default function CreateUserModal({
         setCredentials(null);
         setError("");
         setRole("TENANT");
+        setAccessRole("owner");
     };
+
+    const accessRoleOptions = role === "ADMIN" ? PLATFORM_ROLES : TENANT_ROLES;
 
     if (!isOpen) {
         return (
@@ -197,12 +202,37 @@ export default function CreateUserModal({
                                     id="create-user-role"
                                     name="role"
                                     value={role}
-                                    onChange={(e) => setRole(e.target.value)}
+                                    onChange={(e) => {
+                                        setRole(e.target.value);
+                                        setAccessRole("owner");
+                                    }}
                                     className={ui.input}
                                 >
                                     <option value="TENANT">Tenant User</option>
                                     <option value="ADMIN">Admin</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label htmlFor="create-user-accessRole" className={ui.label}>
+                                    Access role
+                                </label>
+                                <select
+                                    id="create-user-accessRole"
+                                    name="accessRole"
+                                    value={accessRole}
+                                    onChange={(e) => setAccessRole(e.target.value)}
+                                    className={ui.input}
+                                >
+                                    {accessRoleOptions.map((r) => (
+                                        <option key={r} value={r}>
+                                            {ROLE_LABELS[r]}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-[11px] text-pulse-faint mt-1">
+                                    {ROLE_DESCRIPTIONS[accessRole]}
+                                </p>
                             </div>
 
                             {role === "TENANT" && (

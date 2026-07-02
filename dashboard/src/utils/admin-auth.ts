@@ -1,43 +1,49 @@
 import { auth } from "../auth";
 import { cookies } from "next/headers";
 import { decode } from "next-auth/jwt";
+import { hasPermission, type Permission } from "./permissions";
 
 /**
- * Reliably check if the current request is from an authenticated admin.
- * Falls back to decoding the session JWT cookie when auth() returns null
- * (known issue with NextAuth v5 in certain server action contexts).
+ * Require an authenticated platform (admin-plane) user. Optionally require a
+ * specific permission — if the user's accessRole lacks it, the call is denied.
+ * No-arg calls only check plane membership (backward compatible).
+ * Falls back to decoding the session JWT when auth() returns null (NextAuth v5
+ * quirk in some server-action contexts).
  */
-export async function requireAdmin(): Promise<{ authorized: true; userId: string } | { authorized: false; message: string }> {
-    // Try the standard auth() first
+export async function requireAdmin(
+    permission?: Permission,
+): Promise<{ authorized: true; userId: string; accessRole: string } | { authorized: false; message: string }> {
+    const resolved = await resolvePlatformUser();
+    if (!resolved) return { authorized: false, message: "Unauthorized." };
+
+    if (permission && !hasPermission("platform", resolved.accessRole, permission)) {
+        return { authorized: false, message: "You don't have permission to perform this action." };
+    }
+    return { authorized: true, userId: resolved.userId, accessRole: resolved.accessRole };
+}
+
+async function resolvePlatformUser(): Promise<{ userId: string; accessRole: string } | null> {
     const session = await auth();
     if (session?.user?.role === "ADMIN") {
-        return { authorized: true, userId: session.user.id };
+        return { userId: session.user.id, accessRole: (session.user as any).accessRole || "owner" };
     }
 
-    // Fallback: manually decode the JWT from the session cookie
     try {
         const cookieStore = await cookies();
         const tokenCookie =
             cookieStore.get("authjs.session-token")?.value ||
             cookieStore.get("__Secure-authjs.session-token")?.value;
-
-        if (!tokenCookie) {
-            return { authorized: false, message: "Unauthorized." };
-        }
+        if (!tokenCookie) return null;
 
         const secret = process.env.ENCRYPTION_KEY;
-        if (!secret) {
-            return { authorized: false, message: "Unauthorized." };
-        }
+        if (!secret) return null;
 
         const decoded = await decode({ token: tokenCookie, secret, salt: "authjs.session-token" });
-
         if (decoded && decoded.role === "ADMIN") {
-            return { authorized: true, userId: decoded.id as string };
+            return { userId: decoded.id as string, accessRole: (decoded.accessRole as string) || "owner" };
         }
-
-        return { authorized: false, message: "Unauthorized." };
+        return null;
     } catch {
-        return { authorized: false, message: "Unauthorized." };
+        return null;
     }
 }
