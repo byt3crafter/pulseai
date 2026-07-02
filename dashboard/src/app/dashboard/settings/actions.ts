@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
 import crypto from "crypto";
+import { requireTenant } from "../../../utils/tenant-auth";
 
 export async function changePasswordAction(formData: FormData) {
     const session = await auth();
@@ -53,8 +54,9 @@ export async function changePasswordAction(formData: FormData) {
 }
 
 export async function saveTelegramTokenAction(formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     const token = formData.get("telegramToken") as string;
     if (!token) return { success: false, message: "Bot token is required." };
@@ -67,12 +69,12 @@ export async function saveTelegramTokenAction(formData: FormData) {
         // Auto-link the tenant's agent profile to the channel connection
         const agentProfile = await db.select({ id: agentProfiles.id })
             .from(agentProfiles)
-            .where(eq(agentProfiles.tenantId, session.user.tenantId!))
+            .where(eq(agentProfiles.tenantId, tenantId))
             .limit(1);
         const agentProfileId = agentProfile[0]?.id ?? null;
 
         const existing = await db.select().from(channelConnections)
-            .where(eq(channelConnections.tenantId, session.user.tenantId!)).limit(1);
+            .where(eq(channelConnections.tenantId, tenantId)).limit(1);
 
         const encryptedToken = encrypt(token);
 
@@ -82,7 +84,7 @@ export async function saveTelegramTokenAction(formData: FormData) {
                 .where(eq(channelConnections.id, existing[0].id));
         } else {
             await db.insert(channelConnections).values({
-                tenantId: session.user.tenantId!,
+                tenantId,
                 channelType: "telegram",
                 channelConfig: { botToken: encryptedToken },
                 status: "active",
@@ -99,8 +101,9 @@ export async function saveTelegramTokenAction(formData: FormData) {
 // ─── Provider Key Actions ────────────────────────────────────────────────────
 
 export async function saveProviderKeyAction(formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     const provider = formData.get("provider") as string;
     const apiKey = formData.get("apiKey") as string;
@@ -133,7 +136,7 @@ export async function saveProviderKeyAction(formData: FormData) {
 
         const existing = await db.query.tenantProviderKeys.findFirst({
             where: and(
-                eq(tenantProviderKeys.tenantId, session.user.tenantId!),
+                eq(tenantProviderKeys.tenantId, tenantId),
                 eq(tenantProviderKeys.provider, provider)
             ),
         });
@@ -150,7 +153,7 @@ export async function saveProviderKeyAction(formData: FormData) {
                 .where(eq(tenantProviderKeys.id, existing.id));
         } else {
             await db.insert(tenantProviderKeys).values({
-                tenantId: session.user.tenantId!,
+                tenantId,
                 provider,
                 authMethod,
                 encryptedApiKey,
@@ -169,8 +172,9 @@ export async function saveProviderKeyAction(formData: FormData) {
 }
 
 export async function removeProviderKeyAction(formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     const provider = formData.get("provider") as string;
     if (!provider) return { success: false, message: "Provider is required." };
@@ -179,7 +183,7 @@ export async function removeProviderKeyAction(formData: FormData) {
         await db.delete(tenantProviderKeys)
             .where(
                 and(
-                    eq(tenantProviderKeys.tenantId, session.user.tenantId!),
+                    eq(tenantProviderKeys.tenantId, tenantId),
                     eq(tenantProviderKeys.provider, provider)
                 )
             );
@@ -285,13 +289,14 @@ export async function validateProviderKeyAction(formData: FormData) {
 // ─── OAuth / CLI Toggle Action ──────────────────────────────────────────────
 
 export async function toggleCliAccessAction(enabled: boolean) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     try {
         const config = JSON.stringify({ enable_third_party_cli: enabled });
         await db.execute(
-            sql`UPDATE tenants SET config = config || ${config}::jsonb, updated_at = now() WHERE id = ${session.user.tenantId}::uuid`
+            sql`UPDATE tenants SET config = config || ${config}::jsonb, updated_at = now() WHERE id = ${tenantId}::uuid`
         );
 
         revalidatePath("/dashboard/settings");
@@ -309,12 +314,13 @@ export async function updateTelegramPoliciesAction(config: {
     telegram_group_policy: string;
     telegram_require_mention: boolean;
 }) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     try {
         await db.execute(
-            sql`UPDATE tenants SET config = config || ${JSON.stringify(config)}::jsonb, updated_at = now() WHERE id = ${session.user.tenantId}::uuid`
+            sql`UPDATE tenants SET config = config || ${JSON.stringify(config)}::jsonb, updated_at = now() WHERE id = ${tenantId}::uuid`
         );
 
         revalidatePath("/dashboard/settings");
@@ -326,10 +332,9 @@ export async function updateTelegramPoliciesAction(config: {
 }
 
 export async function approvePairingAction(code: string) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
-
-    const tenantId = session.user.tenantId;
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     try {
         const record = await db.query.pairingCodes.findFirst({
@@ -361,13 +366,14 @@ export async function approvePairingAction(code: string) {
 }
 
 export async function rejectPairingAction(contactId: string) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     try {
         await db.update(allowlists).set({ status: "blocked" }).where(
             and(
-                eq(allowlists.tenantId, session.user.tenantId),
+                eq(allowlists.tenantId, tenantId),
                 eq(allowlists.channelType, "telegram"),
                 eq(allowlists.contactId, contactId)
             )
@@ -375,7 +381,7 @@ export async function rejectPairingAction(contactId: string) {
 
         await db.update(pairingCodes).set({ status: "rejected" }).where(
             and(
-                eq(pairingCodes.tenantId, session.user.tenantId),
+                eq(pairingCodes.tenantId, tenantId),
                 eq(pairingCodes.contactId, contactId),
                 eq(pairingCodes.status, "pending")
             )
@@ -390,12 +396,13 @@ export async function rejectPairingAction(contactId: string) {
 }
 
 export async function addGroupToAllowlistAction(groupChatId: string, groupName: string) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     try {
         await db.insert(allowlists).values({
-            tenantId: session.user.tenantId,
+            tenantId,
             channelType: "telegram",
             contactId: groupChatId,
             contactName: groupName,
@@ -431,8 +438,9 @@ export async function exchangeOpenAICodeAction({
     codeVerifier: string;
     redirectUri: string;
 }) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     const OPENAI_TOKEN_URL = "https://auth.openai.com/oauth/token";
     const OPENAI_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -498,7 +506,7 @@ export async function exchangeOpenAICodeAction({
 
         const existing = await db.query.tenantProviderKeys.findFirst({
             where: and(
-                eq(tenantProviderKeys.tenantId, session.user.tenantId!),
+                eq(tenantProviderKeys.tenantId, tenantId),
                 eq(tenantProviderKeys.provider, "openai")
             ),
         });
@@ -523,7 +531,7 @@ export async function exchangeOpenAICodeAction({
                 .where(eq(tenantProviderKeys.id, existing.id));
         } else {
             await db.insert(tenantProviderKeys).values({
-                tenantId: session.user.tenantId!,
+                tenantId,
                 provider: "openai",
                 ...values,
             });
@@ -538,13 +546,14 @@ export async function exchangeOpenAICodeAction({
 }
 
 export async function removeFromAllowlistAction(contactId: string) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "No tenant context." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     try {
         await db.delete(allowlists).where(
             and(
-                eq(allowlists.tenantId, session.user.tenantId),
+                eq(allowlists.tenantId, tenantId),
                 eq(allowlists.channelType, "telegram"),
                 eq(allowlists.contactId, contactId)
             )
@@ -561,8 +570,9 @@ export async function removeFromAllowlistAction(contactId: string) {
 // ─── API Tokens (OpenAI-compatible HTTP API) ─────────────────────────────────
 
 export async function generateApiTokenAction(formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     const name = formData.get("name") as string || "API Token";
 
@@ -574,7 +584,7 @@ export async function generateApiTokenAction(formData: FormData) {
     const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
     await db.insert(apiTokens).values({
-        tenantId: session.user.tenantId,
+        tenantId,
         tokenHash,
         name,
         scopes: ["chat", "responses"],
@@ -585,13 +595,14 @@ export async function generateApiTokenAction(formData: FormData) {
 }
 
 export async function revokeApiTokenAction(tokenId: string) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     await db.delete(apiTokens).where(
         and(
             eq(apiTokens.id, tokenId),
-            eq(apiTokens.tenantId, session.user.tenantId)
+            eq(apiTokens.tenantId, tenantId)
         )
     );
 
@@ -600,8 +611,9 @@ export async function revokeApiTokenAction(tokenId: string) {
 }
 
 export async function saveEmailConfigAction(formData: FormData) {
-    const session = await auth();
-    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
 
     const smtpHost = formData.get("smtpHost") as string;
     const smtpPort = formData.get("smtpPort") as string;
@@ -648,7 +660,7 @@ export async function saveEmailConfigAction(formData: FormData) {
         // Check if email connection already exists
         const existing = await db.query.channelConnections.findFirst({
             where: and(
-                eq(channelConnections.tenantId, session.user.tenantId),
+                eq(channelConnections.tenantId, tenantId),
                 eq(channelConnections.channelType, "email")
             ),
         });
@@ -668,7 +680,7 @@ export async function saveEmailConfigAction(formData: FormData) {
                 .where(eq(channelConnections.id, existing.id));
         } else {
             await db.insert(channelConnections).values({
-                tenantId: session.user.tenantId,
+                tenantId,
                 channelType: "email",
                 channelConfig: config,
             });

@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
+import { currentAccess } from "../../../utils/access";
 import CreateTenantModal from "./CreateTenantModal";
 import TenantActionsMenu from "./TenantActionsMenu";
 import { ui, PageHeader, Panel, Badge } from "../../../components/admin/ui";
@@ -25,6 +26,11 @@ export default async function TenantManagerPage() {
 
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "ADMIN") redirect("/admin/login");
+
+  const access = await currentAccess();
+  const canCreate = access.can("platform.tenants.write");
+  const canSuspend = access.can("platform.tenants.write");
+  const canDelete = access.can("platform.tenants.delete");
 
   // Directly fetch tenants via DB on the server
   const allTenants = await db.select({
@@ -56,7 +62,7 @@ export default async function TenantManagerPage() {
       <PageHeader
         title="Tenant Management"
         subtitle="View and manage all client workspaces on the Pulse Gateway."
-        action={<CreateTenantModal />}
+        action={canCreate ? <CreateTenantModal /> : undefined}
       />
 
       <Panel bodyClassName="p-0">
@@ -135,7 +141,12 @@ export default async function TenantManagerPage() {
                       </Badge>
                     </td>
                     <td className={ui.tdRight}>
-                      <TenantActionsMenu tenantId={tenant.id} currentStatus={tenant.status as string} />
+                      <TenantActionsMenu
+                        tenantId={tenant.id}
+                        currentStatus={tenant.status as string}
+                        canSuspend={canSuspend}
+                        canDelete={canDelete}
+                      />
                     </td>
                   </tr>
                 );

@@ -3,6 +3,7 @@ import { users, tenants } from "../../../storage/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { auth } from "../../../auth";
+import { currentAccess } from "../../../utils/access";
 import UsersClient from "./UsersClient";
 
 export default async function UsersPage() {
@@ -13,6 +14,12 @@ export default async function UsersPage() {
 
     const session = await auth();
     if (!session?.user || (session.user as any).role !== "ADMIN") redirect("/admin/login");
+
+    const access = await currentAccess();
+    const canCreate = access.can("platform.users.write");
+    const canDelete = access.can("platform.users.delete");
+    const canReset = access.can("platform.users.reset");
+    const canChangeRole = access.can("platform.users.write");
 
     const allUsers = await db
         .select({
@@ -53,6 +60,13 @@ export default async function UsersPage() {
     }));
 
     return (
-        <UsersClient users={serializedUsers} tenants={serializedTenants} />
+        <UsersClient
+            users={serializedUsers}
+            tenants={serializedTenants}
+            canCreate={canCreate}
+            canDelete={canDelete}
+            canReset={canReset}
+            canChangeRole={canChangeRole}
+        />
     );
 }

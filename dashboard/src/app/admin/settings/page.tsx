@@ -1,5 +1,6 @@
 import { getGlobalSettings, getScheduledJobs, getModelPricingList, getProviderKeyStatuses, getEmailSettings } from "./actions";
 import { getExecSafetySettings, getAuditLogs, getGlobalPolicyRules } from "./exec-safety/actions";
+import { currentAccess } from "../../../utils/access";
 import AdminSettingsClient from "./AdminSettingsClient";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,10 @@ export default async function AdminSettingsPage({
 
     const params = await searchParams;
     const tab = params.tab || "providers";
+
+    const access = await currentAccess();
+    const canWrite = access.can("platform.settings.write");
+    const canBilling = access.can("platform.billing.write");
 
     const [settings, execSafety, auditLogs, policyRules, allJobs, modelPricingData, providerStatuses, emailSettings] = await Promise.all([
         getGlobalSettings(),
@@ -43,6 +48,8 @@ export default async function AdminSettingsPage({
             modelPricing={modelPricingData}
             providerStatuses={providerStatuses}
             emailSettings={emailSettings}
+            canWrite={canWrite}
+            canBilling={canBilling}
         />
     );
 }

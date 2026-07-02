@@ -18,7 +18,7 @@ export async function getAgentScripts(agentId: string) {
 }
 
 export async function deleteScript(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 

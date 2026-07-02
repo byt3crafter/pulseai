@@ -47,7 +47,7 @@ export async function getKnowledgeFiles(tenantId: string, agentId: string) {
 }
 
 export async function addKnowledgeTemplate(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 
@@ -75,7 +75,7 @@ export async function addKnowledgeTemplate(formData: FormData) {
 }
 
 export async function updateKnowledgeFile(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 
@@ -92,7 +92,7 @@ export async function updateKnowledgeFile(formData: FormData) {
 }
 
 export async function removeKnowledgeFile(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 
@@ -110,7 +110,7 @@ export async function removeKnowledgeFile(formData: FormData) {
 }
 
 export async function addCustomKnowledge(formData: FormData) {
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.agents.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 
