@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.18] - 2026-07-02
+
+### Features
+- OIDC single sign-on (enterprise Tier 0)
+
 ## [0.10.17] - 2026-07-02
 
 ### Features
