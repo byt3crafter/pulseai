@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireAdmin } from "../../../utils/admin-auth";
 import { encrypt, decrypt } from "../../../utils/crypto";
 import { sendMailWith } from "../../../utils/mailer";
+import { logAudit } from "../../../utils/audit";
 
 const settingsSchema = z.object({
     anthropicApiKey: z.string().optional(),
@@ -88,6 +89,12 @@ export async function saveProviderKeyAction(formData: FormData) {
             .values({ id: "root", ...updates })
             .onConflictDoUpdate({ target: globalSettings.id, set: updates });
 
+        await logAudit({
+            action: "settings.provider_key.update",
+            targetType: "settings",
+            summary: `Updated ${provider} API key`,
+            metadata: { provider },
+        });
         revalidatePath("/admin/settings");
         return { success: true };
     } catch (error) {
@@ -281,6 +288,12 @@ export async function saveEmailSettingsAction(formData: FormData) {
             .values({ id: "root", config: cfg, updatedAt: new Date() })
             .onConflictDoUpdate({ target: globalSettings.id, set: { config: cfg, updatedAt: new Date() } });
 
+        await logAudit({
+            action: "settings.email.update",
+            targetType: "settings",
+            summary: `Email (SMTP) settings ${smtp.enabled ? "enabled" : "updated"}`,
+            metadata: { host: smtp.host, enabled: smtp.enabled },
+        });
         revalidatePath("/admin/settings");
         return { success: true, message: "Email settings saved." };
     } catch (error) {
