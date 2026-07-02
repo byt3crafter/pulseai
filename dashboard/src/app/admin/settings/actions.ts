@@ -357,6 +357,115 @@ export async function testEmailSettingsAction(formData: FormData) {
     }
 }
 
+// ─── SSO (OIDC) Settings ────────────────────────────────────────────────────
+
+export interface SsoSettingsView {
+    enabled: boolean;
+    name: string;
+    issuer: string;
+    clientId: string;
+    hasSecret: boolean;
+    allowedDomains: string; // comma-joined for display in a text input
+    groupClaim: string;
+    groupRoleMap: Record<string, string>;
+    defaultRole: string;
+    plane: "platform" | "tenant";
+    tenantId: string | null;
+}
+
+function parseDomainList(raw: string): string[] {
+    return raw
+        .split(/[,\n]/)
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function parseGroupRoleMap(raw: string): Record<string, string> {
+    const map: Record<string, string> = {};
+    for (const line of raw.split("\n")) {
+        const idx = line.indexOf("=");
+        if (idx === -1) continue;
+        const group = line.slice(0, idx).trim();
+        const role = line.slice(idx + 1).trim();
+        if (group && role) map[group] = role;
+    }
+    return map;
+}
+
+export async function getSsoSettings(): Promise<SsoSettingsView | null> {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return null;
+
+    const row = (await db.query.globalSettings.findFirst({
+        where: eq(globalSettings.id, "root"),
+    })) as any;
+    const sso = row?.config?.sso ?? {};
+
+    return {
+        enabled: !!sso.enabled,
+        name: sso.name || "SSO",
+        issuer: sso.issuer || "",
+        clientId: sso.clientId || "",
+        hasSecret: !!sso.clientSecretEnc,
+        allowedDomains: Array.isArray(sso.allowedDomains) ? sso.allowedDomains.join(", ") : "",
+        groupClaim: sso.groupClaim || "groups",
+        groupRoleMap: sso.groupRoleMap && typeof sso.groupRoleMap === "object" ? sso.groupRoleMap : {},
+        defaultRole: sso.defaultRole || (sso.plane === "tenant" ? "viewer" : "auditor"),
+        plane: sso.plane === "tenant" ? "tenant" : "platform",
+        tenantId: sso.tenantId ?? null,
+    };
+}
+
+export async function saveSsoSettingsAction(formData: FormData) {
+    const adminCheck = await requireAdmin("platform.settings.write");
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+
+    try {
+        const current = (await db.query.globalSettings.findFirst({
+            where: eq(globalSettings.id, "root"),
+        })) as any;
+        const cfg = current?.config ? { ...current.config } : {};
+        const existing = cfg.sso ?? {};
+
+        const clientSecret = ((formData.get("clientSecret") as string) || "").trim();
+        const plane = formData.get("plane") === "tenant" ? "tenant" : "platform";
+
+        const sso: any = {
+            enabled: formData.get("enabled") === "on",
+            name: ((formData.get("name") as string) || "SSO").trim() || "SSO",
+            issuer: ((formData.get("issuer") as string) || "").trim(),
+            clientId: ((formData.get("clientId") as string) || "").trim(),
+            // Keep the existing client secret unless a new one is provided.
+            clientSecretEnc: existing.clientSecretEnc,
+            allowedDomains: parseDomainList((formData.get("allowedDomains") as string) || ""),
+            groupClaim: ((formData.get("groupClaim") as string) || "groups").trim() || "groups",
+            groupRoleMap: parseGroupRoleMap((formData.get("groupRoleMap") as string) || ""),
+            defaultRole: ((formData.get("defaultRole") as string) || "auditor").trim() || "auditor",
+            plane,
+            tenantId: plane === "tenant" ? (((formData.get("tenantId") as string) || "").trim() || null) : null,
+        };
+        if (clientSecret) sso.clientSecretEnc = encrypt(clientSecret);
+
+        cfg.sso = sso;
+        await db
+            .insert(globalSettings)
+            .values({ id: "root", config: cfg, updatedAt: new Date() })
+            .onConflictDoUpdate({ target: globalSettings.id, set: { config: cfg, updatedAt: new Date() } });
+
+        await logAudit({
+            action: "settings.sso.update",
+            targetType: "settings",
+            summary: `SSO ${sso.enabled ? "enabled" : "updated"}`,
+            metadata: { issuer: sso.issuer, plane: sso.plane, enabled: sso.enabled },
+        });
+        revalidatePath("/admin/settings");
+        return { success: true, message: "SSO settings saved." };
+    } catch (error) {
+        console.error("Failed to save SSO settings:", error);
+        return { success: false, message: "Failed to save SSO settings." };
+    }
+}
+
 export async function saveMemorySettingsAction(formData: FormData) {
     const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return;

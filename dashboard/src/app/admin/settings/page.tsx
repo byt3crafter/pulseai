@@ -1,4 +1,4 @@
-import { getGlobalSettings, getScheduledJobs, getModelPricingList, getProviderKeyStatuses, getEmailSettings } from "./actions";
+import { getGlobalSettings, getScheduledJobs, getModelPricingList, getProviderKeyStatuses, getEmailSettings, getSsoSettings } from "./actions";
 import { getExecSafetySettings, getAuditLogs, getGlobalPolicyRules } from "./exec-safety/actions";
 import { currentAccess } from "../../../utils/access";
 import AdminSettingsClient from "./AdminSettingsClient";
@@ -20,7 +20,7 @@ export default async function AdminSettingsPage({
     const canWrite = access.can("platform.settings.write");
     const canBilling = access.can("platform.billing.write");
 
-    const [settings, execSafety, auditLogs, policyRules, allJobs, modelPricingData, providerStatuses, emailSettings] = await Promise.all([
+    const [settings, execSafety, auditLogs, policyRules, allJobs, modelPricingData, providerStatuses, emailSettings, ssoSettings] = await Promise.all([
         getGlobalSettings(),
         getExecSafetySettings(),
         getAuditLogs(0, 50),
@@ -29,6 +29,7 @@ export default async function AdminSettingsPage({
         getModelPricingList(),
         getProviderKeyStatuses(),
         getEmailSettings(),
+        getSsoSettings(),
     ]);
 
     const gwConfig = ((settings as any).gatewayConfig || {}) as any;
@@ -48,6 +49,7 @@ export default async function AdminSettingsPage({
             modelPricing={modelPricingData}
             providerStatuses={providerStatuses}
             emailSettings={emailSettings}
+            ssoSettings={ssoSettings}
             canWrite={canWrite}
             canBilling={canBilling}
         />
