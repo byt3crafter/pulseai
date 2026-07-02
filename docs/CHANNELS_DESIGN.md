@@ -193,11 +193,16 @@ works.**
 
 | Phase | Scope | Ships |
 |-------|-------|-------|
-| **1** | Schema + migration + dashboard "Departments" CRUD (create channel, add humans, add agents, set lead + rank). **No behavior change.** | You can model the org. |
-| **2** | Runtime channel path: **flat** channel, lead-answers-default + @mention direct + delegate to members + hop budget. App API endpoints. | A department actually works: talk → lead answers/routes. |
-| **3** | Desktop UI: channel sidebar, multi-party bubbles, @mention autocomplete. | Humans use it in the app. |
-| **4** | Cross-department routing (`route_to_channel`) + multi-human presence + operator controls. | Departments hand off to each other; team rooms. |
+| **1** ✅ | Schema + migration + dashboard "Departments" CRUD (create channel, add humans, add agents, set lead + rank). **No behavior change.** | You can model the org. |
+| **2** ✅ | Runtime channel path: **flat** channel, lead-answers-default + @mention direct + delegate to members. App API endpoints. | A department actually works: talk → lead answers/routes. |
+| **3** ✅ | Desktop UI: channel sidebar, agent-labeled bubbles, @mention, read-only bar. | Humans use it in the app. |
+| **4** | Cross-department routing (`route_to_channel`) + multi-human presence + operator controls + hop budget/cost cap. | Departments hand off to each other; team rooms. |
 | **5** | Nested departments + agent ranks (hierarchy). **The complex bit, last.** | Full org chart. |
+
+> **Shipped:** Phases 1–3 on `main` (v0.10.23 line), migration `0012` applied to staging.
+> **Next-up refinement:** wire a channel's member agents into the lead's delegatable set
+> so "route to the proper agent" is automatic (today the lead delegates only per its own
+> `delegationConfig`). Then Phase 4.
 
 Each phase is independently shippable and backward compatible.
 
