@@ -8,7 +8,7 @@ import { providerKeyService } from "./providers/provider-key-service.js";
 import { memoryService } from "../memory/memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
 import { resolveAgent } from "./orchestration/agent-router.js";
-import { getChannelLeadTeammates } from "../gateway/channel-service.js";
+import { getChannelLeadContext } from "../gateway/channel-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
@@ -145,23 +145,29 @@ export class AgentRuntime {
             // 3.6. Get enabled tools for tenant and agent profile
             const enabledTools = await this.toolRegistry.getEnabledTools(inbound.tenantId, resolvedAgentProfileId ?? undefined);
 
-            // 3.65 Channel lead auto-routing: if this responder is the LEAD of the channel,
-            // it can route work to its teammates. Load them and ensure the routing tools
-            // are available even if the tenant hasn't enabled them as skills.
+            // 3.65 Channel lead routing: if this responder is the LEAD of the channel, it can
+            // route work to its teammates (delegate_to_agent) and to other departments
+            // (route_to_channel). Load context and ensure the routing tools are available
+            // even if the tenant hasn't enabled them as skills.
             let channelTeammates: { id: string; name: string; specialization: string; modelId: string }[] = [];
+            let routableChannels: { name: string; description: string | null }[] = [];
             if (inbound.channelId && resolvedAgentProfileId) {
                 try {
-                    channelTeammates = await getChannelLeadTeammates(inbound.channelId, resolvedAgentProfileId);
-                } catch (err) {
-                    tenantLog.warn({ err }, "Failed to load channel teammates (non-fatal)");
-                }
-                if (channelTeammates.length > 0) {
-                    for (const name of ["delegate_to_agent", "list_agents"]) {
-                        if (!enabledTools.some((t) => t.name === name)) {
-                            const tool = this.toolRegistry.getBuiltInTool(name);
-                            if (tool) enabledTools.push(tool);
+                    const ctx = await getChannelLeadContext(inbound.tenantId, inbound.channelId, resolvedAgentProfileId);
+                    if (ctx.isLead) {
+                        channelTeammates = ctx.teammates;
+                        routableChannels = ctx.routable.map((c) => ({ name: c.name, description: c.description }));
+                        const toolsToAdd = ["delegate_to_agent", "list_agents"];
+                        if (routableChannels.length > 0) toolsToAdd.push("route_to_channel");
+                        for (const name of toolsToAdd) {
+                            if (!enabledTools.some((t) => t.name === name)) {
+                                const tool = this.toolRegistry.getBuiltInTool(name);
+                                if (tool) enabledTools.push(tool);
+                            }
                         }
                     }
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to load channel lead context (non-fatal)");
                 }
             }
 
@@ -297,6 +303,7 @@ export class AgentRuntime {
                 contactName: inbound.contactName,
                 isGroup: inbound.isGroup,
                 groupTitle: inbound.groupTitle,
+                routableChannels,
             });
 
             // 3.89 Run before-prompt-build plugin hooks (plugins can append/modify)

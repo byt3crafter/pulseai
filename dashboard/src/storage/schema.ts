@@ -265,6 +265,7 @@ export const customTools = pgTable(
         headersEnc: text("headers_enc"),
         bodyTemplate: text("body_template"),
         paramSchema: jsonb("param_schema").notNull().default({}),
+        allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]),
         timeoutMs: integer("timeout_ms").notNull().default(15000),
         enabled: boolean("enabled").notNull().default(true),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),

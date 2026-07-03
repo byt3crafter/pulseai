@@ -129,12 +129,71 @@ export async function getChannelLeadTeammates(channelId: string, agentProfileId:
 
     return rows
         .filter((r) => r.id !== agentProfileId)
-        .map((r) => ({
-            id: r.id,
-            name: r.name,
-            modelId: r.modelId || "claude-sonnet-4-20250514",
-            specialization: (r.delegationConfig as any)?.specialization || `${r.name} — ${channel.name} team`,
-        }));
+        .map((r) => {
+            const base = (r.delegationConfig as any)?.specialization || `${channel.name} team member`;
+            const rank = r.level > 0 ? ` (rank ${r.level})` : "";
+            return {
+                id: r.id,
+                name: r.name,
+                modelId: r.modelId || "claude-sonnet-4-20250514",
+                specialization: `${base}${rank}`,
+            };
+        });
+}
+
+export type RoutableChannel = { id: string; name: string; kind: string; description: string | null; leadAgentId: string };
+
+/**
+ * Full routing context for a responder in a channel: whether it's the lead, its
+ * teammates (delegation targets within the channel), and other departments it can
+ * route to. One call for the runtime.
+ */
+export async function getChannelLeadContext(
+    tenantId: string,
+    channelId: string,
+    agentProfileId: string,
+): Promise<{ isLead: boolean; teammates: Teammate[]; routable: RoutableChannel[] }> {
+    const teammates = await getChannelLeadTeammates(channelId, agentProfileId);
+    // getChannelLeadTeammates returns [] both for "not lead" and "lead, no teammates".
+    // Disambiguate with an explicit lead check.
+    const [channel] = await db.select({ leadAgentId: channels.leadAgentId }).from(channels).where(eq(channels.id, channelId)).limit(1);
+    let isLead = channel?.leadAgentId === agentProfileId;
+    if (!isLead && !channel?.leadAgentId) {
+        const [row] = await db.select({ role: channelAgents.role }).from(channelAgents)
+            .where(and(eq(channelAgents.channelId, channelId), eq(channelAgents.agentProfileId, agentProfileId))).limit(1);
+        isLead = row?.role === "lead";
+    }
+    const routable = isLead ? await getRoutableChannels(tenantId, channelId) : [];
+    return { isLead, teammates, routable };
+}
+
+/**
+ * Channels this tenant has that a lead could route work to (other departments/groups
+ * that have a lead), excluding the current channel. Powers cross-department (Phase 4)
+ * and nested group (Phase 5) routing via the route_to_channel tool.
+ */
+export async function getRoutableChannels(tenantId: string, excludeChannelId: string): Promise<RoutableChannel[]> {
+    const rows = await db
+        .select({ id: channels.id, name: channels.name, kind: channels.kind, description: channels.description, leadAgentId: channels.leadAgentId })
+        .from(channels)
+        .where(eq(channels.tenantId, tenantId));
+    return rows
+        .filter((c) => c.id !== excludeChannelId && !!c.leadAgentId)
+        .map((c) => ({ id: c.id, name: c.name, kind: c.kind, description: c.description, leadAgentId: c.leadAgentId as string }));
+}
+
+/** Resolve a channel by (loose) name within a tenant and return its lead agent id. */
+export async function resolveChannelLeadByName(tenantId: string, name: string): Promise<{ channelId: string; channelName: string; leadAgentId: string } | null> {
+    const target = name.trim().toLowerCase();
+    const rows = await db
+        .select({ id: channels.id, name: channels.name, leadAgentId: channels.leadAgentId })
+        .from(channels)
+        .where(eq(channels.tenantId, tenantId));
+    const match = rows.find((c) => c.name.toLowerCase() === target)
+        || rows.find((c) => c.name.toLowerCase().startsWith(target))
+        || rows.find((c) => c.name.toLowerCase().includes(target));
+    if (!match || !match.leadAgentId) return null;
+    return { channelId: match.id, channelName: match.name, leadAgentId: match.leadAgentId };
 }
 
 /** Extract @mention tokens from message text (letters, digits, _, -). */

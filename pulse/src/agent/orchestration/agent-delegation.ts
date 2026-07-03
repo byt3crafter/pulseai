@@ -52,7 +52,8 @@ export async function delegateTask(
     task: string,
     tenantId: string,
     parentConversationId: string,
-    currentDepth: number = 0
+    currentDepth: number = 0,
+    opts: { bypassPolicy?: boolean } = {}
 ): Promise<DelegationResult> {
     const log = logger.child({ sourceAgentId, targetAgentId, tenantId });
 
@@ -62,10 +63,13 @@ export async function delegateTask(
         return { success: false, result: "Delegation limit reached for this conversation. Please answer directly.", tokensUsed: 0, delegationId: "" };
     }
 
-    // 1. Validate delegation
-    const check = await canDelegateTo(sourceAgentId, targetAgentId);
-    if (!check.allowed) {
-        return { success: false, result: `Delegation denied: ${check.reason}`, tokensUsed: 0, delegationId: "" };
+    // 1. Validate delegation (bypassed for org channel routing, which is authorized by
+    // channel membership rather than per-agent delegation flags).
+    if (!opts.bypassPolicy) {
+        const check = await canDelegateTo(sourceAgentId, targetAgentId);
+        if (!check.allowed) {
+            return { success: false, result: `Delegation denied: ${check.reason}`, tokensUsed: 0, delegationId: "" };
+        }
     }
 
     // 2. Check depth limit

@@ -21,6 +21,7 @@ import { workspaceUpdateTool } from "./built-in/workspace-update.js";
 import { filterTools, ToolPolicy } from "./tool-policy.js";
 import { pluginManager } from "../../plugins/manager.js";
 import { getTenantCustomTools } from "./custom-tools.js";
+import { routeToChannelTool } from "./built-in/route-to-channel.js";
 
 /**
  * Tool Registry - Manages available tools and their execution
@@ -48,6 +49,7 @@ export class ToolRegistry {
         this.builtInTools.set("cancel_job", cancelJobTool);
         this.builtInTools.set("delegate_to_agent", delegateToAgentTool);
         this.builtInTools.set("list_agents", listAgentsTool);
+        this.builtInTools.set("route_to_channel", routeToChannelTool);
         this.builtInTools.set("email_send", emailSendTool);
         this.builtInTools.set("email_read", emailReadTool);
         this.builtInTools.set("email_list", emailListTool);
@@ -127,8 +129,8 @@ export class ToolRegistry {
                 const pluginTools = pluginManager.getPluginTools();
                 tools.push(...pluginTools);
 
-                // 3.5 Inject per-tenant custom tools (customer's own API/software)
-                const customToolList = await getTenantCustomTools(tenantId);
+                // 3.5 Inject per-tenant custom tools (customer's own API/software), scoped to this agent
+                const customToolList = await getTenantCustomTools(tenantId, agentProfileId);
                 tools.push(...customToolList);
 
                 // 4. Apply tool policy filtering

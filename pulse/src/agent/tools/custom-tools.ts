@@ -145,14 +145,20 @@ export function createCustomTool(row: CustomToolRow): Tool {
     };
 }
 
-/** Load a tenant's enabled custom tools as agent Tools. */
-export async function getTenantCustomTools(tenantId: string): Promise<Tool[]> {
+/** Load a tenant's enabled custom tools as agent Tools, scoped to the given agent. */
+export async function getTenantCustomTools(tenantId: string, agentProfileId?: string): Promise<Tool[]> {
     try {
         const rows = await db
             .select()
             .from(customTools)
             .where(and(eq(customTools.tenantId, tenantId), eq(customTools.enabled, true)));
-        return rows.map((r) => createCustomTool(r as unknown as CustomToolRow));
+        return rows
+            .filter((r) => {
+                const allowed = Array.isArray(r.allowedAgentIds) ? (r.allowedAgentIds as string[]) : [];
+                // Empty = available to all agents; otherwise only the listed agents.
+                return allowed.length === 0 || (agentProfileId ? allowed.includes(agentProfileId) : false);
+            })
+            .map((r) => createCustomTool(r as unknown as CustomToolRow));
     } catch (err) {
         logger.error({ err, tenantId }, "Failed to load custom tools");
         return [];

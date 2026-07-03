@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { customTools } from "../../../storage/schema";
+import { customTools, agentProfiles } from "../../../storage/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -51,8 +51,18 @@ export async function saveCustomToolAction(formData: FormData): Promise<Result> 
 
     let params: ParamDef[] = [];
     let headers: Record<string, string> = {};
+    let allowedAgentIds: string[] = [];
     try { params = JSON.parse((formData.get("paramsJson") as string) || "[]"); } catch { /* ignore */ }
     try { headers = JSON.parse((formData.get("headersJson") as string) || "{}"); } catch { /* ignore */ }
+    try { allowedAgentIds = JSON.parse((formData.get("allowedAgentIdsJson") as string) || "[]"); } catch { /* ignore */ }
+
+    // Only keep agent ids that actually belong to this tenant.
+    if (allowedAgentIds.length) {
+        const owned = await db.select({ id: agentProfiles.id })
+            .from(agentProfiles).where(eq(agentProfiles.tenantId, tenantId));
+        const ownedSet = new Set(owned.map((a) => a.id));
+        allowedAgentIds = allowedAgentIds.filter((id) => ownedSet.has(id));
+    }
     const paramSchema = buildParamSchema(params);
     const cleanHeaders: Record<string, string> = {};
     for (const [k, v] of Object.entries(headers)) if (k?.trim()) cleanHeaders[k.trim()] = String(v ?? "");
@@ -64,10 +74,10 @@ export async function saveCustomToolAction(formData: FormData): Promise<Result> 
                 .from(customTools).where(and(eq(customTools.id, toolId), eq(customTools.tenantId, tenantId))).limit(1);
             if (!existing) return { success: false, message: "Not found." };
             await db.update(customTools)
-                .set({ name, description, method, urlTemplate, bodyTemplate, paramSchema, timeoutMs, headersEnc, updatedAt: new Date() })
+                .set({ name, description, method, urlTemplate, bodyTemplate, paramSchema, allowedAgentIds, timeoutMs, headersEnc, updatedAt: new Date() })
                 .where(and(eq(customTools.id, toolId), eq(customTools.tenantId, tenantId)));
         } else {
-            await db.insert(customTools).values({ tenantId, name, description, method, urlTemplate, bodyTemplate, paramSchema, timeoutMs, headersEnc });
+            await db.insert(customTools).values({ tenantId, name, description, method, urlTemplate, bodyTemplate, paramSchema, allowedAgentIds, timeoutMs, headersEnc });
         }
         revalidatePath(PATH);
         return { success: true, message: "Saved." };
