@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pulse AI — Autonomous AI Agents for Your Business",
-  description: "Deploy AI agents that work like real employees — accounting, IT ops, customer support, and more. They don't sleep, don't stop, and get smarter every day.",
+  title: "Pulse — Agentic AI workforce for the enterprise",
+  description: "Pulse turns AI into an organized team of agents — departments, managers, and specialists that use your own systems and act on your behalf, in your own private app, on your own infrastructure.",
 };
 
 export default function RootLayout({
