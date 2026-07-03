@@ -266,6 +266,7 @@ export const customTools = pgTable(
         headersEnc: text("headers_enc"),                  // encrypted JSON of static/auth headers
         bodyTemplate: text("body_template"),              // optional; supports {param} placeholders
         paramSchema: jsonb("param_schema").notNull().default({}), // { properties, required }
+        allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]), // [] = all agents; else scoped
         timeoutMs: integer("timeout_ms").notNull().default(15000),
         enabled: boolean("enabled").notNull().default(true),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),

@@ -6,13 +6,14 @@ import { WrenchScrewdriverIcon, PlusIcon, TrashIcon, PencilSquareIcon } from "@h
 import { saveCustomToolAction, deleteCustomToolAction, toggleCustomToolAction } from "./actions";
 
 type Param = { name: string; type: string; description: string; required: boolean };
+type Agent = { id: string; name: string };
 type Tool = {
     id: string; name: string; description: string; method: string;
     urlTemplate: string; bodyTemplate: string; timeoutMs: number; enabled: boolean;
-    headers: Record<string, string>; params: Param[];
+    headers: Record<string, string>; params: Param[]; allowedAgentIds: string[];
 };
 
-export default function ToolsClient({ tools }: { tools: Tool[] }) {
+export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: Agent[] }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -54,6 +55,7 @@ export default function ToolsClient({ tools }: { tools: Tool[] }) {
             {(creating || editing) && (
                 <ToolForm
                     tool={editing}
+                    agents={agents}
                     pending={pending}
                     onCancel={() => { setCreating(false); setEditing(null); }}
                     onSubmit={(fd) => run(saveCustomToolAction, fd, () => { setCreating(false); setEditing(null); })}
@@ -77,6 +79,9 @@ export default function ToolsClient({ tools }: { tools: Tool[] }) {
                             {t.params.length > 0 && (
                                 <p className="text-xs text-slate-400 mt-1">params: {t.params.map((p) => p.name).join(", ")}</p>
                             )}
+                            <p className="text-xs text-slate-400 mt-1">
+                                {t.allowedAgentIds.length > 0 ? `scoped to ${t.allowedAgentIds.length} agent${t.allowedAgentIds.length > 1 ? "s" : ""}` : "available to all agents"}
+                            </p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                             <button
@@ -98,14 +103,15 @@ export default function ToolsClient({ tools }: { tools: Tool[] }) {
     );
 }
 
-function ToolForm({ tool, pending, onCancel, onSubmit }: {
-    tool: Tool | null; pending: boolean;
+function ToolForm({ tool, agents, pending, onCancel, onSubmit }: {
+    tool: Tool | null; agents: Agent[]; pending: boolean;
     onCancel: () => void; onSubmit: (fd: FormData) => void;
 }) {
     const [params, setParams] = useState<Param[]>(tool?.params ?? []);
     const [headers, setHeaders] = useState<{ key: string; value: string }[]>(
         tool ? Object.entries(tool.headers).map(([key, value]) => ({ key, value })) : []
     );
+    const [allowed, setAllowed] = useState<string[]>(tool?.allowedAgentIds ?? []);
 
     const submit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -115,6 +121,7 @@ function ToolForm({ tool, pending, onCancel, onSubmit }: {
         const h: Record<string, string> = {};
         headers.forEach((r) => { if (r.key.trim()) h[r.key.trim()] = r.value; });
         fd.set("headersJson", JSON.stringify(h));
+        fd.set("allowedAgentIdsJson", JSON.stringify(allowed));
         onSubmit(fd);
     };
 
@@ -176,6 +183,30 @@ function ToolForm({ tool, pending, onCancel, onSubmit }: {
                     ))}
                     {headers.length === 0 && <p className="text-xs text-slate-400">No headers.</p>}
                 </div>
+            </div>
+
+            {/* Agent scope */}
+            <div>
+                <span className="text-xs font-medium text-slate-500 mb-1.5 block">
+                    Which agents can use this tool? <span className="text-slate-400">(none selected = all agents)</span>
+                </span>
+                {agents.length === 0 ? (
+                    <p className="text-xs text-slate-400">No agents yet.</p>
+                ) : (
+                    <div className="flex flex-wrap gap-2">
+                        {agents.map((a) => {
+                            const on = allowed.includes(a.id);
+                            return (
+                                <button
+                                    key={a.id}
+                                    type="button"
+                                    onClick={() => setAllowed(on ? allowed.filter((x) => x !== a.id) : [...allowed, a.id])}
+                                    className={`text-xs rounded-full px-3 py-1 border transition-colors ${on ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-300 text-slate-600 hover:border-indigo-400"}`}
+                                >{a.name}</button>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <details className="text-sm">

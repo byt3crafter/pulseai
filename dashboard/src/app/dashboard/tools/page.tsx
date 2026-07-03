@@ -1,7 +1,7 @@
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import { db } from "../../../storage/db";
-import { customTools } from "../../../storage/schema";
+import { customTools, agentProfiles } from "../../../storage/schema";
 import { eq } from "drizzle-orm";
 import { decrypt } from "../../../utils/crypto";
 import ToolsClient from "./ToolsClient";
@@ -18,7 +18,10 @@ export default async function ToolsPage() {
     if (!session?.user?.tenantId) redirect("/login");
     const tenantId = session.user.tenantId;
 
-    const rows = await db.select().from(customTools).where(eq(customTools.tenantId, tenantId));
+    const [rows, agents] = await Promise.all([
+        db.select().from(customTools).where(eq(customTools.tenantId, tenantId)),
+        db.select({ id: agentProfiles.id, name: agentProfiles.name }).from(agentProfiles).where(eq(agentProfiles.tenantId, tenantId)),
+    ]);
 
     const tools = rows.map((r) => {
         let headers: Record<string, string> = {};
@@ -35,8 +38,9 @@ export default async function ToolsPage() {
             id: r.id, name: r.name, description: r.description, method: r.method,
             urlTemplate: r.urlTemplate, bodyTemplate: r.bodyTemplate || "",
             timeoutMs: r.timeoutMs, enabled: r.enabled, headers, params,
+            allowedAgentIds: Array.isArray(r.allowedAgentIds) ? (r.allowedAgentIds as string[]) : [],
         };
     });
 
-    return <ToolsClient tools={tools} />;
+    return <ToolsClient tools={tools} agents={agents} />;
 }

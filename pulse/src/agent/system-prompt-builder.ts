@@ -100,6 +100,9 @@ export interface SystemPromptParams {
     /** Agents available for delegation */
     availableAgents?: DelegatableAgent[];
 
+    /** Other departments/channels this lead can route to (route_to_channel) */
+    routableChannels?: { name: string; description: string | null }[];
+
     /** Content from TOOLS.md workspace file */
     toolsGuidance?: string;
 
@@ -288,6 +291,20 @@ function buildMessagingSection(): string[] {
     ];
 }
 
+function buildRoutingSection(chans: { name: string; description: string | null }[]): string[] {
+    return [
+        "## Other Departments You Can Route To",
+        "You lead this department. When a request belongs to another department, hand it off with the route_to_channel tool:",
+        ...chans.map((c) => `- **${c.name}**${c.description ? `: ${c.description}` : ""}`),
+        "",
+        "### Routing Guidance",
+        "- Route only when the request clearly belongs to another department; otherwise handle it with your own team.",
+        "- Write a clear, self-contained task — the receiving department does not see this conversation.",
+        "- Do not route back and forth; if unsure, answer directly and say a handoff may be needed.",
+        "",
+    ];
+}
+
 function buildDelegationSection(agents: DelegatableAgent[]): string[] {
     if (agents.length === 0) return [];
 
@@ -467,6 +484,11 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
     // 13. Delegation Context — full mode only
     if (!isMinimal && params.delegationActive && params.availableAgents) {
         lines.push(...buildDelegationSection(params.availableAgents));
+    }
+
+    // 13.5 Cross-department routing — full mode only (channel leads)
+    if (!isMinimal && params.routableChannels && params.routableChannels.length > 0) {
+        lines.push(...buildRoutingSection(params.routableChannels));
     }
 
     // 14. Workspace Context Files — full mode only
