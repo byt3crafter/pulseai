@@ -13,6 +13,7 @@ import {
     ArrowsRightLeftIcon,
     BuildingOffice2Icon,
     WrenchScrewdriverIcon,
+    SparklesIcon,
 } from "@heroicons/react/24/outline";
 
 const links = [
@@ -24,15 +25,17 @@ const links = [
     { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },
     { href: "/dashboard/mcp", label: "MCP Servers", icon: ServerStackIcon, exact: false },
     { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, exact: false },
+    { href: "/dashboard/chatgpt", label: "ChatGPT Connect", icon: SparklesIcon, exact: false, feature: "chatgptConnect" },
     { href: "/dashboard/settings", label: "Settings", icon: Cog6ToothIcon, exact: false },
 ];
 
-export default function DashboardNav({ isAdmin }: { isAdmin?: boolean }) {
+export default function DashboardNav({ isAdmin, chatgptConnect }: { isAdmin?: boolean; chatgptConnect?: boolean }) {
     const pathname = usePathname();
+    const visible = links.filter((l) => !l.feature || (l.feature === "chatgptConnect" && chatgptConnect));
 
     return (
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-            {links.map(({ href, label, icon: Icon, exact, exclude }) => {
+            {visible.map(({ href, label, icon: Icon, exact, exclude }) => {
                 let isActive = exact ? pathname === href : pathname.startsWith(href);
                 if (isActive && exclude && pathname.startsWith(exclude)) isActive = false;
                 return (
