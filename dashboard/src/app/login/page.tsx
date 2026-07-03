@@ -98,10 +98,10 @@ function LoginForm() {
                 </Link>
                 <div>
                     <p className="text-3xl font-bold text-white leading-tight mb-4">
-                        Your AI assistant,<br />connected and ready.
+                        Your AI workforce,<br />ready to work.
                     </p>
                     <p className="text-slate-400 text-sm">
-                        Sign in to manage your workspace, configure your AI channels, and monitor usage.
+                        Sign in to manage your agents, departments, and connected tools.
                     </p>
                 </div>
                 <p className="text-xs text-slate-700">© {new Date().getFullYear()} Runstate Ltd</p>
