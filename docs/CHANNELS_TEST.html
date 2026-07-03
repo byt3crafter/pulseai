@@ -95,6 +95,31 @@
     <div class="exp">Expected: classic 1:1 chat with that agent still works (unchanged).</div>
   </div>
 
+  <h2><span class="n">8</span> Cross-department routing (Phase 4)</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">In the dashboard, create a second department <code>Support</code> with its own <strong>Lead</strong> agent.</label>
+    <label class="step"><input type="checkbox">In the desktop app, open <strong>Sales</strong> and ask something that belongs to Support, e.g. <em>"a customer has a broken login — route this to Support."</em></label>
+    <div class="exp">Expected: the Sales lead uses <code>route_to_channel</code>, and you get a reply that includes Support's answer ("Reply from Support lead: …").</div>
+    <div class="tip">Give each department's lead a clear identity (system prompt) so the lead knows what belongs where.</div>
+  </div>
+
+  <h2><span class="n">9</span> Hierarchy (Phase 5)</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Under Sales, create a <strong>group</strong> (e.g. <code>EU Team</code>) and give it a Lead agent.</label>
+    <label class="step"><input type="checkbox">From Sales, ask the lead to route something to <em>EU Team</em>.</label>
+    <div class="exp">Expected: routing works down the tree to the group's lead (same route_to_channel).</div>
+  </div>
+
+  <h2><span class="n">10</span> Custom tools + scoping</h2>
+  <div class="card">
+    <label class="step"><input type="checkbox">Dashboard → <strong>Custom Tools</strong> → New tool: name <code>github_repo</code>, GET, URL <code>https://api.github.com/repos/{owner}/{repo}</code>, params <code>owner</code>+<code>repo</code>. Leave scope = all agents. Create.</label>
+    <label class="step"><input type="checkbox">Ask an agent: <em>"use github_repo for owner anthropics repo anthropic-sdk-python."</em></label>
+    <div class="exp">Expected: the agent calls the tool and returns the live repo JSON.</div>
+    <label class="step"><input type="checkbox">Edit the tool → under "Which agents can use this tool" select only <strong>one</strong> agent. Save.</label>
+    <label class="step"><input type="checkbox">Ask a <em>different</em> agent to use <code>github_repo</code>.</label>
+    <div class="exp">Expected: that agent doesn't have the tool (won't call it); only the scoped agent can.</div>
+  </div>
+
   <p class="sub" style="margin-top:28px">Tell me which steps failed (by number) and what you saw — I'll fix from there. <span class="ok">✓</span></p>
 </div>
 </body>
