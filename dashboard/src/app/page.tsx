@@ -28,17 +28,17 @@ export default function LandingPage() {
         <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-violet-600/20 blur-[140px]" />
         <div className="relative max-w-4xl mx-auto px-6 pt-28 pb-24 text-center">
           <div className="inline-flex items-center gap-2 text-[12px] font-medium text-violet-300 bg-violet-500/10 border border-violet-500/20 px-3 py-1 rounded-full mb-8">
-            <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" /> Agentic AI for the enterprise
+            <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" /> Agentic AI — for individuals, teams &amp; enterprises
           </div>
           <h1 className="text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
-            Give your company
+            Your own
             <br />
-            an <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-300 to-violet-500">AI workforce</span>.
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-300 to-violet-500">AI workforce</span>.
           </h1>
           <p className="mt-7 text-lg text-white/55 max-w-2xl mx-auto leading-relaxed">
-            Pulse Agentic turns AI into an organized team — departments led by a manager, specialists
-            that do the work, all talking to each other, using your own systems, and acting on your behalf.
-            In your own private app. On your own infrastructure.
+            Pulse Agentic turns AI into an organized team that works for you — whether you are one person
+            drowning in busywork, a growing business, or an enterprise. Managers and specialists that talk
+            to each other, use your own tools, and act on your behalf, in your own private app.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
             <a href={CONTACT} className="inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-medium px-6 py-3 rounded-xl transition-colors">
@@ -48,6 +48,32 @@ export default function LandingPage() {
               Sign in
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Who it's for — scales from one person to an enterprise */}
+      <section className="max-w-5xl mx-auto px-6 py-20 border-t border-white/[0.06]">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">One platform. Any size.</h2>
+          <p className="mt-4 text-white/55">Start solo, grow into a team, scale to an enterprise — the same agents grow with you.</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          <Segment
+            tag="Individuals"
+            title="Your personal team"
+            body="Hand off the busywork — email, research, scheduling, admin. A team of agents that works while you focus on what matters."
+          />
+          <Segment
+            tag="Small & medium business"
+            title="Run it with agents"
+            body="Sales, support, and operations handled by agents connected to your tools — the output of a bigger team, without the headcount."
+            featured
+          />
+          <Segment
+            tag="Enterprise"
+            title="Private & sovereign"
+            body="A dedicated deployment on your own infrastructure, your data never leaving it, with SSO, two-factor, role-based access, and audit logs."
+          />
         </div>
       </section>
 
@@ -65,7 +91,7 @@ export default function LandingPage() {
 
         {/* Minimal org visual */}
         <div className="mt-12 grid gap-4">
-          <OrgNode label="Your Company" tone="lead" className="mx-auto" />
+          <OrgNode label="Your workspace" tone="lead" className="mx-auto" />
           <div className="flex justify-center"><span className="w-px h-6 bg-white/10" /></div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
@@ -154,6 +180,16 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function Segment({ tag, title, body, featured }: { tag: string; title: string; body: string; featured?: boolean }) {
+  return (
+    <div className={`rounded-xl border p-6 transition-colors ${featured ? "border-violet-500/30 bg-violet-500/[0.06]" : "border-white/[0.08] bg-white/[0.02] hover:border-white/15"}`}>
+      <div className={`text-[11px] font-semibold uppercase tracking-wider ${featured ? "text-violet-300" : "text-white/40"}`}>{tag}</div>
+      <h3 className="mt-3 text-[16px] font-semibold">{title}</h3>
+      <p className="mt-2 text-[13px] text-white/50 leading-relaxed">{body}</p>
     </div>
   );
 }
