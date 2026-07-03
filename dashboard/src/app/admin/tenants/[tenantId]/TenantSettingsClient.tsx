@@ -26,6 +26,7 @@ export default function TenantSettingsClient({
     const [heartbeatEnabled, setHeartbeatEnabled] = useState(config.heartbeat_enabled ?? false);
     const [heartbeatInterval, setHeartbeatInterval] = useState((config.heartbeat_default_interval || 3600).toString());
     const [routingEnabled, setRoutingEnabled] = useState(config.multi_agent_routing_enabled ?? false);
+    const [chatgptConnect, setChatgptConnect] = useState(config.chatgptConnectEnabled ?? false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -38,6 +39,7 @@ export default function TenantSettingsClient({
             heartbeat_enabled: heartbeatEnabled,
             heartbeat_default_interval: parseInt(heartbeatInterval, 10) || 3600,
             multi_agent_routing_enabled: routingEnabled,
+            chatgptConnectEnabled: chatgptConnect,
         });
 
         if (result.success) {
@@ -122,6 +124,24 @@ export default function TenantSettingsClient({
                     <div>
                         <span className="text-[13px] font-medium text-pulse-text">Enable Multi-Agent Routing</span>
                         <p className="text-[11px] text-pulse-muted">When disabled, all messages go to the channel&apos;s assigned agent</p>
+                    </div>
+                </label>
+            </Panel>
+
+            {/* ChatGPT Connect */}
+            <Panel bodyClassName="p-6">
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-1">ChatGPT Account Connect</h2>
+                <p className="text-[13px] text-pulse-muted mb-4">Let this customer connect their own ChatGPT (Plus/Pro/Max) account via OAuth, so their agents can run on their subscription. Off by default — enable per customer.</p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={chatgptConnect}
+                        onChange={(e) => setChatgptConnect(e.target.checked)}
+                        className="w-4 h-4 text-pulse-accent border-pulse-border rounded focus:ring-pulse-accent"
+                    />
+                    <div>
+                        <span className="text-[13px] font-medium text-pulse-text">Enable ChatGPT Connect</span>
+                        <p className="text-[11px] text-pulse-muted">Shows the &quot;Connect ChatGPT&quot; option in this customer&apos;s dashboard</p>
                     </div>
                 </label>
             </Panel>

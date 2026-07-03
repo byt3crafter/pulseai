@@ -20,7 +20,7 @@ export default async function DashboardLayout({
 
     // Fetch real workspace name and user name
     const [tenantRow, userRow] = await Promise.all([
-        tenantId ? db.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, tenantId)).limit(1) : Promise.resolve([]),
+        tenantId ? db.select({ name: tenants.name, config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1) : Promise.resolve([]),
         userId ? db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, userId)).limit(1) : Promise.resolve([]),
     ]);
 
@@ -28,6 +28,7 @@ export default async function DashboardLayout({
     const userName = userRow[0]?.name ?? userRow[0]?.email ?? "User";
     const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
     const isAdmin = session?.user?.role === "ADMIN";
+    const chatgptConnect = !!(tenantRow[0] as any)?.config?.chatgptConnectEnabled;
 
     return (
         <div className="flex h-screen bg-slate-50 w-full font-sans">
@@ -46,7 +47,7 @@ export default async function DashboardLayout({
                 </div>
 
                 {/* Nav — dynamic active state via DashboardNav (client component) */}
-                <DashboardNav isAdmin={isAdmin} />
+                <DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} />
 
                 {/* User + logout */}
                 <div className="p-3 border-t border-slate-100">
