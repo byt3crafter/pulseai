@@ -4,7 +4,6 @@ import { eq, and } from "drizzle-orm";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import CreateAgentModal from "./CreateAgentModal";
 import { CpuChipIcon } from "@heroicons/react/24/outline";
 import { getModelDisplayName, getProviderName } from "../../../utils/models";
 
@@ -44,7 +43,15 @@ export default async function AgentsPage() {
                         <h1 className="text-2xl font-bold text-gray-900">Agent Profiles</h1>
                         <p className="text-sm text-gray-500 mt-1">Manage distinct AI personas, their workspaces, models, and tool access.</p>
                     </div>
-                    <CreateAgentModal connectedProviders={connectedProviders} />
+                    <Link
+                        href="/dashboard/agents/new"
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm shadow-sm"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Create Agent
+                    </Link>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
