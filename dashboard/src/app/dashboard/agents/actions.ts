@@ -59,6 +59,81 @@ export async function generatePersonaAction(input: {
     }
 }
 
+/**
+ * Full "describe → complete agent" generation. From one plain-English description,
+ * the tenant's connected model proposes the whole config: name, soul (system prompt),
+ * the best model to use, a fitting department name, and tone. Returns structured JSON.
+ */
+export async function generateAgentConfigAction(input: { description: string }): Promise<{
+    success: boolean;
+    config?: { name: string; soul: string; model: string; department: string; tone: string };
+    message?: string;
+}> {
+    const check = await requireTenant();
+    if (!check.authorized) return { success: false, message: check.message };
+    const tenantId = check.tenantId;
+
+    const description = (input.description || "").trim();
+    if (description.length < 8) return { success: false, message: "Describe the agent in a sentence or two so I have enough to work with." };
+
+    // Which providers/models are connected → constrain the model choice to something usable.
+    const keys = await db.select({ provider: tenantProviderKeys.provider }).from(tenantProviderKeys).where(eq(tenantProviderKeys.tenantId, tenantId));
+    const connected = new Set(keys.map((k) => k.provider));
+    const allowedModels = PROVIDERS.filter((p) => connected.has(p.id)).flatMap((p) => p.models.map((m) => m.id));
+    if (allowedModels.length === 0) return { success: false, message: "Connect an AI provider in Settings → AI Providers first." };
+
+    // Use the first connected provider/model to run the generation.
+    const genModel = allowedModels[0];
+    const providerId = PROVIDERS.find((p) => p.models.some((m) => m.id === genModel))!.id;
+    const [key] = await db.select().from(tenantProviderKeys)
+        .where(and(eq(tenantProviderKeys.tenantId, tenantId), eq(tenantProviderKeys.provider, providerId))).limit(1);
+    if (!key) return { success: false, message: "No usable AI provider key found." };
+
+    const prompt = [
+        `You are configuring an AI agent for a business, from this description:`,
+        `"""${description}"""`,
+        ``,
+        `Return ONLY a valid JSON object (no markdown, no code fences) with exactly these keys:`,
+        `- "name": a short, human friendly agent name (e.g. "Cortex", "Sales Assistant").`,
+        `- "soul": a first-person system prompt of 2-4 short paragraphs — who it is, its responsibilities, how it communicates, and what to do when unsure. Plain text, no headings.`,
+        `- "model": choose the best fit from EXACTLY this list: ${JSON.stringify(allowedModels)}.`,
+        `- "department": a short department name this agent fits (e.g. "Sales", "Support", "Operations").`,
+        `- "tone": one word (e.g. "Professional", "Friendly", "Concise").`,
+    ].join("\n");
+
+    let raw: string;
+    try {
+        raw = await callProviderForText(providerId, key, genModel, prompt);
+    } catch (e: any) {
+        const m = String(e?.message || "");
+        if (/429|402|quota|billing|insufficient|balance|resource_exhausted|free_tier/i.test(m))
+            return { success: false, message: "That provider has no available quota/balance — top it up, or use a free provider like Groq. (Settings → AI Providers)" };
+        if (/401|403|invalid|denied|permission|unauthorized|not supported/i.test(m))
+            return { success: false, message: "The provider rejected the key (auth or access restriction). Check Settings → AI Providers." };
+        return { success: false, message: "Couldn't generate right now — please try again." };
+    }
+
+    // Parse the JSON (tolerate stray text / code fences around it).
+    let parsed: any;
+    try {
+        const jsonStr = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+        parsed = JSON.parse(jsonStr);
+    } catch {
+        return { success: false, message: "The model returned an unexpected format — please try again." };
+    }
+
+    const model = allowedModels.includes(parsed.model) ? parsed.model : genModel;
+    const config = {
+        name: String(parsed.name || "").slice(0, 120).trim() || "New Agent",
+        soul: String(parsed.soul || "").trim(),
+        model,
+        department: String(parsed.department || "").slice(0, 80).trim(),
+        tone: String(parsed.tone || "Professional").slice(0, 40).trim(),
+    };
+    if (!config.soul) return { success: false, message: "Generation was empty — please try again." };
+    return { success: true, config };
+}
+
 async function callProviderForText(provider: string, key: any, model: string, prompt: string): Promise<string> {
     if (provider === "google") {
         const apiKey = decrypt(key.encryptedApiKey);
@@ -114,6 +189,9 @@ export async function createAgentProfileAction(formData: FormData) {
         const systemPrompt = formData.get("systemPrompt") as string;
         const modelId = (formData.get("modelId") as string) || "claude-sonnet-4-20250514";
         const dockerSandboxEnabled = formData.get("dockerSandboxEnabled") === "true";
+        // Self-config ON by default (agent can refine its own SOUL when you chat with it).
+        // Only disabled when the form explicitly sends "false".
+        const selfConfigEnabled = formData.get("selfConfigEnabled") !== "false";
 
         if (!name) {
             return { success: false, message: "Agent name is required." };
@@ -126,6 +204,7 @@ export async function createAgentProfileAction(formData: FormData) {
             systemPrompt,
             modelId,
             dockerSandboxEnabled,
+            selfConfigEnabled,
         }).returning();
 
         // Initialize workspace directory with seed files
