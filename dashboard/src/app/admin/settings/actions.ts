@@ -50,6 +50,33 @@ export async function getProviderKeyStatuses(): Promise<ProviderKeyStatus[]> {
     ];
 }
 
+export async function getBillingModeAction(): Promise<"credits" | "unlimited"> {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return "credits";
+    const s = await db.query.globalSettings.findFirst({ where: (t, { eq: e }) => e(t.id, "root") }) as any;
+    return ((s?.config?.billingMode) === "unlimited") ? "unlimited" : "credits";
+}
+
+export async function setBillingModeAction(mode: string) {
+    const adminCheck = await requireAdmin("platform.settings.write");
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+    const m = mode === "unlimited" ? "unlimited" : "credits";
+    try {
+        const cur = await db.query.globalSettings.findFirst({ where: (t, { eq: e }) => e(t.id, "root") }) as any;
+        const cfg = cur?.config ? { ...cur.config } : {};
+        cfg.billingMode = m;
+        await db.insert(globalSettings)
+            .values({ id: "root", config: cfg, updatedAt: new Date() })
+            .onConflictDoUpdate({ target: globalSettings.id, set: { config: cfg, updatedAt: new Date() } });
+        await logAudit({ action: "settings.billing_mode.update", targetType: "settings", summary: `Billing mode set to ${m}` });
+        revalidatePath("/admin/settings");
+        return { success: true, message: `Billing mode set to ${m === "unlimited" ? "Unlimited (BYOK)" : "Managed credits"}.` };
+    } catch (e) {
+        console.error("Failed to set billing mode:", e);
+        return { success: false, message: "Could not update billing mode." };
+    }
+}
+
 export async function saveProviderKeyAction(formData: FormData) {
     const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
