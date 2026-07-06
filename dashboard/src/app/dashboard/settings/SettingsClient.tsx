@@ -611,28 +611,67 @@ function TelegramTab({
 // ─── AI Providers Tab ────────────────────────────────────────────────────────
 
 function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
+    const connected = PROVIDERS.filter((p) => providerKeys.some((k) => k.provider === p.id));
+    const available = PROVIDERS.filter((p) => !providerKeys.some((k) => k.provider === p.id));
+    const [adding, setAdding] = useState<string>("");
+
+    const renderCard = (provider: typeof PROVIDERS[number]) => (
+        <ProviderCard
+            key={provider.id}
+            providerId={provider.id}
+            providerName={provider.name}
+            authMethods={provider.authMethods}
+            modelCount={provider.models.length}
+            existingKey={providerKeys.find((k) => k.provider === provider.id)}
+        />
+    );
+
     return (
         <div className="space-y-6">
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
                 <p className="text-sm text-indigo-800">
-                    <span className="font-semibold">Bring Your Own Key (BYOK)</span> — Add your API keys to use different LLM providers.
-                    Keys are encrypted at rest with AES-256-GCM. If no key is configured, the platform's global key is used as fallback.
+                    <span className="font-semibold">Bring Your Own Key (BYOK)</span> — connect the LLM providers you want your agents to use.
+                    Keys are encrypted at rest (AES-256-GCM). Tip: Google Gemini has a free tier to get started.
                 </p>
             </div>
 
-            {PROVIDERS.map((provider) => {
-                const existingKey = providerKeys.find((k) => k.provider === provider.id);
-                return (
-                    <ProviderCard
-                        key={provider.id}
-                        providerId={provider.id}
-                        providerName={provider.name}
-                        authMethods={provider.authMethods}
-                        modelCount={provider.models.length}
-                        existingKey={existingKey}
-                    />
-                );
-            })}
+            {/* Connected providers */}
+            <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                    Connected {connected.length > 0 && <span className="text-slate-300">· {connected.length}</span>}
+                </h3>
+                {connected.length === 0 ? (
+                    <p className="text-sm text-slate-400 bg-white border border-dashed border-slate-200 rounded-xl p-6 text-center">
+                        No providers connected yet. Add one below to power your agents.
+                    </p>
+                ) : (
+                    <div className="space-y-4">{connected.map(renderCard)}</div>
+                )}
+            </div>
+
+            {/* Add a provider */}
+            {available.length > 0 && (
+                <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Add a provider</h3>
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={adding}
+                            onChange={(e) => setAdding(e.target.value)}
+                            className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                        >
+                            <option value="">Choose a provider…</option>
+                            {available.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name}{p.id === "google" ? " (free tier)" : ""}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {adding && (
+                        <div className="mt-4">
+                            {renderCard(available.find((p) => p.id === adding)!)}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
