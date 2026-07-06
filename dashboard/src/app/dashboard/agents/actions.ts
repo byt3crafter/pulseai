@@ -50,9 +50,11 @@ export async function generatePersonaAction(input: {
         return { success: true, text: text.trim() };
     } catch (e: any) {
         const m = String(e?.message || "generation failed");
-        // Surface provider quota/billing/auth issues clearly (common on free/region-limited keys)
-        if (/429|quota|billing/i.test(m)) return { success: false, message: "Your provider hit a quota/billing limit. Enable billing on the key, then retry." };
-        if (/401|403|invalid|denied|auth/i.test(m)) return { success: false, message: "The provider rejected the key (auth/permission). Check it in Settings → AI Providers." };
+        // Surface provider quota/billing/balance/auth issues clearly (common on free/region-limited/unfunded keys)
+        if (/429|402|quota|billing|insufficient|balance|resource_exhausted|free_tier/i.test(m))
+            return { success: false, message: "That provider has no available quota/balance — top it up or enable billing, or use a free provider like Groq. (Settings → AI Providers)" };
+        if (/401|403|invalid|denied|permission|unauthorized|not supported/i.test(m))
+            return { success: false, message: "The provider rejected the key (auth or access restriction). Check it in Settings → AI Providers." };
         return { success: false, message: "Couldn't generate right now — please try again." };
     }
 }
