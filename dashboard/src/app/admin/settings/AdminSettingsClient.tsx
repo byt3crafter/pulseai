@@ -23,6 +23,7 @@ import {
     saveEmailSettingsAction,
     testEmailSettingsAction,
     saveSsoSettingsAction,
+    setBillingModeAction,
     type EmailSettingsView,
     type SsoSettingsView,
 } from "./actions";
@@ -35,6 +36,7 @@ import {
 
 const TABS = [
     { id: "providers", label: "AI Providers" },
+    { id: "billing", label: "Billing" },
     { id: "model-pricing", label: "Model Pricing" },
     { id: "system", label: "System Services" },
     { id: "email", label: "Email (SMTP)" },
@@ -196,6 +198,7 @@ export default function AdminSettingsClient({
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
                     {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} canWrite={canWrite} />}
+                    {tab === "billing" && <BillingTab initialMode={((settings as any)?.config?.billingMode === "unlimited") ? "unlimited" : "credits"} canWrite={canBilling || canWrite} />}
                     {tab === "system" && <SystemTab settings={settings} canWrite={canWrite} />}
                     {tab === "email" && <EmailTab settings={emailSettings} canWrite={canWrite} />}
                     {tab === "sso" && <SsoTab settings={ssoSettings} canWrite={canWrite} />}
@@ -223,6 +226,52 @@ const PROVIDER_CARDS = [
     { id: "openrouter", name: "OpenRouter", description: "Multi-provider routing", placeholder: "sk-or-..." },
     { id: "minimax", name: "MiniMax", description: "MiniMax M2.5 models", placeholder: "eyJ..." },
 ];
+
+function BillingTab({ initialMode, canWrite }: { initialMode: "credits" | "unlimited"; canWrite: boolean }) {
+    const [mode, setMode] = useState<"credits" | "unlimited">(initialMode);
+    const [saving, setSaving] = useState(false);
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const save = async (m: "credits" | "unlimited") => {
+        setSaving(true); setMsg(null);
+        const res = await setBillingModeAction(m);
+        setMsg(res.message);
+        if (res.success) setMode(m);
+        setSaving(false);
+    };
+
+    const options: Array<{ id: "credits" | "unlimited"; title: string; desc: string }> = [
+        { id: "unlimited", title: "Unlimited (BYOK)", desc: "Dedicated deployment — the client runs on their own API key. No credit metering; the credits & top-up UI is hidden. Bill the software separately (one-off or licence)." },
+        { id: "credits", title: "Managed credits", desc: "You provide the API key and meter usage. Clients see a credit balance and top up. Use for hosted/managed customers." },
+    ];
+
+    return (
+        <Panel bodyClassName="p-6">
+            <h2 className="text-[15px] font-semibold text-pulse-text mb-1">Billing Mode</h2>
+            <p className="text-[13px] text-pulse-muted mb-4">Controls how this deployment bills for AI usage and whether the credits/top-up UI is shown to the workspace.</p>
+            <div className="space-y-3">
+                {options.map((o) => (
+                    <label key={o.id} className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${mode === o.id ? "border-pulse-accent bg-pulse-accent/5" : "border-pulse-border hover:bg-pulse-hover"}`}>
+                        <input
+                            type="radio"
+                            name="billingMode"
+                            checked={mode === o.id}
+                            disabled={!canWrite || saving}
+                            onChange={() => save(o.id)}
+                            className="mt-1 accent-pulse-accent"
+                        />
+                        <div>
+                            <div className="text-[13px] font-medium text-pulse-text">{o.title}{mode === o.id && <span className="ml-2 text-[11px] text-pulse-accent">current</span>}</div>
+                            <p className="text-[12px] text-pulse-muted mt-0.5">{o.desc}</p>
+                        </div>
+                    </label>
+                ))}
+            </div>
+            {!canWrite && <p className="text-[12px] text-pulse-faint mt-3">You don&apos;t have permission to change billing settings.</p>}
+            {msg && <p className="text-[13px] text-pulse-text-soft mt-3">{msg}</p>}
+        </Panel>
+    );
+}
 
 function ProvidersTab({ providerStatuses, canWrite }: { providerStatuses: Array<{ provider: string; hasKey: boolean }>; canWrite: boolean }) {
     const statusMap = Object.fromEntries(providerStatuses.map((s) => [s.provider, s.hasKey]));

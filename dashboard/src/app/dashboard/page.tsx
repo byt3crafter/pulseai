@@ -1,6 +1,6 @@
 import { auth } from "../../auth";
 import { db } from "../../storage/db";
-import { tenantBalances, channelConnections, oauthClients } from "../../storage/schema";
+import { tenantBalances, channelConnections, oauthClients, globalSettings } from "../../storage/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
 
@@ -16,6 +16,11 @@ export default async function DashboardOverview() {
         tenantId ? db.select().from(oauthClients).where(eq(oauthClients.tenantId, tenantId)) : Promise.resolve([]),
     ]);
 
+    // Billing mode gates all credits/top-up UI. "unlimited" = BYOK / dedicated (no metering).
+    const rootSettings = await db.select({ config: globalSettings.config }).from(globalSettings).where(eq(globalSettings.id, "root")).limit(1);
+    const billingMode = (rootSettings[0]?.config as any)?.billingMode ?? "credits";
+    const showBilling = billingMode !== "unlimited";
+
     const credits = Number(balances[0]?.balance ?? 0);
     const estimatedTokens = Math.floor(credits * 1500).toLocaleString();
     const creditStatus = credits > 500 ? "Healthy" : credits > 0 ? "Low" : "Empty";
@@ -30,11 +35,12 @@ export default async function DashboardOverview() {
         <div className="p-8 space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Workspace Overview</h1>
-                <p className="text-sm text-slate-500 mt-1">Monitor your Agent's API usage, credit balance, and active channels.</p>
+                <p className="text-sm text-slate-500 mt-1">{showBilling ? "Monitor your Agent's API usage, credit balance, and active channels." : "Monitor your agents, integrations, and workspace."}</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Credit Balance Card */}
+            <div className={`grid grid-cols-1 gap-6 ${showBilling ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+                {/* Credit Balance Card — only in managed (credits) mode */}
+                {showBilling && (
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div className="flex justify-between items-start">
                         <h2 className="text-sm font-medium text-slate-500">Available Credits</h2>
@@ -51,6 +57,7 @@ export default async function DashboardOverview() {
                         Top Up Balance
                     </Link>
                 </div>
+                )}
 
                 {/* Active Integrations Card */}
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
@@ -135,6 +142,7 @@ export default async function DashboardOverview() {
                                 <p className="text-xs text-slate-500">Tokens, API keys & more</p>
                             </div>
                         </Link>
+                        {showBilling && (
                         <Link href="/dashboard/billing" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors group">
                             <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-green-600">
@@ -146,6 +154,7 @@ export default async function DashboardOverview() {
                                 <p className="text-xs text-slate-500">Credits & top-up options</p>
                             </div>
                         </Link>
+                        )}
                     </div>
                 </div>
             </div>

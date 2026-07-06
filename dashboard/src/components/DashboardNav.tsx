@@ -24,14 +24,18 @@ const links = [
     { href: "/dashboard/tools", label: "Custom Tools", icon: WrenchScrewdriverIcon, exact: false },
     { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },
     { href: "/dashboard/mcp", label: "MCP Servers", icon: ServerStackIcon, exact: false },
-    { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, exact: false },
+    { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, exact: false, feature: "billing" },
     { href: "/dashboard/chatgpt", label: "ChatGPT Connect", icon: SparklesIcon, exact: false, feature: "chatgptConnect" },
     { href: "/dashboard/settings", label: "Settings", icon: Cog6ToothIcon, exact: false },
 ];
 
-export default function DashboardNav({ isAdmin, chatgptConnect }: { isAdmin?: boolean; chatgptConnect?: boolean }) {
+export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = true }: { isAdmin?: boolean; chatgptConnect?: boolean; showBilling?: boolean }) {
     const pathname = usePathname();
-    const visible = links.filter((l) => !l.feature || (l.feature === "chatgptConnect" && chatgptConnect));
+    const visible = links.filter((l) => {
+        if (l.feature === "chatgptConnect") return !!chatgptConnect;
+        if (l.feature === "billing") return showBilling;
+        return true;
+    });
 
     return (
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">

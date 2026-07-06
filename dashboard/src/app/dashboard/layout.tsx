@@ -1,6 +1,6 @@
 import { auth } from "../../auth";
 import { db } from "../../storage/db";
-import { users, tenants } from "../../storage/schema";
+import { users, tenants, globalSettings } from "../../storage/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { CpuChipIcon } from "@heroicons/react/24/outline";
@@ -29,6 +29,8 @@ export default async function DashboardLayout({
     const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
     const isAdmin = session?.user?.role === "ADMIN";
     const chatgptConnect = !!(tenantRow[0] as any)?.config?.chatgptConnectEnabled;
+    const rootRow = await db.select({ config: globalSettings.config }).from(globalSettings).where(eq(globalSettings.id, "root")).limit(1);
+    const showBilling = ((rootRow[0]?.config as any)?.billingMode ?? "credits") !== "unlimited";
 
     return (
         <div className="flex h-screen bg-slate-50 w-full font-sans">
@@ -47,7 +49,7 @@ export default async function DashboardLayout({
                 </div>
 
                 {/* Nav — dynamic active state via DashboardNav (client component) */}
-                <DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} />
+                <DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />
 
                 {/* User + logout */}
                 <div className="p-3 border-t border-slate-100">
