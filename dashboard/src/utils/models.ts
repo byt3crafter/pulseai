@@ -53,6 +53,15 @@ export const PROVIDERS: ProviderInfo[] = [
         ],
     },
     {
+        id: "groq",
+        name: "Groq (free)",
+        authMethods: ["api_key"],
+        models: [
+            { id: "llama-3.3-70b-versatile", provider: "groq", displayName: "Llama 3.3 70B (Groq, free)", category: "flagship" },
+            { id: "llama-3.1-8b-instant", provider: "groq", displayName: "Llama 3.1 8B Instant (Groq, free)", category: "fast" },
+        ],
+    },
+    {
         id: "openrouter",
         name: "OpenRouter",
         authMethods: ["api_key"],

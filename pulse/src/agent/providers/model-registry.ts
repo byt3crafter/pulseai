@@ -226,12 +226,39 @@ const minimaxProvider: ProviderDefinition = {
     ],
 };
 
+// Groq — genuinely free tier (no card, generous limits, works globally). Great for testing.
+const groqProvider: ProviderDefinition = {
+    id: "groq",
+    name: "Groq",
+    authMethods: ["api_key"],
+    envKeyName: "GROQ_API_KEY",
+    models: [
+        {
+            id: "llama-3.3-70b-versatile",
+            provider: "groq",
+            displayName: "Llama 3.3 70B (Groq, free)",
+            category: "flagship",
+            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+            maxTokens: 8192,
+        },
+        {
+            id: "llama-3.1-8b-instant",
+            provider: "groq",
+            displayName: "Llama 3.1 8B Instant (Groq, free)",
+            category: "fast",
+            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+            maxTokens: 8192,
+        },
+    ],
+};
+
 // ─── Registry ────────────────────────────────────────────────────────────────
 
 const ALL_PROVIDERS: ProviderDefinition[] = [
     anthropicProvider,
     openaiProvider,
     googleProvider,
+    groqProvider,
     openrouterProvider,
     minimaxProvider,
 ];
