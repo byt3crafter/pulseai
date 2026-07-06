@@ -11,7 +11,7 @@ import { chunkHtmlMessage, chunkMessage } from "./chunking.js";
 import { markdownToIR, renderTelegramHtml } from "../formatting/index.js";
 import type { MessageIR } from "../formatting/ir.js";
 import { db } from "../../storage/db.js";
-import { tenants, allowlists } from "../../storage/schema.js";
+import { tenants, allowlists, channelConnections } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
 
 /**
@@ -116,68 +116,56 @@ export class TelegramAdapter implements ChannelAdapter {
     async initialize(connections: ChannelConnectionConfig[]): Promise<void> {
         for (const conn of connections) {
             if (conn.channelType !== this.channelType) continue;
+            await this.loadBot(conn);
+        }
+    }
 
-            const { botToken: rawBotToken } = conn.channelConfig;
-            if (!rawBotToken) {
-                logger.warn({ tenantId: conn.tenantId }, "Missing botToken for telegram connection");
-                continue;
+    /** Build a grammY bot for one connection, wire handlers, and register it. Reusable
+     *  by initialize() (boot) and handleWebhookUpdate() (lazy, for bots added after boot). */
+    private async loadBot(conn: ChannelConnectionConfig): Promise<Bot<Context> | null> {
+        const { botToken: rawBotToken } = conn.channelConfig;
+        if (!rawBotToken) {
+            logger.warn({ tenantId: conn.tenantId }, "Missing botToken for telegram connection");
+            return null;
+        }
+
+        let botToken: string;
+        try {
+            botToken = decrypt(rawBotToken);
+        } catch {
+            logger.warn({ tenantId: conn.tenantId }, "Failed to decrypt botToken for telegram connection");
+            return null;
+        }
+
+        try {
+            const bot = new Bot(botToken);
+            // Fetch bot info (username, id) — required for ctx.me in all modes.
+            await bot.init();
+            await this.loadTenantConfig(conn.tenantId);
+
+            bot.command("start", async (ctx) => {
+                try { await this.handleStartCommand(ctx, conn); }
+                catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling /start command"); }
+            });
+            bot.command("pair", async (ctx) => {
+                try { await this.handlePairCommand(ctx, conn); }
+                catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling /pair command"); }
+            });
+            bot.on("message:text", async (ctx) => {
+                try { await this.handleTextMessage(ctx, conn); }
+                catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling text message"); }
+            });
+
+            if (process.env.NODE_ENV === "development") {
+                bot.start().catch((err) => logger.error({ err, tenantId: conn.tenantId }, "Failed to start TG polling"));
             }
 
-            let botToken: string;
-            try {
-                botToken = decrypt(rawBotToken);
-            } catch {
-                logger.warn({ tenantId: conn.tenantId }, "Failed to decrypt botToken for telegram connection");
-                continue;
-            }
-
-            try {
-                const bot = new Bot(botToken);
-
-                // Fetch bot info (username, id) — required for ctx.me in all modes.
-                // Without this, hasBotMention() and isReplyToBot() fail in webhook mode.
-                await bot.init();
-
-                // Pre-load tenant config
-                await this.loadTenantConfig(conn.tenantId);
-
-                // Handle /start command
-                bot.command("start", async (ctx) => {
-                    try {
-                        await this.handleStartCommand(ctx, conn);
-                    } catch (err) {
-                        logger.error({ err, tenantId: conn.tenantId }, "Error handling /start command");
-                    }
-                });
-
-                // Handle /pair command
-                bot.command("pair", async (ctx) => {
-                    try {
-                        await this.handlePairCommand(ctx, conn);
-                    } catch (err) {
-                        logger.error({ err, tenantId: conn.tenantId }, "Error handling /pair command");
-                    }
-                });
-
-                bot.on("message:text", async (ctx) => {
-                    try {
-                        await this.handleTextMessage(ctx, conn);
-                    } catch (err) {
-                        logger.error({ err, tenantId: conn.tenantId }, "Error handling text message");
-                    }
-                });
-
-                // For Polling mode locally
-                if (process.env.NODE_ENV === "development") {
-                    bot.start().catch((err) => logger.error({ err, tenantId: conn.tenantId }, "Failed to start TG polling"));
-                }
-
-                // For production, webhooks would be registered directly on the Fastify handler.
-                this.activeBots.set(conn.tenantId, bot);
-                logger.info({ tenantId: conn.tenantId }, "Telegram bot initialized");
-            } catch (err) {
-                logger.error({ err, tenantId: conn.tenantId }, "Failed to initialize Telegram connection");
-            }
+            this.activeBots.set(conn.tenantId, bot);
+            logger.info({ tenantId: conn.tenantId }, "Telegram bot initialized");
+            return bot;
+        } catch (err) {
+            logger.error({ err, tenantId: conn.tenantId }, "Failed to initialize Telegram connection");
+            return null;
         }
     }
 
@@ -662,10 +650,27 @@ export class TelegramAdapter implements ChannelAdapter {
      * This method is called by the webhook endpoint when an update is received
      */
     async handleWebhookUpdate(tenantId: string, update: any): Promise<void> {
-        const bot = this.activeBots.get(tenantId);
+        let bot = this.activeBots.get(tenantId);
         if (!bot) {
-            logger.warn({ tenantId }, "Bot not found for tenant in webhook handler");
-            return;
+            // Lazy-load: the bot may have been connected after the gateway booted.
+            logger.info({ tenantId }, "Telegram bot not loaded — lazy-loading from DB");
+            const [conn] = await db.select().from(channelConnections)
+                .where(and(
+                    eq(channelConnections.tenantId, tenantId),
+                    eq(channelConnections.channelType, "telegram"),
+                    eq(channelConnections.status, "active"),
+                )).limit(1);
+            if (conn) {
+                bot = await this.loadBot({
+                    tenantId,
+                    channelType: "telegram",
+                    channelConfig: conn.channelConfig as any,
+                } as ChannelConnectionConfig) || undefined;
+            }
+            if (!bot) {
+                logger.warn({ tenantId }, "Bot not found for tenant in webhook handler");
+                return;
+            }
         }
 
         try {
