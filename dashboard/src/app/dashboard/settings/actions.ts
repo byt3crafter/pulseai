@@ -92,7 +92,36 @@ export async function saveTelegramTokenAction(formData: FormData) {
             });
         }
 
-        return { success: true, message: `Connected to @${data.result.username}` };
+        // Register the Telegram webhook immediately so the bot works without a gateway
+        // restart. Points Telegram at the gateway's webhook route for this tenant.
+        const webhookBase = process.env.WEBHOOK_BASE_URL;
+        if (webhookBase) {
+            try {
+                const [t] = await db.select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+                if (t?.slug) {
+                    const webhookUrl = `${webhookBase.replace(/\/$/, "")}/webhooks/telegram/${t.slug}`;
+                    const wh = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            url: webhookUrl,
+                            drop_pending_updates: false,
+                            ...(process.env.TELEGRAM_WEBHOOK_SECRET ? { secret_token: process.env.TELEGRAM_WEBHOOK_SECRET } : {}),
+                        }),
+                    });
+                    const whData = await wh.json().catch(() => ({}));
+                    if (!whData.ok) {
+                        console.error("Telegram setWebhook failed:", whData.description);
+                        return { success: true, message: `Connected to @${data.result.username}, but webhook setup failed — messages may not arrive until the gateway restarts.` };
+                    }
+                }
+            } catch (e) {
+                console.error("Telegram setWebhook error:", e);
+                return { success: true, message: `Connected to @${data.result.username} (webhook will activate on next gateway restart).` };
+            }
+        }
+
+        return { success: true, message: `Connected to @${data.result.username} — send it /start on Telegram.` };
     } catch {
         return { success: false, message: "Failed to reach Telegram. Check your connection." };
     }
