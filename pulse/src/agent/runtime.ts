@@ -608,18 +608,27 @@ export class AgentRuntime {
         } catch (err: any) {
             tenantLog.error({ err }, "Agent Runtime failed to process message");
 
-            // Provide actionable error messages instead of generic "technical difficulties"
-            let userMessage: string;
+            // Provide actionable, correctly-classified error messages. When the provider
+            // manager returns an aggregate ("All LLM providers failed. Primary (X): ..."),
+            // classify on the PRIMARY provider's real cause so we don't mislabel (e.g. a
+            // Google quota 429 was being reported as an auth failure).
             const errMsg = err?.message || "";
+            const primaryMatch = errMsg.match(/Primary \([^)]+\):\s*(.*?)(?:,\s*Fallback|$)/i);
+            const cause = ((primaryMatch ? primaryMatch[1] : errMsg) + " " + errMsg).toLowerCase();
 
-            if (errMsg.includes("All LLM providers failed") || errMsg.includes("No fallback available")) {
-                userMessage = `AI service error: ${errMsg.substring(0, 200)}. Check your provider keys in Settings > AI Providers.`;
-            } else if (errMsg.includes("401") || errMsg.includes("authentication") || errMsg.includes("invalid_api_key")) {
-                userMessage = "AI authentication failed. The API key may be invalid or expired. Please update it in Settings > AI Providers.";
-            } else if (errMsg.includes("rate") || errMsg.includes("429")) {
+            let userMessage: string;
+            if (/quota|billing|resource_exhausted|free_tier|insufficient|exceeded your current quota|add credits/.test(cause)) {
+                userMessage = "Your AI provider hit a quota or billing limit. Enable billing on the key (or top up), then try again — Settings → AI Providers.";
+            } else if (/permission_denied|status\D*403|denied access|not supported when|not enabled|access is denied|is not supported for/.test(cause)) {
+                userMessage = "Your AI provider denied access for this model or account — often a region or plan restriction. Try a different model or key in Settings → AI Providers.";
+            } else if (/429|rate.?limit/.test(cause)) {
                 userMessage = "AI rate limit reached. Please wait a moment and try again.";
-            } else if (errMsg.includes("insufficient") || errMsg.includes("quota")) {
-                userMessage = "AI provider quota exceeded. Please check your API key billing or add credits.";
+            } else if (/401|unauthorized|invalid.?api.?key|invalid x-api-key|authentication|api key.*(invalid|expired)|token.*expired/.test(cause)) {
+                userMessage = "AI authentication failed — the API key looks invalid or expired. Update it in Settings → AI Providers.";
+            } else if (/timeout|timed out|econnrefused|enotfound|network|fetch failed/.test(cause)) {
+                userMessage = "Couldn't reach the AI provider (network or timeout). Please try again.";
+            } else if (errMsg.includes("All LLM providers failed") || errMsg.includes("No fallback available")) {
+                userMessage = `AI service error: ${errMsg.substring(0, 180)}. Check your provider keys in Settings → AI Providers.`;
             } else {
                 userMessage = "I encountered an error processing your request. Please try again or contact your administrator if this persists.";
             }

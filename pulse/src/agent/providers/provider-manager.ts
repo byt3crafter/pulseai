@@ -142,6 +142,7 @@ export class ProviderManager {
             case "openai":
             case "openrouter":
             case "minimax": // MiniMax and OpenRouter use OpenAI-compatible APIs
+            case "google":  // Gemini via its OpenAI-compatible endpoint
                 return this.openai;
             case "anthropic":
             default:
@@ -155,6 +156,8 @@ export class ProviderManager {
                 return "https://api.minimax.io/v1";
             case "openrouter":
                 return "https://openrouter.ai/api/v1";
+            case "google":
+                return "https://generativelanguage.googleapis.com/v1beta/openai";
             default:
                 return undefined;
         }
