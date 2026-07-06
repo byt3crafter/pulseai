@@ -78,16 +78,23 @@ async function callProviderForText(provider: string, key: any, model: string, pr
         const j = await r.json();
         return (j?.content || []).map((c: any) => c.text || "").join("");
     }
-    if (provider === "openai") {
-        if (key.authMethod !== "api_key" || !key.encryptedApiKey) {
-            throw new Error("OpenAI is connected via ChatGPT OAuth, which can't be used for generation. Use Google or Anthropic, or add an OpenAI API key.");
+    // OpenAI-compatible providers (OpenAI API-key, Groq, OpenRouter, MiniMax)
+    const openaiCompatBase: Record<string, string> = {
+        openai: "https://api.openai.com/v1",
+        groq: "https://api.groq.com/openai/v1",
+        openrouter: "https://openrouter.ai/api/v1",
+        minimax: "https://api.minimax.io/v1",
+    };
+    if (openaiCompatBase[provider]) {
+        if (provider === "openai" && (key.authMethod !== "api_key" || !key.encryptedApiKey)) {
+            throw new Error("OpenAI is connected via ChatGPT OAuth, which can't be used for generation. Use Groq, Google, or Anthropic, or add an OpenAI API key.");
         }
         const apiKey = decrypt(key.encryptedApiKey);
-        const r = await fetch("https://api.openai.com/v1/chat/completions", {
+        const r = await fetch(`${openaiCompatBase[provider]}/chat/completions`, {
             method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
             body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7 }),
         });
-        if (!r.ok) throw new Error(`openai ${r.status} ${(await r.text()).slice(0, 200)}`);
+        if (!r.ok) throw new Error(`${provider} ${r.status} ${(await r.text()).slice(0, 200)}`);
         const j = await r.json();
         return j?.choices?.[0]?.message?.content || "";
     }
