@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createAgentProfileAction } from "./actions";
+import { createAgentProfileAction, generatePersonaAction } from "./actions";
 import { PROVIDERS, DEFAULT_MODEL_ID } from "../../../utils/models";
 
 export default function CreateAgentModal({ connectedProviders }: { connectedProviders: string[] }) {
@@ -9,6 +9,27 @@ export default function CreateAgentModal({ connectedProviders }: { connectedProv
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const modalRef = useRef<HTMLDivElement>(null);
+
+    // Controlled Soul + "write it for me" assistant
+    const [soul, setSoul] = useState("");
+    const [assistOpen, setAssistOpen] = useState(false);
+    const [role, setRole] = useState("");
+    const [company, setCompany] = useState("");
+    const [tone, setTone] = useState("Professional");
+    const [generating, setGenerating] = useState(false);
+    const [genError, setGenError] = useState<string | null>(null);
+
+    const handleGenerate = async () => {
+        setGenError(null);
+        if (!role.trim()) { setGenError("Tell me what this agent should do."); return; }
+        setGenerating(true);
+        const name = (document.getElementById("create-agent-name") as HTMLInputElement | null)?.value || "";
+        const model = (document.getElementById("create-agent-modelId") as HTMLSelectElement | null)?.value || "";
+        const res = await generatePersonaAction({ name, role, company, tone, model });
+        if (res.success && res.text) { setSoul(res.text); setAssistOpen(false); }
+        else setGenError(res.message || "Couldn't generate.");
+        setGenerating(false);
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -152,13 +173,57 @@ export default function CreateAgentModal({ connectedProviders }: { connectedProv
                             </div>
 
                             <div>
-                                <label htmlFor="create-agent-systemPrompt" className="block text-sm font-medium text-gray-700 mb-1.5">
-                                    Initial Soul (System Prompt)
-                                </label>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label htmlFor="create-agent-systemPrompt" className="block text-sm font-medium text-gray-700">
+                                        Initial Soul (System Prompt)
+                                    </label>
+                                    {connectedProviders.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setAssistOpen((v) => !v)}
+                                            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 4l1.5 3.5L14 9l-3.5 1.5L9 14l-1.5-3.5L4 9l3.5-1.5L9 4zm8 6l1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1 1-2.2z"/></svg>
+                                            Write it for me
+                                        </button>
+                                    )}
+                                </div>
+
+                                {assistOpen && (
+                                    <div className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/60 p-3 space-y-2.5">
+                                        <p className="text-xs text-indigo-800">Answer a couple of things and the AI will draft the persona for you.</p>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">What should this agent do?</label>
+                                            <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Handle customer support tickets and answer product questions" className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Company / context (optional)</label>
+                                                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Runstate, a logistics firm" className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">Tone</label>
+                                                <select value={tone} onChange={(e) => setTone(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white">
+                                                    <option>Professional</option>
+                                                    <option>Friendly</option>
+                                                    <option>Concise</option>
+                                                    <option>Warm</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        {genError && <p className="text-xs text-red-600">{genError}</p>}
+                                        <button type="button" onClick={handleGenerate} disabled={generating} className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-medium rounded-md px-3 py-1.5">
+                                            {generating ? "Generating…" : "Generate persona"}
+                                        </button>
+                                    </div>
+                                )}
+
                                 <textarea
                                     id="create-agent-systemPrompt"
                                     name="systemPrompt"
                                     rows={5}
+                                    value={soul}
+                                    onChange={(e) => setSoul(e.target.value)}
                                     placeholder={`You are a helpful IT support assistant for Acme Corp. You must always maintain a professional tone.\n\nWhen asked to troubleshoot, verify the employee's ID first...`}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow text-gray-900 resize-y"
                                 ></textarea>

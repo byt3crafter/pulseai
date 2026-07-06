@@ -2,10 +2,97 @@
 
 import { auth } from "../../../auth";
 import { db } from "../../../storage/db";
-import { agentProfiles, workspaceRevisions } from "../../../storage/schema";
-import { eq } from "drizzle-orm";
+import { agentProfiles, workspaceRevisions, tenantProviderKeys } from "../../../storage/schema";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { initializeWorkspace, WORKSPACE_DEFAULTS } from "../../../utils/workspace";
+import { requireTenant } from "../../../utils/tenant-auth";
+import { decrypt } from "../../../utils/crypto";
+import { PROVIDERS } from "../../../utils/models";
+
+/**
+ * Generate an agent persona (SOUL / system prompt) using the tenant's own connected
+ * model — so a client who doesn't know what to write can just answer a couple of
+ * questions and get a polished prompt. Provider-agnostic (Google / OpenAI / Anthropic).
+ */
+export async function generatePersonaAction(input: {
+    name?: string; role: string; company?: string; tone?: string; model?: string;
+}): Promise<{ success: boolean; text?: string; message?: string }> {
+    const check = await requireTenant();
+    if (!check.authorized) return { success: false, message: check.message };
+    const tenantId = check.tenantId;
+
+    const role = (input.role || "").trim();
+    if (!role) return { success: false, message: "First, tell me what this agent should do." };
+
+    const modelId = (input.model || "").trim();
+    const providerId = PROVIDERS.find((p) => p.models.some((m) => m.id === modelId))?.id;
+    if (!providerId) return { success: false, message: "Pick a model first." };
+
+    const [key] = await db.select().from(tenantProviderKeys)
+        .where(and(eq(tenantProviderKeys.tenantId, tenantId), eq(tenantProviderKeys.provider, providerId)))
+        .limit(1);
+    if (!key) return { success: false, message: `Connect a ${providerId} key in Settings → AI Providers first.` };
+
+    const meta = [
+        `Write a first-person system prompt (a "SOUL") for an AI agent working for a business.`,
+        `Agent name: ${input.name?.trim() || "the agent"}.`,
+        `What it does: ${role}.`,
+        input.company?.trim() ? `Company / context: ${input.company.trim()}.` : "",
+        `Tone: ${input.tone || "professional"}.`,
+        `Write 2–4 short paragraphs covering: who it is, its responsibilities, how it communicates, and what to do when unsure or out of scope.`,
+        `Output ONLY the system prompt text — no preamble, no markdown headings, no quotes.`,
+    ].filter(Boolean).join("\n");
+
+    try {
+        const text = await callProviderForText(providerId, key, modelId, meta);
+        if (!text?.trim()) return { success: false, message: "The model returned an empty response — try again." };
+        return { success: true, text: text.trim() };
+    } catch (e: any) {
+        const m = String(e?.message || "generation failed");
+        // Surface provider quota/billing/auth issues clearly (common on free/region-limited keys)
+        if (/429|quota|billing/i.test(m)) return { success: false, message: "Your provider hit a quota/billing limit. Enable billing on the key, then retry." };
+        if (/401|403|invalid|denied|auth/i.test(m)) return { success: false, message: "The provider rejected the key (auth/permission). Check it in Settings → AI Providers." };
+        return { success: false, message: "Couldn't generate right now — please try again." };
+    }
+}
+
+async function callProviderForText(provider: string, key: any, model: string, prompt: string): Promise<string> {
+    if (provider === "google") {
+        const apiKey = decrypt(key.encryptedApiKey);
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7 } }),
+        });
+        if (!r.ok) throw new Error(`google ${r.status} ${(await r.text()).slice(0, 200)}`);
+        const j = await r.json();
+        return (j?.candidates?.[0]?.content?.parts || []).map((p: any) => p.text || "").join("");
+    }
+    if (provider === "anthropic") {
+        const apiKey = decrypt(key.encryptedApiKey);
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+            body: JSON.stringify({ model, max_tokens: 800, messages: [{ role: "user", content: prompt }] }),
+        });
+        if (!r.ok) throw new Error(`anthropic ${r.status} ${(await r.text()).slice(0, 200)}`);
+        const j = await r.json();
+        return (j?.content || []).map((c: any) => c.text || "").join("");
+    }
+    if (provider === "openai") {
+        if (key.authMethod !== "api_key" || !key.encryptedApiKey) {
+            throw new Error("OpenAI is connected via ChatGPT OAuth, which can't be used for generation. Use Google or Anthropic, or add an OpenAI API key.");
+        }
+        const apiKey = decrypt(key.encryptedApiKey);
+        const r = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7 }),
+        });
+        if (!r.ok) throw new Error(`openai ${r.status} ${(await r.text()).slice(0, 200)}`);
+        const j = await r.json();
+        return j?.choices?.[0]?.message?.content || "";
+    }
+    throw new Error(`Generation not supported for provider ${provider}.`);
+}
 
 export async function createAgentProfileAction(formData: FormData) {
     try {
