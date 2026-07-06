@@ -613,11 +613,16 @@ export class AgentRuntime {
             // classify on the PRIMARY provider's real cause so we don't mislabel (e.g. a
             // Google quota 429 was being reported as an auth failure).
             const errMsg = err?.message || "";
-            const primaryMatch = errMsg.match(/Primary \([^)]+\):\s*(.*?)(?:,\s*Fallback|$)/i);
-            const cause = ((primaryMatch ? primaryMatch[1] : errMsg) + " " + errMsg).toLowerCase();
+            const primaryMatch = errMsg.match(/Primary \(([^)]+)\):\s*(.*?)(?:,\s*Fallback|$)/i);
+            const primaryProvider = primaryMatch ? primaryMatch[1].toLowerCase() : "";
+            const cause = ((primaryMatch ? primaryMatch[2] : errMsg) + " " + errMsg).toLowerCase();
+            const isGemini = primaryProvider === "google" || /google|gemini/.test(cause);
 
             let userMessage: string;
-            if (/quota|billing|resource_exhausted|free_tier|insufficient|exceeded your current quota|add credits/.test(cause)) {
+            if (/quota|billing|resource_exhausted|free_tier|insufficient|exceeded your current quota|add credits/.test(cause)
+                || (isGemini && /429/.test(cause))) {
+                // Gemini's 429 is a plan/quota limit (its quota detail sits in a body the
+                // OpenAI SDK can't parse), so treat a Google 429 as quota/billing, not transient.
                 userMessage = "Your AI provider hit a quota or billing limit. Enable billing on the key (or top up), then try again — Settings → AI Providers.";
             } else if (/permission_denied|status\D*403|denied access|not supported when|not enabled|access is denied|is not supported for/.test(cause)) {
                 userMessage = "Your AI provider denied access for this model or account — often a region or plan restriction. Try a different model or key in Settings → AI Providers.";
