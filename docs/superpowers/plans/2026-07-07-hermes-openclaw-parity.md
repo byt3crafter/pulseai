@@ -258,6 +258,50 @@ Actual: `cd dashboard && npm run build` passed. `cd dashboard && npm run lint` i
 
 ## Task 7: Self-Improvement Loop With Approval
 
+### Completed Sub-Slice: Deterministic Automatic Memory
+
+**Files:**
+- Test: `pulse/src/__tests__/auto-memory-service.test.ts`
+- Create: `pulse/src/memory/auto-memory-service.ts`
+- Modify: `pulse/src/agent/runtime.ts`
+- Modify: `dashboard/src/app/dashboard/settings/actions.ts`
+- Modify: `dashboard/src/app/dashboard/settings/page.tsx`
+- Modify: `dashboard/src/app/dashboard/settings/SettingsClient.tsx`
+
+**Interfaces:**
+- Produces: `AutoMemoryService.captureTurn(input): Promise<AutoMemoryResult>`
+- Consumes: existing `memoryService.store()` and `memoryService.search()`
+- Produces: tenant config `auto_memory.enabled` and `auto_memory.maxMemories`
+
+- [x] **Step 1: Write failing tests for automatic memory extraction**
+
+Covered extraction, validation, duplicate suppression, malformed extractor output, store failure containment, and empty-turn/no-agent skips.
+
+- [x] **Step 2: Implement deterministic extractor service**
+
+The backend runs structured extraction after completed turns, not as an optional model-chosen memory tool.
+
+- [x] **Step 3: Wire runtime hook**
+
+Runtime skips silent replies and heartbeat traffic, uses the active model rather than a hardcoded model id, and includes extraction usage in normal usage accounting.
+
+- [x] **Step 4: Add tenant setup UI**
+
+Settings > Memory now exposes an Automatic Memory toggle and max memories per turn setting.
+
+- [x] **Step 5: Run tests and builds**
+
+Passed:
+- `cd pulse && npm test -- src/__tests__/auto-memory-service.test.ts src/__tests__/channel-bootstrap.test.ts src/__tests__/channel-registry.test.ts`
+  - Passed: 10 tests.
+- `cd pulse && npm run build`
+- `cd dashboard && npm run build`
+
+Blocked:
+- Focused dashboard lint still fails on existing settings-file lint debt; details are recorded in `docs/CODEX_CLAUDE_HANDOFF.md`.
+
+### Remaining Work: Reflection And Skill Improvement
+
 **Files:**
 - Test: `pulse/src/__tests__/learning-review.test.ts`
 - Create: `pulse/src/learning/review-service.ts`

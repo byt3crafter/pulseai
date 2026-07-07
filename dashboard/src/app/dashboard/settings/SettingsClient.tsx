@@ -1280,7 +1280,16 @@ function ProviderCard({
 type EmbeddingProviderId = "openai" | "minimax" | "voyage";
 type VoyageModel = "voyage-3-large" | "voyage-3-lite";
 
-function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
+function MemoryTab({
+    embeddingConfigured,
+    autoMemoryConfig,
+}: {
+    embeddingConfigured: boolean;
+    autoMemoryConfig: {
+        enabled: boolean;
+        maxMemories: number;
+    };
+}) {
     const router = useRouter();
 
     // Server-loaded config (fetched on mount — this is the source of truth for
@@ -1303,10 +1312,14 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
     const [showVoyageKey, setShowVoyageKey] = useState(false);
 
     const [result, setResult] = useState<{ type: "idle" | "success" | "error" | "warning"; message: string }>({ type: "idle", message: "" });
+    const [autoMemoryEnabled, setAutoMemoryEnabled] = useState(autoMemoryConfig.enabled);
+    const [autoMemoryMax, setAutoMemoryMax] = useState(autoMemoryConfig.maxMemories);
+    const [autoMemoryStatus, setAutoMemoryStatus] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
     const [testing, startTesting] = useTransition();
     const [saving, startSaving] = useTransition();
     const [removing, startRemoving] = useTransition();
     const [switching, startSwitching] = useTransition();
+    const [savingAutoMemory, startSavingAutoMemory] = useTransition();
     const busy = testing || saving || removing || switching;
 
     const refreshConfig = async () => {
@@ -1432,10 +1445,67 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
         });
     };
 
+    const handleSaveAutoMemory = () => {
+        startSavingAutoMemory(async () => {
+            const res = await saveAutoMemorySettingsAction({
+                enabled: autoMemoryEnabled,
+                maxMemories: autoMemoryMax,
+            });
+            setAutoMemoryStatus({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) router.refresh();
+        });
+    };
+
     const messageColor = result.type === "success" ? "text-green-400" : result.type === "warning" ? "text-amber-400" : result.type === "error" ? "text-red-400" : "";
 
     return (
         <div className="space-y-6">
+            <Card>
+                <CardHeader
+                    title="Automatic Memory"
+                    description="Extract durable facts after each completed turn and save them without relying on the chat model to call a tool."
+                />
+                <div className="divide-y divide-pulse-border-subtle">
+                    <SettingRow
+                        title="Remember after replies"
+                        description="Runs a structured backend extraction pass for preferences, decisions, tasks, relationships, and stable facts."
+                        control={<Toggle checked={autoMemoryEnabled} onChange={setAutoMemoryEnabled} label="Remember automatically after each reply" />}
+                    />
+                    <SettingRow
+                        title="Maximum memories per turn"
+                        description="Caps automatic writes so noisy conversations do not flood long-term memory."
+                        control={
+                            <input
+                                type="number"
+                                min={0}
+                                max={5}
+                                value={autoMemoryMax}
+                                onChange={(e) => {
+                                    const next = Math.max(0, Math.min(5, Math.floor(Number(e.target.value || 0))));
+                                    setAutoMemoryMax(next);
+                                }}
+                                className="w-24 border border-pulse-border rounded-lg px-3 py-1.5 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        }
+                    />
+                </div>
+                <div className="flex items-center gap-3 px-5 py-4 border-t border-pulse-border-subtle bg-pulse-panel-alt">
+                    <button
+                        type="button"
+                        onClick={handleSaveAutoMemory}
+                        disabled={savingAutoMemory}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                    >
+                        {savingAutoMemory ? "Saving..." : "Save Automatic Memory"}
+                    </button>
+                    {autoMemoryStatus.type !== "idle" && (
+                        <span className={`text-sm ${autoMemoryStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                            {autoMemoryStatus.message}
+                        </span>
+                    )}
+                </div>
+            </Card>
+
             <Card>
                 <CardHeader title="Memory & Embeddings" description="Give your agents long-term recall across conversations." />
                 <div className="px-5 py-5 space-y-5">

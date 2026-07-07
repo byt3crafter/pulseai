@@ -6,6 +6,7 @@ import { workspaceService } from "./workspace/workspace-service.js";
 import { getDefaultModel, getProviderByModel } from "./providers/model-registry.js";
 import { providerKeyService } from "./providers/provider-key-service.js";
 import { memoryService } from "../memory/memory-service.js";
+import { autoMemoryService } from "../memory/auto-memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
 import { resolveAgent } from "./orchestration/agent-router.js";
 import { getChannelLeadContext } from "../gateway/channel-service.js";
@@ -14,13 +15,27 @@ import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-buil
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
 import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader.js";
 import { db } from "../storage/db.js";
-import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles, globalSettings } from "../storage/schema.js";
+import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles, globalSettings, tenants } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
 import { sanitizeToolSchema } from "./tools/schema-sanitizer.js";
 import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
+
+interface AutoMemoryConfig {
+    enabled: boolean;
+    maxMemories: number;
+}
+
+function parseAutoMemoryConfig(config: unknown): AutoMemoryConfig {
+    const raw = (config && typeof config === "object" ? (config as Record<string, unknown>).auto_memory : undefined);
+    const autoMemory = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+    const enabled = autoMemory.enabled !== false;
+    const maxRaw = typeof autoMemory.maxMemories === "number" ? autoMemory.maxMemories : 3;
+    const maxMemories = Math.max(0, Math.min(5, Math.floor(maxRaw)));
+    return { enabled, maxMemories };
+}
 
 export class AgentRuntime {
     private providerManager = new ProviderManager();
@@ -49,6 +64,11 @@ export class AgentRuntime {
                 where: eq(globalSettings.id, "root"),
             });
             const billingMode = (rootSettings?.config as any)?.billingMode ?? "credits";
+            const tenantSettings = await db.query.tenants.findFirst({
+                where: eq(tenants.id, inbound.tenantId),
+                columns: { config: true },
+            });
+            const autoMemoryConfig = parseAutoMemoryConfig(tenantSettings?.config);
 
             if (billingMode !== "unlimited") {
                 const balanceRecord = await db.query.tenantBalances.findFirst({
@@ -536,6 +556,25 @@ export class AgentRuntime {
                     senderType: inbound.channelId ? "agent" : null,
                     senderAgentId: inbound.channelId ? (resolvedAgentProfileId ?? null) : null,
                 });
+            }
+
+            if (!isSilentReply && autoMemoryConfig.enabled && resolvedAgentProfileId && inbound.channelType !== "heartbeat") {
+                const autoMemoryResult = await autoMemoryService.captureTurn({
+                    tenantId: inbound.tenantId,
+                    agentId: resolvedAgentProfileId,
+                    model: activeModelId,
+                    userMessage: inbound.content,
+                    assistantMessage: llmResponse.content,
+                    maxMemories: autoMemoryConfig.maxMemories,
+                });
+                if (autoMemoryResult.storedCount > 0) {
+                    tenantLog.info(
+                        { storedCount: autoMemoryResult.storedCount },
+                        "Auto-memory stored extracted memories"
+                    );
+                }
+                llmResponse.usage.inputTokens += autoMemoryResult.usage.inputTokens;
+                llmResponse.usage.outputTokens += autoMemoryResult.usage.outputTokens;
             }
 
             // 6. Record Cost/Usage for Billing Tracking

@@ -51,7 +51,9 @@ Scale observed:
 | Mobile app | Missing | Product copy mentions mobile, code not present | P3 | Mobile app or PWA supports secure chat and notifications |
 | Gateway control plane | Partial | WebSocket only auth/ping/broadcast today | P1 | WS exposes typed events for messages, agent status, jobs, tool progress, channel health |
 | Onboarding/doctor | Partial | Dashboard onboarding exists; CLI doctor exists but narrower than references | P1 | Admin/tenant diagnostics detect bad channel config, risky DM policy, sandbox/provider issues |
-| Self-improving learning loop | Missing/partial | Memory and skill creator exist, but no autonomous skill improvement loop | P1 | Scheduled review suggests/creates skill changes with approval and audit trail |
+| Deterministic auto-memory | Implemented | Automatic extraction exists after completed turns; review queue and consolidation still missing | P0 | Backend stores durable facts without model-discretion tool calls and tenant UI controls it |
+| Self-improving learning loop | Missing/partial | Memory, auto-memory, and skill creator exist, but no autonomous skill improvement loop | P1 | Scheduled review suggests/creates skill changes with approval and audit trail |
+| Reflection/consolidation | Missing | Automatic memory writes are not periodically summarized or promoted yet | P1 | Background job consolidates memories/session summaries with audit trail and tenant controls |
 | Session search/summarization | Partial | Conversation history exists; no Hermes-style FTS session recall UX | P1 | Tenant can search and summarize past sessions, agent can retrieve session summaries |
 | User modeling | Missing | No Honcho-style user model or governed profile builder | P2 | User model is opt-in, auditable, tenant-isolated, and visible/editable in UI |
 | Runtime backends | Partial | Docker/Python sandbox plus text-only CLI fallback | P2 | Backend config supports local, Docker, SSH, and future remote providers without hardcoding |

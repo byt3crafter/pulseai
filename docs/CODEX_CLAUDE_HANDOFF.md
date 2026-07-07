@@ -227,3 +227,62 @@ Known limitations:
 Question for Claude:
 
 - If Claude implements an adapter, it should switch that channel from `draft` to `active` only after runtime validation exists and should use `CHANNEL_SETUP_CATALOG` rather than adding separate field definitions.
+
+### 2026-07-07 - Codex - Deterministic Automatic Memory
+
+Implemented the memory reliability slice requested by the user: memory extraction is now a backend subsystem after completed turns, not something the chat model must remember to do with a tool call.
+
+Files added:
+
+- `pulse/src/__tests__/auto-memory-service.test.ts`
+- `pulse/src/memory/auto-memory-service.ts`
+
+Files modified:
+
+- `pulse/src/agent/runtime.ts`
+- `dashboard/src/app/dashboard/settings/actions.ts`
+- `dashboard/src/app/dashboard/settings/page.tsx`
+- `dashboard/src/app/dashboard/settings/SettingsClient.tsx`
+- `docs/CODEX_CLAUDE_HANDOFF.md`
+- `docs/HERMES_OPENCLAW_PARITY_CHECKLIST.md`
+- `docs/superpowers/plans/2026-07-07-hermes-openclaw-parity.md`
+
+Tests and checks run:
+
+- `cd pulse && npm test -- src/__tests__/auto-memory-service.test.ts src/__tests__/channel-bootstrap.test.ts src/__tests__/channel-registry.test.ts`
+  - Passed: 10 tests.
+- `cd pulse && npm run build`
+  - Passed.
+- `cd dashboard && npm run build`
+  - Passed.
+- `cd dashboard && npx eslint src/app/dashboard/settings/SettingsClient.tsx src/app/dashboard/settings/actions.ts src/app/dashboard/settings/page.tsx src/utils/channel-catalog.ts`
+  - Failed on existing settings-file lint debt: old explicit `any` types, an old `react-hooks/set-state-in-effect` issue, an unescaped apostrophe, and existing unused variable warnings. No TypeScript/build failure remains.
+
+What changed:
+
+- Added `AutoMemoryService.captureTurn()` with injectable extractor/store/search functions for testability.
+- The extractor asks for strict JSON and only accepts bounded memory objects with known categories.
+- Automatic writes are capped per turn, duplicate extracted facts are skipped, and exact normalized duplicates already in memory are skipped.
+- Store failures are logged and contained so a memory write outage does not fail an already completed chat reply.
+- Memory writes use the existing `memoryService.store()` path and metadata `{ source: "auto_memory" }`.
+- Runtime now runs automatic memory after normal assistant replies, skips silent replies and heartbeat traffic, and rolls extraction token usage into the existing usage record.
+- The extractor uses the active responding model passed into runtime, so no provider or model id is hardcoded.
+- Tenant settings now include `auto_memory.enabled` and `auto_memory.maxMemories`.
+- Settings > Memory now has an Automatic Memory setup card with a toggle and per-turn cap.
+
+Known limitations:
+
+- This is deterministic extraction and persistence, not a full reflection/consolidation loop yet.
+- Duplicate detection is intentionally conservative: exact normalized memory content plus the existing memory search path.
+- There is no separate review queue UI for proposed memory writes yet; writes happen automatically when enabled.
+- The extraction model is the active response model for now. A future cheap-model selector should be tenant-configurable and reflected in billing/pricing, not hardcoded.
+
+Claude should avoid:
+
+- Reintroducing model-discretion memory writes as the only path.
+- Adding hardcoded extraction model/provider ids.
+- Creating a second memory service instead of extending `pulse/src/memory/auto-memory-service.ts`.
+
+Question for Claude:
+
+- Please review `pulse/src/agent/runtime.ts` around the post-response hook and confirm whether the project wants a later tenant-selectable cheap extraction model or should keep using the active agent model for billing simplicity.
