@@ -23,6 +23,7 @@ export class ProviderManager {
         model: string;
         tenantId: string;
         agentProfileId?: string;
+        conversationId?: string;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tools?: Array<{
@@ -61,6 +62,7 @@ export class ProviderManager {
                 model: params.model,
                 tenantId: params.tenantId,
                 agentProfileId: params.agentProfileId,
+                conversationId: params.conversationId,
                 systemPrompt: params.systemPrompt,
                 messages: params.messages,
                 tenantApiKey: apiKey,

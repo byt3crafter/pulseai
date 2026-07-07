@@ -48,6 +48,7 @@ export class AnthropicProvider {
         model: string;
         tenantId?: string;
         agentProfileId?: string;
+        conversationId?: string;
         systemPrompt: string;
         messages: ProviderMessage[];
         tenantApiKey?: string;

@@ -440,6 +440,7 @@ export class AgentRuntime {
 
             let llmResponse = await this.providerManager.chat({
                 agentProfileId: resolvedAgentProfileId ?? undefined,
+                conversationId: conversation.id,
                 model: activeModelId,
                 tenantId: inbound.tenantId,
                 systemPrompt: activeSystemPrompt,
@@ -523,6 +524,7 @@ export class AgentRuntime {
                 // Call LLM with tool results — same model + tenant routing
                 llmResponse = await this.providerManager.chat({
                     agentProfileId: resolvedAgentProfileId ?? undefined,
+                    conversationId: conversation.id,
                     model: activeModelId,
                     tenantId: inbound.tenantId,
                     systemPrompt: activeSystemPrompt,
