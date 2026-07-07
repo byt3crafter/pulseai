@@ -598,7 +598,7 @@ export const memoryEntries = pgTable(
             .references(() => agentProfiles.id)
             .notNull(),
         content: text("content").notNull(),
-        embedding: text("embedding"),
+        embedding: text("embedding"), // DB type is pgvector vector(1536) (migration 0015); typed text for the driver — inserts cast with ::vector, reads return the text repr
         category: varchar("category", { length: 50 }).default("general"),
         importance: decimal("importance", { precision: 3, scale: 2 }).default("0.5"),
         metadata: jsonb("metadata").default({}),
