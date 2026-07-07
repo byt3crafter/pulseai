@@ -1285,10 +1285,7 @@ function MemoryTab({
     autoMemoryConfig,
 }: {
     embeddingConfigured: boolean;
-    autoMemoryConfig: {
-        enabled: boolean;
-        maxMemories: number;
-    };
+    autoMemoryConfig: { enabled: boolean; maxMemories: number };
 }) {
     const router = useRouter();
 
@@ -1313,7 +1310,7 @@ function MemoryTab({
 
     const [result, setResult] = useState<{ type: "idle" | "success" | "error" | "warning"; message: string }>({ type: "idle", message: "" });
     const [autoMemoryEnabled, setAutoMemoryEnabled] = useState(autoMemoryConfig.enabled);
-    const [autoMemoryMax, setAutoMemoryMax] = useState(autoMemoryConfig.maxMemories);
+    const [autoMemoryMax, setAutoMemoryMax] = useState(autoMemoryConfig.maxMemories.toString());
     const [autoMemoryStatus, setAutoMemoryStatus] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
     const [testing, startTesting] = useTransition();
     const [saving, startSaving] = useTransition();
@@ -1445,64 +1442,67 @@ function MemoryTab({
         });
     };
 
-    const handleSaveAutoMemory = () => {
+    const messageColor = result.type === "success" ? "text-green-400" : result.type === "warning" ? "text-amber-400" : result.type === "error" ? "text-red-400" : "";
+
+    const handleSaveAutoMemory = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
         startSavingAutoMemory(async () => {
             const res = await saveAutoMemorySettingsAction({
                 enabled: autoMemoryEnabled,
-                maxMemories: autoMemoryMax,
+                maxMemories: Number(autoMemoryMax),
             });
             setAutoMemoryStatus({ type: res.success ? "success" : "error", message: res.message });
             if (res.success) router.refresh();
         });
     };
 
-    const messageColor = result.type === "success" ? "text-green-400" : result.type === "warning" ? "text-amber-400" : result.type === "error" ? "text-red-400" : "";
-
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader
-                    title="Automatic Memory"
-                    description="Extract durable facts after each completed turn and save them without relying on the chat model to call a tool."
-                />
-                <div className="divide-y divide-pulse-border-subtle">
-                    <SettingRow
-                        title="Remember after replies"
-                        description="Runs a structured backend extraction pass for preferences, decisions, tasks, relationships, and stable facts."
-                        control={<Toggle checked={autoMemoryEnabled} onChange={setAutoMemoryEnabled} label="Remember automatically after each reply" />}
-                    />
-                    <SettingRow
-                        title="Maximum memories per turn"
-                        description="Caps automatic writes so noisy conversations do not flood long-term memory."
-                        control={
+                <CardHeader title="Automatic Memory" description="Extract durable facts after each completed turn and save them without relying on the chat model to call a tool." />
+                <div className="px-5 py-5">
+                    <form onSubmit={handleSaveAutoMemory} className="space-y-5 max-w-xl">
+                        <label className="flex items-start gap-3 cursor-pointer">
                             <input
-                                type="number"
-                                min={0}
-                                max={5}
-                                value={autoMemoryMax}
-                                onChange={(e) => {
-                                    const next = Math.max(0, Math.min(5, Math.floor(Number(e.target.value || 0))));
-                                    setAutoMemoryMax(next);
-                                }}
-                                className="w-24 border border-pulse-border rounded-lg px-3 py-1.5 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
+                                type="checkbox"
+                                checked={autoMemoryEnabled}
+                                onChange={(e) => setAutoMemoryEnabled(e.target.checked)}
+                                className="mt-1 h-4 w-4 rounded border-pulse-border text-indigo-600 focus:ring-indigo-600 focus:ring-offset-2 focus:ring-offset-pulse-panel"
                             />
-                        }
-                    />
-                </div>
-                <div className="flex items-center gap-3 px-5 py-4 border-t border-pulse-border-subtle bg-pulse-panel-alt">
-                    <button
-                        type="button"
-                        onClick={handleSaveAutoMemory}
-                        disabled={savingAutoMemory}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
-                    >
-                        {savingAutoMemory ? "Saving..." : "Save Automatic Memory"}
-                    </button>
-                    {autoMemoryStatus.type !== "idle" && (
-                        <span className={`text-sm ${autoMemoryStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
-                            {autoMemoryStatus.message}
-                        </span>
-                    )}
+                            <span>
+                                <span className="block text-sm font-semibold text-pulse-text">Remember automatically after each reply</span>
+                                <span className="block text-xs text-pulse-muted mt-1">
+                                    A deterministic backend pass extracts preferences, decisions, tasks, relationships, and stable facts. Transient chat is ignored.
+                                </span>
+                            </span>
+                        </label>
+
+                        <div className="max-w-xs">
+                            <label htmlFor="auto-memory-max" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Maximum memories per turn</label>
+                            <input
+                                id="auto-memory-max"
+                                type="number"
+                                min="0"
+                                max="5"
+                                value={autoMemoryMax}
+                                onChange={(e) => setAutoMemoryMax(e.target.value)}
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
+                            />
+                            <p className="text-xs text-pulse-faint mt-1">Set to 0 to keep extraction disabled even if the toggle is on.</p>
+                        </div>
+
+                        {autoMemoryStatus.type !== "idle" && (
+                            <p className={`text-sm ${autoMemoryStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>{autoMemoryStatus.message}</p>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={savingAutoMemory}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                        >
+                            {savingAutoMemory ? "Saving..." : "Save Automatic Memory"}
+                        </button>
+                    </form>
                 </div>
             </Card>
 
