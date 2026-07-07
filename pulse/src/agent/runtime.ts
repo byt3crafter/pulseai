@@ -312,6 +312,20 @@ export class AgentRuntime {
                 routableChannels,
             });
 
+            // 3.885 If self-editing is enabled, state it explicitly. Mid-tier models
+            // (e.g. MiniMax) otherwise falsely claim they "have no filesystem access"
+            // and refuse, even though the workspace_update tool is in their toolset.
+            if (enabledTools.some((t) => t.name === "workspace_update")) {
+                activeSystemPrompt +=
+                    "\n\n## Editing your own workspace (IMPORTANT)\n" +
+                    "You DO have a `workspace_update` tool right now. You CAN edit your own workspace files: " +
+                    "SOUL.md, IDENTITY.md, MEMORY.md, HEARTBEAT.md, TOOLS.md, USER.md, AGENTS.md, BOOTSTRAP.md. " +
+                    "When the user asks you to update your workspace, personality, identity, memory, or instructions, " +
+                    "actually CALL `workspace_update` with the full new file content — do not just acknowledge. " +
+                    "NEVER tell the user you lack filesystem access or that the tool isn't available: you have it. " +
+                    "Only confirm the change after the tool call returns successfully.";
+            }
+
             // 3.89 Run before-prompt-build plugin hooks (plugins can append/modify)
             try {
                 const promptCtx = await hookRegistry.run("before-prompt-build", {
