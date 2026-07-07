@@ -3,7 +3,6 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-    BuildingOffice2Icon,
     UserGroupIcon,
     CpuChipIcon,
     TrashIcon,
@@ -22,6 +21,7 @@ import {
     removeChannelMemberAction,
     setMemberAgentsAction,
 } from "./actions";
+import { PageHeader, Card } from "../../../components/dashboard/ui";
 
 type Channel = {
     id: string; kind: string; parentId: string | null; name: string;
@@ -67,17 +67,10 @@ export default function DepartmentsClient(props: Props) {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-            <div className="flex justify-between items-start mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-pulse-text flex items-center gap-2">
-                        <BuildingOffice2Icon className="h-7 w-7 text-indigo-500" /> Departments
-                    </h1>
-                    <p className="text-sm text-pulse-muted mt-1">
-                        Organize your company into departments and groups. Add agents (with a lead that answers &amp; routes)
-                        and people (talk or read-only). The persona lives on each agent.
-                    </p>
-                </div>
-            </div>
+            <PageHeader
+                title="Departments"
+                description="Organize your company into departments and groups. Add agents (with a lead that answers & routes) and people (talk or read-only). The persona lives on each agent."
+            />
 
             {msg && (
                 <div className={`mb-4 rounded-lg px-4 py-2 text-sm border ${msg.ok ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}>
@@ -93,7 +86,7 @@ export default function DepartmentsClient(props: Props) {
                     <p className="text-pulse-faint text-sm text-center py-8">No departments yet. Create your first one above.</p>
                 )}
                 {departments.map((dept) => (
-                    <div key={dept.id} className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                    <Card key={dept.id}>
                         <ChannelHeader ch={dept} pending={pending} run={run} />
                         <div className="p-4 sm:p-6 pt-0 space-y-6">
                             <ChannelPanel ch={dept} {...props} pending={pending} run={run} />
@@ -115,7 +108,7 @@ export default function DepartmentsClient(props: Props) {
                                 />
                             </div>
                         </div>
-                    </div>
+                    </Card>
                 ))}
             </div>
         </div>

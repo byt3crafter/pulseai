@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { WrenchScrewdriverIcon, PlusIcon, TrashIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, TrashIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 import { deleteCustomToolAction, toggleCustomToolAction } from "./actions";
+import { PageHeader, Card } from "../../../components/dashboard/ui";
 
 type Param = { name: string; type: string; description: string; required: boolean };
 type Agent = { id: string; name: string };
@@ -29,23 +30,18 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-pulse-text flex items-center gap-2">
-                        <WrenchScrewdriverIcon className="h-7 w-7 text-indigo-500" /> Custom Tools
-                    </h1>
-                    <p className="text-sm text-pulse-muted mt-1 max-w-2xl">
-                        Connect your own API or software. Each tool becomes an action your agents can call — define the
-                        request once, and the AI fills in the parameters. Secrets (auth headers) are encrypted at rest.
-                    </p>
-                </div>
-                <Link
-                    href="/dashboard/tools/new"
-                    className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 self-start sm:self-auto"
-                >
-                    <PlusIcon className="h-4 w-4" aria-hidden="true" /> New tool
-                </Link>
-            </div>
+            <PageHeader
+                title="Custom Tools"
+                description="Connect your own API or software. Each tool becomes an action your agents can call — define the request once, and the AI fills in the parameters. Secrets (auth headers) are encrypted at rest."
+                action={
+                    <Link
+                        href="/dashboard/tools/new"
+                        className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 self-start sm:self-auto"
+                    >
+                        <PlusIcon className="h-4 w-4" aria-hidden="true" /> New tool
+                    </Link>
+                }
+            />
 
             {msg && (
                 <div className={`mb-4 rounded-lg px-4 py-2 text-sm border ${msg.ok ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}>
@@ -58,7 +54,7 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
                     <p className="text-pulse-faint text-sm text-center py-10">No custom tools yet. Create one to connect your software.</p>
                 )}
                 {tools.map((t) => (
-                    <div key={t.id} className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-4 flex flex-col sm:flex-row items-start justify-between gap-4">
+                    <Card key={t.id} className="p-4 flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <code className="text-sm font-semibold text-pulse-text">{t.name}</code>
@@ -98,7 +94,7 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
                                 disabled={pending}
                             ><TrashIcon className="h-4 w-4" aria-hidden="true" /></button>
                         </div>
-                    </div>
+                    </Card>
                 ))}
             </div>
         </div>

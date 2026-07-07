@@ -15,6 +15,7 @@ import {
     WrenchScrewdriverIcon,
     SparklesIcon,
 } from "@heroicons/react/24/outline";
+import CommandPalette from "./dashboard/CommandPalette";
 
 const links = [
     { href: "/dashboard", label: "Overview", icon: HomeIcon, exact: true },
@@ -39,6 +40,9 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
 
     return (
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+            <div className="mb-3">
+                <CommandPalette isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />
+            </div>
             {visible.map(({ href, label, icon: Icon, exact, exclude }) => {
                 let isActive = exact ? pathname === href : pathname.startsWith(href);
                 if (isActive && exclude && pathname.startsWith(exclude)) isActive = false;
