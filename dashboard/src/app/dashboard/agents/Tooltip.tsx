@@ -24,7 +24,7 @@ export default function Tooltip({ text, label = "More info" }: { text: string; l
                 onKeyDown={(e) => {
                     if (e.key === "Escape") setOpen(false);
                 }}
-                className="inline-flex text-slate-400 hover:text-indigo-600 focus:text-indigo-600 outline-none rounded-full focus-visible:ring-2 focus-visible:ring-indigo-500"
+                className="inline-flex text-pulse-faint hover:text-indigo-500 focus:text-indigo-500 outline-none rounded-full cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
                 <InformationCircleIcon className="w-4 h-4" aria-hidden="true" />
                 <span className="sr-only">{label}</span>
@@ -33,7 +33,7 @@ export default function Tooltip({ text, label = "More info" }: { text: string; l
                 <span
                     id={id}
                     role="tooltip"
-                    className="absolute z-30 left-0 top-full mt-2 w-60 max-w-[70vw] rounded-lg bg-slate-900 text-white text-xs leading-snug px-3 py-2 shadow-lg"
+                    className="absolute z-30 left-0 top-full mt-2 w-60 max-w-[70vw] rounded-lg bg-pulse-panel border border-pulse-border text-pulse-text text-xs leading-snug px-3 py-2 shadow-lg"
                 >
                     {text}
                 </span>

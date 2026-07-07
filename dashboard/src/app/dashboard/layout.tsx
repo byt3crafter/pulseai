@@ -2,10 +2,9 @@ import { auth } from "../../auth";
 import { db } from "../../storage/db";
 import { users, tenants, globalSettings } from "../../storage/schema";
 import { eq } from "drizzle-orm";
-import Link from "next/link";
-import { CpuChipIcon } from "@heroicons/react/24/outline";
 import SidebarUserMenu from "../../components/SidebarUserMenu";
 import DashboardNav from "../../components/DashboardNav";
+import DashboardShell from "../../components/DashboardShell";
 
 export const dynamic = "force-dynamic";
 
@@ -33,42 +32,22 @@ export default async function DashboardLayout({
     const showBilling = ((rootRow[0]?.config as any)?.billingMode ?? "credits") !== "unlimited";
 
     return (
-        <div className="flex h-screen bg-slate-50 w-full font-sans">
-
-            {/* Sidebar */}
-            <aside className="w-60 bg-white flex-shrink-0 flex flex-col border-r border-slate-100 h-screen">
-
-                {/* Brand */}
-                <div className="h-14 px-5 flex items-center border-b border-slate-100">
-                    <Link href="/dashboard" className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <CpuChipIcon className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-sm font-bold text-slate-900 tracking-tight truncate">{workspaceName}</span>
-                    </Link>
-                </div>
-
-                {/* Nav — dynamic active state via DashboardNav (client component) */}
-                <DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />
-
-                {/* User + logout */}
-                <div className="p-3 border-t border-slate-100">
-                    <SidebarUserMenu
-                        name={userName}
-                        email={userRow[0]?.email ?? undefined}
-                        role={isAdmin ? "Administrator" : "Workspace Member"}
-                        initials={initials}
-                        callbackUrl="/login"
-                        variant="light"
-                        settingsHref="/dashboard/settings?tab=account"
-                    />
-                </div>
-            </aside>
-
-            {/* Main */}
-            <main className="flex-1 overflow-auto bg-slate-50">
-                {children}
-            </main>
-        </div>
+        <DashboardShell
+            workspaceName={workspaceName}
+            nav={<DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />}
+            userMenu={
+                <SidebarUserMenu
+                    name={userName}
+                    email={userRow[0]?.email ?? undefined}
+                    role={isAdmin ? "Administrator" : "Workspace Member"}
+                    initials={initials}
+                    callbackUrl="/login"
+                    variant="pulse"
+                    settingsHref="/dashboard/settings?tab=account"
+                />
+            }
+        >
+            {children}
+        </DashboardShell>
     );
 }
