@@ -149,12 +149,12 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
     return (
         <div className="space-y-6">
             {/* Built-in Skills */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                    <h2 className="text-sm font-semibold text-slate-900">Built-in Skills</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+            <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                    <h2 className="text-sm font-semibold text-pulse-text">Built-in Skills</h2>
+                    <p className="text-xs text-pulse-faint mt-0.5">
                         Skills teach the agent <em>how</em> to use tools effectively. Toggle skills on or off for this agent.
-                        {hasAdminDefaults && " Gray background indicates inherited from admin defaults."}
+                        {hasAdminDefaults && " Muted background indicates inherited from admin defaults."}
                     </p>
                 </div>
                 <div className="p-6 space-y-6">
@@ -163,7 +163,7 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
                         if (skills.length === 0) return null;
                         return (
                             <div key={cat.id}>
-                                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">{cat.label}</h3>
+                                <h3 className="text-xs font-semibold text-pulse-muted uppercase tracking-wider mb-3">{cat.label}</h3>
                                 <div className="grid gap-3">
                                     {skills.map((skill) => {
                                         const enabled = isSkillEnabled(skill.name);
@@ -173,32 +173,32 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
                                                 key={skill.name}
                                                 className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
                                                     enabled
-                                                        ? "border-indigo-200 bg-indigo-50/50"
-                                                        : "border-slate-200 bg-slate-50/50"
+                                                        ? "border-indigo-500/30 bg-pulse-tint"
+                                                        : "border-pulse-border-subtle bg-pulse-panel-alt"
                                                 }`}
                                             >
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-medium text-slate-900">{skill.name}</span>
+                                                        <span className="text-sm font-medium text-pulse-text">{skill.name}</span>
                                                         {overridden && (
                                                             <button
                                                                 onClick={() => resetOverride(skill.name)}
-                                                                className="text-xs text-indigo-500 hover:text-indigo-700"
+                                                                className="text-xs text-indigo-500 hover:text-indigo-400 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                                             >
                                                                 reset
                                                             </button>
                                                         )}
                                                     </div>
-                                                    <p className="text-xs text-slate-500 mt-0.5">{skill.description}</p>
+                                                    <p className="text-xs text-pulse-muted mt-0.5">{skill.description}</p>
                                                 </div>
                                                 <button
                                                     onClick={() => toggleSkill(skill.name)}
-                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                        enabled ? "bg-indigo-600" : "bg-slate-300"
+                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel ${
+                                                        enabled ? "bg-indigo-600" : "bg-pulse-border-strong"
                                                     }`}
                                                 >
                                                     <span
-                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform motion-reduce:transition-none ${
                                                             enabled ? "translate-x-6" : "translate-x-1"
                                                         }`}
                                                     />
@@ -214,18 +214,18 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
             </div>
 
             {/* Custom Skills */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-pulse-border-subtle flex items-center justify-between">
                     <div>
-                        <h2 className="text-sm font-semibold text-slate-900">Custom Skills</h2>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <h2 className="text-sm font-semibold text-pulse-text">Custom Skills</h2>
+                        <p className="text-xs text-pulse-faint mt-0.5">
                             Add domain-specific skills that teach the agent specialized workflows.
                         </p>
                     </div>
                     {!showCustomForm && (
                         <button
                             onClick={() => setShowCustomForm(true)}
-                            className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                            className="px-3 py-1.5 text-xs font-medium text-indigo-500 bg-pulse-tint rounded-lg hover:bg-indigo-500/20 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                             + Add Skill
                         </button>
@@ -236,21 +236,21 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
                     {(config.customSkills ?? []).length > 0 && (
                         <div className="space-y-3 mb-4">
                             {(config.customSkills ?? []).map((skill, idx) => (
-                                <div key={idx} className="flex items-start justify-between px-4 py-3 rounded-lg border border-slate-200 bg-slate-50/50">
+                                <div key={idx} className="flex items-start justify-between px-4 py-3 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt">
                                     <div className="flex-1 min-w-0">
-                                        <span className="text-sm font-medium text-slate-900">{skill.name}</span>
-                                        <p className="text-xs text-slate-500 mt-0.5">{skill.description}</p>
+                                        <span className="text-sm font-medium text-pulse-text">{skill.name}</span>
+                                        <p className="text-xs text-pulse-muted mt-0.5">{skill.description}</p>
                                     </div>
                                     <div className="flex items-center gap-2 ml-3">
                                         <button
                                             onClick={() => editCustomSkill(idx)}
-                                            className="text-xs text-slate-500 hover:text-indigo-600"
+                                            className="text-xs text-pulse-muted hover:text-indigo-500 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                         >
                                             Edit
                                         </button>
                                         <button
                                             onClick={() => deleteCustomSkill(idx)}
-                                            className="text-xs text-slate-500 hover:text-red-600"
+                                            className="text-xs text-pulse-muted hover:text-red-400 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                         >
                                             Delete
                                         </button>
@@ -261,53 +261,53 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
                     )}
 
                     {(config.customSkills ?? []).length === 0 && !showCustomForm && (
-                        <p className="text-sm text-slate-400">No custom skills yet.</p>
+                        <p className="text-sm text-pulse-faint">No custom skills yet.</p>
                     )}
 
                     {/* Custom skill form */}
                     {showCustomForm && (
-                        <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                        <div className="border border-pulse-border-subtle rounded-lg p-4 space-y-3">
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Skill Name</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Skill Name</label>
                                 <input
                                     type="text"
                                     value={customName}
                                     onChange={(e) => setCustomName(e.target.value)}
                                     placeholder="e.g., invoice-generation"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Trigger Description</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Trigger Description</label>
                                 <input
                                     type="text"
                                     value={customDescription}
                                     onChange={(e) => setCustomDescription(e.target.value)}
                                     placeholder="e.g., Generate invoices for clients using ERPNext"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Skill Body (Markdown)</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Skill Body (Markdown)</label>
                                 <textarea
                                     value={customBody}
                                     onChange={(e) => setCustomBody(e.target.value)}
                                     rows={10}
                                     placeholder={"# Skill Instructions\n\n## When to Use\n- ...\n\n## How to Do It\n- ..."}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 resize-y"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint resize-y"
                                 />
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={saveCustomSkill}
                                     disabled={!customName.trim() || !customDescription.trim() || !customBody.trim()}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                                 >
                                     {editingCustomIdx !== null ? "Update Skill" : "Add Skill"}
                                 </button>
                                 <button
                                     onClick={resetCustomForm}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                                    className="px-4 py-2 text-sm font-medium text-pulse-text-soft bg-pulse-panel-alt rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 >
                                     Cancel
                                 </button>
@@ -322,15 +322,15 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
                 <button
                     onClick={handleSave}
                     disabled={pending}
-                    className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                 >
                     {pending ? "Saving..." : "Save Skills"}
                 </button>
                 {status.type === "success" && (
-                    <span className="text-sm text-emerald-600">{status.message || "Saved!"}</span>
+                    <span className="text-sm text-emerald-400">{status.message || "Saved!"}</span>
                 )}
                 {status.type === "error" && (
-                    <span className="text-sm text-red-600">{status.message || "Failed to save."}</span>
+                    <span className="text-sm text-red-400">{status.message || "Failed to save."}</span>
                 )}
             </div>
         </div>

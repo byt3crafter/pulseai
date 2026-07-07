@@ -115,17 +115,17 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Message Routing</h1>
-                    <p className="text-sm text-slate-500 mt-1">
+                    <h1 className="text-2xl font-bold text-pulse-text">Message Routing</h1>
+                    <p className="text-sm text-pulse-muted mt-1">
                         Route incoming messages to different agents based on rules. Rules are evaluated in priority order (lowest number first). The first matching rule wins.
                     </p>
                 </div>
                 {!showForm && (
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
-                        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                     >
                         Add Rule
                     </button>
@@ -134,42 +134,42 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
 
             {/* Error/success message */}
             {message && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm text-red-700">{message}</p>
+                <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <p className="text-sm text-red-400">{message}</p>
                 </div>
             )}
 
             {/* Add/Edit Form */}
             {showForm && (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h2 className="text-lg font-semibold text-slate-900 mb-4">
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-4 sm:p-6">
+                    <h2 className="text-lg font-semibold text-pulse-text mb-4">
                         {editingId ? "Edit Rule" : "New Routing Rule"}
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Rule Type */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Rule Type</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Rule Type</label>
                             <select
                                 value={formRuleType}
                                 onChange={(e) => setFormRuleType(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-pulse-panel text-pulse-text"
                             >
                                 <option value="contact">Contact</option>
                                 <option value="group">Group</option>
                                 <option value="keyword">Keyword (Regex)</option>
                                 <option value="channel_default">Channel Default</option>
                             </select>
-                            <p className="text-xs text-slate-400 mt-1">{RULE_TYPE_HELP[formRuleType]}</p>
+                            <p className="text-xs text-pulse-faint mt-1">{RULE_TYPE_HELP[formRuleType]}</p>
                         </div>
 
                         {/* Match Value */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Match Value</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Match Value</label>
                             {formRuleType === "channel_default" ? (
                                 <select
                                     value={formMatchValue}
                                     onChange={(e) => setFormMatchValue(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-pulse-panel text-pulse-text"
                                 >
                                     <option value="">Select channel...</option>
                                     <option value="telegram">Telegram</option>
@@ -189,18 +189,18 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                                               ? "e.g. -1001234567890"
                                               : "e.g. support|help|billing"
                                     }
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             )}
                         </div>
 
                         {/* Agent */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Route to Agent</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Route to Agent</label>
                             <select
                                 value={formAgentId}
                                 onChange={(e) => setFormAgentId(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-pulse-panel text-pulse-text"
                             >
                                 {agents.map((a) => (
                                     <option key={a.id} value={a.id}>
@@ -212,26 +212,26 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
 
                         {/* Priority */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Priority</label>
                             <input
                                 type="number"
                                 min="1"
                                 value={formPriority}
                                 onChange={(e) => setFormPriority(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-pulse-panel text-pulse-text"
                             />
-                            <p className="text-xs text-slate-400 mt-1">Lower number = higher priority. Default: 100</p>
+                            <p className="text-xs text-pulse-faint mt-1">Lower number = higher priority. Default: 100</p>
                         </div>
 
                         {/* Description */}
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Description (optional)</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Description (optional)</label>
                             <input
                                 type="text"
                                 value={formDescription}
                                 onChange={(e) => setFormDescription(e.target.value)}
                                 placeholder="e.g. Route VIP customer to Sales agent"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                             />
                         </div>
                     </div>
@@ -240,13 +240,13 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                         <button
                             onClick={handleSubmit}
                             disabled={pending}
-                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                             {pending ? "Saving..." : editingId ? "Update Rule" : "Create Rule"}
                         </button>
                         <button
                             onClick={resetForm}
-                            className="px-4 py-2 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-100 transition-colors"
+                            className="px-4 py-2 text-pulse-muted text-sm font-medium rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                             Cancel
                         </button>
@@ -256,59 +256,61 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
 
             {/* Rules Table */}
             {rules.length === 0 && !showForm ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                    <p className="text-slate-500 text-sm">No routing rules yet. Click &quot;Add Rule&quot; to create your first rule.</p>
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-12 text-center">
+                    <p className="text-pulse-muted text-sm">No routing rules yet. Click &quot;Add Rule&quot; to create your first rule.</p>
                 </div>
             ) : rules.length > 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="text-left px-4 py-3 font-medium text-slate-600">Priority</th>
-                                    <th className="text-left px-4 py-3 font-medium text-slate-600">Type</th>
-                                    <th className="text-left px-4 py-3 font-medium text-slate-600">Match Value</th>
-                                    <th className="text-left px-4 py-3 font-medium text-slate-600">Agent</th>
-                                    <th className="text-left px-4 py-3 font-medium text-slate-600">Description</th>
-                                    <th className="text-left px-4 py-3 font-medium text-slate-600">Enabled</th>
-                                    <th className="text-right px-4 py-3 font-medium text-slate-600">Actions</th>
+                                <tr className="bg-pulse-panel-alt border-b border-pulse-border-subtle">
+                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Priority</th>
+                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Type</th>
+                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Match Value</th>
+                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Agent</th>
+                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Description</th>
+                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Enabled</th>
+                                    <th className="text-right px-4 py-3 font-medium text-pulse-muted">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {rules.map((rule) => (
-                                    <tr key={rule.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                        <td className="px-4 py-3 font-mono text-slate-700">{rule.priority}</td>
+                                    <tr key={rule.id} className="border-b border-pulse-border-subtle hover:bg-pulse-hover">
+                                        <td className="px-4 py-3 font-mono text-pulse-text-soft">{rule.priority}</td>
                                         <td className="px-4 py-3">
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pulse-panel-alt text-pulse-text-soft">
                                                 {RULE_TYPE_LABELS[rule.ruleType] || rule.ruleType}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 font-mono text-xs text-slate-600 max-w-[200px] truncate">
+                                        <td className="px-4 py-3 font-mono text-xs text-pulse-muted max-w-[200px] truncate">
                                             {rule.matchValue}
                                         </td>
-                                        <td className="px-4 py-3 text-slate-800">{rule.agentName}</td>
-                                        <td className="px-4 py-3 text-slate-500 max-w-[200px] truncate">
+                                        <td className="px-4 py-3 text-pulse-text-soft">{rule.agentName}</td>
+                                        <td className="px-4 py-3 text-pulse-muted max-w-[200px] truncate">
                                             {rule.description || "-"}
                                         </td>
                                         <td className="px-4 py-3">
                                             <button
                                                 onClick={() => handleToggle(rule.id)}
                                                 disabled={pending}
-                                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                                                    rule.enabled ? "bg-indigo-600" : "bg-slate-200"
+                                                aria-pressed={rule.enabled}
+                                                aria-label={rule.enabled ? "Disable rule" : "Enable rule"}
+                                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors motion-reduce:transition-none outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                                                    rule.enabled ? "bg-indigo-600" : "bg-pulse-border"
                                                 }`}
                                             >
                                                 <span
-                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${
                                                         rule.enabled ? "translate-x-4" : "translate-x-0"
                                                     }`}
                                                 />
                                             </button>
                                         </td>
-                                        <td className="px-4 py-3 text-right space-x-2">
+                                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
                                             <button
                                                 onClick={() => startEdit(rule)}
-                                                className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                                                className="text-indigo-500 hover:text-indigo-400 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                             >
                                                 Edit
                                             </button>
@@ -317,13 +319,13 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                                                     <button
                                                         onClick={() => handleDelete(rule.id)}
                                                         disabled={pending}
-                                                        className="text-red-600 hover:text-red-800 text-xs font-medium"
+                                                        className="text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                                     >
                                                         Confirm
                                                     </button>
                                                     <button
                                                         onClick={() => setConfirmDelete(null)}
-                                                        className="text-slate-500 hover:text-slate-700 text-xs font-medium"
+                                                        className="text-pulse-muted hover:text-pulse-text-soft text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                                     >
                                                         Cancel
                                                     </button>
@@ -331,7 +333,7 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                                             ) : (
                                                 <button
                                                     onClick={() => setConfirmDelete(rule.id)}
-                                                    className="text-red-600 hover:text-red-800 text-xs font-medium"
+                                                    className="text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                                 >
                                                     Delete
                                                 </button>
@@ -346,8 +348,8 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
             ) : null}
 
             {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-blue-800">
+            <div className="bg-pulse-tint border border-pulse-border rounded-xl p-4">
+                <p className="text-sm text-pulse-text-soft">
                     <span className="font-semibold">How routing works:</span> When a message arrives, rules are checked in priority order. The first rule that matches determines which agent handles the message. If no rule matches, the channel&apos;s default agent is used.
                 </p>
             </div>

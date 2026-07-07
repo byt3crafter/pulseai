@@ -106,25 +106,25 @@ export default function AgentWorkspaceClient({
     const router = useRouter();
 
     return (
-        <div className="p-8 max-w-5xl">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl">
             {/* Header */}
             <div className="mb-6">
                 <Link
                     href="/dashboard/agents"
-                    className="text-sm text-slate-500 hover:text-slate-700 transition-colors mb-2 inline-block"
+                    className="text-sm text-pulse-muted hover:text-pulse-text-soft transition-colors motion-reduce:transition-none mb-2 inline-block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                 >
                     &larr; Back to Agents
                 </Link>
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">{agent.name}</h1>
+                        <h1 className="text-2xl font-bold text-pulse-text">{agent.name}</h1>
                         <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs font-mono text-slate-400">ID: {agent.id.slice(0, 8)}...</span>
-                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full">
+                            <span className="text-xs font-mono text-pulse-faint">ID: {agent.id.slice(0, 8)}...</span>
+                            <span className="px-2 py-0.5 bg-pulse-tint text-pulse-accent-hi text-xs font-medium rounded-full">
                                 {getModelDisplayName(agent.modelId)}
                             </span>
                             {agent.dockerSandboxEnabled && (
-                                <span className="px-2 py-0.5 bg-red-50 text-red-700 text-xs font-semibold rounded-full">
+                                <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs font-semibold rounded-full">
                                     Sandbox
                                 </span>
                             )}
@@ -134,20 +134,20 @@ export default function AgentWorkspaceClient({
             </div>
 
             {/* Tab nav */}
-            <div className="border-b border-slate-200 mb-6">
-                <nav className="flex gap-0">
+            <div className="border-b border-pulse-border-subtle mb-6 overflow-x-auto">
+                <nav className="flex gap-0 min-w-max">
                     {TABS.map((t) => (
                         <button
                             key={t.id}
                             onClick={() => setActiveTab(t.id)}
-                            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === t.id
-                                ? "border-indigo-600 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-700"
+                            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${activeTab === t.id
+                                ? "border-indigo-600 text-indigo-500"
+                                : "border-transparent text-pulse-muted hover:text-pulse-text-soft"
                                 }`}
                         >
                             {t.label}
                             {t.id === "revisions" && (soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount + toolsGuidanceRevisionCount + userPrefsRevisionCount + bootstrapRevisionCount + agentsRevisionCount) > 0 && (
-                                <span className="ml-1.5 text-xs text-slate-400">
+                                <span className="ml-1.5 text-xs text-pulse-faint">
                                     ({soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount + toolsGuidanceRevisionCount + userPrefsRevisionCount + bootstrapRevisionCount + agentsRevisionCount})
                                 </span>
                             )}
@@ -297,24 +297,24 @@ function FileEditor({
     const isDirty = content !== initialContent;
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-                <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                <h2 className="text-sm font-semibold text-pulse-text">{title}</h2>
+                <p className="text-xs text-pulse-faint mt-0.5">{description}</p>
             </div>
             <div className="p-6">
                 <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     rows={18}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-800 resize-y leading-relaxed"
+                    className="w-full px-4 py-3 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint resize-y leading-relaxed"
                     placeholder={`Write your ${title.toLowerCase()} content in Markdown...`}
                 />
 
                 <div className="mt-4 flex items-center justify-between">
                     <div>
                         {status.type !== "idle" && (
-                            <p className={`text-sm ${status.type === "success" ? "text-emerald-600" : status.type === "error" ? "text-red-500" : "text-slate-500"}`}>
+                            <p className={`text-sm ${status.type === "success" ? "text-green-400" : status.type === "error" ? "text-red-400" : "text-pulse-muted"}`}>
                                 {status.type === "saving" ? "Saving..." : status.message}
                             </p>
                         )}
@@ -322,7 +322,7 @@ function FileEditor({
                     <button
                         onClick={handleSave}
                         disabled={!isDirty || status.type === "saving"}
-                        className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                     >
                         Save {fileName}
                     </button>
@@ -370,17 +370,17 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
     return (
         <div className="space-y-6">
             {/* Model Selection */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                    <h2 className="text-sm font-semibold text-slate-900">Model</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Select which LLM model powers this agent. Only models from configured providers are available.</p>
+            <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                    <h2 className="text-sm font-semibold text-pulse-text">Model</h2>
+                    <p className="text-xs text-pulse-faint mt-0.5">Select which LLM model powers this agent. Only models from configured providers are available.</p>
                 </div>
                 <div className="px-6 py-5">
                     {configuredProviders.length === 0 && (
-                        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-                            <p className="text-sm text-amber-800">
+                        <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                            <p className="text-sm text-amber-400">
                                 No AI providers configured. Go to{" "}
-                                <a href="/dashboard/settings?tab=providers" className="font-medium underline">Settings &gt; AI Providers</a>
+                                <a href="/dashboard/settings?tab=providers" className="font-medium underline cursor-pointer">Settings &gt; AI Providers</a>
                                 {" "}to add an API key or connect your ChatGPT account.
                             </p>
                         </div>
@@ -389,7 +389,7 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                     <select
                         value={modelId}
                         onChange={(e) => setModelId(e.target.value)}
-                        className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 bg-white"
+                        className="w-full max-w-md px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none text-pulse-text bg-pulse-panel"
                     >
                         {/* Active providers — selectable */}
                         {configuredProviders.map((provider) => (
@@ -417,12 +417,12 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                         <button
                             onClick={handleModelSave}
                             disabled={modelId === agent.modelId || status.type === "saving"}
-                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                             Save Model
                         </button>
                         {status.type !== "idle" && (
-                            <span className={`text-sm ${status.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+                            <span className={`text-sm ${status.type === "success" ? "text-green-400" : "text-red-400"}`}>
                                 {status.message}
                             </span>
                         )}
@@ -431,15 +431,15 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
             </div>
 
             {/* Docker Sandbox Toggle (read-only display) */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                    <h2 className="text-sm font-semibold text-slate-900">Docker Sandbox</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Code execution capability for this agent.</p>
+            <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                    <h2 className="text-sm font-semibold text-pulse-text">Docker Sandbox</h2>
+                    <p className="text-xs text-pulse-faint mt-0.5">Code execution capability for this agent.</p>
                 </div>
                 <div className="px-6 py-5">
                     <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${agent.dockerSandboxEnabled ? "bg-red-500" : "bg-slate-300"}`} />
-                        <span className="text-sm text-slate-700">
+                        <div className={`w-3 h-3 rounded-full ${agent.dockerSandboxEnabled ? "bg-red-500" : "bg-pulse-border-strong"}`} />
+                        <span className="text-sm text-pulse-text-soft">
                             {agent.dockerSandboxEnabled ? "Enabled — agent can execute code" : "Disabled"}
                         </span>
                     </div>
@@ -450,30 +450,30 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
             <SelfConfigToggle agentId={agent.id} initialEnabled={agent.selfConfigEnabled} />
 
             {/* Danger Zone */}
-            <div className="bg-white border border-red-200 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-red-100">
-                    <h2 className="text-sm font-semibold text-red-700">Danger Zone</h2>
+            <div className="bg-pulse-panel border border-red-500/30 rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-red-500/20">
+                    <h2 className="text-sm font-semibold text-red-400">Danger Zone</h2>
                 </div>
                 <div className="px-6 py-5">
                     {!deleteConfirm ? (
                         <button
                             onClick={() => setDeleteConfirm(true)}
-                            className="px-4 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+                            className="px-4 py-2 text-sm font-medium text-red-400 bg-pulse-panel border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                         >
                             Delete Agent
                         </button>
                     ) : (
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm text-red-600">Are you sure? This cannot be undone.</span>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <span className="text-sm text-red-400">Are you sure? This cannot be undone.</span>
                             <button
                                 onClick={handleDelete}
-                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                             >
                                 Confirm Delete
                             </button>
                             <button
                                 onClick={() => setDeleteConfirm(false)}
-                                className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-pulse-muted bg-pulse-panel border border-pulse-border rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                             >
                                 Cancel
                             </button>
@@ -512,15 +512,15 @@ function SelfConfigToggle({ agentId, initialEnabled }: { agentId: string; initia
     };
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-900">Agent Self-Config</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Allow the agent to edit its own workspace files via a tool.</p>
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                <h2 className="text-sm font-semibold text-pulse-text">Agent Self-Config</h2>
+                <p className="text-xs text-pulse-faint mt-0.5">Allow the agent to edit its own workspace files via a tool.</p>
             </div>
             <div className="px-6 py-5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                     <div>
-                        <p className="text-sm text-slate-700">
+                        <p className="text-sm text-pulse-text-soft">
                             {enabled
                                 ? "Enabled — agent can modify its SOUL.md, IDENTITY.md, TOOLS.md, USER.md, MEMORY.md, and HEARTBEAT.md files."
                                 : "Disabled — workspace files can only be edited from this dashboard."}
@@ -529,15 +529,17 @@ function SelfConfigToggle({ agentId, initialEnabled }: { agentId: string; initia
                     <button
                         onClick={handleToggle}
                         disabled={status.type === "saving"}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? "bg-indigo-600" : "bg-slate-300"} ${status.type === "saving" ? "opacity-50" : ""}`}
+                        aria-pressed={enabled}
+                        aria-label="Toggle agent self-config"
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel flex-shrink-0 ${enabled ? "bg-indigo-600" : "bg-pulse-border-strong"} ${status.type === "saving" ? "opacity-50" : ""}`}
                     >
                         <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? "translate-x-6" : "translate-x-1"}`}
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform motion-reduce:transition-none ${enabled ? "translate-x-6" : "translate-x-1"}`}
                         />
                     </button>
                 </div>
                 {status.type !== "idle" && status.type !== "saving" && (
-                    <p className={`text-xs mt-2 ${status.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+                    <p className={`text-xs mt-2 ${status.type === "success" ? "text-green-400" : "text-red-400"}`}>
                         {status.message}
                     </p>
                 )}
@@ -579,17 +581,17 @@ function RevisionsTab({ agentId }: { agentId: string }) {
     };
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-                <h2 className="text-sm font-semibold text-slate-900">Revision History</h2>
-                <div className="flex gap-2 ml-auto">
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-pulse-border-subtle flex flex-wrap items-center gap-3">
+                <h2 className="text-sm font-semibold text-pulse-text">Revision History</h2>
+                <div className="flex flex-wrap gap-2 ml-auto">
                     {(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md", "TOOLS.md", "USER.md", "BOOTSTRAP.md", "AGENTS.md"] as const).map((f) => (
                         <button
                             key={f}
                             onClick={() => loadRevisions(f)}
-                            className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${selectedFile === f && loaded
-                                ? "bg-indigo-100 text-indigo-700"
-                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                            className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${selectedFile === f && loaded
+                                ? "bg-pulse-tint text-pulse-accent-hi"
+                                : "bg-pulse-panel-alt text-pulse-muted hover:bg-pulse-hover"
                                 }`}
                         >
                             {f}
@@ -599,17 +601,17 @@ function RevisionsTab({ agentId }: { agentId: string }) {
             </div>
             <div className="px-6 py-5">
                 {!loaded && (
-                    <p className="text-sm text-slate-400">Select a file above to view its revision history.</p>
+                    <p className="text-sm text-pulse-faint">Select a file above to view its revision history.</p>
                 )}
 
-                {loading && <p className="text-sm text-slate-500">Loading...</p>}
+                {loading && <p className="text-sm text-pulse-muted">Loading...</p>}
 
                 {loaded && !loading && revisions.length === 0 && (
-                    <p className="text-sm text-slate-400">No revisions found for {selectedFile}.</p>
+                    <p className="text-sm text-pulse-faint">No revisions found for {selectedFile}.</p>
                 )}
 
                 {restoreStatus && (
-                    <p className="text-sm text-emerald-600 mb-3">{restoreStatus}</p>
+                    <p className="text-sm text-green-400 mb-3">{restoreStatus}</p>
                 )}
 
                 {loaded && !loading && revisions.length > 0 && (
@@ -617,23 +619,23 @@ function RevisionsTab({ agentId }: { agentId: string }) {
                         {revisions.map((rev) => (
                             <div
                                 key={rev.id}
-                                className="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors"
+                                className="flex flex-wrap items-center justify-between gap-2 p-3 border border-pulse-border-subtle rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none"
                             >
                                 <div>
-                                    <span className="text-sm font-medium text-slate-700">
+                                    <span className="text-sm font-medium text-pulse-text-soft">
                                         #{rev.revisionNumber}
                                     </span>
-                                    <span className="text-sm text-slate-500 ml-3">
+                                    <span className="text-sm text-pulse-muted ml-3">
                                         {rev.changeSummary ?? "No summary"}
                                     </span>
-                                    <span className="text-xs text-slate-400 ml-3">
+                                    <span className="text-xs text-pulse-faint ml-3">
                                         {rev.createdAt ? new Date(rev.createdAt).toLocaleString() : ""}
                                     </span>
                                 </div>
                                 {rev.revisionNumber !== revisions[0]?.revisionNumber && (
                                     <button
                                         onClick={() => handleRestore(rev.id)}
-                                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded-lg hover:bg-indigo-50 transition-colors"
+                                        className="text-xs font-medium text-indigo-500 hover:text-indigo-400 px-3 py-1 rounded-lg hover:bg-pulse-tint transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                     >
                                         Restore
                                     </button>

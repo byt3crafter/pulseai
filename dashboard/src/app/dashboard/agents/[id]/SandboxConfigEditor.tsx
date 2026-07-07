@@ -72,20 +72,20 @@ export default function SandboxConfigEditor({
         setupCommand !== (config.docker?.setupCommand || "");
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-900">Sandbox Configuration</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Configure execution boundaries, Docker container overrides, and workspace mount access.</p>
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                <h2 className="text-sm font-semibold text-pulse-text">Sandbox Configuration</h2>
+                <p className="text-xs text-pulse-faint mt-0.5">Configure execution boundaries, Docker container overrides, and workspace mount access.</p>
             </div>
 
             <div className="px-6 py-5 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Mode</label>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Mode</label>
                         <select
                             value={mode}
                             onChange={(e) => setMode(e.target.value as any)}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel"
                         >
                             <option value="off">Off (Disabled)</option>
                             <option value="non-main">Non-Main (Isolated)</option>
@@ -93,11 +93,11 @@ export default function SandboxConfigEditor({
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Scope</label>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Scope</label>
                         <select
                             value={scope}
                             onChange={(e) => setScope(e.target.value as any)}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel"
                         >
                             <option value="session">Session (Per thread)</option>
                             <option value="agent">Agent (Shared across threads)</option>
@@ -105,11 +105,11 @@ export default function SandboxConfigEditor({
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Workspace Access</label>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Workspace Access</label>
                         <select
                             value={workspaceAccess}
                             onChange={(e) => setWorkspaceAccess(e.target.value as any)}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel"
                         >
                             <option value="none">None (No Mount)</option>
                             <option value="ro">Read-Only Mount</option>
@@ -118,47 +118,47 @@ export default function SandboxConfigEditor({
                     </div>
                 </div>
 
-                <div className="border-t border-slate-200 pt-5 space-y-4">
-                    <h3 className="text-sm font-medium text-slate-800">Docker Overrides</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border-t border-pulse-border-subtle pt-5 space-y-4">
+                    <h3 className="text-sm font-medium text-pulse-text-soft">Docker Overrides</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Docker Image</label>
+                            <label className="block text-xs font-medium text-pulse-text-soft mb-1">Docker Image</label>
                             <input
                                 type="text"
                                 value={image}
                                 onChange={(e) => setImage(e.target.value)}
                                 placeholder="alpine (default)"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Setup Command</label>
+                            <label className="block text-xs font-medium text-pulse-text-soft mb-1">Setup Command</label>
                             <input
                                 type="text"
                                 value={setupCommand}
                                 onChange={(e) => setSetupCommand(e.target.value)}
                                 placeholder="e.g. apk add python3"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">Memory Limit</label>
+                            <label className="block text-xs font-medium text-pulse-text-soft mb-1">Memory Limit</label>
                             <input
                                 type="text"
                                 value={memoryLimit}
                                 onChange={(e) => setMemoryLimit(e.target.value)}
                                 placeholder="128m (default)"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">CPU Limit</label>
+                            <label className="block text-xs font-medium text-pulse-text-soft mb-1">CPU Limit</label>
                             <input
                                 type="text"
                                 value={cpuLimit}
                                 onChange={(e) => setCpuLimit(e.target.value)}
                                 placeholder="0.5 (default)"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                             />
                         </div>
                     </div>
@@ -168,12 +168,12 @@ export default function SandboxConfigEditor({
                     <button
                         onClick={handleSave}
                         disabled={!isDirty || status.type === "saving"}
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                     >
                         Save Sandbox Config
                     </button>
                     {status.type !== "idle" && (
-                        <span className={`text-sm ${status.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+                        <span className={`text-sm ${status.type === "success" ? "text-emerald-400" : "text-red-400"}`}>
                             {status.type === "saving" ? "Saving..." : status.message}
                         </span>
                     )}

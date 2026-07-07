@@ -21,27 +21,27 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
     const otherAgents = tenantAgents.filter((a) => a.id !== agentId);
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
-                <a href={`/dashboard/agents/${agentId}`} className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">
+                <a href={`/dashboard/agents/${agentId}`} className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                     &larr; Back to {agent.name}
                 </a>
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                        <LinkIcon className="w-6 h-6 text-blue-600" />
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <LinkIcon className="w-6 h-6 text-blue-400" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Delegation — {agent.name}</h1>
-                        <p className="text-slate-500 text-sm">Configure multi-agent delegation for this agent.</p>
+                        <h1 className="text-2xl font-bold text-pulse-text">Delegation — {agent.name}</h1>
+                        <p className="text-pulse-muted text-sm">Configure multi-agent delegation for this agent.</p>
                     </div>
                 </div>
             </div>
 
             <div className="space-y-6">
                 {/* Delegation Config */}
-                <form action={saveDelegationConfig} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-200">
-                        <h2 className="text-lg font-semibold text-slate-900">Delegation Settings</h2>
+                <form action={saveDelegationConfig} className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                    <div className="p-6 border-b border-pulse-border-subtle">
+                        <h2 className="text-lg font-semibold text-pulse-text">Delegation Settings</h2>
                     </div>
                     <div className="p-6 space-y-5">
                         <input type="hidden" name="agentId" value={agentId} />
@@ -52,11 +52,11 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                                     type="checkbox"
                                     name="canDelegate"
                                     defaultChecked={delConfig.canDelegate || false}
-                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    className="w-4 h-4 text-indigo-600 border-pulse-border rounded focus:ring-indigo-500 cursor-pointer bg-pulse-panel"
                                 />
                                 <div>
-                                    <span className="text-sm font-medium text-slate-900">Can Delegate to Others</span>
-                                    <p className="text-xs text-slate-500">This agent can call other agents via delegate_to_agent tool.</p>
+                                    <span className="text-sm font-medium text-pulse-text">Can Delegate to Others</span>
+                                    <p className="text-xs text-pulse-muted">This agent can call other agents via delegate_to_agent tool.</p>
                                 </div>
                             </label>
 
@@ -65,65 +65,65 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                                     type="checkbox"
                                     name="acceptsDelegation"
                                     defaultChecked={delConfig.acceptsDelegation || false}
-                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    className="w-4 h-4 text-indigo-600 border-pulse-border rounded focus:ring-indigo-500 cursor-pointer bg-pulse-panel"
                                 />
                                 <div>
-                                    <span className="text-sm font-medium text-slate-900">Accepts Delegation</span>
-                                    <p className="text-xs text-slate-500">Other agents can delegate tasks to this agent.</p>
+                                    <span className="text-sm font-medium text-pulse-text">Accepts Delegation</span>
+                                    <p className="text-xs text-pulse-muted">Other agents can delegate tasks to this agent.</p>
                                 </div>
                             </label>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Specialization</label>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Specialization</label>
                             <textarea
                                 name="specialization"
                                 rows={2}
                                 defaultValue={delConfig.specialization || ""}
                                 placeholder="e.g., ERPNext specialist — handles invoices, customers, and stock queries"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                             />
-                            <p className="text-xs text-slate-400 mt-1">Description shown to other agents for delegation routing.</p>
+                            <p className="text-xs text-pulse-faint mt-1">Description shown to other agents for delegation routing.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Max Delegation Depth</label>
+                                <label className="block text-sm font-medium text-pulse-text-soft mb-1">Max Delegation Depth</label>
                                 <input
                                     type="number"
                                     name="maxDepth"
                                     min={1}
                                     max={10}
                                     defaultValue={delConfig.maxDepth || 3}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                                 />
-                                <p className="text-xs text-slate-400 mt-1">Prevents infinite delegation chains.</p>
+                                <p className="text-xs text-pulse-faint mt-1">Prevents infinite delegation chains.</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Allowed Targets (optional)</label>
+                                <label className="block text-sm font-medium text-pulse-text-soft mb-1">Allowed Targets (optional)</label>
                                 <input
                                     type="text"
                                     name="delegateTo"
                                     defaultValue={(delConfig.delegateTo || []).join(", ")}
                                     placeholder="Leave empty to allow all agents"
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                                 />
-                                <p className="text-xs text-slate-400 mt-1">Comma-separated agent IDs. Empty = all.</p>
+                                <p className="text-xs text-pulse-faint mt-1">Comma-separated agent IDs. Empty = all.</p>
                             </div>
                         </div>
 
                         {otherAgents.length > 0 && (
-                            <div className="bg-slate-50 rounded-lg p-4">
-                                <p className="text-xs font-medium text-slate-600 mb-2">Other agents in this tenant:</p>
+                            <div className="bg-pulse-panel-alt rounded-lg p-4">
+                                <p className="text-xs font-medium text-pulse-muted mb-2">Other agents in this tenant:</p>
                                 <div className="space-y-1">
                                     {otherAgents.map((a) => {
                                         const aDel = (a.delegationConfig as any) || {};
                                         return (
-                                            <div key={a.id} className="flex items-center gap-2 text-xs text-slate-500">
-                                                <span className={`w-2 h-2 rounded-full ${aDel.acceptsDelegation ? "bg-green-400" : "bg-slate-300"}`} />
-                                                <span className="font-mono text-[10px] text-slate-400">{a.id.substring(0, 8)}...</span>
-                                                <span className="text-slate-700">{a.name}</span>
-                                                {aDel.specialization && <span className="text-slate-400">— {aDel.specialization}</span>}
+                                            <div key={a.id} className="flex items-center gap-2 text-xs text-pulse-muted">
+                                                <span className={`w-2 h-2 rounded-full ${aDel.acceptsDelegation ? "bg-green-400" : "bg-pulse-border-strong"}`} />
+                                                <span className="font-mono text-[10px] text-pulse-faint">{a.id.substring(0, 8)}...</span>
+                                                <span className="text-pulse-text-soft">{a.name}</span>
+                                                {aDel.specialization && <span className="text-pulse-faint">— {aDel.specialization}</span>}
                                             </div>
                                         );
                                     })}
@@ -132,7 +132,7 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                         )}
 
                         <div className="flex justify-end">
-                            <button type="submit" className="px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors text-sm">
+                            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none text-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel">
                                 Save Delegation Config
                             </button>
                         </div>
@@ -140,16 +140,16 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                 </form>
 
                 {/* Delegation History */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-200">
-                        <h2 className="text-lg font-semibold text-slate-900">Delegation History</h2>
-                        <p className="text-sm text-slate-500 mt-1">{history.length} recent delegations</p>
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                    <div className="p-6 border-b border-pulse-border-subtle">
+                        <h2 className="text-lg font-semibold text-pulse-text">Delegation History</h2>
+                        <p className="text-sm text-pulse-muted mt-1">{history.length} recent delegations</p>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                                <tr className="text-left text-xs text-pulse-muted border-b border-pulse-border-subtle">
                                     <th className="px-6 py-3 font-medium">Direction</th>
                                     <th className="px-6 py-3 font-medium">Task</th>
                                     <th className="px-6 py-3 font-medium">Status</th>
@@ -160,7 +160,7 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                             <tbody>
                                 {history.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
+                                        <td colSpan={5} className="px-6 py-12 text-center text-sm text-pulse-faint">
                                             No delegations yet. Enable delegation and the agent can use delegate_to_agent tool.
                                         </td>
                                     </tr>
@@ -168,30 +168,30 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                                 {history.map((d) => {
                                     const isOutgoing = d.sourceAgentId === agentId;
                                     return (
-                                        <tr key={d.id} className="border-b border-slate-50 hover:bg-slate-50">
+                                        <tr key={d.id} className="border-b border-pulse-border-subtle hover:bg-pulse-hover">
                                             <td className="px-6 py-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                    isOutgoing ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"
+                                                    isOutgoing ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"
                                                 }`}>
                                                     {isOutgoing ? "Outgoing" : "Incoming"}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-3 text-sm text-slate-700 max-w-xs">
+                                            <td className="px-6 py-3 text-sm text-pulse-text-soft max-w-xs">
                                                 <p className="truncate">{d.task}</p>
                                             </td>
                                             <td className="px-6 py-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                    d.status === "completed" ? "bg-green-50 text-green-700" :
-                                                    d.status === "failed" ? "bg-red-50 text-red-700" :
-                                                    "bg-yellow-50 text-yellow-700"
+                                                    d.status === "completed" ? "bg-green-500/10 text-green-400" :
+                                                    d.status === "failed" ? "bg-red-500/10 text-red-400" :
+                                                    "bg-yellow-500/10 text-yellow-400"
                                                 }`}>
                                                     {d.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-3 text-xs text-slate-400">
+                                            <td className="px-6 py-3 text-xs text-pulse-faint">
                                                 {d.startedAt ? new Date(d.startedAt).toLocaleString() : "—"}
                                             </td>
-                                            <td className="px-6 py-3 text-sm text-slate-500 max-w-xs">
+                                            <td className="px-6 py-3 text-sm text-pulse-muted max-w-xs">
                                                 <p className="truncate">{d.result || "—"}</p>
                                             </td>
                                         </tr>

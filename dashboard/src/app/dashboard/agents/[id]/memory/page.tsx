@@ -19,18 +19,18 @@ export default async function AgentMemoryPage({ params }: { params: Promise<{ id
     const stats = await getMemoryStats(agentId);
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
-                <a href={`/dashboard/agents/${agentId}`} className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">
+                <a href={`/dashboard/agents/${agentId}`} className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                     &larr; Back to {agent.name}
                 </a>
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-50 rounded-lg">
-                        <BrainIcon className="w-6 h-6 text-purple-600" />
+                    <div className="p-2 bg-purple-500/10 rounded-lg">
+                        <BrainIcon className="w-6 h-6 text-purple-400" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Memory — {agent.name}</h1>
-                        <p className="text-slate-500 text-sm">Long-term memory entries stored by this agent.</p>
+                        <h1 className="text-2xl font-bold text-pulse-text">Memory — {agent.name}</h1>
+                        <p className="text-pulse-muted text-sm">Long-term memory entries stored by this agent.</p>
                     </div>
                 </div>
             </div>
@@ -45,17 +45,17 @@ export default async function AgentMemoryPage({ params }: { params: Promise<{ id
                 </div>
 
                 {/* Bulk Actions */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                    <div className="p-6 border-b border-pulse-border-subtle flex items-center justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-900">Memory Entries</h2>
-                            <p className="text-sm text-slate-500 mt-1">{total} total entries</p>
+                            <h2 className="text-lg font-semibold text-pulse-text">Memory Entries</h2>
+                            <p className="text-sm text-pulse-muted mt-1">{total} total entries</p>
                         </div>
                         <form action={bulkDeleteMemories} className="flex gap-2">
                             <input type="hidden" name="agentId" value={agentId} />
                             <select
                                 name="category"
-                                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white text-slate-700"
+                                className="px-3 py-1.5 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text-soft focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                             >
                                 <option value="all">All Categories</option>
                                 <option value="general">General</option>
@@ -65,7 +65,7 @@ export default async function AgentMemoryPage({ params }: { params: Promise<{ id
                                 <option value="task">Tasks</option>
                                 <option value="relationship">Relationships</option>
                             </select>
-                            <button type="submit" className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 font-medium">
+                            <button type="submit" className="px-3 py-1.5 text-xs text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
                                 Bulk Delete
                             </button>
                         </form>
@@ -74,7 +74,7 @@ export default async function AgentMemoryPage({ params }: { params: Promise<{ id
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                                <tr className="text-left text-xs text-pulse-muted border-b border-pulse-border-subtle">
                                     <th className="px-6 py-3 font-medium">Content</th>
                                     <th className="px-6 py-3 font-medium">Category</th>
                                     <th className="px-6 py-3 font-medium">Importance</th>
@@ -86,31 +86,31 @@ export default async function AgentMemoryPage({ params }: { params: Promise<{ id
                             <tbody>
                                 {memories.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-sm text-pulse-faint">
                                             No memories stored yet. The agent will create memories using the memory_store tool.
                                         </td>
                                     </tr>
                                 )}
                                 {memories.map((mem) => (
-                                    <tr key={mem.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                        <td className="px-6 py-3 text-sm text-slate-700 max-w-md">
+                                    <tr key={mem.id} className="border-b border-pulse-border-subtle hover:bg-pulse-hover">
+                                        <td className="px-6 py-3 text-sm text-pulse-text-soft max-w-md">
                                             <p className="truncate">{mem.content}</p>
                                         </td>
                                         <td className="px-6 py-3">
-                                            <span className="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded-full">
+                                            <span className="px-2 py-1 text-xs bg-pulse-panel-alt text-pulse-muted rounded-full">
                                                 {mem.category || "general"}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-3 text-sm text-slate-500">{mem.importance}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-500">{mem.accessCount || 0}</td>
-                                        <td className="px-6 py-3 text-xs text-slate-400">
+                                        <td className="px-6 py-3 text-sm text-pulse-muted">{mem.importance}</td>
+                                        <td className="px-6 py-3 text-sm text-pulse-muted">{mem.accessCount || 0}</td>
+                                        <td className="px-6 py-3 text-xs text-pulse-faint">
                                             {mem.createdAt ? new Date(mem.createdAt).toLocaleDateString() : "—"}
                                         </td>
                                         <td className="px-6 py-3">
                                             <form action={deleteMemory}>
                                                 <input type="hidden" name="memoryId" value={mem.id} />
                                                 <input type="hidden" name="agentId" value={agentId} />
-                                                <button type="submit" className="text-xs text-red-600 hover:text-red-800 font-medium">
+                                                <button type="submit" className="text-xs text-red-400 hover:text-red-300 font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                                                     Delete
                                                 </button>
                                             </form>
@@ -128,9 +128,9 @@ export default async function AgentMemoryPage({ params }: { params: Promise<{ id
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <p className="text-2xl font-bold text-slate-900">{value}</p>
-            <p className="text-sm text-slate-500">{label}</p>
+        <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-4">
+            <p className="text-2xl font-bold text-pulse-text">{value}</p>
+            <p className="text-sm text-pulse-muted">{label}</p>
         </div>
     );
 }

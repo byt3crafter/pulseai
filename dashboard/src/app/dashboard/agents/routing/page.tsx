@@ -27,11 +27,11 @@ export default async function RoutingPage() {
 
     if (!routingEnabled) {
         return (
-            <div className="max-w-4xl mx-auto">
-                <h1 className="text-2xl font-bold text-slate-900 mb-6">Message Routing</h1>
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
-                    <h2 className="text-lg font-semibold text-amber-900 mb-2">Feature Not Enabled</h2>
-                    <p className="text-sm text-amber-800">
+            <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+                <h1 className="text-2xl font-bold text-pulse-text mb-6">Message Routing</h1>
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6">
+                    <h2 className="text-lg font-semibold text-amber-400 mb-2">Feature Not Enabled</h2>
+                    <p className="text-sm text-amber-400">
                         Multi-agent routing is not enabled for your workspace. Contact your administrator to enable this feature.
                     </p>
                 </div>
@@ -63,7 +63,7 @@ export default async function RoutingPage() {
     });
 
     return (
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
             <RoutingClient
                 rules={rules.map((r) => ({
                     ...r,

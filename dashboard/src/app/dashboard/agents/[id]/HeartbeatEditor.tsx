@@ -72,21 +72,21 @@ export default function HeartbeatEditor({
     const everyMins = Math.floor(everyNumber / 60);
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-pulse-border-subtle flex items-center justify-between">
                 <div>
-                    <h2 className="text-sm font-semibold text-slate-900">Heartbeat Scheduler</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Automate agent execution on a recurring interval. Use this for agents that need to initiate conversations.</p>
+                    <h2 className="text-sm font-semibold text-pulse-text">Heartbeat Scheduler</h2>
+                    <p className="text-xs text-pulse-faint mt-0.5">Automate agent execution on a recurring interval. Use this for agents that need to initiate conversations.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-600">Enabled</span>
+                    <span className="text-xs font-medium text-pulse-muted">Enabled</span>
                     <button
                         onClick={() => setEnabled(!enabled)}
-                        className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${enabled ? "bg-indigo-600 focus:ring-4 focus:ring-indigo-100" : "bg-slate-300"
+                        className={`w-10 h-5 rounded-full transition-colors motion-reduce:transition-none flex items-center px-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel ${enabled ? "bg-indigo-600" : "bg-pulse-border-strong"
                             }`}
                     >
                         <div
-                            className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm transform transition-transform ${enabled ? "translate-x-4.5" : "translate-x-0"
+                            className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm transform transition-transform motion-reduce:transition-none ${enabled ? "translate-x-4.5" : "translate-x-0"
                                 }`}
                         />
                     </button>
@@ -95,7 +95,7 @@ export default function HeartbeatEditor({
 
             <div className={`px-6 py-5 space-y-6 ${!enabled ? "opacity-50 pointer-events-none" : ""}`}>
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-medium text-pulse-text-soft mb-1">
                         Interval (seconds)
                     </label>
                     <div className="flex items-center gap-3">
@@ -104,19 +104,19 @@ export default function HeartbeatEditor({
                             min="60"
                             value={everySecs}
                             onChange={(e) => setEverySecs(e.target.value)}
-                            className="w-40 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-900 bg-white"
+                            className="w-40 px-4 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                         />
-                        <span className="text-sm text-slate-500">
+                        <span className="text-sm text-pulse-muted">
                             (Approx. {everyMins} minute{everyMins !== 1 && "s"})
                         </span>
                     </div>
                 </div>
 
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <div className="border border-pulse-border-subtle rounded-lg overflow-hidden">
+                    <div className="px-4 py-3 bg-pulse-panel-alt border-b border-pulse-border-subtle flex items-center justify-between">
                         <div>
-                            <h3 className="text-sm font-medium text-slate-800">Active Hours (Optional)</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">Restrict heartbeats to specific times of day</p>
+                            <h3 className="text-sm font-medium text-pulse-text-soft">Active Hours (Optional)</h3>
+                            <p className="text-xs text-pulse-muted mt-0.5">Restrict heartbeats to specific times of day</p>
                         </div>
                         <label className="flex items-center cursor-pointer">
                             <input
@@ -125,9 +125,9 @@ export default function HeartbeatEditor({
                                 onChange={(e) => setActiveHoursEnabled(e.target.checked)}
                                 className="sr-only"
                             />
-                            <div className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${activeHoursEnabled ? "bg-emerald-500" : "bg-slate-300"
+                            <div className={`w-9 h-5 rounded-full transition-colors motion-reduce:transition-none flex items-center px-0.5 ${activeHoursEnabled ? "bg-emerald-500" : "bg-pulse-border-strong"
                                 }`}>
-                                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${activeHoursEnabled ? "translate-x-4" : "translate-x-0"
+                                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform motion-reduce:transition-none ${activeHoursEnabled ? "translate-x-4" : "translate-x-0"
                                     }`} />
                             </div>
                         </label>
@@ -136,29 +136,29 @@ export default function HeartbeatEditor({
                     {activeHoursEnabled && (
                         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Start Time</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Start Time</label>
                                 <input
                                     type="time"
                                     value={startHour}
                                     onChange={(e) => setStartHour(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">End Time</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">End Time</label>
                                 <input
                                     type="time"
                                     value={endHour}
                                     onChange={(e) => setEndHour(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Timezone</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Timezone</label>
                                 <select
                                     value={timezone}
                                     onChange={(e) => setTimezone(e.target.value)}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none text-slate-900 bg-white"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm outline-none text-pulse-text bg-pulse-panel"
                                 >
                                     <option value="UTC">UTC</option>
                                     <option value="America/New_York">US Eastern (ET)</option>
@@ -176,16 +176,16 @@ export default function HeartbeatEditor({
                 </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+            <div className="px-6 py-4 bg-pulse-panel-alt border-t border-pulse-border-subtle flex items-center gap-3">
                 <button
                     onClick={handleSave}
                     disabled={!isDirty || status.type === "saving"}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel-alt"
                 >
                     Save Configuration
                 </button>
                 {status.type !== "idle" && (
-                    <span className={`text-sm ${status.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+                    <span className={`text-sm ${status.type === "success" ? "text-emerald-400" : "text-red-400"}`}>
                         {status.type === "saving" ? "Saving..." : status.message}
                     </span>
                 )}
