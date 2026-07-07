@@ -11,10 +11,14 @@
  */
 export function applyTemporalDecay(
     score: number,
-    createdAt: Date,
+    createdAt: Date | string | number | null | undefined,
     halfLifeDays = 30
 ): number {
-    const ageDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    // createdAt may arrive as a string/number from the DB driver — coerce safely.
+    const created = createdAt instanceof Date ? createdAt : new Date(createdAt ?? Date.now());
+    const createdMs = created.getTime();
+    if (Number.isNaN(createdMs)) return score; // unknown age → no decay
+    const ageDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
     const lambda = Math.LN2 / halfLifeDays;
     return score * Math.exp(-lambda * ageDays);
 }
