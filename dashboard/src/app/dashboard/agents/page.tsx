@@ -48,6 +48,9 @@ export default async function AgentsPage() {
                 eq(tenantProviderKeys.isActive, true)
             ));
         connectedProviders = providerRows.map((r) => r.provider);
+        // Codex runs on the host's ChatGPT subscription (no per-tenant key), so it's
+        // available host-level. TODO: gate/per-tenant CODEX_HOME before multi-tenant use.
+        connectedProviders.push("codex");
 
         // Departments / groups each agent belongs to (for the "Departments" column).
         const membershipRows = await db.select({
