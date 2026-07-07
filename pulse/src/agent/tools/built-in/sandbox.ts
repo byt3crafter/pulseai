@@ -44,17 +44,30 @@ export function createSandboxTool(sandboxConfig?: any, workspacePath?: string): 
                 const image = cfg.docker?.image || "alpine";
                 const memory = cfg.docker?.memoryLimit || "128m";
                 const cpus = cfg.docker?.cpuLimit || "0.5";
+                const network = cfg.docker?.network || "bridge";
 
-                const dockerArgs = ["run", "--rm", `--memory=${memory}`, `--cpus=${cpus}`];
+                // Hardened ephemeral run: auto-removed, resource-capped, no new privileges,
+                // all capabilities dropped, PID-bounded. Container is destroyed after the run.
+                const dockerArgs = [
+                    "run", "--rm",
+                    `--memory=${memory}`, `--cpus=${cpus}`,
+                    "--pids-limit=512",
+                    "--security-opt", "no-new-privileges",
+                    "--cap-drop=ALL",
+                    `--network=${network}`,
+                ];
 
-                // Inject vault credentials as env vars
-                try {
-                    const envVars = await credentialVault.getEnvVars(tenantId);
-                    for (const [key, value] of Object.entries(envVars)) {
-                        dockerArgs.push("-e", `${key}=${value}`);
+                // Credentials are NOT injected by default — dumping every tenant secret into
+                // arbitrary AI-written code is dangerous. Opt in explicitly per agent.
+                if (cfg.docker?.injectCredentials) {
+                    try {
+                        const envVars = await credentialVault.getEnvVars(tenantId);
+                        for (const [key, value] of Object.entries(envVars)) {
+                            dockerArgs.push("-e", `${key}=${value}`);
+                        }
+                    } catch (err) {
+                        logger.warn({ err, tenantId }, "Failed to inject vault credentials into sandbox");
                     }
-                } catch (err) {
-                    logger.warn({ err, tenantId }, "Failed to inject vault credentials into sandbox");
                 }
 
                 // Workspace bind mount

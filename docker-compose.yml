@@ -75,6 +75,13 @@ services:
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
     volumes:
       - pulse-workspace-data:/app/data/workspaces
+      # Docker-out-of-Docker: let the gateway spin up ephemeral sandbox containers
+      # on the host daemon. The agent's code still runs in a locked-down --rm container.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Join the host's docker group so the non-root gateway user can use the socket.
+    # Set DOCKER_GID in .env to the host's docker group id (`getent group docker`).
+    group_add:
+      - "${DOCKER_GID:-987}"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
