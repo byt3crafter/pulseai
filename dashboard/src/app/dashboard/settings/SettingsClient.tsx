@@ -25,6 +25,7 @@ import { generateCodeVerifier, generateCodeChallenge, generateState } from "../.
 import { buildOpenAIAuthUrl, getCallbackUrl } from "../../../utils/openai-oauth";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import TwoFactorCard from "../../../components/TwoFactorCard";
+import { PageHeader, Card, CardHeader, SettingRow, Toggle } from "../../../components/dashboard/ui";
 
 const TABS = [
     { id: "account", label: "Account" },
@@ -118,11 +119,7 @@ export default function SettingsClient({
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
-            {/* Page header */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-pulse-text tracking-tight">Settings</h1>
-                <p className="text-sm text-pulse-muted mt-1">Manage your workspace, account, integrations, and API access.</p>
-            </div>
+            <PageHeader title="Settings" description="Manage your workspace, account, integrations, and API access." />
 
             <div className="flex flex-col md:flex-row gap-6 md:gap-8">
                 {/* Tab nav — horizontal scroll on mobile, vertical rail on desktop */}
@@ -205,12 +202,13 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
             )}
 
             {/* Profile info */}
-            <Section title="Profile" description="Your workspace account details.">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Name" value={userName || "--"} />
-                    <Field label="Email" value={userEmail || "--"} />
+            <Card>
+                <CardHeader title="Profile" description="Your workspace account details." />
+                <div className="divide-y divide-pulse-border-subtle">
+                    <SettingRow title="Name" control={<span className="text-sm text-pulse-text-soft">{userName || "--"}</span>} />
+                    <SettingRow title="Email" control={<span className="text-sm text-pulse-text-soft">{userEmail || "--"}</span>} />
                 </div>
-            </Section>
+            </Card>
 
             {/* Change Password */}
             <Section title="Change Password" description="Update your login password. You'll stay signed in.">
@@ -411,66 +409,63 @@ function TelegramTab({
                 </div>
             )}
             {/* Policies */}
-            <Section title="Telegram Policies" description="Control how the bot handles DMs and group messages.">
-                <div className="space-y-5 max-w-md">
-                    <div>
-                        <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">DM Policy</label>
-                        <select
-                            value={dmPolicy}
-                            onChange={(e) => setDmPolicy(e.target.value)}
-                            className="w-full border border-pulse-border rounded-lg px-3 py-2 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                            <option value="open">Open — anyone can DM</option>
-                            <option value="pairing">Pairing — require approval code</option>
-                            <option value="disabled">Disabled — ignore all DMs</option>
-                        </select>
-                        <p className="text-xs text-pulse-faint mt-1">
-                            {dmPolicy === "pairing" && "Unknown users will receive a pairing code. You approve them below."}
-                            {dmPolicy === "open" && "All direct messages are processed without approval."}
-                            {dmPolicy === "disabled" && "The bot will not respond to any direct messages."}
-                        </p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Group Policy</label>
-                        <select
-                            value={groupPolicy}
-                            onChange={(e) => setGroupPolicy(e.target.value)}
-                            className="w-full border border-pulse-border rounded-lg px-3 py-2 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                            <option value="open">Open — respond in any group</option>
-                            <option value="allowlist">Allowlist — only approved groups</option>
-                            <option value="disabled">Disabled — ignore all groups</option>
-                        </select>
-                    </div>
-
-                    <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={requireMention}
-                            onChange={(e) => setRequireMention(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 border-pulse-border rounded focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <div>
-                            <span className="text-sm font-medium text-pulse-text-soft">Require @mention in Groups</span>
-                            <p className="text-xs text-pulse-faint">Bot only responds when @mentioned or replied to</p>
-                        </div>
-                    </label>
-
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={handleSavePolicies}
-                            disabled={saving}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
-                        >
-                            {saving ? "Saving..." : "Save Policies"}
-                        </button>
-                        {message && (
-                            <span className={`text-sm ${message.includes("saved") ? "text-green-400" : "text-red-400"}`}>{message}</span>
-                        )}
-                    </div>
+            <Card>
+                <CardHeader title="Telegram Policies" description="Control how the bot handles DMs and group messages." />
+                <div className="divide-y divide-pulse-border-subtle">
+                    <SettingRow
+                        title="DM Policy"
+                        description={
+                            (dmPolicy === "pairing" && "Unknown users will receive a pairing code. You approve them below.") ||
+                            (dmPolicy === "open" && "All direct messages are processed without approval.") ||
+                            (dmPolicy === "disabled" && "The bot will not respond to any direct messages.") ||
+                            undefined
+                        }
+                        control={
+                            <select
+                                value={dmPolicy}
+                                onChange={(e) => setDmPolicy(e.target.value)}
+                                className="border border-pulse-border rounded-lg px-3 py-1.5 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="open">Open — anyone can DM</option>
+                                <option value="pairing">Pairing — require approval code</option>
+                                <option value="disabled">Disabled — ignore all DMs</option>
+                            </select>
+                        }
+                    />
+                    <SettingRow
+                        title="Group Policy"
+                        description="Controls whether the bot responds in groups it's added to."
+                        control={
+                            <select
+                                value={groupPolicy}
+                                onChange={(e) => setGroupPolicy(e.target.value)}
+                                className="border border-pulse-border rounded-lg px-3 py-1.5 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="open">Open — respond in any group</option>
+                                <option value="allowlist">Allowlist — only approved groups</option>
+                                <option value="disabled">Disabled — ignore all groups</option>
+                            </select>
+                        }
+                    />
+                    <SettingRow
+                        title="Require @mention in Groups"
+                        description="Bot only responds when @mentioned or replied to."
+                        control={<Toggle checked={requireMention} onChange={setRequireMention} label="Require @mention in groups" />}
+                    />
                 </div>
-            </Section>
+                <div className="flex items-center gap-3 px-5 py-4 border-t border-pulse-border-subtle bg-pulse-panel-alt">
+                    <button
+                        onClick={handleSavePolicies}
+                        disabled={saving}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                    >
+                        {saving ? "Saving..." : "Save Policies"}
+                    </button>
+                    {message && (
+                        <span className={`text-sm ${message.includes("saved") ? "text-green-400" : "text-red-400"}`}>{message}</span>
+                    )}
+                </div>
+            </Card>
 
             {/* Pending Pairing Requests */}
             <Section
@@ -890,8 +885,8 @@ function ProviderCard({
         .join(", ");
 
     return (
-        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-pulse-border-subtle flex items-center justify-between">
+        <Card>
+            <div className="px-5 py-4 border-b border-pulse-border-subtle flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${isConfigured ? "bg-emerald-400" : "bg-pulse-border-strong"}`} />
                     <div>
@@ -910,7 +905,7 @@ function ProviderCard({
                 </div>
             </div>
 
-            <div className="px-6 py-4">
+            <div className="px-5 py-4">
                 {isConfigured && !showForm && (
                     <div className="flex items-center justify-between">
                         <div>
@@ -1171,7 +1166,7 @@ function ProviderCard({
                     </div>
                 )}
             </div>
-        </div>
+        </Card>
     );
 }
 
@@ -1272,37 +1267,24 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                 </div>
             )}
             {/* CLI Access Toggle */}
-            <Section
-                title="Third-Party CLI Access"
-                description="Allow developer tools like Claude Code, Cursor CLI, and Codex to authenticate with this workspace."
-                badge={cliEnabled ? "Enabled" : undefined}
-            >
-                <div className="space-y-4">
-                    <label className="flex items-center gap-3 cursor-pointer group w-fit">
-                        <div className="relative">
-                            <input
-                                type="checkbox"
-                                checked={cliEnabled}
-                                onChange={handleToggleCli}
-                                disabled={toggling}
-                                className="sr-only peer"
-                            />
-                            <div className="w-10 h-5 bg-pulse-border-strong rounded-full peer peer-checked:bg-indigo-600 transition-colors motion-reduce:transition-none after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all after:motion-reduce:transition-none peer-checked:after:translate-x-5"></div>
-                        </div>
-                        <span className="text-sm text-pulse-text-soft group-hover:text-pulse-text">
-                            {toggling ? "Saving..." : "Enable CLI tool authentication"}
-                        </span>
-                    </label>
-
-                    {cliEnabled && (
-                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3">
-                            <p className="text-xs text-emerald-400 font-medium">
-                                OAuth is active. CLI tools can discover and authenticate with this workspace.
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </Section>
+            <Card>
+                <CardHeader
+                    title="Third-Party CLI Access"
+                    description="Allow developer tools like Claude Code, Cursor CLI, and Codex to authenticate with this workspace."
+                    action={cliEnabled ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Enabled</span> : undefined}
+                />
+                <SettingRow
+                    title="Enable CLI tool authentication"
+                    description={
+                        toggling
+                            ? "Saving..."
+                            : cliEnabled
+                                ? "OAuth is active — CLI tools can discover and authenticate with this workspace."
+                                : "Off — CLI tools cannot authenticate with this workspace."
+                    }
+                    control={<Toggle checked={cliEnabled} onChange={() => handleToggleCli()} disabled={toggling} label="Enable CLI tool authentication" />}
+                />
+            </Card>
 
             {/* Connect & Generate Token */}
             <Section
@@ -1517,30 +1499,16 @@ function BillingTab({ credits }: { credits: number }) {
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 
 function Section({ title, description, badge, children }: { title: string; description: string; badge?: string; children: React.ReactNode }) {
+    const badgeNode = badge ? (
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge === "Connected" ? "bg-emerald-500/10 text-emerald-400" : badge.includes("pending") ? "bg-red-500/10 text-red-400" : "bg-pulse-panel-alt text-pulse-muted"}`}>
+            {badge}
+        </span>
+    ) : undefined;
     return (
-        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-pulse-border-subtle flex items-center gap-3">
-                <div>
-                    <h2 className="text-sm font-semibold text-pulse-text">{title}</h2>
-                    <p className="text-xs text-pulse-faint mt-0.5">{description}</p>
-                </div>
-                {badge && (
-                    <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${badge === "Connected" ? "bg-emerald-500/10 text-emerald-400" : badge.includes("pending") ? "bg-red-500/10 text-red-400" : "bg-pulse-panel-alt text-pulse-muted"}`}>
-                        {badge}
-                    </span>
-                )}
-            </div>
-            <div className="px-6 py-5">{children}</div>
-        </div>
-    );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-    return (
-        <div>
-            <p className="text-xs font-medium text-pulse-faint uppercase tracking-wider mb-1">{label}</p>
-            <p className="text-sm text-pulse-text-soft font-medium">{value}</p>
-        </div>
+        <Card>
+            <CardHeader title={title} description={description} action={badgeNode} />
+            <div className="px-5 py-5">{children}</div>
+        </Card>
     );
 }
 
@@ -1579,7 +1547,7 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
             <p className="text-sm text-pulse-muted mb-6">Configure credentials for each plugin to activate integrations.</p>
 
             {plugins.length === 0 ? (
-                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-12 text-center">
+                <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl p-12 text-center">
                     <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-pulse-faint mx-auto mb-4" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
                     </svg>
@@ -1595,7 +1563,7 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
                         const noneConfigured = config.credentialSchema.every((f) => !f.configured);
 
                         return (
-                            <div key={plugin.id} className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                            <Card key={plugin.id}>
                                 <div className="p-5">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
@@ -1693,7 +1661,7 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
                                         </form>
                                     </div>
                                 )}
-                            </div>
+                            </Card>
                         );
                     })}
                 </div>
@@ -1782,12 +1750,9 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
     return (
         <div className="space-y-6">
             {/* SMTP */}
-            <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
-                <div className="p-6 border-b border-pulse-border-subtle">
-                    <h2 className="text-lg font-semibold text-pulse-text">SMTP (Outgoing Email)</h2>
-                    <p className="text-sm text-pulse-muted mt-1">Configure SMTP for sending emails from your agents.</p>
-                </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card>
+                <CardHeader title="SMTP (Outgoing Email)" description="Configure SMTP for sending emails from your agents." />
+                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-pulse-text-soft mb-1">Host</label>
                         <input type="text" value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
@@ -1808,22 +1773,17 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
                         <label className="block text-sm font-medium text-pulse-text-soft mb-1">From Address</label>
                         <input type="email" value={smtpFrom} onChange={(e) => setSmtpFrom(e.target.value)} placeholder="agent@company.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
-                    <div className="flex items-end">
-                        <label className="flex items-center gap-2 text-sm text-pulse-text-soft cursor-pointer">
-                            <input type="checkbox" checked={smtpTls} onChange={(e) => setSmtpTls(e.target.checked)} className="rounded border-pulse-border text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
-                            Use TLS
-                        </label>
+                    <div className="flex items-center gap-2.5">
+                        <Toggle checked={smtpTls} onChange={setSmtpTls} label="Use TLS for SMTP" />
+                        <span className="text-sm text-pulse-text-soft">Use TLS</span>
                     </div>
                 </div>
-            </div>
+            </Card>
 
             {/* IMAP */}
-            <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
-                <div className="p-6 border-b border-pulse-border-subtle">
-                    <h2 className="text-lg font-semibold text-pulse-text">IMAP (Incoming Email)</h2>
-                    <p className="text-sm text-pulse-muted mt-1">Configure IMAP for reading emails. Optional — needed for email_read and email_list tools.</p>
-                </div>
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card>
+                <CardHeader title="IMAP (Incoming Email)" description="Configure IMAP for reading emails. Optional — needed for email_read and email_list tools." />
+                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-pulse-text-soft mb-1">Host</label>
                         <input type="text" value={imapHost} onChange={(e) => setImapHost(e.target.value)} placeholder="imap.gmail.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
@@ -1840,14 +1800,12 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
                         <label className="block text-sm font-medium text-pulse-text-soft mb-1">Password</label>
                         <input type="password" value={imapPassword} onChange={(e) => setImapPassword(e.target.value)} placeholder={hasExistingImapPass ? "••••••••" : "App password"} className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
-                    <div className="flex items-end">
-                        <label className="flex items-center gap-2 text-sm text-pulse-text-soft cursor-pointer">
-                            <input type="checkbox" checked={imapTls} onChange={(e) => setImapTls(e.target.checked)} className="rounded border-pulse-border text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
-                            Use TLS
-                        </label>
+                    <div className="flex items-center gap-2.5">
+                        <Toggle checked={imapTls} onChange={setImapTls} label="Use TLS for IMAP" />
+                        <span className="text-sm text-pulse-text-soft">Use TLS</span>
                     </div>
                 </div>
-            </div>
+            </Card>
 
             {/* Actions */}
             <div className="flex items-center gap-3">

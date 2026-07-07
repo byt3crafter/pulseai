@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CpuChipIcon } from "@heroicons/react/24/outline";
 import { getModelDisplayName, getProviderName } from "../../../utils/models";
+import { PageHeader, Card } from "../../../components/dashboard/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -38,29 +39,30 @@ export default async function AgentsPage() {
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <div>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold text-pulse-text">Agent Profiles</h1>
-                        <p className="text-sm text-pulse-muted mt-1">Manage distinct AI personas, their workspaces, models, and tool access.</p>
-                    </div>
-                    <Link
-                        href="/dashboard/agents/new"
-                        className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm shadow-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 self-start sm:self-auto"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        Create Agent
-                    </Link>
-                </div>
+                <PageHeader
+                    title="Agent Profiles"
+                    description="Manage distinct AI personas, their workspaces, models, and tool access."
+                    action={
+                        <Link
+                            href="/dashboard/agents/new"
+                            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 self-start sm:self-auto"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            Create Agent
+                        </Link>
+                    }
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {agents.map((agent) => (
                         <Link
                             key={agent.id}
                             href={`/dashboard/agents/${agent.id}`}
-                            className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden flex flex-col hover:shadow-md hover:border-pulse-accent/40 transition-all motion-reduce:transition-none group"
+                            className="block"
                         >
+                        <Card className="flex flex-col h-full hover:border-pulse-accent/40 transition-colors motion-reduce:transition-none group">
                             <div className="p-5 flex-1 relative">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="w-10 h-10 rounded-lg bg-pulse-tint flex items-center justify-center group-hover:bg-pulse-accent/15 transition-colors motion-reduce:transition-none">
@@ -102,6 +104,7 @@ export default async function AgentsPage() {
                                     </span>
                                 </div>
                             </div>
+                        </Card>
                         </Link>
                     ))}
 

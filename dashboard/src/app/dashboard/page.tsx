@@ -3,6 +3,7 @@ import { db } from "../../storage/db";
 import { tenantBalances, channelConnections, oauthClients, globalSettings } from "../../storage/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
+import { PageHeader, Card } from "../../components/dashboard/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -33,15 +34,15 @@ export default async function DashboardOverview() {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-            <div>
-                <h1 className="text-2xl font-bold text-pulse-text tracking-tight">Workspace Overview</h1>
-                <p className="text-sm text-pulse-muted mt-1">{showBilling ? "Monitor your Agent's API usage, credit balance, and active channels." : "Monitor your agents, integrations, and workspace."}</p>
-            </div>
+            <PageHeader
+                title="Workspace Overview"
+                description={showBilling ? "Monitor your Agent's API usage, credit balance, and active channels." : "Monitor your agents, integrations, and workspace."}
+            />
 
             <div className={`grid grid-cols-1 gap-6 ${showBilling ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 {/* Credit Balance Card — only in managed (credits) mode */}
                 {showBilling && (
-                <div className="bg-pulse-panel p-6 rounded-xl border border-pulse-border-subtle shadow-sm flex flex-col justify-between">
+                <Card className="p-6 flex flex-col justify-between">
                     <div className="flex justify-between items-start">
                         <h2 className="text-sm font-medium text-pulse-muted">Available Credits</h2>
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${creditStatusColor}`}>{creditStatus}</span>
@@ -53,14 +54,14 @@ export default async function DashboardOverview() {
                         </div>
                         <p className="text-sm text-pulse-muted mt-1">Est. ~{estimatedTokens} input tokens remaining</p>
                     </div>
-                    <Link href="/dashboard/billing" className="mt-6 w-full block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm shadow-sm cursor-pointer">
+                    <Link href="/dashboard/billing" className="mt-6 w-full block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm cursor-pointer">
                         Top Up Balance
                     </Link>
-                </div>
+                </Card>
                 )}
 
                 {/* Active Integrations Card */}
-                <div className="bg-pulse-panel p-6 rounded-xl border border-pulse-border-subtle shadow-sm flex flex-col">
+                <Card className="p-6 flex flex-col">
                     <div className="flex justify-between items-start mb-4">
                         <h2 className="text-sm font-medium text-pulse-muted">Active Integrations</h2>
                         <span className="text-xs font-semibold px-2 py-1 rounded-full bg-pulse-panel-alt text-pulse-text-soft">
@@ -113,10 +114,10 @@ export default async function DashboardOverview() {
                     <Link href="/dashboard/channels" className="mt-4 text-xs text-indigo-500 hover:text-indigo-400 font-medium">
                         Manage channels →
                     </Link>
-                </div>
+                </Card>
 
                 {/* Quick Actions Card */}
-                <div className="bg-pulse-panel p-6 rounded-xl border border-pulse-border-subtle shadow-sm flex flex-col">
+                <Card className="p-6 flex flex-col">
                     <h2 className="text-sm font-medium text-pulse-muted mb-4">Quick Actions</h2>
                     <div className="space-y-2 flex-1">
                         <Link href="/dashboard/agents" className="flex items-center gap-3 p-3 rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none group">
@@ -156,7 +157,7 @@ export default async function DashboardOverview() {
                         </Link>
                         )}
                     </div>
-                </div>
+                </Card>
             </div>
         </div>
     );
