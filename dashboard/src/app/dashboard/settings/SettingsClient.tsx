@@ -124,15 +124,15 @@ export default function SettingsClient({
                 <p className="text-sm text-pulse-muted mt-1">Manage your workspace, account, integrations, and API access.</p>
             </div>
 
-            <div className="flex gap-8">
-                {/* Left tab nav — Vercel/Linear style */}
-                <nav className="w-44 flex-shrink-0">
-                    <ul className="space-y-0.5">
+            <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+                {/* Tab nav — horizontal scroll on mobile, vertical rail on desktop */}
+                <nav className="w-full md:w-44 flex-shrink-0">
+                    <ul className="flex gap-1 overflow-x-auto pb-1 md:flex-col md:gap-0.5 md:overflow-visible md:pb-0">
                         {TABS.map(t => (
-                            <li key={t.id}>
+                            <li key={t.id} className="flex-shrink-0">
                                 <Link
                                     href={`/dashboard/settings?tab=${t.id}`}
-                                    className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${tab === t.id
+                                    className={`block w-full text-left whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${tab === t.id
                                         ? "bg-pulse-tint text-pulse-accent-hi"
                                         : "text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
                                         }`}
@@ -206,7 +206,7 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
 
             {/* Profile info */}
             <Section title="Profile" description="Your workspace account details.">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Name" value={userName || "--"} />
                     <Field label="Email" value={userEmail || "--"} />
                 </div>
@@ -1787,7 +1787,7 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
                     <h2 className="text-lg font-semibold text-pulse-text">SMTP (Outgoing Email)</h2>
                     <p className="text-sm text-pulse-muted mt-1">Configure SMTP for sending emails from your agents.</p>
                 </div>
-                <div className="p-6 grid grid-cols-2 gap-4">
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-pulse-text-soft mb-1">Host</label>
                         <input type="text" value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
@@ -1823,7 +1823,7 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
                     <h2 className="text-lg font-semibold text-pulse-text">IMAP (Incoming Email)</h2>
                     <p className="text-sm text-pulse-muted mt-1">Configure IMAP for reading emails. Optional — needed for email_read and email_list tools.</p>
                 </div>
-                <div className="p-6 grid grid-cols-2 gap-4">
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-pulse-text-soft mb-1">Host</label>
                         <input type="text" value={imapHost} onChange={(e) => setImapHost(e.target.value)} placeholder="imap.gmail.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
