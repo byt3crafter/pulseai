@@ -88,18 +88,22 @@ interface TenantMcpConfig {
  * same `enable_third_party_cli` gate on every call, so skipping it here just
  * avoids minting a token that would be rejected on first use.
  */
-async function resolveTenantMcpConfig(tenantId: string): Promise<TenantMcpConfig | null> {
+async function resolveTenantMcpConfig(tenantId: string, agentProfileId?: string): Promise<TenantMcpConfig | null> {
     const tenant = await db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
     const tenantConfig = tenant?.config as Record<string, any> | undefined;
     if (!tenantConfig?.enable_third_party_cli) return null;
 
     const { token } = await mintAppAccessToken(tenantId, MCP_TOKEN_CLIENT_ID, MCP_TOKEN_TTL_MS);
 
+    // ?agent=<id> scopes the MCP session to that agent's enabled Pulse tools
+    // (workspace_update, memory_*, sandbox, custom tools) — operator mode.
+    const agentQs = agentProfileId ? `?agent=${encodeURIComponent(agentProfileId)}` : "";
+
     return {
         env: { [PULSE_MCP_TOKEN_ENV_VAR]: token },
         mcpServers: {
             [PULSE_MCP_SERVER_NAME]: {
-                url: `http://127.0.0.1:${config.PORT}/mcp`,
+                url: `http://127.0.0.1:${config.PORT}/mcp${agentQs}`,
                 bearer_token_env_var: PULSE_MCP_TOKEN_ENV_VAR,
             },
         },
@@ -392,6 +396,7 @@ export class CodexAppServerProvider {
     async chat(params: {
         model: string;
         tenantId?: string;
+        agentProfileId?: string;
         systemPrompt: string;
         messages: Array<{ role: string; content: string }>;
         timeoutMs?: number;
@@ -407,7 +412,7 @@ export class CodexAppServerProvider {
         let tenantMcp: TenantMcpConfig | null = null;
         if (params.tenantId) {
             try {
-                tenantMcp = await resolveTenantMcpConfig(params.tenantId);
+                tenantMcp = await resolveTenantMcpConfig(params.tenantId, params.agentProfileId);
             } catch (err: any) {
                 log.warn({ err: err.message, tenantId: params.tenantId }, "Failed to resolve tenant MCP tool config; continuing without tools");
             }
