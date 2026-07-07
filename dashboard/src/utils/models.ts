@@ -74,6 +74,9 @@ export const PROVIDERS: ProviderInfo[] = [
         name: "MiniMax",
         authMethods: ["api_key"],
         models: [
+            { id: "MiniMax-M3", provider: "minimax", displayName: "MiniMax M3", category: "flagship" },
+            { id: "MiniMax-M2.7", provider: "minimax", displayName: "MiniMax M2.7", category: "flagship" },
+            { id: "MiniMax-M2.7-highspeed", provider: "minimax", displayName: "MiniMax M2.7 Highspeed", category: "fast" },
             { id: "MiniMax-M2.5", provider: "minimax", displayName: "MiniMax M2.5", category: "flagship" },
             { id: "MiniMax-M2.5-highspeed", provider: "minimax", displayName: "MiniMax M2.5 Highspeed", category: "fast" },
             { id: "MiniMax-M2.1", provider: "minimax", displayName: "MiniMax M2.1", category: "flagship" },

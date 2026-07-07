@@ -249,3 +249,51 @@ export async function createAgentProfileAction(formData: FormData) {
         return { success: false, message: "An error occurred while creating the profile." };
     }
 }
+
+// ── Live model list ───────────────────────────────────────────────────────
+// Pull the models a provider ACTUALLY offers (so new releases like MiniMax-M3
+// show up without a code change), for OpenAI-compatible providers. Falls back
+// to the static catalog for other providers or on any error. Merges live IDs
+// with static display names/categories where known.
+const OPENAI_COMPAT_MODEL_BASE: Record<string, string> = {
+    openai: "https://api.openai.com/v1",
+    groq: "https://api.groq.com/openai/v1",
+    openrouter: "https://openrouter.ai/api/v1",
+    minimax: "https://api.minimax.io/v1",
+};
+
+export async function getLiveModelsAction(
+    providerId: string,
+): Promise<{ id: string; provider: string; displayName: string; category: string }[]> {
+    const tc = await requireTenant();
+    const staticModels = (PROVIDERS.find((p) => p.id === providerId)?.models || []) as any[];
+    if (!tc.authorized) return staticModels;
+
+    const base = OPENAI_COMPAT_MODEL_BASE[providerId];
+    if (!base) return staticModels; // anthropic/google etc. keep the curated list
+
+    try {
+        const [row] = await db.select({ enc: tenantProviderKeys.encryptedApiKey })
+            .from(tenantProviderKeys)
+            .where(and(
+                eq(tenantProviderKeys.tenantId, tc.tenantId),
+                eq(tenantProviderKeys.provider, providerId),
+                eq(tenantProviderKeys.isActive, true),
+                eq(tenantProviderKeys.authMethod, "api_key"),
+            )).limit(1);
+        if (!row?.enc) return staticModels;
+
+        const r = await fetch(`${base}/models`, { headers: { Authorization: `Bearer ${decrypt(row.enc)}` } });
+        if (!r.ok) return staticModels;
+        const j = await r.json();
+        const ids: string[] = (j?.data || []).map((m: any) => m?.id).filter((x: any) => typeof x === "string");
+        if (!ids.length) return staticModels;
+
+        const byId = new Map(staticModels.map((m) => [m.id, m]));
+        // Preserve the provider's own ordering (newest first for MiniMax).
+        return ids.map((id) => byId.get(id) || { id, provider: providerId, displayName: id, category: "flagship" });
+    } catch (e) {
+        console.error("getLiveModelsAction failed:", e);
+        return staticModels;
+    }
+}

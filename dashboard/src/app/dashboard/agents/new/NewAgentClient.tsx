@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,7 +9,7 @@ import {
     ExclamationTriangleIcon,
     ArrowLeftIcon,
 } from "@heroicons/react/24/outline";
-import { createAgentProfileAction, generateAgentConfigAction } from "../actions";
+import { createAgentProfileAction, generateAgentConfigAction, getLiveModelsAction } from "../actions";
 import { PROVIDERS, DEFAULT_MODEL_ID } from "../../../../utils/models";
 import Tooltip from "../Tooltip";
 import { InfoTip } from "../../../../components/dashboard/ui";
@@ -42,6 +42,21 @@ export default function NewAgentClient({ connectedProviders }: { connectedProvid
     const [name, setName] = useState("");
     const [modelId, setModelId] = useState(defaultModelId);
     const [soul, setSoul] = useState("");
+
+    // Live model lists pulled from each connected provider (so new releases
+    // appear automatically); falls back to the static catalog per provider.
+    type LiveModel = { id: string; provider: string; displayName: string; category: string };
+    const [liveModels, setLiveModels] = useState<Record<string, LiveModel[]>>({});
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const entries = await Promise.all(
+                connectedProviders.map(async (pid) => [pid, await getLiveModelsAction(pid)] as const)
+            );
+            if (!cancelled) setLiveModels(Object.fromEntries(entries));
+        })();
+        return () => { cancelled = true; };
+    }, [connectedProviders]);
 
     // Settings
     const [selfConfigEnabled, setSelfConfigEnabled] = useState(true);
@@ -169,7 +184,7 @@ export default function NewAgentClient({ connectedProviders }: { connectedProvid
                                 className="w-full px-3.5 py-2.5 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow bg-pulse-panel text-pulse-text">
                                 {PROVIDERS.filter((p) => connectedProviders.includes(p.id)).map((provider) => (
                                     <optgroup key={provider.id} label={provider.name}>
-                                        {provider.models.map((m) => <option key={m.id} value={m.id}>{m.displayName} ({m.category})</option>)}
+                                        {(liveModels[provider.id] ?? provider.models).map((m) => <option key={m.id} value={m.id}>{m.displayName} ({m.category})</option>)}
                                     </optgroup>
                                 ))}
                             </select>
