@@ -11,6 +11,8 @@ export interface SandboxConfig {
         memoryLimit?: string;
         cpuLimit?: string;
         setupCommand?: string;
+        network?: "bridge" | "none";       // default "bridge" (scripts often call APIs); "none" for airgapped
+        injectCredentials?: boolean;        // default false — do NOT dump tenant secrets into arbitrary code
     };
 }
 
@@ -31,6 +33,8 @@ export function parseSandboxConfig(raw: any): SandboxConfig {
             memoryLimit: raw.docker.memoryLimit || undefined,
             cpuLimit: raw.docker.cpuLimit || undefined,
             setupCommand: raw.docker.setupCommand || undefined,
+            network: raw.docker.network === "none" ? "none" : "bridge",
+            injectCredentials: raw.docker.injectCredentials === true,
         } : undefined,
     };
 }

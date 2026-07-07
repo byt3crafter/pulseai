@@ -39,6 +39,10 @@ COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 # We need drizzle-kit globally available for runtime migrations in production
 RUN npm install drizzle-kit@0.31.9 -g
 
+# Docker CLI so the agent code-sandbox can spin up ephemeral containers via the
+# host daemon (socket is mounted + group-added in docker-compose). Docker-out-of-Docker.
+RUN apk add --no-cache docker-cli
+
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=8080
