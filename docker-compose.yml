@@ -73,8 +73,11 @@ services:
       - WORKSPACE_BASE_DIR=/app/data/workspaces
       - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
+      # Codex/ChatGPT-subscription backend: auth persists in the mounted volume.
+      - CODEX_HOME=/app/.codex
     volumes:
       - pulse-workspace-data:/app/data/workspaces
+      - pulse-codex-home:/app/.codex
       # Docker-out-of-Docker: let the gateway spin up ephemeral sandbox containers
       # on the host daemon. The agent's code still runs in a locked-down --rm container.
       - /var/run/docker.sock:/var/run/docker.sock
@@ -149,3 +152,4 @@ volumes:
   pulse-db-data:
   pulse-redis-data:
   pulse-workspace-data:
+  pulse-codex-home:
