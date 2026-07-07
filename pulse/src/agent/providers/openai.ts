@@ -171,6 +171,7 @@ export class OpenAIProvider {
         model: string;
         tenantId?: string;
         agentProfileId?: string;
+        conversationId?: string;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tenantApiKey?: string;

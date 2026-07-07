@@ -2,12 +2,11 @@
  * Codex App-Server Provider — runs an agent turn on the user's ChatGPT/Codex
  * *subscription* (no API key), the same way Hermes and OpenClaw drive it.
  *
- * MVP scope: one-shot completion per `chat()` call. Every call spawns a fresh
- * `codex app-server` subprocess, opens a new thread, sends one turn, collects
- * the assistant text, and tears the subprocess down. There is no persistent
- * Codex thread across Pulse messages yet (see docs note in provider-manager
- * registration) — conversation history is folded into the turn's input text
- * instead of relying on Codex's own thread memory.
+ * Persistent harness (OpenClaw/Hermes-style): ONE long-lived `codex
+ * app-server` subprocess serves all chats, and each Pulse conversation maps to
+ * one Codex thread that carries its history server-side — so turn 2+ skips
+ * the cold start and the full-context reload. See the harness docblock above
+ * CodexAppServerProvider for the concurrency/recovery model.
  *
  * IMPORTANT — this is a host-level credential, not a per-tenant one. The
  * subprocess inherits `process.env` and reads `~/.codex/auth.json` on the
@@ -28,9 +27,9 @@
  * override that points at Pulse's own MCP endpoint
  * (`pulse/src/gateway/routes/mcp.ts`, `POST /mcp`, StreamableHTTP). See
  * `resolveTenantMcpConfig()` below for how the tenant-scoped bearer token is
- * minted and handed to the codex subprocess via an env var (never inlined
- * into the JSON-RPC config — codex reads it out of its own process env via
- * `bearer_token_env_var`). Verified live: codex 0.142.1 gates every MCP tool
+ * minted per thread and passed inline as `bearer_token` in the per-thread
+ * config (local stdio pipe only — see MCP_TOKEN_TTL_MS for the tradeoff).
+ * Verified live: codex 0.142.1 gates every MCP tool
  * call behind a `mcpServer/elicitation/request` server request (NOT the
  * `item/commandExecution|fileChange/requestApproval` surface, and NOT
  * suppressed by `approvalPolicy: "never"`) — `handleServerRequest()` below
@@ -58,22 +57,27 @@ const STDERR_TAIL_LINES = 60;
 
 /** Name the Pulse MCP server is registered under in the thread's mcp_servers config. */
 const PULSE_MCP_SERVER_NAME = "pulse";
-/** Env var name codex's subprocess reads the bearer token from (never placed in JSON-RPC). */
-const PULSE_MCP_TOKEN_ENV_VAR = "PULSE_CODEX_MCP_BEARER_TOKEN";
 /**
- * Short-lived on purpose: every `chat()` call spawns a brand-new ephemeral
- * codex subprocess/thread that lives for at most one turn (see class docblock
- * above), so the token only needs to outlive a single turn, not a session.
+ * Per-THREAD token lifetime. With the persistent harness one codex app-server
+ * process serves many tenants/threads, so env-var token delivery (fixed at
+ * spawn) no longer works — the token is minted per thread and passed INLINE as
+ * `bearer_token` in the per-thread `config.mcp_servers`. That value travels
+ * only over the local stdio pipe to our own child process (never disk, never
+ * argv), which is an acceptable tradeoff for multi-thread token rotation.
  */
-const MCP_TOKEN_TTL_MS = 15 * 60 * 1000;
+const MCP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+/** Rotate the thread (fresh token) when its token has less than this left. */
+const MCP_TOKEN_ROTATE_MARGIN_MS = 60 * 60 * 1000;
 /** clientId recorded on the minted oauth_tokens row — identifies the issuer, not an end user. */
 const MCP_TOKEN_CLIENT_ID = "pulse-codex-operator";
+/** Max conversations with a cached codex thread; least-recently-used beyond this are evicted. */
+const THREAD_CACHE_MAX = 200;
 
 interface TenantMcpConfig {
-    /** Extra env vars to merge into the codex subprocess's environment. */
-    env: Record<string, string>;
-    /** Value for `thread/start`'s `config.mcp_servers` override. */
+    /** Value for `thread/start`'s `config.mcp_servers` override (token inlined). */
     mcpServers: Record<string, unknown>;
+    /** When the inlined bearer token expires (epoch ms). */
+    tokenExpiresAt: number;
 }
 
 /**
@@ -100,13 +104,14 @@ async function resolveTenantMcpConfig(tenantId: string, agentProfileId?: string)
     const agentQs = agentProfileId ? `?agent=${encodeURIComponent(agentProfileId)}` : "";
 
     return {
-        env: { [PULSE_MCP_TOKEN_ENV_VAR]: token },
         mcpServers: {
             [PULSE_MCP_SERVER_NAME]: {
                 url: `http://127.0.0.1:${config.PORT}/mcp${agentQs}`,
-                bearer_token_env_var: PULSE_MCP_TOKEN_ENV_VAR,
+                // Inline on purpose — see MCP_TOKEN_TTL_MS docblock for the tradeoff.
+                bearer_token: token,
             },
         },
+        tokenExpiresAt: Date.now() + MCP_TOKEN_TTL_MS,
     };
 }
 
@@ -388,6 +393,90 @@ function handleServerRequest(client: CodexRpcClient, msg: { id: number | string;
     }
 }
 
+// ── Persistent harness: one shared app-server + per-conversation threads ────
+//
+// OpenClaw/Hermes-style: instead of spawning a fresh `codex app-server` and a
+// brand-new thread for every message (cold start + full context reload each
+// turn), one long-lived subprocess serves all chats and each Pulse
+// conversation maps to ONE Codex thread that carries its own history
+// server-side. Turn 2+ therefore only pays for the new message.
+//
+// Concurrency model: a single global turn queue. The RPC client's
+// notification handling is single-turn, and this deployment is single-tenant,
+// so serializing turns is the honest, simple choice. Revisit with per-thread
+// notification routing if this ever needs parallel turns.
+//
+// Recovery model: deliberately NO `thread/resume`. Every spawn of the shared
+// process bumps a generation counter; cached threads from an older generation
+// (or evicted/failed threads) just get a fresh `thread/start` with the full
+// conversation history replayed as text — the universal, low-risk recovery.
+//
+// Known tradeoff: `developerInstructions` (the agent's system prompt/SOUL) is
+// fixed at thread/start, so mid-conversation SOUL edits only take effect on
+// the next fresh thread (new conversation, rotation, or recovery).
+
+interface CachedThread {
+    threadId: string;
+    generation: number;
+    tokenExpiresAt: number; // Infinity when the thread has no MCP token
+    lastUsed: number;
+}
+
+let sharedClient: CodexRpcClient | null = null;
+let sharedClientInit: Promise<CodexRpcClient> | null = null;
+let clientGeneration = 0;
+const threadCache = new Map<string, CachedThread>();
+let turnQueue: Promise<unknown> = Promise.resolve();
+
+async function getSharedClient(codexBin: string): Promise<{ client: CodexRpcClient; generation: number }> {
+    if (sharedClient?.isAlive()) return { client: sharedClient, generation: clientGeneration };
+    if (sharedClientInit) {
+        const client = await sharedClientInit;
+        return { client, generation: clientGeneration };
+    }
+    sharedClientInit = (async () => {
+        const client = new CodexRpcClient(codexBin);
+        await client.request(
+            "initialize",
+            { clientInfo: { name: "pulse", title: "Pulse AI", version: "1.0" }, capabilities: null },
+            INITIALIZE_TIMEOUT_MS
+        );
+        client.notify("initialized");
+        // Approval/elicitation handling is stateless — register once for the
+        // process lifetime so tool calls never hang between turns.
+        client.onServerRequest((msg) => handleServerRequest(client, msg));
+        clientGeneration++;
+        sharedClient = client;
+        logger.info({ component: "codex-app-server", generation: clientGeneration }, "codex app-server (shared) started");
+        return client;
+    })();
+    try {
+        const client = await sharedClientInit;
+        return { client, generation: clientGeneration };
+    } finally {
+        sharedClientInit = null;
+    }
+}
+
+/** Kill the shared subprocess (next chat respawns it). Exported for shutdown hooks/tests. */
+export function shutdownCodexAppServer(): void {
+    sharedClient?.close();
+    sharedClient = null;
+}
+
+function evictLru(): void {
+    if (threadCache.size < THREAD_CACHE_MAX) return;
+    let oldestKey: string | null = null;
+    let oldest = Infinity;
+    for (const [key, entry] of threadCache) {
+        if (entry.lastUsed < oldest) {
+            oldest = entry.lastUsed;
+            oldestKey = key;
+        }
+    }
+    if (oldestKey) threadCache.delete(oldestKey);
+}
+
 export class CodexAppServerProvider {
     readonly name = "codex";
 
@@ -397,54 +486,65 @@ export class CodexAppServerProvider {
         model: string;
         tenantId?: string;
         agentProfileId?: string;
+        conversationId?: string;
+        systemPrompt: string;
+        messages: Array<{ role: string; content: string }>;
+        timeoutMs?: number;
+    }): Promise<ProviderResponse> {
+        // Serialize turns through the shared process (see harness docblock).
+        // Chain from settled-state so one failed turn never wedges the queue.
+        const run = () => this.runTurn(params);
+        const result = turnQueue.then(run, run);
+        turnQueue = result.catch(() => {});
+        return result;
+    }
+
+    private async runTurn(params: {
+        model: string;
+        tenantId?: string;
+        agentProfileId?: string;
+        conversationId?: string;
         systemPrompt: string;
         messages: Array<{ role: string; content: string }>;
         timeoutMs?: number;
     }): Promise<ProviderResponse> {
         const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
         const deadline = Date.now() + timeoutMs;
+        const remaining = () => Math.max(1000, deadline - Date.now());
         const log = logger.child({ component: "codex-app-server", model: params.model });
 
-        // Give this tenant's thread access to Pulse's own tools via MCP when
-        // it's allowed to (see resolveTenantMcpConfig docblock). Failure here
-        // degrades to plain text chat rather than failing the whole turn —
-        // tool access is an enhancement, not a hard requirement.
-        let tenantMcp: TenantMcpConfig | null = null;
-        if (params.tenantId) {
-            try {
-                tenantMcp = await resolveTenantMcpConfig(params.tenantId, params.agentProfileId);
-            } catch (err: any) {
-                log.warn({ err: err.message, tenantId: params.tenantId }, "Failed to resolve tenant MCP tool config; continuing without tools");
-            }
-        }
-
         let client: CodexRpcClient;
+        let generation: number;
         try {
-            client = new CodexRpcClient(this.codexBin, tenantMcp?.env);
+            ({ client, generation } = await getSharedClient(this.codexBin));
         } catch (err: any) {
-            log.error({ err: err.message }, "Failed to spawn codex app-server");
-            throw new Error(`Failed to spawn "codex app-server": ${err.message}`);
+            sharedClient = null;
+            log.error({ err: err.message }, "Failed to start shared codex app-server");
+            throw new Error(`Failed to start "codex app-server": ${err.message}`);
         }
 
-        try {
-            const remaining = () => Math.max(1000, deadline - Date.now());
+        const cacheKey = params.conversationId
+            ? `${params.tenantId ?? "host"}:${params.agentProfileId ?? "none"}:${params.conversationId}`
+            : null;
 
-            // 1. initialize handshake
-            await client.request(
-                "initialize",
-                {
-                    clientInfo: { name: "pulse", title: "Pulse AI", version: "1.0" },
-                    capabilities: null,
-                },
-                Math.min(INITIALIZE_TIMEOUT_MS, remaining())
-            );
-            client.notify("initialized");
+        // Reuse this conversation's thread when it's from the live process
+        // generation and its MCP token isn't near expiry.
+        let cached = cacheKey ? threadCache.get(cacheKey) : undefined;
+        if (cached && (cached.generation !== generation || cached.tokenExpiresAt - Date.now() < MCP_TOKEN_ROTATE_MARGIN_MS)) {
+            threadCache.delete(cacheKey!);
+            cached = undefined;
+        }
 
-            // 2. thread/start — fresh, ephemeral, read-only sandbox, never ask
-            // for approval (this is a one-shot text completion, not a coding
-            // session with a human able to approve anything). When tool
-            // access was resolved above, project it in via the per-thread
-            // `config` override (does NOT touch this host's ~/.codex/config.toml).
+        const startThread = async (): Promise<{ threadId: string; tokenExpiresAt: number }> => {
+            // Tool access is an enhancement — degrade to plain chat on failure.
+            let tenantMcp: TenantMcpConfig | null = null;
+            if (params.tenantId) {
+                try {
+                    tenantMcp = await resolveTenantMcpConfig(params.tenantId, params.agentProfileId);
+                } catch (err: any) {
+                    log.warn({ err: err.message, tenantId: params.tenantId }, "Failed to resolve tenant MCP tool config; continuing without tools");
+                }
+            }
             const threadStart = await client.request(
                 "thread/start",
                 {
@@ -453,7 +553,9 @@ export class CodexAppServerProvider {
                     approvalPolicy: "never",
                     sandbox: "read-only",
                     developerInstructions: params.systemPrompt || undefined,
-                    ephemeral: true,
+                    // Cached (reusable) threads must not be ephemeral; one-shot
+                    // calls without a conversationId keep the ephemeral behavior.
+                    ephemeral: cacheKey ? false : true,
                     ...(tenantMcp ? { config: { mcp_servers: tenantMcp.mcpServers } } : {}),
                 },
                 Math.min(THREAD_START_TIMEOUT_MS, remaining())
@@ -464,46 +566,95 @@ export class CodexAppServerProvider {
                     `codex thread/start returned no thread id (payload keys: ${Object.keys(threadStart ?? {}).join(", ")})`
                 );
             }
+            return { threadId, tokenExpiresAt: tenantMcp ? tenantMcp.tokenExpiresAt : Infinity };
+        };
 
-            // 3. turn/start — fold prior conversation into one text input
-            // since this MVP re-spawns a brand-new Codex thread per call and
-            // has no persistent thread to carry history across messages.
-            const turnText = buildTurnText(params.messages);
-            let turnId: string | undefined;
-            let turnStartResult: any;
-            try {
-                turnStartResult = await client.request(
-                    "turn/start",
-                    {
+        let threadId: string;
+        let reusedThread = false;
+        if (cached) {
+            threadId = cached.threadId;
+            reusedThread = true;
+        } else {
+            const started = await startThread();
+            threadId = started.threadId;
+            if (cacheKey) {
+                evictLru();
+                threadCache.set(cacheKey, {
+                    threadId,
+                    generation,
+                    tokenExpiresAt: started.tokenExpiresAt,
+                    lastUsed: Date.now(),
+                });
+            }
+        }
+
+        // On a reused thread Codex already holds the history server-side —
+        // send only the newest user message. Fresh threads for an ongoing
+        // conversation get the full history replayed once.
+        const turnTextFor = (reused: boolean) => {
+            if (!reused) return buildTurnText(params.messages);
+            const lastUser = [...params.messages].reverse().find((m) => m.role === "user" && m.content);
+            return lastUser?.content ?? buildTurnText(params.messages);
+        };
+
+        const startTurn = async (tid: string, text: string) =>
+            client.request(
+                "turn/start",
+                { threadId: tid, input: [{ type: "text", text, text_elements: [] }] },
+                Math.min(TURN_START_TIMEOUT_MS, remaining())
+            );
+
+        let turnId: string | undefined;
+        try {
+            turnId = (await startTurn(threadId, turnTextFor(reusedThread)))?.turn?.id;
+        } catch (err: any) {
+            if (reusedThread) {
+                // Universal recovery: drop the stale thread, start fresh with
+                // full history replay, retry once.
+                log.warn({ err: err.message, threadId }, "turn/start failed on cached thread — starting a fresh thread");
+                if (cacheKey) threadCache.delete(cacheKey);
+                const started = await startThread();
+                threadId = started.threadId;
+                reusedThread = false;
+                if (cacheKey) {
+                    evictLru();
+                    threadCache.set(cacheKey, {
                         threadId,
-                        input: [{ type: "text", text: turnText, text_elements: [] }],
-                    },
-                    Math.min(TURN_START_TIMEOUT_MS, remaining())
-                );
-                turnId = turnStartResult?.turn?.id;
-            } catch (err: any) {
+                        generation,
+                        tokenExpiresAt: started.tokenExpiresAt,
+                        lastUsed: Date.now(),
+                    });
+                }
+                turnId = (await startTurn(threadId, turnTextFor(false)))?.turn?.id;
+            } else {
                 const tail = client.stderrTail();
                 throw new Error(`codex turn/start failed: ${err.message}${tail ? `\ncodex stderr (tail):\n${tail}` : ""}`);
             }
+        }
 
-            // 4. drain notifications + server requests until turn/completed.
-            let finalText = "";
-            let sawAgentMessage = false;
-            let usage: { inputTokens: number; outputTokens: number } | null = null;
-            let turnError: string | null = null;
-            let turnCompleted = false;
+        // Drain notifications until turn/completed for THIS thread.
+        let finalText = "";
+        let sawAgentMessage = false;
+        let usage: { inputTokens: number; outputTokens: number } | null = null;
+        let turnError: string | null = null;
+        let turnCompleted = false;
 
-            client.onServerRequest((msg) => handleServerRequest(client, msg));
-
+        try {
             await new Promise<void>((resolve, reject) => {
                 const hardTimeout = setTimeout(() => {
                     cleanup();
+                    // Best-effort interrupt; if the process is wedged, kill it so
+                    // the next call gets a clean respawn (generation bump).
+                    client.request("turn/interrupt", { threadId, turnId }, 3000).catch(() => {
+                        shutdownCodexAppServer();
+                    });
                     reject(new Error(`codex turn did not complete within ${timeoutMs}ms`));
                 }, remaining());
 
                 const aliveCheck = setInterval(() => {
                     if (!client.isAlive()) {
                         cleanup();
+                        sharedClient = null; // force respawn next call
                         const tail = client.stderrTail();
                         reject(new Error(`codex app-server subprocess exited before turn/completed${tail ? `\ncodex stderr (tail):\n${tail}` : ""}`));
                     }
@@ -515,7 +666,14 @@ export class CodexAppServerProvider {
                     client.onNotification(() => {});
                 };
 
+                const isOtherThread = (p: any): boolean => {
+                    const tid = p?.threadId ?? p?.thread?.id ?? p?.item?.threadId ?? p?.turn?.threadId;
+                    return typeof tid === "string" && tid !== threadId;
+                };
+
                 client.onNotification((msg) => {
+                    if (isOtherThread(msg.params)) return;
+
                     if (msg.method === "thread/tokenUsage/updated") {
                         const last = msg.params?.tokenUsage?.last;
                         if (last) {
@@ -547,34 +705,34 @@ export class CodexAppServerProvider {
                     }
                 });
             });
-
-            if (turnError && !sawAgentMessage) {
-                const tail = client.stderrTail();
-                throw new Error(`${turnError}${tail ? `\ncodex stderr (tail):\n${tail}` : ""}`);
-            }
-
-            if (!turnCompleted && !sawAgentMessage) {
-                throw new Error("codex turn ended without producing any assistant text");
-            }
-
-            const content = finalText || "(Codex returned no text response)";
-
-            // Fall back to a length-based estimate if the app-server never
-            // sent a thread/tokenUsage/updated notification (e.g. older
-            // builds, or the turn errored before usage was reported).
-            const resolvedUsage = usage ?? {
-                inputTokens: Math.ceil(turnText.length / 4),
-                outputTokens: Math.ceil(content.length / 4),
-            };
-
-            return {
-                content,
-                model: params.model,
-                usage: resolvedUsage,
-            };
         } finally {
-            client.close();
+            const entry = cacheKey ? threadCache.get(cacheKey) : undefined;
+            if (entry) entry.lastUsed = Date.now();
         }
+
+        if (turnError && !sawAgentMessage) {
+            const tail = client.stderrTail();
+            throw new Error(`${turnError}${tail ? `\ncodex stderr (tail):\n${tail}` : ""}`);
+        }
+
+        if (!turnCompleted && !sawAgentMessage) {
+            throw new Error("codex turn ended without producing any assistant text");
+        }
+
+        const content = finalText || "(Codex returned no text response)";
+
+        // Fall back to a length-based estimate if the app-server never sent a
+        // thread/tokenUsage/updated notification.
+        const resolvedUsage = usage ?? {
+            inputTokens: Math.ceil(turnTextFor(reusedThread).length / 4),
+            outputTokens: Math.ceil(content.length / 4),
+        };
+
+        return {
+            content,
+            model: params.model,
+            usage: resolvedUsage,
+        };
     }
 }
 
