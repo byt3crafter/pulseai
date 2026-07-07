@@ -3,6 +3,53 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.24] - 2026-07-07
+
+### Features
+- Clerk-grade UI polish — settings-as-rows, flat cards, ⌘K Find
+- enable + harden agent code execution (Docker-out-of-Docker)
+- complete dark mode — settings, usage, conversations, MCP
+- dark mode + mobile/tablet responsive shell
+- move Custom Tools create/edit from inline form to full pages
+- move agent creation from a modal to a dedicated page
+- AI-guided agent builder (describe → full config) + self-config default
+- instant activation — register webhook on save + lazy-load bot
+- add Groq (free, no card, no region lock)
+- AI-assisted persona generator in Create Agent
+- Connected + Add-a-provider layout for AI Providers
+- admin billing-mode toggle + hide credits UI in BYOK mode
+- position for individuals, SMEs, and enterprises
+- enterprise-grade, story-driven landing page
+- admin-gated ChatGPT OAuth connect for customers
+- cross-dept routing, hierarchy, tool scoping
+- per-tenant custom HTTP tools (connect customer's own API)
+- lead auto-routing to teammates + delegation loop guard
+- show/hide password toggle on admin + tenant login
+- softer AI-studio card polish + document channels in CLAUDE.md
+- Phase 3 desktop — departments in the app
+- Phase 2 runtime — lead answers & @mention routing
+- Phase 1 UI — Departments admin (org CRUD)
+- Phase 1 schema — org model (Company→Dept→Group)
+- branded Electron client for the agent workforce
+
+### Bug Fixes
+- run scripts via execFile (no shell mangling) + strip <think>
+- settings mobile layout + strip reasoning from agent generation
+- eliminate dark-mode light leaks across remaining surfaces
+- clearer persona-generator error (402/insufficient balance)
+- classify Gemini 429 as quota/billing, not transient rate-limit
+- wire Google/Gemini + accurate error classification
+- add standard p-8 page padding to match other pages
+- 'AI workforce' copy, drop 'AI assistant' positioning
+
+### Documentation
+- guided end-to-end test checklist
+- mark Phases 1-3 shipped
+
+### Chores
+- commit package-lock for reproducible builds
+- packaging metadata + expand test checklist
+
 ## [0.10.23] - 2026-07-02
 
 ### Features
