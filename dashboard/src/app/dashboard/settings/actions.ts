@@ -786,3 +786,84 @@ export async function testEmailConnectionAction(formData: FormData) {
         return { success: false, message: "Connection test failed." };
     }
 }
+
+// ── Memory embeddings key (OpenAI text-embedding-3-small) ─────────────────
+// Stored under a dedicated provider slug so it never collides with an OpenAI
+// chat key. When set, agent long-term memory upgrades from keyword to semantic.
+const EMBEDDING_PROVIDER = "openai_embeddings";
+
+export async function getEmbeddingStatusAction(): Promise<{ configured: boolean }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { configured: false };
+    const [row] = await db.select({ id: tenantProviderKeys.id })
+        .from(tenantProviderKeys)
+        .where(and(
+            eq(tenantProviderKeys.tenantId, tc.tenantId),
+            eq(tenantProviderKeys.provider, EMBEDDING_PROVIDER),
+            eq(tenantProviderKeys.isActive, true),
+        )).limit(1);
+    return { configured: !!row };
+}
+
+export async function testEmbeddingKeyAction(apiKey: string): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    const key = (apiKey || "").trim();
+    if (!key) return { success: false, message: "Enter an API key first." };
+    try {
+        const r = await fetch("https://api.openai.com/v1/embeddings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            body: JSON.stringify({ model: "text-embedding-3-small", input: "Pulse embedding key test." }),
+        });
+        if (r.ok) {
+            const j = await r.json();
+            const dims = j?.data?.[0]?.embedding?.length;
+            return { success: true, message: `Key works — returned a ${dims}-dimension vector.` };
+        }
+        let reason = `HTTP ${r.status}`;
+        try { const e = await r.json(); reason = e?.error?.message || reason; } catch { /* ignore */ }
+        if (r.status === 401) reason = "Invalid API key (unauthorized).";
+        else if (r.status === 429) reason = "Rate limited, or no quota/billing on this key.";
+        return { success: false, message: `Key rejected: ${reason}` };
+    } catch {
+        return { success: false, message: "Couldn't reach OpenAI — check the network and try again." };
+    }
+}
+
+export async function saveEmbeddingKeyAction(apiKey: string): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    const key = (apiKey || "").trim();
+    if (!key) return { success: false, message: "Enter an API key." };
+    try {
+        const enc = encrypt(key);
+        await db.insert(tenantProviderKeys)
+            .values({ tenantId: tc.tenantId, provider: EMBEDDING_PROVIDER, authMethod: "api_key", encryptedApiKey: enc, isActive: true })
+            .onConflictDoUpdate({
+                target: [tenantProviderKeys.tenantId, tenantProviderKeys.provider],
+                set: { encryptedApiKey: enc, authMethod: "api_key", isActive: true },
+            });
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Embedding key saved — memory is now semantic." };
+    } catch (e) {
+        console.error("Failed to save embedding key:", e);
+        return { success: false, message: "Failed to save the key." };
+    }
+}
+
+export async function removeEmbeddingKeyAction(): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    try {
+        await db.delete(tenantProviderKeys).where(and(
+            eq(tenantProviderKeys.tenantId, tc.tenantId),
+            eq(tenantProviderKeys.provider, EMBEDDING_PROVIDER),
+        ));
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Embedding key removed — memory reverted to keyword mode." };
+    } catch (e) {
+        console.error("Failed to remove embedding key:", e);
+        return { success: false, message: "Failed to remove the key." };
+    }
+}

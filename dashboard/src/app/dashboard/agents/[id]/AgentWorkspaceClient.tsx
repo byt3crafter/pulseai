@@ -17,6 +17,7 @@ import SandboxConfigEditor from "./SandboxConfigEditor";
 import HeartbeatEditor from "./HeartbeatEditor";
 import SkillsEditor from "./SkillsEditor";
 import EmailConfigEditor from "./EmailConfigEditor";
+import { InfoTip } from "../../../../components/dashboard/ui";
 
 interface AgentData {
     id: string;
@@ -181,7 +182,8 @@ export default function AgentWorkspaceClient({
                     fileName="MEMORY.md"
                     initialContent={memoryContent}
                     title="Memory"
-                    description="Persistent memory for your agent. Information stored here persists across conversations and helps the agent learn over time."
+                    description="The agent stores important facts and recalls them in future conversations."
+                    infoTip="Example: tell it your database server name once; it can recall it next week. Semantic recall needs an embedding key (Settings → Memory)."
                 />
             )}
             {activeTab === "heartbeat" && (
@@ -262,12 +264,14 @@ function FileEditor({
     initialContent,
     title,
     description,
+    infoTip,
 }: {
     agentId: string;
     fileName: string;
     initialContent: string;
     title: string;
     description: string;
+    infoTip?: string;
 }) {
     const [content, setContent] = useState(initialContent);
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
@@ -299,7 +303,10 @@ function FileEditor({
     return (
         <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-pulse-border-subtle">
-                <h2 className="text-sm font-semibold text-pulse-text">{title}</h2>
+                <div className="flex items-center gap-1.5">
+                    <h2 className="text-sm font-semibold text-pulse-text">{title}</h2>
+                    {infoTip && <InfoTip text={infoTip} />}
+                </div>
                 <p className="text-xs text-pulse-faint mt-0.5">{description}</p>
             </div>
             <div className="p-6">
@@ -514,8 +521,11 @@ function SelfConfigToggle({ agentId, initialEnabled }: { agentId: string; initia
     return (
         <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-pulse-border-subtle">
-                <h2 className="text-sm font-semibold text-pulse-text">Agent Self-Config</h2>
-                <p className="text-xs text-pulse-faint mt-0.5">Allow the agent to edit its own workspace files via a tool.</p>
+                <div className="flex items-center gap-1.5">
+                    <h2 className="text-sm font-semibold text-pulse-text">Agent Self-Config</h2>
+                    <InfoTip text="Example: tell it 'be more concise' or 'remember our deploys run on Fridays' and it rewrites its own Soul/Memory. Off = only you edit these, via the tabs." />
+                </div>
+                <p className="text-xs text-pulse-faint mt-0.5">Let this agent edit its own profile files (Soul, Identity, Memory, etc.) when you chat with it.</p>
             </div>
             <div className="px-6 py-5">
                 <div className="flex items-center justify-between gap-4">

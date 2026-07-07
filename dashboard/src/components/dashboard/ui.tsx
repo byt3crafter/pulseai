@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { InformationCircleIcon } from "@heroicons/react/24/outline";
 
 /**
  * Shared visual primitives for the tenant dashboard — "Clerk-grade" flat
@@ -133,4 +134,58 @@ export function Toggle({
             />
         </button>
     );
+}
+
+/**
+ * Small "what does this do" info bubble for settings the user won't
+ * necessarily understand at a glance. Opens on hover AND keyboard focus (not
+ * click-only, so it's reachable via Tab), closes on blur/mouse-leave/Escape.
+ * `aria-describedby` links the trigger to the bubble so screen readers
+ * announce it as a description of the nearby control; the bubble itself is
+ * `role="tooltip"`.
+ *
+ * @example
+ * <div className="flex items-center gap-1.5">
+ *   <p className="text-sm font-medium text-pulse-text">Self-configuration</p>
+ *   <InfoTip text="Example: tell it 'be more concise' and it rewrites its own Soul/Memory." />
+ * </div>
+ */
+export function InfoTip({ text, label = "More info" }: { text: string; label?: string }) {
+    const id = useId();
+    const [open, setOpen] = useState(false);
+
+    return (
+        <span className="relative inline-flex">
+            <button
+                type="button"
+                aria-label={label}
+                aria-describedby={open ? id : undefined}
+                onMouseEnter={() => setOpen(true)}
+                onMouseLeave={() => setOpen(false)}
+                onFocus={() => setOpen(true)}
+                onBlur={() => setOpen(false)}
+                onKeyDown={(e) => {
+                    if (e.key === "Escape") setOpen(false);
+                }}
+                className="inline-flex flex-shrink-0 text-pulse-faint hover:text-indigo-500 focus:text-indigo-500 outline-none rounded-full cursor-pointer transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+                <InformationCircleIcon className="w-4 h-4" aria-hidden="true" />
+                <span className="sr-only">{label}</span>
+            </button>
+            {open && (
+                <span
+                    id={id}
+                    role="tooltip"
+                    className="absolute z-30 left-0 top-full mt-2 w-64 max-w-xs rounded-lg bg-pulse-panel border border-pulse-border text-pulse-text-soft text-xs leading-snug px-3 py-2 shadow-lg"
+                >
+                    {text}
+                </span>
+            )}
+        </span>
+    );
+}
+
+/** Muted one-line helper line under a setting/label — for short plain-language context. */
+export function SettingHint({ children }: { children: ReactNode }) {
+    return <p className="text-xs text-pulse-muted">{children}</p>;
 }

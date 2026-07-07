@@ -14,12 +14,14 @@ export { EMBEDDING_DIMENSIONS };
 
 /**
  * Generate an embedding vector for the given text.
- * Returns null if OpenAI is not configured (FTS-only mode).
+ * Uses the provided key (a tenant's own OpenAI embeddings key) if given,
+ * otherwise the operator-level OPENAI_API_KEY. Returns null if neither is
+ * configured (FTS-only mode).
  */
-export async function generateEmbedding(text: string): Promise<number[] | null> {
-    const apiKey = config.OPENAI_API_KEY;
+export async function generateEmbedding(text: string, apiKeyOverride?: string | null): Promise<number[] | null> {
+    const apiKey = apiKeyOverride || config.OPENAI_API_KEY;
     if (!apiKey) {
-        logger.debug("No OPENAI_API_KEY configured — using FTS-only memory mode");
+        logger.debug("No embedding key configured — using FTS-only memory mode");
         return null;
     }
 

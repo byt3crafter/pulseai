@@ -3,6 +3,7 @@ import { db } from "../../../../../storage/db";
 import { agentProfiles } from "../../../../../storage/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { InfoTip } from "../../../../../components/dashboard/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +32,11 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                         <LinkIcon className="w-6 h-6 text-blue-400" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-pulse-text">Delegation — {agent.name}</h1>
-                        <p className="text-pulse-muted text-sm">Configure multi-agent delegation for this agent.</p>
+                        <div className="flex items-center gap-1.5">
+                            <h1 className="text-2xl font-bold text-pulse-text">Delegation — {agent.name}</h1>
+                            <InfoTip text="Example: a lead agent routes a billing question to the Finance agent." />
+                        </div>
+                        <p className="text-pulse-muted text-sm">Let this agent hand a task to another agent it's allowed to call.</p>
                     </div>
                 </div>
             </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateSandboxConfigAction } from "./actions";
+import { InfoTip } from "../../../../components/dashboard/ui";
 
 interface SandboxConfig {
     mode: "off" | "non-main" | "all";
@@ -74,8 +75,11 @@ export default function SandboxConfigEditor({
     return (
         <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-pulse-border-subtle">
-                <h2 className="text-sm font-semibold text-pulse-text">Sandbox Configuration</h2>
-                <p className="text-xs text-pulse-faint mt-0.5">Configure execution boundaries, Docker container overrides, and workspace mount access.</p>
+                <div className="flex items-center gap-1.5">
+                    <h2 className="text-sm font-semibold text-pulse-text">Sandbox Configuration</h2>
+                    <InfoTip text="Example: 'total up this CSV' or 'run this script'. Powerful, but uses more resources. Each run is isolated and deleted after." />
+                </div>
+                <p className="text-xs text-pulse-faint mt-0.5">Let the agent run real code (Python/shell) in a locked-down, throwaway container.</p>
             </div>
 
             <div className="px-6 py-5 space-y-6">

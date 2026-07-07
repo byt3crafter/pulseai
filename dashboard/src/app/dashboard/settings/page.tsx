@@ -5,6 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { getEmbeddingStatusAction } from "./actions";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage({
@@ -89,6 +90,8 @@ export default async function SettingsPage({
             )
         )
         : [];
+
+    const embeddingStatus = await getEmbeddingStatusAction();
 
     const credits = Number(balances[0]?.balance ?? 0);
     const telegramChannel = channels.find(c => c.channelType === "telegram");
@@ -227,6 +230,7 @@ export default async function SettingsPage({
             plugins={enabledPlugins}
             savePluginCredentials={savePluginCredentials}
             emailConfig={emailChannel ? (emailChannel.channelConfig as any) : null}
+            embeddingConfigured={embeddingStatus.configured}
         />
     );
 }

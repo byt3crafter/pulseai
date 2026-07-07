@@ -12,6 +12,7 @@ import {
 import { createAgentProfileAction, generateAgentConfigAction } from "../actions";
 import { PROVIDERS, DEFAULT_MODEL_ID } from "../../../../utils/models";
 import Tooltip from "../Tooltip";
+import { InfoTip } from "../../../../components/dashboard/ui";
 
 const EXAMPLE_DESCRIPTIONS = [
     "A friendly sales assistant for Runstate, a logistics firm. It answers product questions, drafts quotes, and checks order status.",
@@ -196,10 +197,12 @@ export default function NewAgentClient({ connectedProviders }: { connectedProvid
                     <div className="flex items-center justify-between gap-4 p-4 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt">
                         <div className="flex items-center gap-1.5 min-w-0">
                             <div>
-                                <label htmlFor="agent-selfconfig" className="text-sm font-medium text-pulse-text block">Self-improvement</label>
-                                <p className="text-xs text-pulse-muted mt-0.5">On by default — the agent can refine its own instructions as you chat with it.</p>
+                                <div className="flex items-center gap-1.5">
+                                    <label htmlFor="agent-selfconfig" className="text-sm font-medium text-pulse-text block">Self-improvement</label>
+                                    <InfoTip text="Example: tell it 'be more concise' or 'remember our deploys run on Fridays' and it rewrites its own Soul/Memory. Off = only you edit these, via the tabs." />
+                                </div>
+                                <p className="text-xs text-pulse-muted mt-0.5">Let this agent edit its own profile files (Soul, Identity, Memory, etc.) when you chat with it.</p>
                             </div>
-                            <Tooltip text="Lets this agent refine its own instructions and knowledge when you chat with it." />
                         </div>
                         <button id="agent-selfconfig" type="button" role="switch" aria-checked={selfConfigEnabled} onClick={() => setSelfConfigEnabled((v) => !v)}
                             className={`relative inline-flex flex-shrink-0 h-6 w-11 items-center rounded-full transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel-alt ${selfConfigEnabled ? "bg-indigo-600" : "bg-pulse-border-strong"}`}>

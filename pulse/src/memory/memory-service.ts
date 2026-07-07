@@ -4,13 +4,41 @@
  */
 
 import { db } from "../storage/db.js";
-import { memoryEntries } from "../storage/schema.js";
+import { memoryEntries, tenantProviderKeys } from "../storage/schema.js";
 import { eq, and, sql } from "drizzle-orm";
 import { generateEmbedding } from "./embedding.js";
 import { hybridSearch, HybridResult } from "./hybrid-search.js";
 import { applyTemporalDecay } from "./temporal-decay.js";
 import { applyMMR } from "./mmr.js";
+import { decrypt } from "../utils/crypto.js";
 import { logger } from "../utils/logger.js";
+
+// Resolve a tenant's own OpenAI embeddings key (provider "openai_embeddings").
+// Cached briefly to avoid a DB hit on every memory op. Falls back to the
+// operator-level OPENAI_API_KEY inside generateEmbedding when this returns null.
+const embKeyCache = new Map<string, { key: string | null; exp: number }>();
+async function resolveEmbeddingKey(tenantId: string): Promise<string | null> {
+    const cached = embKeyCache.get(tenantId);
+    const now = Date.now();
+    if (cached && cached.exp > now) return cached.key;
+    let key: string | null = null;
+    try {
+        const [row] = await db
+            .select({ enc: tenantProviderKeys.encryptedApiKey })
+            .from(tenantProviderKeys)
+            .where(and(
+                eq(tenantProviderKeys.tenantId, tenantId),
+                eq(tenantProviderKeys.provider, "openai_embeddings"),
+                eq(tenantProviderKeys.isActive, true),
+            ))
+            .limit(1);
+        if (row?.enc) key = decrypt(row.enc);
+    } catch (err) {
+        logger.error({ err, tenantId }, "Failed to resolve tenant embedding key");
+    }
+    embKeyCache.set(tenantId, { key, exp: now + 60_000 });
+    return key;
+}
 
 export interface MemoryResult {
     id: string;
@@ -35,7 +63,13 @@ export class MemoryService {
             metadata?: Record<string, any>;
         }
     ): Promise<string> {
-        const embedding = await generateEmbedding(content);
+        const embedding = await generateEmbedding(content, await resolveEmbeddingKey(tenantId));
+
+        // The DB column is pgvector `vector(1536)`; cast the literal explicitly
+        // so the insert works regardless of how the driver types the param.
+        const embeddingSql = embedding
+            ? sql`${`[${embedding.join(",")}]`}::vector`
+            : sql`NULL`;
 
         const [entry] = await db
             .insert(memoryEntries)
@@ -43,7 +77,7 @@ export class MemoryService {
                 tenantId,
                 agentId,
                 content,
-                embedding: embedding ? `[${embedding.join(",")}]` : null,
+                embedding: embeddingSql,
                 category: opts?.category || "general",
                 importance: opts?.importance?.toString() || "0.5",
                 metadata: opts?.metadata || {},
@@ -68,7 +102,7 @@ export class MemoryService {
         }
     ): Promise<MemoryResult[]> {
         const limit = opts?.limit || 10;
-        const queryEmbedding = await generateEmbedding(query);
+        const queryEmbedding = await generateEmbedding(query, await resolveEmbeddingKey(tenantId));
 
         // Run hybrid search
         const results = await hybridSearch(agentId, queryEmbedding, query, {

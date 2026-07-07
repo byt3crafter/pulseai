@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateHeartbeatConfigAction } from "./actions";
+import { InfoTip } from "../../../../components/dashboard/ui";
 
 interface HeartbeatConfig {
     enabled?: boolean;
@@ -75,8 +76,11 @@ export default function HeartbeatEditor({
         <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-pulse-border-subtle flex items-center justify-between">
                 <div>
-                    <h2 className="text-sm font-semibold text-pulse-text">Heartbeat Scheduler</h2>
-                    <p className="text-xs text-pulse-faint mt-0.5">Automate agent execution on a recurring interval. Use this for agents that need to initiate conversations.</p>
+                    <div className="flex items-center gap-1.5">
+                        <h2 className="text-sm font-semibold text-pulse-text">Heartbeat Scheduler</h2>
+                        <InfoTip text="Example: 'every morning, check overnight errors and post a summary.' Leave empty for none." />
+                    </div>
+                    <p className="text-xs text-pulse-faint mt-0.5">Instructions the agent runs on its own schedule, even when nobody messages it.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-pulse-muted">Enabled</span>
