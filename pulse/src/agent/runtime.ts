@@ -335,7 +335,9 @@ export class AgentRuntime {
             // 3.885 If self-editing is enabled, state it explicitly. Mid-tier models
             // (e.g. MiniMax) otherwise falsely claim they "have no filesystem access"
             // and refuse, even though the workspace_update tool is in their toolset.
-            if (enabledTools.some((t) => t.name === "workspace_update")) {
+            // Skip on the codex provider — it's text-only and does NOT carry Pulse's
+            // tools, so claiming the tool exists would be a lie the model rightly rejects.
+            if (enabledTools.some((t) => t.name === "workspace_update") && getProviderByModel(activeModelId)?.id !== "codex") {
                 activeSystemPrompt +=
                     "\n\n## Editing your own workspace (IMPORTANT)\n" +
                     "You DO have a `workspace_update` tool right now. You CAN edit your own workspace files: " +
