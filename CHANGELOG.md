@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.26] - 2026-07-07
+
+### Features
+- self-serve OpenAI embeddings key + plain-language settings help
+
 ## [0.10.25] - 2026-07-07
 
 ### Features
