@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
     saveTelegramTokenAction,
@@ -18,6 +19,9 @@ import {
     exchangeOpenAICodeAction,
     saveEmailConfigAction,
     testEmailConnectionAction,
+    testEmbeddingKeyAction,
+    saveEmbeddingKeyAction,
+    removeEmbeddingKeyAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
@@ -32,6 +36,7 @@ const TABS = [
     { id: "integrations", label: "Integrations" },
     { id: "telegram", label: "Telegram" },
     { id: "providers", label: "AI Providers" },
+    { id: "memory", label: "Memory" },
     { id: "email", label: "Email" },
     { id: "plugins", label: "Plugins" },
     { id: "api", label: "API & Developer" },
@@ -106,6 +111,7 @@ interface Props {
     plugins: PluginData[];
     savePluginCredentials: (formData: FormData) => Promise<void>;
     emailConfig: { smtp?: any; imap?: any } | null;
+    embeddingConfigured: boolean;
 }
 
 export default function SettingsClient({
@@ -114,6 +120,7 @@ export default function SettingsClient({
     telegramConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
+    embeddingConfigured,
 }: Props) {
     const router = useRouter();
 
@@ -160,6 +167,7 @@ export default function SettingsClient({
                     )}
                     {tab === "email" && <EmailTab config={emailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
+                    {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
                     {tab === "billing" && <BillingTab credits={credits} />}
@@ -1167,6 +1175,139 @@ function ProviderCard({
                 )}
             </div>
         </Card>
+    );
+}
+
+// ─── Memory Tab ──────────────────────────────────────────────────────────────
+
+function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
+    const router = useRouter();
+    const [apiKey, setApiKey] = useState("");
+    const [showKey, setShowKey] = useState(false);
+    const [result, setResult] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+    const [testing, startTesting] = useTransition();
+    const [saving, startSaving] = useTransition();
+    const [removing, startRemoving] = useTransition();
+    const busy = testing || saving || removing;
+
+    const handleTest = () => {
+        if (!apiKey.trim()) return;
+        startTesting(async () => {
+            const res = await testEmbeddingKeyAction(apiKey);
+            setResult({ type: res.success ? "success" : "error", message: res.message });
+        });
+    };
+
+    const handleSave = () => {
+        if (!apiKey.trim()) return;
+        startSaving(async () => {
+            const res = await saveEmbeddingKeyAction(apiKey);
+            setResult({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) {
+                setApiKey("");
+                router.refresh();
+            }
+        });
+    };
+
+    const handleRemove = () => {
+        if (!window.confirm("Remove the embedding key? Memory will revert to keyword mode.")) return;
+        startRemoving(async () => {
+            const res = await removeEmbeddingKeyAction();
+            setResult({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) router.refresh();
+        });
+    };
+
+    return (
+        <div className="space-y-6">
+            <Card>
+                <CardHeader title="Memory & Embeddings" description="Give your agents long-term recall across conversations." />
+                <div className="px-5 py-5 space-y-5">
+                    <p className="text-sm text-pulse-text-soft leading-relaxed">
+                        Your agents can remember important facts across conversations and recall them later. Add an OpenAI API key to enable{" "}
+                        <span className="font-semibold text-pulse-text">semantic</span> recall (matches by meaning). Without a key, memory still works in{" "}
+                        <span className="font-semibold text-pulse-text">keyword</span> mode. Model: <code className="font-mono text-xs bg-pulse-panel-alt px-1.5 py-0.5 rounded">text-embedding-3-small</code> — costs about $0.02 per million tokens (effectively free at this scale).
+                    </p>
+
+                    {embeddingConfigured ? (
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
+                            <span className="text-sm font-medium text-green-400">Semantic memory active</span>
+                            <button
+                                type="button"
+                                onClick={handleRemove}
+                                disabled={busy}
+                                className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                            >
+                                {removing ? "Removing…" : "Remove"}
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                            <span className="text-sm font-medium text-amber-400">Keyword mode — add a key for semantic recall</span>
+                        </div>
+                    )}
+
+                    <div>
+                        <label htmlFor="embedding-key" className="block text-sm font-medium text-pulse-text-soft mb-1.5">OpenAI API key</label>
+                        <div className="relative max-w-md">
+                            <input
+                                id="embedding-key"
+                                type={showKey ? "text" : "password"}
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                placeholder="sk-..."
+                                autoComplete="off"
+                                spellCheck={false}
+                                className="w-full px-3 py-2 pr-10 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text placeholder:text-pulse-faint placeholder:font-sans"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowKey((v) => !v)}
+                                aria-label={showKey ? "Hide API key" : "Show API key"}
+                                className="absolute inset-y-0 right-0 flex items-center px-3 text-pulse-faint hover:text-pulse-text-soft cursor-pointer outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                            >
+                                {showKey ? <EyeSlashIcon className="w-4 h-4" aria-hidden="true" /> : <EyeIcon className="w-4 h-4" aria-hidden="true" />}
+                            </button>
+                        </div>
+                        <p className="text-xs text-pulse-muted mt-1.5">
+                            Get a key at{" "}
+                            <a
+                                href="https://platform.openai.com/api-keys"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:text-pulse-text-soft cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                            >
+                                platform.openai.com
+                            </a>
+                        </p>
+                    </div>
+
+                    {result.type !== "idle" && (
+                        <p role="status" className={`text-sm ${result.type === "success" ? "text-green-400" : "text-red-400"}`}>{result.message}</p>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={handleTest}
+                            disabled={!apiKey.trim() || busy}
+                            className="px-4 py-2 border border-pulse-border text-pulse-text-soft text-sm font-medium rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                        >
+                            {testing ? "Testing…" : "Test key"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleSave}
+                            disabled={!apiKey.trim() || busy}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                        >
+                            {saving ? "Saving…" : "Save"}
+                        </button>
+                    </div>
+                </div>
+            </Card>
+        </div>
     );
 }
 
