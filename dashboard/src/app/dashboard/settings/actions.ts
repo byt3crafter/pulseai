@@ -6,7 +6,7 @@ import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pai
 import { eq, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { encrypt } from "../../../utils/crypto";
+import { encrypt, decrypt } from "../../../utils/crypto";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
 
@@ -865,5 +865,67 @@ export async function removeEmbeddingKeyAction(): Promise<{ success: boolean; me
     } catch (e) {
         console.error("Failed to remove embedding key:", e);
         return { success: false, message: "Failed to remove the key." };
+    }
+}
+
+// ── Embedding provider selection (OpenAI or MiniMax embo-01) ──────────────────
+// Provider choice + MiniMax GroupId live in tenants.config.embedding. The API
+// keys come from tenant_provider_keys (openai_embeddings / minimax rows).
+type EmbProvider = "openai" | "minimax";
+
+export async function getEmbeddingConfigAction(): Promise<{
+    provider: EmbProvider; openaiConfigured: boolean; minimaxKeyPresent: boolean; minimaxGroupId: string | null;
+}> {
+    const tc = await requireTenant();
+    const empty = { provider: "openai" as EmbProvider, openaiConfigured: false, minimaxKeyPresent: false, minimaxGroupId: null };
+    if (!tc.authorized) return empty;
+    const [t] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tc.tenantId)).limit(1);
+    const emb = ((t?.config as any)?.embedding) || {};
+    const provider: EmbProvider = emb.provider === "minimax" ? "minimax" : "openai";
+    const has = async (p: string) => !!(await db.select({ id: tenantProviderKeys.id }).from(tenantProviderKeys)
+        .where(and(eq(tenantProviderKeys.tenantId, tc.tenantId), eq(tenantProviderKeys.provider, p), eq(tenantProviderKeys.isActive, true))).limit(1))[0];
+    return { provider, openaiConfigured: await has("openai_embeddings"), minimaxKeyPresent: await has("minimax"), minimaxGroupId: emb.groupId || null };
+}
+
+export async function saveEmbeddingProviderAction(provider: EmbProvider, groupId?: string): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    if (provider !== "openai" && provider !== "minimax") return { success: false, message: "Invalid provider." };
+    if (provider === "minimax" && !groupId?.trim()) return { success: false, message: "MiniMax needs a GroupId." };
+    try {
+        const [t] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tc.tenantId)).limit(1);
+        const cfg = { ...((t?.config as any) || {}) };
+        cfg.embedding = provider === "minimax" ? { provider, groupId: groupId!.trim() } : { provider };
+        await db.update(tenants).set({ config: cfg }).where(eq(tenants.id, tc.tenantId));
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: `Embeddings now use ${provider === "minimax" ? "MiniMax (embo-01)" : "OpenAI (text-embedding-3-small)"}.` };
+    } catch (e) {
+        console.error("saveEmbeddingProvider failed:", e);
+        return { success: false, message: "Failed to save the embedding provider." };
+    }
+}
+
+export async function testMinimaxEmbeddingAction(groupId: string): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    const gid = (groupId || "").trim();
+    if (!gid) return { success: false, message: "Enter your MiniMax GroupId." };
+    const [mm] = await db.select({ enc: tenantProviderKeys.encryptedApiKey }).from(tenantProviderKeys)
+        .where(and(eq(tenantProviderKeys.tenantId, tc.tenantId), eq(tenantProviderKeys.provider, "minimax"), eq(tenantProviderKeys.isActive, true))).limit(1);
+    if (!mm?.enc) return { success: false, message: "No MiniMax API key connected — add one in AI Providers first." };
+    try {
+        const r = await fetch(`https://api.minimax.io/v1/embeddings?GroupId=${encodeURIComponent(gid)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${decrypt(mm.enc)}` },
+            body: JSON.stringify({ model: "embo-01", texts: ["Pulse embedding test."], type: "db" }),
+        });
+        const j = await r.json().catch(() => null);
+        const code = j?.base_resp?.status_code;
+        const dim = j?.vectors?.[0]?.length;
+        if (code === 0 && dim) return { success: true, message: `Works — embo-01 returned a ${dim}-dimension vector.` };
+        if (code === 1002) return { success: false, message: "MiniMax rejected it (1002 rate limit / no embeddings quota). Your account likely needs a pay-as-you-go API key with embeddings quota — chat and embeddings are metered separately on MiniMax." };
+        return { success: false, message: `MiniMax error ${code ?? r.status}: ${j?.base_resp?.status_msg || "unexpected response"}` };
+    } catch {
+        return { success: false, message: "Couldn't reach MiniMax — check the network and try again." };
     }
 }

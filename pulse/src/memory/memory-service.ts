@@ -4,40 +4,50 @@
  */
 
 import { db } from "../storage/db.js";
-import { memoryEntries, tenantProviderKeys } from "../storage/schema.js";
+import { memoryEntries, tenantProviderKeys, tenants } from "../storage/schema.js";
 import { eq, and, sql } from "drizzle-orm";
-import { generateEmbedding } from "./embedding.js";
+import { generateEmbedding, type EmbeddingConfig } from "./embedding.js";
 import { hybridSearch, HybridResult } from "./hybrid-search.js";
 import { applyTemporalDecay } from "./temporal-decay.js";
 import { applyMMR } from "./mmr.js";
 import { decrypt } from "../utils/crypto.js";
 import { logger } from "../utils/logger.js";
 
-// Resolve a tenant's own OpenAI embeddings key (provider "openai_embeddings").
-// Cached briefly to avoid a DB hit on every memory op. Falls back to the
-// operator-level OPENAI_API_KEY inside generateEmbedding when this returns null.
-const embKeyCache = new Map<string, { key: string | null; exp: number }>();
-async function resolveEmbeddingKey(tenantId: string): Promise<string | null> {
-    const cached = embKeyCache.get(tenantId);
+// Resolve a tenant's embedding provider config (provider + key + MiniMax groupId)
+// from tenants.config.embedding. Cached briefly to avoid a DB hit per memory op.
+// Default provider is OpenAI (key from the "openai_embeddings" provider row, or
+// the operator OPENAI_API_KEY fallback inside generateEmbedding).
+const embCfgCache = new Map<string, { cfg: EmbeddingConfig; exp: number }>();
+async function resolveEmbeddingConfig(tenantId: string): Promise<EmbeddingConfig> {
+    const cached = embCfgCache.get(tenantId);
     const now = Date.now();
-    if (cached && cached.exp > now) return cached.key;
-    let key: string | null = null;
+    if (cached && cached.exp > now) return cached.cfg;
+
+    let cfg: EmbeddingConfig = { provider: "openai", apiKey: null };
     try {
+        const [t] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        const emb = (t?.config as any)?.embedding || {};
+        const provider: "openai" | "minimax" = emb.provider === "minimax" ? "minimax" : "openai";
+
+        const keyProvider = provider === "minimax" ? "minimax" : "openai_embeddings";
         const [row] = await db
             .select({ enc: tenantProviderKeys.encryptedApiKey })
             .from(tenantProviderKeys)
             .where(and(
                 eq(tenantProviderKeys.tenantId, tenantId),
-                eq(tenantProviderKeys.provider, "openai_embeddings"),
+                eq(tenantProviderKeys.provider, keyProvider),
                 eq(tenantProviderKeys.isActive, true),
             ))
             .limit(1);
-        if (row?.enc) key = decrypt(row.enc);
+        const apiKey = row?.enc ? decrypt(row.enc) : null;
+        cfg = provider === "minimax"
+            ? { provider: "minimax", apiKey, groupId: emb.groupId || null }
+            : { provider: "openai", apiKey };
     } catch (err) {
-        logger.error({ err, tenantId }, "Failed to resolve tenant embedding key");
+        logger.error({ err, tenantId }, "Failed to resolve tenant embedding config");
     }
-    embKeyCache.set(tenantId, { key, exp: now + 60_000 });
-    return key;
+    embCfgCache.set(tenantId, { cfg, exp: now + 60_000 });
+    return cfg;
 }
 
 export interface MemoryResult {
@@ -63,7 +73,7 @@ export class MemoryService {
             metadata?: Record<string, any>;
         }
     ): Promise<string> {
-        const embedding = await generateEmbedding(content, await resolveEmbeddingKey(tenantId));
+        const embedding = await generateEmbedding(content, { ...(await resolveEmbeddingConfig(tenantId)), type: "db" });
 
         // The DB column is pgvector `vector(1536)`; cast the literal explicitly
         // so the insert works regardless of how the driver types the param.
@@ -102,7 +112,7 @@ export class MemoryService {
         }
     ): Promise<MemoryResult[]> {
         const limit = opts?.limit || 10;
-        const queryEmbedding = await generateEmbedding(query, await resolveEmbeddingKey(tenantId));
+        const queryEmbedding = await generateEmbedding(query, { ...(await resolveEmbeddingConfig(tenantId)), type: "query" });
 
         // Run hybrid search
         const results = await hybridSearch(agentId, queryEmbedding, query, {
