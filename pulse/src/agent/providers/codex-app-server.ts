@@ -107,8 +107,12 @@ async function resolveTenantMcpConfig(tenantId: string, agentProfileId?: string)
         mcpServers: {
             [PULSE_MCP_SERVER_NAME]: {
                 url: `http://127.0.0.1:${config.PORT}/mcp${agentQs}`,
-                // Inline on purpose — see MCP_TOKEN_TTL_MS docblock for the tradeoff.
-                bearer_token: token,
+                // Per-thread token, inline on purpose (see MCP_TOKEN_TTL_MS docblock).
+                // NOTE: codex rejects `bearer_token` for streamable_http transports
+                // ("bearer_token is not supported for streamable_http"), but accepts
+                // the equivalent Authorization header via `http_headers` — verified
+                // against codex-cli 0.142.1.
+                http_headers: { Authorization: `Bearer ${token}` },
             },
         },
         tokenExpiresAt: Date.now() + MCP_TOKEN_TTL_MS,
