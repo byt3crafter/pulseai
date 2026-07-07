@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,6 +11,7 @@ import {
     deleteAgentAction,
     updateSelfConfigAction,
 } from "./actions";
+import { getLiveModelsAction } from "../actions";
 import { PROVIDERS, getModelDisplayName, getProviderName } from "../../../../utils/models";
 import ToolPolicyEditor from "./ToolPolicyEditor";
 import SandboxConfigEditor from "./SandboxConfigEditor";
@@ -350,6 +351,21 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
     const [deleteConfirm, setDeleteConfirm] = useState(false);
     const router = useRouter();
 
+    // Live model lists per provider (pulled from the provider's /models so new
+    // releases appear without a code change); falls back to the static catalog.
+    type LiveModel = { id: string; provider: string; displayName: string; category: string };
+    const [liveModels, setLiveModels] = useState<Record<string, LiveModel[]>>({});
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const entries = await Promise.all(
+                activeProviders.map(async (pid) => [pid, await getLiveModelsAction(pid)] as const)
+            );
+            if (!cancelled) setLiveModels(Object.fromEntries(entries));
+        })();
+        return () => { cancelled = true; };
+    }, [activeProviders]);
+
     const handleModelSave = async () => {
         setStatus({ type: "saving", message: "" });
         const fd = new FormData();
@@ -401,7 +417,7 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                         {/* Active providers — selectable */}
                         {configuredProviders.map((provider) => (
                             <optgroup key={provider.id} label={provider.name}>
-                                {provider.models.map((model) => (
+                                {(liveModels[provider.id] ?? provider.models).map((model) => (
                                     <option key={model.id} value={model.id}>
                                         {model.displayName} ({model.category})
                                     </option>

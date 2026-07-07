@@ -184,6 +184,30 @@ const minimaxProvider: ProviderDefinition = {
     envKeyName: "MINIMAX_API_KEY",
     models: [
         {
+            id: "MiniMax-M3",
+            provider: "minimax",
+            displayName: "MiniMax M3",
+            category: "flagship",
+            pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+            maxTokens: 8192,
+        },
+        {
+            id: "MiniMax-M2.7",
+            provider: "minimax",
+            displayName: "MiniMax M2.7",
+            category: "flagship",
+            pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+            maxTokens: 8192,
+        },
+        {
+            id: "MiniMax-M2.7-highspeed",
+            provider: "minimax",
+            displayName: "MiniMax M2.7 Highspeed",
+            category: "fast",
+            pricing: { inputPerMillion: 0.3, outputPerMillion: 1.2 },
+            maxTokens: 8192,
+        },
+        {
             id: "MiniMax-M2.5",
             provider: "minimax",
             displayName: "MiniMax M2.5",
@@ -285,8 +309,27 @@ export function getDefaultModel(): ModelDefinition {
 
 export function getProviderByModel(modelId: string): ProviderDefinition | undefined {
     const model = MODEL_MAP.get(modelId);
-    if (!model) return undefined;
-    return PROVIDER_MAP.get(model.provider);
+    if (model) return PROVIDER_MAP.get(model.provider);
+    // Not in the static catalog (e.g. a live-fetched model like a brand-new
+    // MiniMax release) — infer the provider from the model id so ANY model a
+    // connected provider offers still routes correctly, no code change needed.
+    const inferred = inferProviderId(modelId);
+    return inferred ? PROVIDER_MAP.get(inferred) : undefined;
+}
+
+/** Best-effort provider id from a model id, for models not in the static catalog. */
+export function inferProviderId(modelId: string): string | undefined {
+    const id = (modelId || "").toLowerCase();
+    if (id.startsWith("claude")) return "anthropic";
+    if (id.startsWith("minimax") || id.startsWith("abab")) return "minimax";
+    if (id.startsWith("gemini") || id.startsWith("models/gemini")) return "google";
+    if (id.startsWith("gpt") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("o4")
+        || id.startsWith("chatgpt") || id.startsWith("text-embedding") || id.startsWith("davinci")) return "openai";
+    if (id.includes("/")) return "openrouter"; // vendor/model slugs, e.g. "meta-llama/llama-3.3-70b"
+    if (id.startsWith("llama") || id.startsWith("mixtral") || id.startsWith("gemma")
+        || id.startsWith("deepseek") || id.startsWith("qwen") || id.startsWith("moonshot")
+        || id.startsWith("kimi") || id.startsWith("whisper")) return "groq";
+    return undefined;
 }
 
 export function getProviderById(providerId: string): ProviderDefinition | undefined {
