@@ -134,15 +134,15 @@ export default function AgentWorkspaceClient({
             </div>
 
             {/* Tab nav */}
-            <div className="border-b border-pulse-border-subtle mb-6 overflow-x-auto">
-                <nav className="flex gap-0 min-w-max">
+            <div className="border-b border-pulse-border-subtle mb-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <nav className="flex gap-1 min-w-max">
                     {TABS.map((t) => (
                         <button
                             key={t.id}
                             onClick={() => setActiveTab(t.id)}
-                            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${activeTab === t.id
-                                ? "border-indigo-600 text-indigo-500"
-                                : "border-transparent text-pulse-muted hover:text-pulse-text-soft"
+                            className={`px-3.5 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-t-md ${activeTab === t.id
+                                ? "border-pulse-accent text-pulse-accent-hi"
+                                : "border-transparent text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
                                 }`}
                         >
                             {t.label}

@@ -29,10 +29,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Anti-FOUC: sets data-theme on <html> before first paint, so the
-            correct theme is applied before React hydrates. Falls back to the
-            OS preference, then to dark (the CSS default in globals.css). */}
+            correct theme is applied before React hydrates. Honors the user's
+            saved choice; otherwise defaults to light (the product default). */}
         <Script id="pulse-theme-init" strategy="beforeInteractive">
-          {`(function(){try{var t=localStorage.getItem('pulse-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){}})();`}
+          {`(function(){try{var t=localStorage.getItem('pulse-theme');if(t!=='light'&&t!=='dark'){t='light';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();`}
         </Script>
         {children}
       </body>

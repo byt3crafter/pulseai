@@ -1,66 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--pulse-bg);
+  --color-foreground: var(--pulse-text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--pulse-bg);
+  color: var(--pulse-text);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
-/* ── Pulse admin design tokens (theme-aware) ──────────────────────────────
-   Dark is the default. Adding data-theme="light" on <html> flips the whole
-   admin console. Tint states use /opacity on these tokens, so they flip too.
-   Money & accent colors are darkened on light for WCAG-AA contrast on white. */
-:root {
-  --pulse-bg:            #0A0A0B;
-  --pulse-panel:         #0C0C0E;
-  --pulse-panel-alt:     #101012;
-  --pulse-hover:         #141417;
-  --pulse-tint:          #17132B;
-  --pulse-border:        #242429;
-  --pulse-border-subtle: #1C1C1F;
-  --pulse-border-strong: #33333B;
-  --pulse-text:          #EDEDED;
-  --pulse-text-soft:     #B5B5BA;
-  --pulse-muted:         #8A8A90;
-  --pulse-faint:         #5A5A61;
-  --pulse-accent:        #8B5CF6;
-  --pulse-accent-hi:     #A78BFA;
-  --pulse-profit:        #3FB950;
-  --pulse-loss:          #F0503C;
-  --pulse-info:          #3B82F6;
-  --pulse-code:          #050506;
-}
+/* ── Pulse design tokens (theme-aware) ────────────────────────────────────
+   LIGHT is the default (Google AI Studio: airy, white cards on a light-gray
+   canvas, indigo accent). data-theme="dark" flips to the Clerk look (refined
+   near-black, violet accent). Tints use /opacity on these tokens so they flip
+   too. The anti-FOUC script in layout.tsx stamps data-theme before paint. */
+:root,
 [data-theme="light"] {
-  --pulse-bg:            #F7F8FA;
+  --pulse-bg:            #F6F7F9;
   --pulse-panel:         #FFFFFF;
-  --pulse-panel-alt:     #F2F4F7;
-  --pulse-hover:         #EEF1F5;
-  --pulse-tint:          #F1ECFB;
-  --pulse-border:        #D8DDE4;
-  --pulse-border-subtle: #E7EBF0;
-  --pulse-border-strong: #C2C9D2;
-  --pulse-text:          #14181F;
-  --pulse-text-soft:     #2A2F37;
-  --pulse-muted:         #5A626C;
-  --pulse-faint:         #8A929C;
-  --pulse-accent:        #7C3AED;
-  --pulse-accent-hi:     #6D28D9;
+  --pulse-panel-alt:     #F1F3F6;
+  --pulse-hover:         #EDEFF3;
+  --pulse-tint:          #EEF0FE;
+  --pulse-border:        #E2E6EB;
+  --pulse-border-subtle: #ECEEF2;
+  --pulse-border-strong: #CFD5DD;
+  --pulse-text:          #1F2328;
+  --pulse-text-soft:     #3A424C;
+  --pulse-muted:         #5F6570;
+  --pulse-faint:         #929AA4;
+  --pulse-accent:        #4F46E5;
+  --pulse-accent-hi:     #4338CA;
   --pulse-profit:        #0F8A4F;
   --pulse-loss:          #CC2F26;
-  --pulse-info:          #1D6FE0;
-  --pulse-code:          #EEF1F5;
+  --pulse-info:          #1A73E8;
+  --pulse-code:          #F1F3F6;
+}
+[data-theme="dark"] {
+  --pulse-bg:            #0A0A0C;
+  --pulse-panel:         #131316;
+  --pulse-panel-alt:     #17171B;
+  --pulse-hover:         #1C1C21;
+  --pulse-tint:          #1E1A33;
+  --pulse-border:        #26262B;
+  --pulse-border-subtle: #1F1F24;
+  --pulse-border-strong: #34343B;
+  --pulse-text:          #F5F5F7;
+  --pulse-text-soft:     #C3C3C9;
+  --pulse-muted:         #9A9AA5;
+  --pulse-faint:         #66666F;
+  --pulse-accent:        #7C6DF2;
+  --pulse-accent-hi:     #A79BF7;
+  --pulse-profit:        #3FB950;
+  --pulse-loss:          #F0503C;
+  --pulse-info:          #4F9DF7;
+  --pulse-code:          #08080A;
 }
 
 @theme inline {
