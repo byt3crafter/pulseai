@@ -27,9 +27,12 @@ import {
     testMinimaxEmbeddingAction,
     saveVoyageKeyAction,
     testVoyageEmbeddingAction,
+    saveDraftChannelConfigAction,
+    saveAutoMemorySettingsAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
+import { CHANNEL_SETUP_CATALOG, type ChannelSetupDefinition } from "../../../utils/channel-catalog";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../../utils/pkce";
 import { buildOpenAIAuthUrl, getCallbackUrl } from "../../../utils/openai-oauth";
 import ConfirmDialog from "../../../components/ConfirmDialog";
@@ -94,10 +97,17 @@ interface PluginData {
     };
 }
 
+interface ChannelSetupStatus {
+    type: string;
+    status: string;
+    configuredFields: string[];
+}
+
 interface Props {
     tab: string;
     credits: number;
     telegramConnected: boolean;
+    channelSetups: ChannelSetupStatus[];
     oauthClients: { clientId: string; name: string; createdAt: string }[];
     apiTokens: { id: string; name: string; createdAt: string; lastUsedAt: string | null }[];
     userEmail: string;
@@ -110,6 +120,10 @@ interface Props {
         groupPolicy: string;
         requireMention: boolean;
     };
+    autoMemoryConfig: {
+        enabled: boolean;
+        maxMemories: number;
+    };
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -121,8 +135,9 @@ interface Props {
 
 export default function SettingsClient({
     tab, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
+    channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -161,7 +176,7 @@ export default function SettingsClient({
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
                     {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} />}
-                    {tab === "integrations" && <IntegrationsTab telegramConnected={telegramConnected} oauthEnabled={enableThirdPartyCli} />}
+                    {tab === "integrations" && <IntegrationsTab telegramConnected={telegramConnected} oauthEnabled={enableThirdPartyCli} channelSetups={channelSetups} />}
                     {tab === "telegram" && (
                         <TelegramTab
                             config={telegramConfig}
@@ -172,7 +187,7 @@ export default function SettingsClient({
                     )}
                     {tab === "email" && <EmailTab config={emailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
-                    {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} />}
+                    {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
                     {tab === "billing" && <BillingTab credits={credits} />}
@@ -250,8 +265,17 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
 
 // ─── Integrations Tab ───────────────────────────────────────────────────────
 
-function IntegrationsTab({ telegramConnected, oauthEnabled }: { telegramConnected: boolean; oauthEnabled: boolean }) {
+function IntegrationsTab({
+    telegramConnected,
+    oauthEnabled,
+    channelSetups,
+}: {
+    telegramConnected: boolean;
+    oauthEnabled: boolean;
+    channelSetups: ChannelSetupStatus[];
+}) {
     const [tokenStatus, setTokenStatus] = useState<{ type: "idle" | "loading" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+    const setupMap = new Map(channelSetups.map((setup) => [setup.type, setup]));
 
     const handleSaveTelegram = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -282,10 +306,10 @@ function IntegrationsTab({ telegramConnected, oauthEnabled }: { telegramConnecte
                 </div>
                 <div className="rounded-xl border border-pulse-border-subtle bg-pulse-panel p-4">
                     <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2.5 h-2.5 rounded-full bg-pulse-border-strong" />
+                        <div className={`w-2.5 h-2.5 rounded-full ${setupMap.get("whatsapp")?.status === "draft" ? "bg-amber-400" : "bg-pulse-border-strong"}`} />
                         <span className="text-sm font-semibold text-pulse-text">WhatsApp</span>
                     </div>
-                    <p className="text-xs text-pulse-muted">Coming soon</p>
+                    <p className="text-xs text-pulse-muted">{setupMap.get("whatsapp")?.status === "draft" ? "Draft saved" : "Not configured"}</p>
                 </div>
             </div>
 
@@ -315,10 +339,78 @@ function IntegrationsTab({ telegramConnected, oauthEnabled }: { telegramConnecte
                 </form>
             </Section>
 
-            <Section title="WhatsApp Business" description="Connect WhatsApp Business API to handle customer conversations." badge="Coming Soon">
-                <p className="text-sm text-pulse-faint">WhatsApp integration will be available in a future update.</p>
-            </Section>
+            {CHANNEL_SETUP_CATALOG.map((definition) => (
+                <ChannelSetupForm
+                    key={definition.type}
+                    definition={definition}
+                    setup={setupMap.get(definition.type)}
+                />
+            ))}
         </div>
+    );
+}
+
+function ChannelSetupForm({
+    definition,
+    setup,
+}: {
+    definition: ChannelSetupDefinition;
+    setup?: ChannelSetupStatus;
+}) {
+    const [status, setStatus] = useState<{ type: "idle" | "loading" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+    const isDraft = setup?.status === "draft";
+
+    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setStatus({ type: "loading", message: "" });
+        const fd = new FormData(e.currentTarget);
+        const result = await saveDraftChannelConfigAction(fd);
+        setStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
+        if (result.success) {
+            (e.target as HTMLFormElement).reset();
+        }
+    };
+
+    return (
+        <Section
+            title={definition.label}
+            description={definition.description}
+            badge={isDraft ? "Draft saved" : "Adapter pending"}
+        >
+            <form onSubmit={handleSave} className="space-y-4 max-w-xl">
+                <input type="hidden" name="channelType" value={definition.type} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {definition.fields.map((field) => {
+                        const configured = setup?.configuredFields.includes(field.name);
+                        return (
+                            <div key={field.name}>
+                                <FormInput
+                                    label={field.label}
+                                    name={field.name}
+                                    type={field.type === "secret" ? "password" : field.type}
+                                    placeholder={configured && field.type === "secret" ? "Configured; leave blank to keep" : field.placeholder}
+                                    mono={field.type === "secret"}
+                                />
+                                {field.helpText && <p className="text-xs text-pulse-faint mt-1">{field.helpText}</p>}
+                            </div>
+                        );
+                    })}
+                </div>
+                {status.type !== "idle" && (
+                    <p className={`text-sm ${status.type === "success" ? "text-green-400" : "text-red-400"}`}>{status.message}</p>
+                )}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <button
+                        type="submit"
+                        disabled={status.type === "loading"}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                    >
+                        {status.type === "loading" ? "Saving..." : isDraft ? "Update Draft" : "Save Draft"}
+                    </button>
+                    <p className="text-xs text-pulse-faint">Saved settings stay inactive until the runtime adapter is installed.</p>
+                </div>
+            </form>
+        </Section>
     );
 }
 

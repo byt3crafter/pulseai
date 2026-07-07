@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { encrypt, decrypt } from "../../../utils/crypto";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { getChannelSetupDefinition } from "../../../utils/channel-catalog";
 
 export async function changePasswordAction(formData: FormData) {
     const session = await auth();
@@ -74,7 +75,7 @@ export async function saveTelegramTokenAction(formData: FormData) {
         const agentProfileId = agentProfile[0]?.id ?? null;
 
         const existing = await db.select().from(channelConnections)
-            .where(eq(channelConnections.tenantId, tenantId)).limit(1);
+            .where(and(eq(channelConnections.tenantId, tenantId), eq(channelConnections.channelType, "telegram"))).limit(1);
 
         const encryptedToken = encrypt(token);
 
@@ -124,6 +125,80 @@ export async function saveTelegramTokenAction(formData: FormData) {
         return { success: true, message: `Connected to @${data.result.username} — send it /start on Telegram.` };
     } catch {
         return { success: false, message: "Failed to reach Telegram. Check your connection." };
+    }
+}
+
+export async function saveDraftChannelConfigAction(formData: FormData) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const channelType = ((formData.get("channelType") as string) || "").trim().toLowerCase();
+    const definition = getChannelSetupDefinition(channelType);
+    if (!definition) return { success: false, message: "Unsupported channel type." };
+
+    try {
+        const existing = await db.query.channelConnections.findFirst({
+            where: and(
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, channelType)
+            ),
+        });
+        const existingConfig = (existing?.channelConfig as Record<string, string | undefined>) || {};
+        const channelConfig: Record<string, string> = {
+            setupStatus: "draft",
+            runtimeStatus: definition.runtimeStatus,
+        };
+
+        for (const field of definition.fields) {
+            const rawValue = ((formData.get(field.name) as string) || "").trim();
+            const previousValue = existingConfig[field.name];
+
+            if (field.type === "secret") {
+                if (rawValue) {
+                    channelConfig[field.name] = encrypt(rawValue);
+                } else if (previousValue) {
+                    channelConfig[field.name] = previousValue;
+                } else if (field.required) {
+                    return { success: false, message: `${field.label} is required.` };
+                }
+                continue;
+            }
+
+            if (rawValue) {
+                channelConfig[field.name] = rawValue;
+            } else if (previousValue) {
+                channelConfig[field.name] = previousValue;
+            } else if (field.required) {
+                return { success: false, message: `${field.label} is required.` };
+            }
+        }
+
+        const agentProfile = await db.select({ id: agentProfiles.id })
+            .from(agentProfiles)
+            .where(eq(agentProfiles.tenantId, tenantId))
+            .limit(1);
+        const agentProfileId = agentProfile[0]?.id ?? null;
+
+        if (existing) {
+            await db.update(channelConnections)
+                .set({ channelConfig, status: "draft", agentProfileId })
+                .where(eq(channelConnections.id, existing.id));
+        } else {
+            await db.insert(channelConnections).values({
+                tenantId,
+                agentProfileId,
+                channelType,
+                channelConfig,
+                status: "draft",
+            });
+        }
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: `${definition.label} setup saved as draft.` };
+    } catch (error) {
+        console.error("Failed to save channel setup:", error);
+        return { success: false, message: "Failed to save channel setup." };
     }
 }
 
@@ -357,6 +432,37 @@ export async function updateTelegramPoliciesAction(config: {
     } catch (error) {
         console.error("Failed to update telegram policies:", error);
         return { success: false, message: "Failed to save Telegram policies." };
+    }
+}
+
+export async function saveAutoMemorySettingsAction(config: {
+    enabled: boolean;
+    maxMemories: number;
+}) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const maxMemories = Math.max(0, Math.min(5, Math.floor(Number(config.maxMemories) || 0)));
+
+    try {
+        await db.execute(
+            sql`UPDATE tenants
+                SET config = config || ${JSON.stringify({
+                    auto_memory: {
+                        enabled: config.enabled,
+                        maxMemories,
+                    },
+                })}::jsonb,
+                updated_at = now()
+                WHERE id = ${tenantId}::uuid`
+        );
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Automatic memory settings saved." };
+    } catch (error) {
+        console.error("Failed to update automatic memory settings:", error);
+        return { success: false, message: "Failed to save automatic memory settings." };
     }
 }
 

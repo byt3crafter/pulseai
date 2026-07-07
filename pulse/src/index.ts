@@ -7,6 +7,9 @@ import { channelConnections, tenants } from "./storage/schema.js";
 import { eq } from "drizzle-orm";
 import { worker, channelAdapters } from "./queue/worker.js";
 import { messageQueue } from "./queue/message-queue.js";
+import { initializeChannelAdapters } from "./channels/bootstrap.js";
+import { getChannelAdapterFactory, registerChannelAdapter } from "./channels/registry.js";
+import type { InboundMessage } from "./channels/types.js";
 import { startOAuthCallbackProxy, stopOAuthCallbackProxy } from "./gateway/oauth-callback-proxy.js";
 import { heartbeatScheduler } from "./infra/heartbeat-scheduler.js";
 import { cronScheduler } from "./cron/scheduler.js";
@@ -16,36 +19,27 @@ import { pluginManager } from "./plugins/manager.js";
 
 async function start() {
     try {
+        if (!getChannelAdapterFactory("telegram")) {
+            registerChannelAdapter("telegram", () => new TelegramAdapter());
+        }
+
         // Initialize Agent Runtime
         const agentRuntime = new AgentRuntime();
-
-        // Initialize Telegram Adapter
-        const telegramAdapter = new TelegramAdapter();
 
         // Load channel connections from database
         const connections = await db.query.channelConnections.findMany({
             where: eq(channelConnections.status, "active"),
         });
 
-        // Map connections to the format expected by adapter
-        const telegramConnections = connections
-            .filter((conn) => conn.channelType === "telegram")
-            .map((conn) => ({
-                id: conn.id,
-                tenantId: conn.tenantId,
-                agentProfileId: conn.agentProfileId,
-                channelType: conn.channelType,
-                channelConfig: conn.channelConfig as Record<string, any>,
-            }));
+        const normalizedConnections = connections.map((conn) => ({
+            id: conn.id,
+            tenantId: conn.tenantId,
+            agentProfileId: conn.agentProfileId,
+            channelType: conn.channelType,
+            channelConfig: conn.channelConfig as Record<string, any>,
+        }));
 
-        // Initialize Telegram connections
-        await telegramAdapter.initialize(telegramConnections);
-
-        // Register channel adapter with worker for queue processing
-        channelAdapters.set("telegram", telegramAdapter);
-
-        // Set up message handler for queue or fallback synchronous processing
-        telegramAdapter.onMessage(async (inbound) => {
+        const onInboundMessage = async (inbound: InboundMessage) => {
             if (messageQueue) {
                 // Production: Offload the heavy LLM call to Redis background worker
                 try {
@@ -55,23 +49,54 @@ async function start() {
                 } catch (e) {
                     server.log.error({ err: e }, "Failed to enqueue message");
                 }
-            } else {
-                // Dev Fallback: Run synchronously on main thread
-                await agentRuntime.processMessage(
-                    inbound,
-                    async (outbound) => {
-                        return await telegramAdapter.sendMessage(outbound);
-                    },
-                    {
-                        editMessageCallback: (tenantId, chatId, messageId, content, parseMode) =>
-                            telegramAdapter.editMessage(tenantId, chatId, messageId, content, parseMode),
-                    }
-                );
+                return;
             }
+
+            const adapter = channelAdapters.get(inbound.channelType);
+            if (!adapter) {
+                server.log.error({ channelType: inbound.channelType }, "Channel adapter not found");
+                return;
+            }
+
+            // Dev Fallback: Run synchronously on main thread
+            await agentRuntime.processMessage(
+                inbound,
+                async (outbound) => {
+                    return await adapter.sendMessage(outbound);
+                },
+                {
+                    editMessageCallback: adapter.editMessage
+                        ? (tenantId, chatId, messageId, content, parseMode) =>
+                            adapter.editMessage(tenantId, chatId, messageId, content, parseMode)
+                        : undefined,
+                }
+            );
+        };
+
+        await initializeChannelAdapters(normalizedConnections, {
+            adapterMap: channelAdapters,
+            logger: server.log,
+            onInboundMessage,
         });
+
+        // Ensure the Telegram adapter instance always exists — even with zero
+        // active Telegram connections at boot — so the webhook route can lazy-load
+        // a bot when a tenant connects Telegram later, without a gateway restart.
+        if (!channelAdapters.has("telegram")) {
+            const telegramFactory = getChannelAdapterFactory("telegram");
+            if (telegramFactory) {
+                const tg = telegramFactory();
+                tg.onMessage(onInboundMessage);
+                await tg.initialize([]);
+                channelAdapters.set("telegram", tg);
+            }
+        }
+
+        const telegramAdapter = channelAdapters.get("telegram") as TelegramAdapter | undefined;
 
         // Register Telegram adapter with server for webhook access
         server.decorate("telegramAdapter", telegramAdapter);
+        server.decorate("channelAdapters", channelAdapters);
 
         // Register AgentRuntime so MCP route and delegation can access it
         server.decorate("agentRuntime", agentRuntime);
@@ -132,7 +157,7 @@ async function start() {
         server.log.info(`🤖 Pulse AI Gateway is running on port ${config.PORT}`);
 
         // In production mode with webhook URL, set webhooks for all active bots
-        if (config.NODE_ENV === "production" && config.WEBHOOK_BASE_URL) {
+        if (telegramAdapter && config.NODE_ENV === "production" && config.WEBHOOK_BASE_URL) {
             server.log.info("Setting up Telegram webhooks for production mode");
             for (const [tenantId, bot] of telegramAdapter.activeBots.entries()) {
                 const tenant = await db.query.tenants.findFirst({
@@ -177,7 +202,9 @@ async function start() {
             await pluginManager.shutdown();
 
             // Stop accepting new messages
-            await telegramAdapter.shutdown();
+            for (const adapter of new Set(channelAdapters.values())) {
+                await adapter.shutdown();
+            }
 
             // Close worker if it exists
             if (worker) {
