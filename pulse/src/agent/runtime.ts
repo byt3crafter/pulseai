@@ -558,23 +558,61 @@ export class AgentRuntime {
                 });
             }
 
+            // Auto-memory runs in the BACKGROUND (fire-and-forget) so its extra
+            // extraction LLM call never delays the user's reply. It bills its own
+            // usage in a separate record rather than the main turn's.
             if (!isSilentReply && autoMemoryConfig.enabled && resolvedAgentProfileId && inbound.channelType !== "heartbeat") {
-                const autoMemoryResult = await autoMemoryService.captureTurn({
-                    tenantId: inbound.tenantId,
-                    agentId: resolvedAgentProfileId,
-                    model: activeModelId,
-                    userMessage: inbound.content,
-                    assistantMessage: llmResponse.content,
-                    maxMemories: autoMemoryConfig.maxMemories,
-                });
-                if (autoMemoryResult.storedCount > 0) {
-                    tenantLog.info(
-                        { storedCount: autoMemoryResult.storedCount },
-                        "Auto-memory stored extracted memories"
-                    );
-                }
-                llmResponse.usage.inputTokens += autoMemoryResult.usage.inputTokens;
-                llmResponse.usage.outputTokens += autoMemoryResult.usage.outputTokens;
+                const amAgentId = resolvedAgentProfileId;
+                const amModel = activeModelId;
+                const amProvider = llmResponse.provider;
+                const amUser = inbound.content;
+                const amAssistant = llmResponse.content;
+                const amTenantId = inbound.tenantId;
+                const amConversationId = conversation.id;
+                void (async () => {
+                    try {
+                        const r = await autoMemoryService.captureTurn({
+                            tenantId: amTenantId,
+                            agentId: amAgentId,
+                            model: amModel,
+                            userMessage: amUser,
+                            assistantMessage: amAssistant,
+                            maxMemories: autoMemoryConfig.maxMemories,
+                        });
+                        if (r.storedCount > 0) {
+                            tenantLog.info({ storedCount: r.storedCount }, "Auto-memory stored extracted memories");
+                        }
+                        const amTokens = r.usage.inputTokens + r.usage.outputTokens;
+                        if (amTokens > 0) {
+                            const p = await this.providerManager.getPricing(amModel, amProvider);
+                            const base = (r.usage.inputTokens * p.baseInput + r.usage.outputTokens * p.baseOutput) / 1_000_000;
+                            const cost = (r.usage.inputTokens * p.customerInput + r.usage.outputTokens * p.customerOutput) / 1_000_000;
+                            const credits = cost * 100;
+                            await db.transaction(async (tx) => {
+                                const [rec] = await tx.insert(usageRecords).values({
+                                    tenantId: amTenantId,
+                                    conversationId: amConversationId,
+                                    model: amModel,
+                                    inputTokens: r.usage.inputTokens.toString(),
+                                    outputTokens: r.usage.outputTokens.toString(),
+                                    costUsd: cost.toFixed(6),
+                                    baseCostUsd: base.toFixed(6),
+                                    creditsUsed: credits.toFixed(4),
+                                }).returning();
+                                await tx.execute(sql`UPDATE tenant_balances SET balance = balance - ${credits}, updated_at = NOW() WHERE tenant_id = ${amTenantId}`);
+                                await tx.insert(ledgerTransactions).values({
+                                    tenantId: amTenantId,
+                                    amount: (-credits).toFixed(4),
+                                    type: "usage",
+                                    description: `${amProvider}/${amModel} (auto-memory)`,
+                                    referenceId: rec.id,
+                                });
+                            });
+                        }
+                    } catch (err) {
+                        tenantLog.warn({ err }, "Auto-memory background capture failed");
+                    }
+                })();
             }
 
             // 6. Record Cost/Usage for Billing Tracking
