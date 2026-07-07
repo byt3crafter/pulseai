@@ -148,9 +148,19 @@ export class AutoMemoryService {
     }
 
     private parseCandidates(raw: string): AutoMemoryCandidate[] {
+        // Reasoning models (e.g. MiniMax M3) wrap the JSON in <think>…</think>
+        // and/or prose/code fences, which breaks a naive JSON.parse. Strip the
+        // reasoning, then parse the JSON object substring.
+        const cleaned = (raw || "")
+            .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")
+            .replace(/<think(?:ing)?>[\s\S]*$/gi, "");
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
+        if (start < 0 || end < start) return [];
+
         let parsed: unknown;
         try {
-            parsed = JSON.parse(raw);
+            parsed = JSON.parse(cleaned.slice(start, end + 1));
         } catch {
             return [];
         }
