@@ -14,7 +14,7 @@ export default async function OrchestrationOverviewPage() {
     if (!session?.user) return redirect("/auth/login");
 
     const tenantId = (session.user as any).tenantId;
-    if (!tenantId) return <div className="p-8 text-slate-500">No tenant associated with this account.</div>;
+    if (!tenantId) return <div className="p-4 sm:p-6 lg:p-8 text-pulse-muted">No tenant associated with this account.</div>;
 
     // Get all agents with their delegation configs
     const agents = await db.query.agentProfiles.findMany({
@@ -37,18 +37,18 @@ export default async function OrchestrationOverviewPage() {
     const failedCount = recentDelegations.filter((d) => d.status === "failed").length;
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
-                <a href="/dashboard/agents" className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">
+                <a href="/dashboard/agents" className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                     &larr; Back to Agents
                 </a>
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                        <NetworkIcon className="w-6 h-6 text-blue-600" />
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <NetworkIcon className="w-6 h-6 text-blue-400" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Orchestration Overview</h1>
-                        <p className="text-slate-500 text-sm">Multi-agent relationships and delegation activity.</p>
+                        <h1 className="text-2xl font-bold text-pulse-text">Orchestration Overview</h1>
+                        <p className="text-pulse-muted text-sm">Multi-agent relationships and delegation activity.</p>
                     </div>
                 </div>
             </div>
@@ -63,16 +63,16 @@ export default async function OrchestrationOverviewPage() {
                 </div>
 
                 {/* Agent Relationships */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-200">
-                        <h2 className="text-lg font-semibold text-slate-900">Agent Capabilities</h2>
-                        <p className="text-sm text-slate-500 mt-1">Delegation configuration for each agent.</p>
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                    <div className="p-6 border-b border-pulse-border-subtle">
+                        <h2 className="text-lg font-semibold text-pulse-text">Agent Capabilities</h2>
+                        <p className="text-sm text-pulse-muted mt-1">Delegation configuration for each agent.</p>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                                <tr className="text-left text-xs text-pulse-muted border-b border-pulse-border-subtle">
                                     <th className="px-6 py-3 font-medium">Agent</th>
                                     <th className="px-6 py-3 font-medium">Can Delegate</th>
                                     <th className="px-6 py-3 font-medium">Accepts Delegation</th>
@@ -85,31 +85,31 @@ export default async function OrchestrationOverviewPage() {
                                 {agents.map((agent) => {
                                     const del = (agent.delegationConfig as any) || {};
                                     return (
-                                        <tr key={agent.id} className="border-b border-slate-50 hover:bg-slate-50">
+                                        <tr key={agent.id} className="border-b border-pulse-border-subtle hover:bg-pulse-hover">
                                             <td className="px-6 py-3">
-                                                <div className="text-sm font-medium text-slate-900">{agent.name}</div>
-                                                <div className="text-xs text-slate-400">{agent.modelId}</div>
+                                                <div className="text-sm font-medium text-pulse-text">{agent.name}</div>
+                                                <div className="text-xs text-pulse-faint">{agent.modelId}</div>
                                             </td>
                                             <td className="px-6 py-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                    del.canDelegate ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-500"
+                                                    del.canDelegate ? "bg-green-500/10 text-green-400" : "bg-pulse-panel-alt text-pulse-muted"
                                                 }`}>
                                                     {del.canDelegate ? "Yes" : "No"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                    del.acceptsDelegation ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-500"
+                                                    del.acceptsDelegation ? "bg-green-500/10 text-green-400" : "bg-pulse-panel-alt text-pulse-muted"
                                                 }`}>
                                                     {del.acceptsDelegation ? "Yes" : "No"}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-3 text-sm text-slate-500 max-w-xs">
+                                            <td className="px-6 py-3 text-sm text-pulse-muted max-w-xs">
                                                 <p className="truncate">{del.specialization || "—"}</p>
                                             </td>
-                                            <td className="px-6 py-3 text-sm text-slate-500">{del.maxDepth || 3}</td>
+                                            <td className="px-6 py-3 text-sm text-pulse-muted">{del.maxDepth || 3}</td>
                                             <td className="px-6 py-3">
-                                                <a href={`/dashboard/agents/${agent.id}/delegation`} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                                                <a href={`/dashboard/agents/${agent.id}/delegation`} className="text-xs text-indigo-500 hover:text-indigo-400 font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                                                     Configure
                                                 </a>
                                             </td>
@@ -122,16 +122,16 @@ export default async function OrchestrationOverviewPage() {
                 </div>
 
                 {/* Recent Delegations */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-200">
-                        <h2 className="text-lg font-semibold text-slate-900">Recent Delegations</h2>
-                        <p className="text-sm text-slate-500 mt-1">Cross-agent task delegations across all agents.</p>
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                    <div className="p-6 border-b border-pulse-border-subtle">
+                        <h2 className="text-lg font-semibold text-pulse-text">Recent Delegations</h2>
+                        <p className="text-sm text-pulse-muted mt-1">Cross-agent task delegations across all agents.</p>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                                <tr className="text-left text-xs text-pulse-muted border-b border-pulse-border-subtle">
                                     <th className="px-6 py-3 font-medium">Source</th>
                                     <th className="px-6 py-3 font-medium">Target</th>
                                     <th className="px-6 py-3 font-medium">Task</th>
@@ -142,28 +142,28 @@ export default async function OrchestrationOverviewPage() {
                             <tbody>
                                 {recentDelegations.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
+                                        <td colSpan={5} className="px-6 py-12 text-center text-sm text-pulse-faint">
                                             No delegations yet. Enable delegation on agents to see activity.
                                         </td>
                                     </tr>
                                 )}
                                 {recentDelegations.map((d) => (
-                                    <tr key={d.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                        <td className="px-6 py-3 text-sm text-slate-700">{agentMap.get(d.sourceAgentId) || d.sourceAgentId.substring(0, 8)}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-700">{agentMap.get(d.targetAgentId) || d.targetAgentId.substring(0, 8)}</td>
-                                        <td className="px-6 py-3 text-sm text-slate-500 max-w-xs">
+                                    <tr key={d.id} className="border-b border-pulse-border-subtle hover:bg-pulse-hover">
+                                        <td className="px-6 py-3 text-sm text-pulse-text-soft">{agentMap.get(d.sourceAgentId) || d.sourceAgentId.substring(0, 8)}</td>
+                                        <td className="px-6 py-3 text-sm text-pulse-text-soft">{agentMap.get(d.targetAgentId) || d.targetAgentId.substring(0, 8)}</td>
+                                        <td className="px-6 py-3 text-sm text-pulse-muted max-w-xs">
                                             <p className="truncate">{d.task}</p>
                                         </td>
                                         <td className="px-6 py-3">
                                             <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                                d.status === "completed" ? "bg-green-50 text-green-700" :
-                                                d.status === "failed" ? "bg-red-50 text-red-700" :
-                                                "bg-yellow-50 text-yellow-700"
+                                                d.status === "completed" ? "bg-green-500/10 text-green-400" :
+                                                d.status === "failed" ? "bg-red-500/10 text-red-400" :
+                                                "bg-yellow-500/10 text-yellow-400"
                                             }`}>
                                                 {d.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-3 text-xs text-slate-400">
+                                        <td className="px-6 py-3 text-xs text-pulse-faint">
                                             {d.startedAt ? new Date(d.startedAt).toLocaleString() : "—"}
                                         </td>
                                     </tr>
@@ -179,9 +179,9 @@ export default async function OrchestrationOverviewPage() {
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <p className="text-2xl font-bold text-slate-900">{value}</p>
-            <p className="text-sm text-slate-500">{label}</p>
+        <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-4">
+            <p className="text-2xl font-bold text-pulse-text">{value}</p>
+            <p className="text-sm text-pulse-muted">{label}</p>
         </div>
     );
 }

@@ -103,36 +103,36 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
     return (
         <div className="space-y-6">
             {/* Mode toggle */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                    <h2 className="text-sm font-semibold text-slate-900">Email Configuration</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+            <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                    <h2 className="text-sm font-semibold text-pulse-text">Email Configuration</h2>
+                    <p className="text-xs text-pulse-faint mt-0.5">
                         Configure email access for this agent. Use company-wide settings or set custom credentials.
                     </p>
                 </div>
-                <div className="p-6">
-                    <div className="flex gap-4">
+                <div className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row gap-4">
                         <button
                             onClick={() => setUseCustom(false)}
-                            className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                            className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                                 !useCustom
-                                    ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    ? "border-indigo-500/30 bg-pulse-tint text-pulse-accent-hi"
+                                    : "border-pulse-border-subtle bg-pulse-panel text-pulse-muted hover:bg-pulse-hover"
                             }`}
                         >
                             Use Company Email
                             {!hasTenantEmail && (
-                                <span className="block text-xs font-normal text-amber-600 mt-1">
+                                <span className="block text-xs font-normal text-amber-400 mt-1">
                                     Not configured yet
                                 </span>
                             )}
                         </button>
                         <button
                             onClick={() => setUseCustom(true)}
-                            className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                            className={`flex-1 px-4 py-3 rounded-lg border text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                                 useCustom
-                                    ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                    ? "border-indigo-500/30 bg-pulse-tint text-pulse-accent-hi"
+                                    : "border-pulse-border-subtle bg-pulse-panel text-pulse-muted hover:bg-pulse-hover"
                             }`}
                         >
                             Use Custom Email
@@ -145,69 +145,69 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
             {useCustom && (
                 <>
                     {/* SMTP Config */}
-                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100">
-                            <h3 className="text-sm font-semibold text-slate-900">SMTP (Outgoing)</h3>
-                            <p className="text-xs text-slate-400 mt-0.5">Configure outgoing email via SMTP.</p>
+                    <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                            <h3 className="text-sm font-semibold text-pulse-text">SMTP (Outgoing)</h3>
+                            <p className="text-xs text-pulse-faint mt-0.5">Configure outgoing email via SMTP.</p>
                         </div>
-                        <div className="p-6 grid grid-cols-2 gap-4">
+                        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Host</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Host</label>
                                 <input
                                     type="text"
                                     value={smtpHost}
                                     onChange={(e) => setSmtpHost(e.target.value)}
                                     placeholder="smtp.gmail.com"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Port</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Port</label>
                                 <input
                                     type="number"
                                     value={smtpPort}
                                     onChange={(e) => setSmtpPort(e.target.value)}
                                     placeholder="587"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Username</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Username</label>
                                 <input
                                     type="text"
                                     value={smtpUsername}
                                     onChange={(e) => setSmtpUsername(e.target.value)}
                                     placeholder="user@company.com"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Password</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Password</label>
                                 <input
                                     type="password"
                                     value={smtpPassword}
                                     onChange={(e) => setSmtpPassword(e.target.value)}
                                     placeholder={hasExistingSmtpPassword ? "••••••••" : "App password or SMTP password"}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">From Address</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">From Address</label>
                                 <input
                                     type="email"
                                     value={smtpFrom}
                                     onChange={(e) => setSmtpFrom(e.target.value)}
                                     placeholder="agent@company.com"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div className="flex items-end">
-                                <label className="flex items-center gap-2 text-sm text-slate-700">
+                                <label className="flex items-center gap-2 text-sm text-pulse-text-soft">
                                     <input
                                         type="checkbox"
                                         checked={smtpTls}
                                         onChange={(e) => setSmtpTls(e.target.checked)}
-                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="rounded border-pulse-border text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                     />
                                     Use TLS
                                 </label>
@@ -216,59 +216,59 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                     </div>
 
                     {/* IMAP Config */}
-                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100">
-                            <h3 className="text-sm font-semibold text-slate-900">IMAP (Incoming)</h3>
-                            <p className="text-xs text-slate-400 mt-0.5">Configure incoming email via IMAP. Optional.</p>
+                    <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                            <h3 className="text-sm font-semibold text-pulse-text">IMAP (Incoming)</h3>
+                            <p className="text-xs text-pulse-faint mt-0.5">Configure incoming email via IMAP. Optional.</p>
                         </div>
-                        <div className="p-6 grid grid-cols-2 gap-4">
+                        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Host</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Host</label>
                                 <input
                                     type="text"
                                     value={imapHost}
                                     onChange={(e) => setImapHost(e.target.value)}
                                     placeholder="imap.gmail.com"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Port</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Port</label>
                                 <input
                                     type="number"
                                     value={imapPort}
                                     onChange={(e) => setImapPort(e.target.value)}
                                     placeholder="993"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Username</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Username</label>
                                 <input
                                     type="text"
                                     value={imapUsername}
                                     onChange={(e) => setImapUsername(e.target.value)}
                                     placeholder="user@company.com"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Password</label>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Password</label>
                                 <input
                                     type="password"
                                     value={imapPassword}
                                     onChange={(e) => setImapPassword(e.target.value)}
                                     placeholder={hasExistingImapPassword ? "••••••••" : "App password or IMAP password"}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
                             <div className="flex items-end">
-                                <label className="flex items-center gap-2 text-sm text-slate-700">
+                                <label className="flex items-center gap-2 text-sm text-pulse-text-soft">
                                     <input
                                         type="checkbox"
                                         checked={imapTls}
                                         onChange={(e) => setImapTls(e.target.checked)}
-                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="rounded border-pulse-border text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                     />
                                     Use TLS
                                 </label>
@@ -279,19 +279,19 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
             )}
 
             {/* Save button */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
                 <button
                     onClick={handleSave}
                     disabled={pending}
-                    className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
                     {pending ? "Saving..." : "Save Email Config"}
                 </button>
                 {status.type === "success" && (
-                    <span className="text-sm text-emerald-600">{status.message || "Saved!"}</span>
+                    <span className="text-sm text-green-400">{status.message || "Saved!"}</span>
                 )}
                 {status.type === "error" && (
-                    <span className="text-sm text-red-600">{status.message || "Failed to save."}</span>
+                    <span className="text-sm text-red-400">{status.message || "Failed to save."}</span>
                 )}
             </div>
         </div>

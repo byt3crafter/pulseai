@@ -232,7 +232,7 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
             </Section>
 
             {/* Security */}
-            <TwoFactorCard variant="light" />
+            <TwoFactorCard variant="pulse" />
         </div>
     );
 }
