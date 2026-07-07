@@ -359,12 +359,15 @@ export class AgentRuntime {
                 tenantLog.warn({ err }, "Plugin before-prompt-build hook failed (non-fatal)");
             }
 
-            // 3.9 Pre-Flight: Verify an AI provider key exists before calling the LLM
+            // 3.9 Pre-Flight: Verify an AI provider key exists before calling the LLM.
+            // "codex" is keyless — it authenticates via the local Codex CLI (CODEX_HOME
+            // / ChatGPT subscription), so it's exempt from the API-key requirement.
             const providerDef = getProviderByModel(activeModelId);
             const providerId = providerDef?.id ?? "anthropic";
-            const resolvedKey = await providerKeyService.resolveKey(inbound.tenantId, providerId);
+            const keylessProvider = providerId === "codex";
+            const resolvedKey = keylessProvider ? null : await providerKeyService.resolveKey(inbound.tenantId, providerId);
 
-            if (!resolvedKey) {
+            if (!resolvedKey && !keylessProvider) {
                 tenantLog.warn({ model: activeModelId, provider: providerId }, "No AI provider key configured");
                 await sendMessageCallback({
                     conversationId: conversation.id,
