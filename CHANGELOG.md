@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.30] - 2026-07-07
+
+### Features
+- MiniMax embeddings option (embo-01) alongside OpenAI
+
 ## [0.10.29] - 2026-07-07
 
 ### Features
