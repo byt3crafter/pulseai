@@ -22,6 +22,7 @@ export class ProviderManager {
     async chat(params: {
         model: string;
         tenantId: string;
+        agentProfileId?: string;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tools?: Array<{
@@ -59,6 +60,7 @@ export class ProviderManager {
             const response = await primaryProvider.chat({
                 model: params.model,
                 tenantId: params.tenantId,
+                agentProfileId: params.agentProfileId,
                 systemPrompt: params.systemPrompt,
                 messages: params.messages,
                 tenantApiKey: apiKey,

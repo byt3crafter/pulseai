@@ -47,6 +47,7 @@ export class AnthropicProvider {
     async chat(params: {
         model: string;
         tenantId?: string;
+        agentProfileId?: string;
         systemPrompt: string;
         messages: ProviderMessage[];
         tenantApiKey?: string;
