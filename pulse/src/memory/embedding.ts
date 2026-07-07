@@ -14,10 +14,18 @@ const EMBEDDING_DIMENSIONS = 1536; // both OpenAI small and MiniMax embo-01
 export { EMBEDDING_DIMENSIONS };
 
 export interface EmbeddingConfig {
-    provider: "openai" | "minimax";
+    provider: "openai" | "minimax" | "voyage";
     apiKey?: string | null;
     groupId?: string | null;   // MiniMax only
-    type?: "db" | "query";      // MiniMax: 'db' for stored docs, 'query' for searches
+    model?: string | null;      // Voyage: voyage-3-large | voyage-3-lite
+    type?: "db" | "query";      // 'db' = stored doc, 'query' = search
+}
+
+// Output vector dimension per provider (the memory column is resized to match
+// when the active provider changes). Voyage is forced to 1024 for both models.
+export const VOYAGE_DIMENSION = 1024;
+export function dimensionForProvider(provider: string): number {
+    return provider === "voyage" ? VOYAGE_DIMENSION : 1536;
 }
 
 /**
@@ -57,6 +65,30 @@ export async function generateEmbedding(
                 return null;
             }
             return j.vectors[0] as number[];
+        }
+
+        if (c.provider === "voyage") {
+            if (!c.apiKey) {
+                logger.debug("Voyage embedding not configured (key) — FTS-only mode");
+                return null;
+            }
+            const r = await fetch("https://api.voyageai.com/v1/embeddings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${c.apiKey}` },
+                body: JSON.stringify({
+                    model: c.model || "voyage-3-large",
+                    input: [input],
+                    input_type: c.type === "query" ? "query" : "document",
+                    output_dimension: VOYAGE_DIMENSION,
+                }),
+            });
+            if (!r.ok) {
+                logger.error({ status: r.status, err: await r.text() }, "Voyage embedding API error");
+                return null;
+            }
+            const j = await r.json();
+            const vec = j?.data?.[0]?.embedding;
+            return Array.isArray(vec) ? (vec as number[]) : null;
         }
 
         // Default: OpenAI-compatible embeddings

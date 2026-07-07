@@ -871,37 +871,128 @@ export async function removeEmbeddingKeyAction(): Promise<{ success: boolean; me
 // ── Embedding provider selection (OpenAI or MiniMax embo-01) ──────────────────
 // Provider choice + MiniMax GroupId live in tenants.config.embedding. The API
 // keys come from tenant_provider_keys (openai_embeddings / minimax rows).
-type EmbProvider = "openai" | "minimax";
+type EmbProvider = "openai" | "minimax" | "voyage";
+
+const embDimFor = (p: EmbProvider): number => (p === "voyage" ? 1024 : 1536);
+
+// Resize the shared memory vector column to `newDim` if it differs, clearing
+// existing memories (vectors of different dimensions/providers aren't
+// comparable). Returns true if it resized. memory_entries is shared, so this is
+// a deployment-wide op (fine for single-tenant installs).
+async function ensureEmbeddingDimension(newDim: number): Promise<boolean> {
+    const res: any = await db.execute(sql`SELECT format_type(atttypid, atttypmod) AS t FROM pg_attribute WHERE attrelid = 'memory_entries'::regclass AND attname = 'embedding'`);
+    const rows = Array.isArray(res) ? res : (res?.rows ?? []);
+    const m = /vector\((\d+)\)/.exec(rows[0]?.t || "");
+    const curDim = m ? Number(m[1]) : null;
+    if (curDim === newDim) return false;
+    await db.execute(sql`DROP INDEX IF EXISTS idx_memory_embedding`);
+    await db.execute(sql`DELETE FROM memory_entries`);
+    await db.execute(sql.raw(`ALTER TABLE memory_entries ALTER COLUMN embedding TYPE vector(${newDim})`));
+    await db.execute(sql.raw(`CREATE INDEX idx_memory_embedding ON memory_entries USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)`));
+    return true;
+}
 
 export async function getEmbeddingConfigAction(): Promise<{
     provider: EmbProvider; openaiConfigured: boolean; minimaxKeyPresent: boolean; minimaxGroupId: string | null;
+    voyageKeyPresent: boolean; voyageModel: string;
 }> {
     const tc = await requireTenant();
-    const empty = { provider: "openai" as EmbProvider, openaiConfigured: false, minimaxKeyPresent: false, minimaxGroupId: null };
+    const empty = { provider: "openai" as EmbProvider, openaiConfigured: false, minimaxKeyPresent: false, minimaxGroupId: null, voyageKeyPresent: false, voyageModel: "voyage-3-large" };
     if (!tc.authorized) return empty;
     const [t] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tc.tenantId)).limit(1);
     const emb = ((t?.config as any)?.embedding) || {};
-    const provider: EmbProvider = emb.provider === "minimax" ? "minimax" : "openai";
+    const provider: EmbProvider = emb.provider === "minimax" ? "minimax" : emb.provider === "voyage" ? "voyage" : "openai";
     const has = async (p: string) => !!(await db.select({ id: tenantProviderKeys.id }).from(tenantProviderKeys)
         .where(and(eq(tenantProviderKeys.tenantId, tc.tenantId), eq(tenantProviderKeys.provider, p), eq(tenantProviderKeys.isActive, true))).limit(1))[0];
-    return { provider, openaiConfigured: await has("openai_embeddings"), minimaxKeyPresent: await has("minimax"), minimaxGroupId: emb.groupId || null };
+    return {
+        provider,
+        openaiConfigured: await has("openai_embeddings"),
+        minimaxKeyPresent: await has("minimax"),
+        minimaxGroupId: emb.groupId || null,
+        voyageKeyPresent: await has("voyage_embeddings"),
+        voyageModel: emb.model || "voyage-3-large",
+    };
 }
 
-export async function saveEmbeddingProviderAction(provider: EmbProvider, groupId?: string): Promise<{ success: boolean; message: string }> {
+// `arg`: MiniMax passes a groupId string (back-compat); Voyage passes { model }.
+export async function saveEmbeddingProviderAction(provider: EmbProvider, arg?: string | { groupId?: string; model?: string }): Promise<{ success: boolean; message: string }> {
     const tc = await requireTenant();
     if (!tc.authorized) return { success: false, message: tc.message };
-    if (provider !== "openai" && provider !== "minimax") return { success: false, message: "Invalid provider." };
-    if (provider === "minimax" && !groupId?.trim()) return { success: false, message: "MiniMax needs a GroupId." };
+    if (!["openai", "minimax", "voyage"].includes(provider)) return { success: false, message: "Invalid provider." };
+    const opts = typeof arg === "string" ? { groupId: arg } : (arg || {});
+    if (provider === "minimax" && !opts.groupId?.trim()) return { success: false, message: "MiniMax needs a GroupId." };
+    const model = provider === "voyage" ? (opts.model === "voyage-3-lite" ? "voyage-3-lite" : "voyage-3-large") : undefined;
     try {
+        let resized = false;
+        try {
+            resized = await ensureEmbeddingDimension(embDimFor(provider));
+        } catch (e) {
+            console.error("embedding dimension resize failed:", e);
+            return { success: false, message: "Couldn't resize the memory index for this provider — not switched." };
+        }
         const [t] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tc.tenantId)).limit(1);
         const cfg = { ...((t?.config as any) || {}) };
-        cfg.embedding = provider === "minimax" ? { provider, groupId: groupId!.trim() } : { provider };
+        cfg.embedding = provider === "minimax" ? { provider, groupId: opts.groupId!.trim() }
+            : provider === "voyage" ? { provider, model }
+            : { provider };
         await db.update(tenants).set({ config: cfg }).where(eq(tenants.id, tc.tenantId));
         revalidatePath("/dashboard/settings");
-        return { success: true, message: `Embeddings now use ${provider === "minimax" ? "MiniMax (embo-01)" : "OpenAI (text-embedding-3-small)"}.` };
+        const name = provider === "minimax" ? "MiniMax (embo-01)" : provider === "voyage" ? `Voyage (${model})` : "OpenAI (text-embedding-3-small)";
+        return { success: true, message: `Embeddings now use ${name}.${resized ? " Existing memories were cleared (embedding dimension changed)." : ""}` };
     } catch (e) {
         console.error("saveEmbeddingProvider failed:", e);
         return { success: false, message: "Failed to save the embedding provider." };
+    }
+}
+
+// Save a standalone Voyage AI API key (provider slug "voyage_embeddings").
+export async function saveVoyageKeyAction(apiKey: string): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    const key = (apiKey || "").trim();
+    if (!key) return { success: false, message: "Enter a Voyage API key." };
+    try {
+        const enc = encrypt(key);
+        await db.insert(tenantProviderKeys)
+            .values({ tenantId: tc.tenantId, provider: "voyage_embeddings", authMethod: "api_key", encryptedApiKey: enc, isActive: true })
+            .onConflictDoUpdate({ target: [tenantProviderKeys.tenantId, tenantProviderKeys.provider], set: { encryptedApiKey: enc, authMethod: "api_key", isActive: true } });
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Voyage API key saved." };
+    } catch (e) {
+        console.error("saveVoyageKey failed:", e);
+        return { success: false, message: "Failed to save the Voyage key." };
+    }
+}
+
+// Test a Voyage key (uses the passed key, or the stored one if blank).
+export async function testVoyageEmbeddingAction(apiKey: string, model?: string): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    let key = (apiKey || "").trim();
+    if (!key) {
+        const [row] = await db.select({ enc: tenantProviderKeys.encryptedApiKey }).from(tenantProviderKeys)
+            .where(and(eq(tenantProviderKeys.tenantId, tc.tenantId), eq(tenantProviderKeys.provider, "voyage_embeddings"), eq(tenantProviderKeys.isActive, true))).limit(1);
+        if (row?.enc) key = decrypt(row.enc);
+    }
+    if (!key) return { success: false, message: "Enter a Voyage API key first." };
+    const m = model === "voyage-3-lite" ? "voyage-3-lite" : "voyage-3-large";
+    try {
+        const r = await fetch("https://api.voyageai.com/v1/embeddings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            body: JSON.stringify({ model: m, input: ["Pulse embedding test."], input_type: "document", output_dimension: 1024 }),
+        });
+        if (r.ok) {
+            const j = await r.json();
+            const dim = j?.data?.[0]?.embedding?.length;
+            return { success: true, message: `Works — ${m} returned a ${dim}-dimension vector.` };
+        }
+        let reason = `HTTP ${r.status}`;
+        try { const e = await r.json(); reason = e?.detail || e?.error?.message || reason; } catch { /* ignore */ }
+        if (r.status === 401) reason = "Invalid Voyage API key (unauthorized).";
+        return { success: false, message: `Voyage rejected it: ${reason}` };
+    } catch {
+        return { success: false, message: "Couldn't reach Voyage — check the network and try again." };
     }
 }
 

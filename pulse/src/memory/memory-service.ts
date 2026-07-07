@@ -27,9 +27,12 @@ async function resolveEmbeddingConfig(tenantId: string): Promise<EmbeddingConfig
     try {
         const [t] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
         const emb = (t?.config as any)?.embedding || {};
-        const provider: "openai" | "minimax" = emb.provider === "minimax" ? "minimax" : "openai";
+        const provider: "openai" | "minimax" | "voyage" =
+            emb.provider === "minimax" ? "minimax" : emb.provider === "voyage" ? "voyage" : "openai";
 
-        const keyProvider = provider === "minimax" ? "minimax" : "openai_embeddings";
+        const keyProvider = provider === "minimax" ? "minimax"
+            : provider === "voyage" ? "voyage_embeddings"
+            : "openai_embeddings";
         const [row] = await db
             .select({ enc: tenantProviderKeys.encryptedApiKey })
             .from(tenantProviderKeys)
@@ -42,6 +45,8 @@ async function resolveEmbeddingConfig(tenantId: string): Promise<EmbeddingConfig
         const apiKey = row?.enc ? decrypt(row.enc) : null;
         cfg = provider === "minimax"
             ? { provider: "minimax", apiKey, groupId: emb.groupId || null }
+            : provider === "voyage"
+            ? { provider: "voyage", apiKey, model: emb.model || "voyage-3-large" }
             : { provider: "openai", apiKey };
     } catch (err) {
         logger.error({ err, tenantId }, "Failed to resolve tenant embedding config");
