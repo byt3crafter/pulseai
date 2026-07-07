@@ -494,6 +494,13 @@ export class AgentRuntime {
             llmResponse.usage.inputTokens = totalInputTokens;
             llmResponse.usage.outputTokens = totalOutputTokens;
 
+            // 4.55 Strip chain-of-thought — reasoning models (e.g. MiniMax M2.5) emit
+            // <think>…</think> in the content; never surface it to users or persist it.
+            llmResponse.content = llmResponse.content
+                .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")  // paired blocks
+                .replace(/<\/?think(?:ing)?>/gi, "")                          // stray tags
+                .trim();
+
             // 4.6 Check for silent reply token — suppress empty/ack responses
             const isSilentReply = llmResponse.content.trim() === SILENT_REPLY_TOKEN;
 

@@ -1,12 +1,12 @@
 import { Tool } from "../tool.interface.js";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../../utils/logger.js";
 import { parseSandboxConfig } from "./sandbox-config.js";
 import { evaluate } from "../safety/exec-policy.js";
 import { credentialVault } from "../credential-vault.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export function createSandboxTool(sandboxConfig?: any, workspacePath?: string): Tool {
     const cfg = parseSandboxConfig(sandboxConfig);
@@ -81,12 +81,15 @@ export function createSandboxTool(sandboxConfig?: any, workspacePath?: string): 
                 if (cfg.docker?.setupCommand) {
                     fullScript = `${cfg.docker.setupCommand} && ${script}`;
                 }
-                const escapedScript = fullScript.replace(/'/g, "'\\''");
 
-                dockerArgs.push(image, "sh", "-c", escapedScript);
-                const cmd = `docker ${dockerArgs.join(" ")}`;
+                // Pass the script as a single argv element (execFile, no shell) so heredocs,
+                // quotes, and newlines survive intact — no fragile string escaping.
+                dockerArgs.push(image, "sh", "-c", fullScript);
 
-                const { stdout, stderr } = await execAsync(cmd, { timeout });
+                const { stdout, stderr } = await execFileAsync("docker", dockerArgs, {
+                    timeout,
+                    maxBuffer: 10 * 1024 * 1024,
+                });
 
                 return {
                     result: stdout || "Script executed successfully with no stdout output.",
