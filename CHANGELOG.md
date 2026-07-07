@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.27] - 2026-07-07
+
+### Bug Fixes
+- temporal decay crashed recall on string createdAt
+
+### Chores
+- add idempotent pgvector migration + reconcile schema comment
+
 ## [0.10.26] - 2026-07-07
 
 ### Features
