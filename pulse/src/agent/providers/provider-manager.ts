@@ -1,5 +1,6 @@
 import { AnthropicProvider, ProviderResponse, StreamCallbacks } from "./anthropic.js";
 import { OpenAIProvider } from "./openai.js";
+import { CodexAppServerProvider } from "./codex-app-server.js";
 import { providerKeyService } from "./provider-key-service.js";
 import { getModelById, getProviderByModel, getFallbackModelId, getDefaultModel } from "./model-registry.js";
 import { getModelPricing, ResolvedPricing } from "./model-pricing-service.js";
@@ -16,6 +17,7 @@ import { logger } from "../../utils/logger.js";
 export class ProviderManager {
     private anthropic = new AnthropicProvider();
     private openai = new OpenAIProvider();
+    private codex = new CodexAppServerProvider();
 
     async chat(params: {
         model: string;
@@ -137,7 +139,7 @@ export class ProviderManager {
         }
     }
 
-    private getProviderInstance(providerId: string): AnthropicProvider | OpenAIProvider {
+    private getProviderInstance(providerId: string): AnthropicProvider | OpenAIProvider | CodexAppServerProvider {
         switch (providerId) {
             case "openai":
             case "openrouter":
@@ -145,6 +147,10 @@ export class ProviderManager {
             case "google":  // Gemini via its OpenAI-compatible endpoint
             case "groq":    // Groq (free) via its OpenAI-compatible endpoint
                 return this.openai;
+            case "codex":
+                // Runs on the host machine's ChatGPT/Codex subscription login
+                // (no API key) via a local `codex app-server` subprocess.
+                return this.codex;
             case "anthropic":
             default:
                 return this.anthropic;

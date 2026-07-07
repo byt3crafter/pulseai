@@ -134,6 +134,70 @@ const openaiProvider: ProviderDefinition = {
         },
     ],
 };
+// NOTE: left the OpenAI catalog above as-is. Renaming these ids (e.g. to
+// GPT-5.x) is not "trivial" — gpt-4.1/gpt-4o/gpt-4-turbo/o1 are referenced by
+// id across pulse/src/agent/providers/model-discovery.ts, the fallback map
+// below, dashboard/src/utils/models.ts, dashboard admin settings, and
+// multiple test suites. Renaming here without touching all of those would
+// silently break fallback routing and dashboard model pickers. Out of scope
+// for the codex provider task — flagging for a dedicated follow-up instead.
+
+/**
+ * Codex App-Server provider — routes to `CodexAppServerProvider`, which
+ * drives `codex app-server` as a subprocess on the *host machine's* ChatGPT/
+ * Codex subscription login (no API key). See codex-app-server.ts for the
+ * important multi-tenancy caveat: this is a shared host-level credential,
+ * not per-tenant BYOK. Model ids mirror the real Codex/ChatGPT-subscription
+ * catalog as of codex-cli 0.142.1 (confirmed live: `~/.codex/config.toml`
+ * on this host defaults to `model = "gpt-5.5"`).
+ */
+const codexProvider: ProviderDefinition = {
+    id: "codex",
+    name: "Codex (ChatGPT subscription)",
+    authMethods: ["oauth"],
+    models: [
+        {
+            id: "gpt-5.5",
+            provider: "codex",
+            displayName: "GPT-5.5 (Codex)",
+            category: "flagship",
+            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+            maxTokens: 32768,
+        },
+        {
+            id: "gpt-5.5-pro",
+            provider: "codex",
+            displayName: "GPT-5.5 Pro (Codex)",
+            category: "reasoning",
+            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+            maxTokens: 32768,
+        },
+        {
+            id: "gpt-5.4",
+            provider: "codex",
+            displayName: "GPT-5.4 (Codex)",
+            category: "flagship",
+            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+            maxTokens: 32768,
+        },
+        {
+            id: "gpt-5.4-codex",
+            provider: "codex",
+            displayName: "GPT-5.4 Codex",
+            category: "reasoning",
+            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+            maxTokens: 32768,
+        },
+        {
+            id: "gpt-5.4-mini",
+            provider: "codex",
+            displayName: "GPT-5.4 Mini (Codex)",
+            category: "fast",
+            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
+            maxTokens: 16384,
+        },
+    ],
+};
 
 const googleProvider: ProviderDefinition = {
     id: "google",
@@ -281,6 +345,7 @@ const groqProvider: ProviderDefinition = {
 const ALL_PROVIDERS: ProviderDefinition[] = [
     anthropicProvider,
     openaiProvider,
+    codexProvider,
     googleProvider,
     groqProvider,
     openrouterProvider,
