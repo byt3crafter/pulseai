@@ -22,6 +22,9 @@ import {
     testEmbeddingKeyAction,
     saveEmbeddingKeyAction,
     removeEmbeddingKeyAction,
+    getEmbeddingConfigAction,
+    saveEmbeddingProviderAction,
+    testMinimaxEmbeddingAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
@@ -1180,17 +1183,55 @@ function ProviderCard({
 
 // ─── Memory Tab ──────────────────────────────────────────────────────────────
 
+type EmbeddingProviderId = "openai" | "minimax";
+
 function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
     const router = useRouter();
+
+    // Server-loaded config (fetched on mount — this is the source of truth for
+    // "what's actually active", separate from `provider` below which is just
+    // which panel the user has selected to look at / edit.
+    const [loadingConfig, setLoadingConfig] = useState(true);
+    const [activeProvider, setActiveProvider] = useState<EmbeddingProviderId>("openai");
+    const [openaiConfigured, setOpenaiConfigured] = useState(embeddingConfigured);
+    const [minimaxKeyPresent, setMinimaxKeyPresent] = useState(false);
+
+    // Which panel is selected in the segmented control.
+    const [provider, setProvider] = useState<EmbeddingProviderId>("openai");
+
     const [apiKey, setApiKey] = useState("");
     const [showKey, setShowKey] = useState(false);
-    const [result, setResult] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+    const [groupId, setGroupId] = useState("");
+
+    const [result, setResult] = useState<{ type: "idle" | "success" | "error" | "warning"; message: string }>({ type: "idle", message: "" });
     const [testing, startTesting] = useTransition();
     const [saving, startSaving] = useTransition();
     const [removing, startRemoving] = useTransition();
-    const busy = testing || saving || removing;
+    const [switching, startSwitching] = useTransition();
+    const busy = testing || saving || removing || switching;
 
-    const handleTest = () => {
+    const refreshConfig = async () => {
+        const cfg = await getEmbeddingConfigAction();
+        setActiveProvider(cfg.provider);
+        setOpenaiConfigured(cfg.openaiConfigured);
+        setMinimaxKeyPresent(cfg.minimaxKeyPresent);
+        setGroupId(cfg.minimaxGroupId || "");
+        return cfg;
+    };
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const cfg = await refreshConfig();
+            if (cancelled) return;
+            setProvider(cfg.provider);
+            setLoadingConfig(false);
+        })();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleTestOpenAI = () => {
         if (!apiKey.trim()) return;
         startTesting(async () => {
             const res = await testEmbeddingKeyAction(apiKey);
@@ -1198,13 +1239,28 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
         });
     };
 
-    const handleSave = () => {
+    const handleSaveOpenAI = () => {
         if (!apiKey.trim()) return;
         startSaving(async () => {
             const res = await saveEmbeddingKeyAction(apiKey);
+            if (!res.success) {
+                setResult({ type: "error", message: res.message });
+                return;
+            }
+            const providerRes = await saveEmbeddingProviderAction("openai");
+            setResult({ type: providerRes.success ? "success" : "error", message: providerRes.success ? res.message : providerRes.message });
+            setApiKey("");
+            await refreshConfig();
+            router.refresh();
+        });
+    };
+
+    const handleUseOpenAI = () => {
+        startSwitching(async () => {
+            const res = await saveEmbeddingProviderAction("openai");
             setResult({ type: res.success ? "success" : "error", message: res.message });
             if (res.success) {
-                setApiKey("");
+                await refreshConfig();
                 router.refresh();
             }
         });
@@ -1215,9 +1271,35 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
         startRemoving(async () => {
             const res = await removeEmbeddingKeyAction();
             setResult({ type: res.success ? "success" : "error", message: res.message });
-            if (res.success) router.refresh();
+            if (res.success) {
+                await refreshConfig();
+                router.refresh();
+            }
         });
     };
+
+    const handleTestMinimax = () => {
+        if (!groupId.trim()) return;
+        startTesting(async () => {
+            const res = await testMinimaxEmbeddingAction(groupId);
+            if (res.success) setResult({ type: "success", message: res.message });
+            else setResult({ type: res.message.includes("1002") ? "warning" : "error", message: res.message });
+        });
+    };
+
+    const handleSaveMinimax = () => {
+        if (!groupId.trim() || !minimaxKeyPresent) return;
+        startSaving(async () => {
+            const res = await saveEmbeddingProviderAction("minimax", groupId);
+            setResult({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) {
+                await refreshConfig();
+                router.refresh();
+            }
+        });
+    };
+
+    const messageColor = result.type === "success" ? "text-green-400" : result.type === "warning" ? "text-amber-400" : result.type === "error" ? "text-red-400" : "";
 
     return (
         <div className="space-y-6">
@@ -1225,86 +1307,200 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
                 <CardHeader title="Memory & Embeddings" description="Give your agents long-term recall across conversations." />
                 <div className="px-5 py-5 space-y-5">
                     <p className="text-sm text-pulse-text-soft leading-relaxed">
-                        Your agents can remember important facts across conversations and recall them later. Add an OpenAI API key to enable{" "}
-                        <span className="font-semibold text-pulse-text">semantic</span> recall (matches by meaning). Without a key, memory still works in{" "}
-                        <span className="font-semibold text-pulse-text">keyword</span> mode. Model: <code className="font-mono text-xs bg-pulse-panel-alt px-1.5 py-0.5 rounded">text-embedding-3-small</code> — costs about $0.02 per million tokens (effectively free at this scale).
+                        Your agents can remember important facts across conversations and recall them later. Connect an embedding provider to enable{" "}
+                        <span className="font-semibold text-pulse-text">semantic</span> recall (matches by meaning). Without one, memory still works in{" "}
+                        <span className="font-semibold text-pulse-text">keyword</span> mode.
                     </p>
 
-                    {embeddingConfigured ? (
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
-                            <span className="text-sm font-medium text-green-400">Semantic memory active</span>
-                            <button
-                                type="button"
-                                onClick={handleRemove}
-                                disabled={busy}
-                                className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
-                            >
-                                {removing ? "Removing…" : "Remove"}
-                            </button>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div
+                            role="radiogroup"
+                            aria-label="Embedding provider"
+                            className="inline-flex items-center gap-1 rounded-lg border border-pulse-border bg-pulse-panel-alt p-1"
+                        >
+                            {(["openai", "minimax"] as const).map((p) => (
+                                <button
+                                    key={p}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={provider === p}
+                                    onClick={() => setProvider(p)}
+                                    className={`px-3 py-1.5 text-sm font-medium rounded-md cursor-pointer outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${provider === p
+                                        ? "bg-indigo-600 text-white"
+                                        : "text-pulse-text-soft hover:text-pulse-text hover:bg-pulse-hover"
+                                        }`}
+                                >
+                                    {p === "openai" ? "OpenAI" : "MiniMax"}
+                                </button>
+                            ))}
+                        </div>
+
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-pulse-muted">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true" />
+                            {loadingConfig ? "Loading…" : `Active: ${activeProvider === "minimax" ? "MiniMax" : "OpenAI"}`}
+                        </span>
+                    </div>
+
+                    {provider === "openai" ? (
+                        <div className="space-y-5">
+                            {openaiConfigured ? (
+                                activeProvider === "openai" ? (
+                                    <div className="flex items-center justify-between gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
+                                        <span className="text-sm font-medium text-green-400">Semantic memory active — OpenAI</span>
+                                        <button
+                                            type="button"
+                                            onClick={handleRemove}
+                                            disabled={busy}
+                                            className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                        >
+                                            {removing ? "Removing…" : "Remove"}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pulse-border bg-pulse-panel-alt px-4 py-3">
+                                        <span className="text-sm font-medium text-pulse-text-soft">OpenAI key saved, but MiniMax is currently active</span>
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={handleUseOpenAI}
+                                                disabled={busy}
+                                                className="text-sm font-medium text-indigo-500 hover:text-indigo-400 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                            >
+                                                {switching ? "Switching…" : "Use OpenAI"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleRemove}
+                                                disabled={busy}
+                                                className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                            >
+                                                {removing ? "Removing…" : "Remove"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            ) : (
+                                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                                    <span className="text-sm font-medium text-amber-400">Keyword mode — add a key for semantic recall</span>
+                                </div>
+                            )}
+
+                            <div>
+                                <label htmlFor="embedding-key" className="block text-sm font-medium text-pulse-text-soft mb-1.5">OpenAI API key</label>
+                                <div className="relative max-w-md">
+                                    <input
+                                        id="embedding-key"
+                                        type={showKey ? "text" : "password"}
+                                        value={apiKey}
+                                        onChange={(e) => setApiKey(e.target.value)}
+                                        placeholder="sk-..."
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        className="w-full px-3 py-2 pr-10 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text placeholder:text-pulse-faint placeholder:font-sans"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowKey((v) => !v)}
+                                        aria-label={showKey ? "Hide API key" : "Show API key"}
+                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-pulse-faint hover:text-pulse-text-soft cursor-pointer outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                    >
+                                        {showKey ? <EyeSlashIcon className="w-4 h-4" aria-hidden="true" /> : <EyeIcon className="w-4 h-4" aria-hidden="true" />}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-pulse-muted mt-1.5">
+                                    Model: <code className="font-mono text-xs bg-pulse-panel-alt px-1.5 py-0.5 rounded">text-embedding-3-small</code> — costs about $0.02 per million tokens (effectively free at this scale). Get a key at{" "}
+                                    <a
+                                        href="https://platform.openai.com/api-keys"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline hover:text-pulse-text-soft cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                    >
+                                        platform.openai.com
+                                    </a>
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleTestOpenAI}
+                                    disabled={!apiKey.trim() || busy}
+                                    className="px-4 py-2 border border-pulse-border text-pulse-text-soft text-sm font-medium rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                                >
+                                    {testing ? "Testing…" : "Test key"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveOpenAI}
+                                    disabled={!apiKey.trim() || busy}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                                >
+                                    {saving ? "Saving…" : "Save"}
+                                </button>
+                            </div>
                         </div>
                     ) : (
-                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                            <span className="text-sm font-medium text-amber-400">Keyword mode — add a key for semantic recall</span>
+                        <div className="space-y-5">
+                            <p className="text-sm text-pulse-text-soft leading-relaxed">
+                                Uses your connected MiniMax API key. Model: <code className="font-mono text-xs bg-pulse-panel-alt px-1.5 py-0.5 rounded">embo-01</code> (1536-dim). Requires your MiniMax GroupId.
+                            </p>
+
+                            {!minimaxKeyPresent && (
+                                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                                    <span className="text-sm font-medium text-amber-400">
+                                        Connect a MiniMax API key in{" "}
+                                        <Link href="/dashboard/settings?tab=providers" className="underline hover:text-amber-300 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
+                                            AI Providers
+                                        </Link>{" "}
+                                        first.
+                                    </span>
+                                </div>
+                            )}
+
+                            {minimaxKeyPresent && activeProvider === "minimax" && (
+                                <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
+                                    <span className="text-sm font-medium text-green-400">Semantic memory active — MiniMax</span>
+                                </div>
+                            )}
+
+                            <div>
+                                <label htmlFor="minimax-group-id" className="block text-sm font-medium text-pulse-text-soft mb-1.5">MiniMax GroupId</label>
+                                <input
+                                    id="minimax-group-id"
+                                    type="text"
+                                    value={groupId}
+                                    onChange={(e) => setGroupId(e.target.value)}
+                                    placeholder="e.g. 1234567890…"
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                    className="w-full max-w-md px-3 py-2 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text placeholder:text-pulse-faint placeholder:font-sans"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleTestMinimax}
+                                    disabled={!groupId.trim() || !minimaxKeyPresent || busy}
+                                    className="px-4 py-2 border border-pulse-border text-pulse-text-soft text-sm font-medium rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                                >
+                                    {testing ? "Testing…" : "Test"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveMinimax}
+                                    disabled={!groupId.trim() || !minimaxKeyPresent || busy}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                                >
+                                    {saving ? "Saving…" : "Save"}
+                                </button>
+                            </div>
                         </div>
                     )}
-
-                    <div>
-                        <label htmlFor="embedding-key" className="block text-sm font-medium text-pulse-text-soft mb-1.5">OpenAI API key</label>
-                        <div className="relative max-w-md">
-                            <input
-                                id="embedding-key"
-                                type={showKey ? "text" : "password"}
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                placeholder="sk-..."
-                                autoComplete="off"
-                                spellCheck={false}
-                                className="w-full px-3 py-2 pr-10 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text placeholder:text-pulse-faint placeholder:font-sans"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowKey((v) => !v)}
-                                aria-label={showKey ? "Hide API key" : "Show API key"}
-                                className="absolute inset-y-0 right-0 flex items-center px-3 text-pulse-faint hover:text-pulse-text-soft cursor-pointer outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
-                            >
-                                {showKey ? <EyeSlashIcon className="w-4 h-4" aria-hidden="true" /> : <EyeIcon className="w-4 h-4" aria-hidden="true" />}
-                            </button>
-                        </div>
-                        <p className="text-xs text-pulse-muted mt-1.5">
-                            Get a key at{" "}
-                            <a
-                                href="https://platform.openai.com/api-keys"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline hover:text-pulse-text-soft cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
-                            >
-                                platform.openai.com
-                            </a>
-                        </p>
-                    </div>
 
                     {result.type !== "idle" && (
-                        <p role="status" className={`text-sm ${result.type === "success" ? "text-green-400" : "text-red-400"}`}>{result.message}</p>
+                        <p role="status" className={`text-sm ${messageColor}`}>{result.message}</p>
                     )}
-
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={handleTest}
-                            disabled={!apiKey.trim() || busy}
-                            className="px-4 py-2 border border-pulse-border text-pulse-text-soft text-sm font-medium rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
-                        >
-                            {testing ? "Testing…" : "Test key"}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={!apiKey.trim() || busy}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
-                        >
-                            {saving ? "Saving…" : "Save"}
-                        </button>
-                    </div>
                 </div>
             </Card>
         </div>
