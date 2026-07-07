@@ -2,6 +2,16 @@
 
 This document is the single source of truth for working on the Pulse AI codebase. Follow these rules exactly. They override all defaults.
 
+## Active Codex / Claude Coordination
+
+Before changing Hermes Agent or OpenClaw parity work, read:
+
+- `docs/CODEX_CLAUDE_HANDOFF.md` — current Codex work log, coordination rules, and files touched.
+- `docs/HERMES_OPENCLAW_PARITY_CHECKLIST.md` — missing-feature cross-check against fresh upstream references.
+- `docs/superpowers/plans/2026-07-07-hermes-openclaw-parity.md` — implementation plan and task order.
+
+Do not add hardcoded credentials, endpoints, channel ids, provider keys, tenant ids, or integration assumptions. Any new channel, provider, plugin, or tool must have a dashboard/admin/app setup path before it is considered complete.
+
 ---
 
 ## Project Overview

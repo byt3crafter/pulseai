@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { getEmbeddingStatusAction } from "./actions";
+import { CHANNEL_SETUP_CATALOG } from "../../../utils/channel-catalog";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage({
@@ -96,6 +97,18 @@ export default async function SettingsPage({
     const credits = Number(balances[0]?.balance ?? 0);
     const telegramChannel = channels.find(c => c.channelType === "telegram");
     const emailChannel = channels.find(c => c.channelType === "email");
+    const channelSetupStatus = CHANNEL_SETUP_CATALOG.map((definition) => {
+        const connection = channels.find((c) => c.channelType === definition.type);
+        const config = (connection?.channelConfig as Record<string, unknown>) || {};
+        const configuredFields = definition.fields
+            .filter((field) => !!config[field.name])
+            .map((field) => field.name);
+        return {
+            type: definition.type,
+            status: connection?.status ?? "not_configured",
+            configuredFields,
+        };
+    });
 
     // ─── Plugin data ─────────────────────────────────────────────────────────
     const allPlugins = tenantId
@@ -187,6 +200,7 @@ export default async function SettingsPage({
             tab={tab}
             credits={credits}
             telegramConnected={!!telegramChannel}
+            channelSetups={channelSetupStatus}
             oauthClients={clients.map(c => ({ clientId: c.clientId, name: c.name, createdAt: c.createdAt?.toISOString() ?? "" }))}
             apiTokens={(apiTokensList || []).map((t: any) => ({
                 id: t.id,
@@ -209,6 +223,10 @@ export default async function SettingsPage({
                 dmPolicy: tenantConfig.telegram_dm_policy ?? "open",
                 groupPolicy: tenantConfig.telegram_group_policy ?? "disabled",
                 requireMention: tenantConfig.telegram_require_mention ?? true,
+            }}
+            autoMemoryConfig={{
+                enabled: tenantConfig.auto_memory?.enabled !== false,
+                maxMemories: Math.max(0, Math.min(5, Math.floor(Number(tenantConfig.auto_memory?.maxMemories ?? 3)))),
             }}
             pendingPairings={pendingPairings.map(p => ({
                 id: p.id,
