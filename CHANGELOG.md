@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.32] - 2026-07-07
+
+### Features
+- add Voyage AI as a standalone embedding provider
+
 ## [0.10.31] - 2026-07-07
 
 ### Bug Fixes
