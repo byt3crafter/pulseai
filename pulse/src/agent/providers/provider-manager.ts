@@ -58,6 +58,7 @@ export class ProviderManager {
             logger.debug({ provider: providerId, model: params.model }, "Attempting primary provider");
             const response = await primaryProvider.chat({
                 model: params.model,
+                tenantId: params.tenantId,
                 systemPrompt: params.systemPrompt,
                 messages: params.messages,
                 tenantApiKey: apiKey,

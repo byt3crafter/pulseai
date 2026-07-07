@@ -169,6 +169,7 @@ export class OpenAIProvider {
 
     async chat(params: {
         model: string;
+        tenantId?: string;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tenantApiKey?: string;

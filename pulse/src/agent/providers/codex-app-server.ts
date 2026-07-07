@@ -20,11 +20,32 @@
  * Protocol: newline-delimited JSON-RPC over stdio. Verified live against the
  * installed `codex-cli 0.142.1` bindings (`codex app-server generate-ts`).
  * See CodexRpcClient below for wire-format specifics and gotchas.
+ *
+ * Tool access — Codex as an "operator", not just text: this provider gives
+ * the Codex thread access to Pulse's own tools (send_message, list/get
+ * conversations, ...) the same way Hermes and OpenClaw drive Codex — by
+ * projecting an `mcp_servers` entry into `thread/start`'s per-thread `config`
+ * override that points at Pulse's own MCP endpoint
+ * (`pulse/src/gateway/routes/mcp.ts`, `POST /mcp`, StreamableHTTP). See
+ * `resolveTenantMcpConfig()` below for how the tenant-scoped bearer token is
+ * minted and handed to the codex subprocess via an env var (never inlined
+ * into the JSON-RPC config — codex reads it out of its own process env via
+ * `bearer_token_env_var`). Verified live: codex 0.142.1 gates every MCP tool
+ * call behind a `mcpServer/elicitation/request` server request (NOT the
+ * `item/commandExecution|fileChange/requestApproval` surface, and NOT
+ * suppressed by `approvalPolicy: "never"`) — `handleServerRequest()` below
+ * auto-accepts that request specifically for Pulse's own server name so
+ * tool calls execute headlessly instead of hanging waiting for a human.
  */
 
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import * as os from "os";
+import { eq } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
+import { config } from "../../config.js";
+import { db } from "../../storage/db.js";
+import { tenants } from "../../storage/schema.js";
+import { mintAppAccessToken } from "../../gateway/oauth.js";
 import { ProviderResponse } from "./anthropic.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -32,6 +53,58 @@ const INITIALIZE_TIMEOUT_MS = 15_000;
 const THREAD_START_TIMEOUT_MS = 20_000;
 const TURN_START_TIMEOUT_MS = 15_000;
 const STDERR_TAIL_LINES = 60;
+
+// ── Pulse-as-MCP-server wiring (Codex operator mode) ───────────────────────
+
+/** Name the Pulse MCP server is registered under in the thread's mcp_servers config. */
+const PULSE_MCP_SERVER_NAME = "pulse";
+/** Env var name codex's subprocess reads the bearer token from (never placed in JSON-RPC). */
+const PULSE_MCP_TOKEN_ENV_VAR = "PULSE_CODEX_MCP_BEARER_TOKEN";
+/**
+ * Short-lived on purpose: every `chat()` call spawns a brand-new ephemeral
+ * codex subprocess/thread that lives for at most one turn (see class docblock
+ * above), so the token only needs to outlive a single turn, not a session.
+ */
+const MCP_TOKEN_TTL_MS = 15 * 60 * 1000;
+/** clientId recorded on the minted oauth_tokens row — identifies the issuer, not an end user. */
+const MCP_TOKEN_CLIENT_ID = "pulse-codex-operator";
+
+interface TenantMcpConfig {
+    /** Extra env vars to merge into the codex subprocess's environment. */
+    env: Record<string, string>;
+    /** Value for `thread/start`'s `config.mcp_servers` override. */
+    mcpServers: Record<string, unknown>;
+}
+
+/**
+ * Build the per-thread `mcp_servers` config that gives this tenant's Codex
+ * thread access to Pulse's own tools, by minting a short-lived bearer token
+ * for Pulse's `/mcp` endpoint (same issuance scheme as the `/oauth/token`
+ * exchange used by Claude Code / other third-party CLIs — see
+ * `mintAppAccessToken()` in `gateway/oauth.ts`).
+ *
+ * Returns `null` (no tool access, falls back to plain text chat) when the
+ * tenant hasn't enabled third-party CLI/tool access — `/mcp` enforces this
+ * same `enable_third_party_cli` gate on every call, so skipping it here just
+ * avoids minting a token that would be rejected on first use.
+ */
+async function resolveTenantMcpConfig(tenantId: string): Promise<TenantMcpConfig | null> {
+    const tenant = await db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
+    const tenantConfig = tenant?.config as Record<string, any> | undefined;
+    if (!tenantConfig?.enable_third_party_cli) return null;
+
+    const { token } = await mintAppAccessToken(tenantId, MCP_TOKEN_CLIENT_ID, MCP_TOKEN_TTL_MS);
+
+    return {
+        env: { [PULSE_MCP_TOKEN_ENV_VAR]: token },
+        mcpServers: {
+            [PULSE_MCP_SERVER_NAME]: {
+                url: `http://127.0.0.1:${config.PORT}/mcp`,
+                bearer_token_env_var: PULSE_MCP_TOKEN_ENV_VAR,
+            },
+        },
+    };
+}
 
 export class CodexRpcError extends Error {
     code: number;
@@ -73,9 +146,9 @@ class CodexRpcClient {
     private exited = false;
     private exitError: Error | null = null;
 
-    constructor(codexBin: string) {
+    constructor(codexBin: string, extraEnv?: Record<string, string>) {
         this.child = spawn(codexBin, ["app-server"], {
-            env: { ...process.env, RUST_LOG: process.env.RUST_LOG || "warn" },
+            env: { ...process.env, RUST_LOG: process.env.RUST_LOG || "warn", ...extraEnv },
             stdio: ["pipe", "pipe", "pipe"],
         });
 
@@ -259,6 +332,16 @@ class CodexRpcClient {
  * MCP elicitation bridge. `approvalPolicy: "never"` on the thread should
  * mean these rarely if ever fire for a plain chat turn, but we still answer
  * everything defensively.
+ *
+ * IMPORTANT — verified live against codex 0.142.1: MCP tool calls are gated
+ * behind `mcpServer/elicitation/request` with `_meta.codex_approval_kind ===
+ * "mcp_tool_call"`, and this fires REGARDLESS of `approvalPolicy: "never"`
+ * (that policy only covers the built-in shell/file-change surface). Left
+ * unhandled, every call to a Pulse tool would hang until this elicitation is
+ * answered. We auto-accept it, but only when `serverName` is Pulse's own MCP
+ * server — any other MCP server (e.g. one a human configured globally in
+ * `~/.codex/config.toml` on this host) still gets declined below, so this
+ * provider never silently grants tool access it didn't itself wire up.
  */
 function handleServerRequest(client: CodexRpcClient, msg: { id: number | string; method: string; params: any }): void {
     switch (msg.method) {
@@ -273,6 +356,13 @@ function handleServerRequest(client: CodexRpcClient, msg: { id: number | string;
             client.respond(msg.id, { permissions: {}, scope: "turn" });
             return;
         case "mcpServer/elicitation/request":
+            if (
+                msg.params?.serverName === PULSE_MCP_SERVER_NAME &&
+                msg.params?._meta?.codex_approval_kind === "mcp_tool_call"
+            ) {
+                client.respond(msg.id, { action: "accept", content: null, _meta: null });
+                return;
+            }
             client.respond(msg.id, { action: "decline", content: null, _meta: null });
             return;
         case "item/tool/requestUserInput":
@@ -301,6 +391,7 @@ export class CodexAppServerProvider {
 
     async chat(params: {
         model: string;
+        tenantId?: string;
         systemPrompt: string;
         messages: Array<{ role: string; content: string }>;
         timeoutMs?: number;
@@ -309,9 +400,22 @@ export class CodexAppServerProvider {
         const deadline = Date.now() + timeoutMs;
         const log = logger.child({ component: "codex-app-server", model: params.model });
 
+        // Give this tenant's thread access to Pulse's own tools via MCP when
+        // it's allowed to (see resolveTenantMcpConfig docblock). Failure here
+        // degrades to plain text chat rather than failing the whole turn —
+        // tool access is an enhancement, not a hard requirement.
+        let tenantMcp: TenantMcpConfig | null = null;
+        if (params.tenantId) {
+            try {
+                tenantMcp = await resolveTenantMcpConfig(params.tenantId);
+            } catch (err: any) {
+                log.warn({ err: err.message, tenantId: params.tenantId }, "Failed to resolve tenant MCP tool config; continuing without tools");
+            }
+        }
+
         let client: CodexRpcClient;
         try {
-            client = new CodexRpcClient(this.codexBin);
+            client = new CodexRpcClient(this.codexBin, tenantMcp?.env);
         } catch (err: any) {
             log.error({ err: err.message }, "Failed to spawn codex app-server");
             throw new Error(`Failed to spawn "codex app-server": ${err.message}`);
@@ -333,7 +437,9 @@ export class CodexAppServerProvider {
 
             // 2. thread/start — fresh, ephemeral, read-only sandbox, never ask
             // for approval (this is a one-shot text completion, not a coding
-            // session with a human able to approve anything).
+            // session with a human able to approve anything). When tool
+            // access was resolved above, project it in via the per-thread
+            // `config` override (does NOT touch this host's ~/.codex/config.toml).
             const threadStart = await client.request(
                 "thread/start",
                 {
@@ -343,6 +449,7 @@ export class CodexAppServerProvider {
                     sandbox: "read-only",
                     developerInstructions: params.systemPrompt || undefined,
                     ephemeral: true,
+                    ...(tenantMcp ? { config: { mcp_servers: tenantMcp.mcpServers } } : {}),
                 },
                 Math.min(THREAD_START_TIMEOUT_MS, remaining())
             );

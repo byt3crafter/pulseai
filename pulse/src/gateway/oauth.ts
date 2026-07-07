@@ -14,6 +14,34 @@ function getDashboardUrl(): string {
     return config.DASHBOARD_URL || "http://localhost:3001";
 }
 
+/**
+ * Mint a Pulse access token for a tenant using the exact same scheme as the
+ * `/oauth/token` exchange below (`pls_` prefix, SHA-256 hash stored — never
+ * the raw token), so tokens minted here validate against the same
+ * `resolveToken()` check in `gateway/routes/mcp.ts` / `gateway/ws/ws-auth.ts`.
+ *
+ * Callers own the trust decision (e.g. checking `enable_third_party_cli`)
+ * BEFORE calling this — it does not re-check anything, it only issues.
+ */
+export async function mintAppAccessToken(
+    tenantId: string,
+    clientId: string,
+    ttlMs: number = 30 * 24 * 60 * 60 * 1000,
+): Promise<{ token: string; expiresAt: Date }> {
+    const accessToken = "pls_" + randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(accessToken).digest("hex");
+    const expiresAt = new Date(Date.now() + ttlMs);
+
+    await db.insert(oauthTokens).values({
+        accessToken: tokenHash,
+        clientId,
+        tenantId,
+        expiresAt,
+    });
+
+    return { token: accessToken, expiresAt };
+}
+
 export const oauthRoutes: FastifyPluginAsync = async (server) => {
 
     // ── Well-Known Discovery Endpoints ────────────────────────────
@@ -239,16 +267,8 @@ export const oauthRoutes: FastifyPluginAsync = async (server) => {
             }
 
             // Successfully authenticated, generate access token
-            const accessToken = "pls_" + randomBytes(32).toString("hex");
-            const tokenHash = createHash("sha256").update(accessToken).digest("hex");
-            const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 Days
-
-            await db.insert(oauthTokens).values({
-                accessToken: tokenHash,
-                clientId: client_id,
-                tenantId: authCode.tenantId,
-                expiresAt,
-            });
+            const ttlMs = 30 * 24 * 60 * 60 * 1000; // 30 Days
+            const { token: accessToken } = await mintAppAccessToken(authCode.tenantId, client_id, ttlMs);
 
             // Consume the auth code
             await db.delete(oauthCodes).where(eq(oauthCodes.id, authCode.id));
@@ -256,7 +276,7 @@ export const oauthRoutes: FastifyPluginAsync = async (server) => {
             return reply.send({
                 access_token: accessToken,
                 token_type: "Bearer",
-                expires_in: 30 * 24 * 60 * 60, // seconds
+                expires_in: ttlMs / 1000, // seconds
             });
         } catch (error) {
             server.log.error(error);
