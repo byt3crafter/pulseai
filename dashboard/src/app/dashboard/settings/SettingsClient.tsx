@@ -25,6 +25,8 @@ import {
     getEmbeddingConfigAction,
     saveEmbeddingProviderAction,
     testMinimaxEmbeddingAction,
+    saveVoyageKeyAction,
+    testVoyageEmbeddingAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
@@ -1183,7 +1185,8 @@ function ProviderCard({
 
 // ─── Memory Tab ──────────────────────────────────────────────────────────────
 
-type EmbeddingProviderId = "openai" | "minimax";
+type EmbeddingProviderId = "openai" | "minimax" | "voyage";
+type VoyageModel = "voyage-3-large" | "voyage-3-lite";
 
 function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
     const router = useRouter();
@@ -1195,6 +1198,8 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
     const [activeProvider, setActiveProvider] = useState<EmbeddingProviderId>("openai");
     const [openaiConfigured, setOpenaiConfigured] = useState(embeddingConfigured);
     const [minimaxKeyPresent, setMinimaxKeyPresent] = useState(false);
+    const [voyageKeyPresent, setVoyageKeyPresent] = useState(false);
+    const [voyageModel, setVoyageModel] = useState<VoyageModel>("voyage-3-large");
 
     // Which panel is selected in the segmented control.
     const [provider, setProvider] = useState<EmbeddingProviderId>("openai");
@@ -1202,6 +1207,8 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
     const [apiKey, setApiKey] = useState("");
     const [showKey, setShowKey] = useState(false);
     const [groupId, setGroupId] = useState("");
+    const [voyageKey, setVoyageKey] = useState("");
+    const [showVoyageKey, setShowVoyageKey] = useState(false);
 
     const [result, setResult] = useState<{ type: "idle" | "success" | "error" | "warning"; message: string }>({ type: "idle", message: "" });
     const [testing, startTesting] = useTransition();
@@ -1216,6 +1223,8 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
         setOpenaiConfigured(cfg.openaiConfigured);
         setMinimaxKeyPresent(cfg.minimaxKeyPresent);
         setGroupId(cfg.minimaxGroupId || "");
+        setVoyageKeyPresent(cfg.voyageKeyPresent);
+        setVoyageModel((cfg.voyageModel as VoyageModel) || "voyage-3-large");
         return cfg;
     };
 
@@ -1299,6 +1308,38 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
         });
     };
 
+    const handleTestVoyage = () => {
+        startTesting(async () => {
+            const res = await testVoyageEmbeddingAction(voyageKey, voyageModel);
+            setResult({ type: res.success ? "success" : "error", message: res.message });
+        });
+    };
+
+    const handleSaveVoyageKey = () => {
+        if (!voyageKey.trim()) return;
+        startSaving(async () => {
+            const res = await saveVoyageKeyAction(voyageKey);
+            setResult({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) {
+                setVoyageKey("");
+                await refreshConfig();
+                router.refresh();
+            }
+        });
+    };
+
+    const handleUseVoyage = () => {
+        if (!voyageKeyPresent) return;
+        startSwitching(async () => {
+            const res = await saveEmbeddingProviderAction("voyage", { model: voyageModel });
+            setResult({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) {
+                await refreshConfig();
+                router.refresh();
+            }
+        });
+    };
+
     const messageColor = result.type === "success" ? "text-green-400" : result.type === "warning" ? "text-amber-400" : result.type === "error" ? "text-red-400" : "";
 
     return (
@@ -1318,7 +1359,7 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
                             aria-label="Embedding provider"
                             className="inline-flex items-center gap-1 rounded-lg border border-pulse-border bg-pulse-panel-alt p-1"
                         >
-                            {(["openai", "minimax"] as const).map((p) => (
+                            {(["openai", "minimax", "voyage"] as const).map((p) => (
                                 <button
                                     key={p}
                                     type="button"
@@ -1330,14 +1371,14 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
                                         : "text-pulse-text-soft hover:text-pulse-text hover:bg-pulse-hover"
                                         }`}
                                 >
-                                    {p === "openai" ? "OpenAI" : "MiniMax"}
+                                    {p === "openai" ? "OpenAI" : p === "minimax" ? "MiniMax" : "Voyage"}
                                 </button>
                             ))}
                         </div>
 
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-pulse-muted">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true" />
-                            {loadingConfig ? "Loading…" : `Active: ${activeProvider === "minimax" ? "MiniMax" : "OpenAI"}`}
+                            {loadingConfig ? "Loading…" : `Active: ${activeProvider === "minimax" ? "MiniMax" : activeProvider === "voyage" ? "Voyage" : "OpenAI"}`}
                         </span>
                     </div>
 
@@ -1439,7 +1480,7 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
                                 </button>
                             </div>
                         </div>
-                    ) : (
+                    ) : provider === "minimax" ? (
                         <div className="space-y-5">
                             <p className="text-sm text-pulse-text-soft leading-relaxed">
                                 Uses your connected MiniMax API key. Model: <code className="font-mono text-xs bg-pulse-panel-alt px-1.5 py-0.5 rounded">embo-01</code> (1536-dim). Requires your MiniMax GroupId.
@@ -1494,6 +1535,126 @@ function MemoryTab({ embeddingConfigured }: { embeddingConfigured: boolean }) {
                                 >
                                     {saving ? "Saving…" : "Save"}
                                 </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-5">
+                            <p className="text-sm text-pulse-text-soft leading-relaxed">
+                                Voyage AI — the embedding provider Anthropic recommends. Standalone (its own API key). 1024-dim.
+                            </p>
+
+                            {!voyageKeyPresent && (
+                                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                                    <span className="text-sm font-medium text-amber-400">Keyword mode — add a Voyage key for semantic recall</span>
+                                </div>
+                            )}
+
+                            {voyageKeyPresent && activeProvider === "voyage" && (
+                                <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
+                                    <span className="text-sm font-medium text-green-400">Semantic memory active — Voyage</span>
+                                </div>
+                            )}
+
+                            {voyageKeyPresent && activeProvider !== "voyage" && (
+                                <div className="rounded-lg border border-pulse-border bg-pulse-panel-alt px-4 py-3">
+                                    <span className="text-sm font-medium text-pulse-text-soft">Voyage key saved</span>
+                                </div>
+                            )}
+
+                            <div>
+                                <span className="block text-sm font-medium text-pulse-text-soft mb-1.5">Model</span>
+                                <div
+                                    role="radiogroup"
+                                    aria-label="Voyage model"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-pulse-border bg-pulse-panel-alt p-1"
+                                >
+                                    {([
+                                        { id: "voyage-3-large" as const, label: "voyage-3-large — best quality" },
+                                        { id: "voyage-3-lite" as const, label: "voyage-3-lite — cheaper/faster" },
+                                    ]).map((m) => (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={voyageModel === m.id}
+                                            onClick={() => setVoyageModel(m.id)}
+                                            className={`px-3 py-1.5 text-sm font-medium rounded-md cursor-pointer outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${voyageModel === m.id
+                                                ? "bg-indigo-600 text-white"
+                                                : "text-pulse-text-soft hover:text-pulse-text hover:bg-pulse-hover"
+                                                }`}
+                                        >
+                                            {m.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label htmlFor="voyage-key" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Voyage API key</label>
+                                <div className="relative max-w-md">
+                                    <input
+                                        id="voyage-key"
+                                        type={showVoyageKey ? "text" : "password"}
+                                        value={voyageKey}
+                                        onChange={(e) => setVoyageKey(e.target.value)}
+                                        placeholder="pa-..."
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        className="w-full px-3 py-2 pr-10 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text placeholder:text-pulse-faint placeholder:font-sans"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowVoyageKey((v) => !v)}
+                                        aria-label={showVoyageKey ? "Hide API key" : "Show API key"}
+                                        className="absolute inset-y-0 right-0 flex items-center px-3 text-pulse-faint hover:text-pulse-text-soft cursor-pointer outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                    >
+                                        {showVoyageKey ? <EyeSlashIcon className="w-4 h-4" aria-hidden="true" /> : <EyeIcon className="w-4 h-4" aria-hidden="true" />}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-pulse-muted mt-1.5">
+                                    Get a key at{" "}
+                                    <a
+                                        href="https://dashboard.voyageai.com"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline hover:text-pulse-text-soft cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                    >
+                                        dashboard.voyageai.com
+                                    </a>
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleTestVoyage}
+                                    disabled={(!voyageKey.trim() && !voyageKeyPresent) || busy}
+                                    className="px-4 py-2 border border-pulse-border text-pulse-text-soft text-sm font-medium rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                                >
+                                    {testing ? "Testing…" : "Test"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveVoyageKey}
+                                    disabled={!voyageKey.trim() || busy}
+                                    className="px-4 py-2 border border-pulse-border text-pulse-text-soft text-sm font-medium rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                                >
+                                    {saving ? "Saving…" : "Save key"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleUseVoyage}
+                                    disabled={!voyageKeyPresent || busy}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                                >
+                                    {switching ? "Switching…" : "Use Voyage"}
+                                </button>
+                            </div>
+
+                            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                                <span className="text-sm font-medium text-amber-400">
+                                    Voyage uses a different vector size (1024) than OpenAI/MiniMax (1536). Switching will clear existing stored memories.
+                                </span>
                             </div>
                         </div>
                     )}
