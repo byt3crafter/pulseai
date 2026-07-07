@@ -47,7 +47,7 @@ export async function generatePersonaAction(input: {
     try {
         const text = await callProviderForText(providerId, key, modelId, meta);
         if (!text?.trim()) return { success: false, message: "The model returned an empty response — try again." };
-        return { success: true, text: text.trim() };
+        return { success: true, text: stripReasoning(text).trim() };
     } catch (e: any) {
         const m = String(e?.message || "generation failed");
         // Surface provider quota/billing/balance/auth issues clearly (common on free/region-limited/unfunded keys)
@@ -113,10 +113,11 @@ export async function generateAgentConfigAction(input: { description: string }):
         return { success: false, message: "Couldn't generate right now — please try again." };
     }
 
-    // Parse the JSON (tolerate stray text / code fences around it).
+    // Parse the JSON (strip reasoning + tolerate stray text / code fences around it).
     let parsed: any;
     try {
-        const jsonStr = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+        const cleaned = stripReasoning(raw);
+        const jsonStr = cleaned.slice(cleaned.indexOf("{"), cleaned.lastIndexOf("}") + 1);
         parsed = JSON.parse(jsonStr);
     } catch {
         return { success: false, message: "The model returned an unexpected format — please try again." };
@@ -124,14 +125,23 @@ export async function generateAgentConfigAction(input: { description: string }):
 
     const model = allowedModels.includes(parsed.model) ? parsed.model : genModel;
     const config = {
-        name: String(parsed.name || "").slice(0, 120).trim() || "New Agent",
-        soul: String(parsed.soul || "").trim(),
+        name: stripReasoning(String(parsed.name || "")).slice(0, 120).trim() || "New Agent",
+        soul: stripReasoning(String(parsed.soul || "")).trim(),
         model,
         department: String(parsed.department || "").slice(0, 80).trim(),
         tone: String(parsed.tone || "Professional").slice(0, 40).trim(),
     };
     if (!config.soul) return { success: false, message: "Generation was empty — please try again." };
     return { success: true, config };
+}
+
+// Reasoning models (e.g. MiniMax M2.5) emit <think>…</think> chain-of-thought.
+// Strip it so it never leaks into a generated SOUL/prompt.
+function stripReasoning(s: string): string {
+    return (s || "")
+        .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")
+        .replace(/<\/?think(?:ing)?>/gi, "")
+        .trim();
 }
 
 async function callProviderForText(provider: string, key: any, model: string, prompt: string): Promise<string> {
