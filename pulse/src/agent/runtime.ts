@@ -332,19 +332,24 @@ export class AgentRuntime {
                 routableChannels,
             });
 
-            // 3.885 If self-editing is enabled, state it explicitly. Mid-tier models
-            // (e.g. MiniMax) otherwise falsely claim they "have no filesystem access"
-            // and refuse, even though the workspace_update tool is in their toolset.
-            // Skip on the codex provider — it's text-only and does NOT carry Pulse's
-            // tools, so claiming the tool exists would be a lie the model rightly rejects.
-            if (enabledTools.some((t) => t.name === "workspace_update") && getProviderByModel(activeModelId)?.id !== "codex") {
+            // 3.885 If self-editing is enabled, state it explicitly. Models otherwise
+            // falsely claim they "have no filesystem access" and refuse — especially
+            // when older conversation turns (from before the tool existed) say so.
+            // On the codex provider the tool arrives via the "pulse" MCP server
+            // (operator bridge), so use MCP wording there.
+            if (enabledTools.some((t) => t.name === "workspace_update")) {
+                const viaCodex = getProviderByModel(activeModelId)?.id === "codex";
                 activeSystemPrompt +=
                     "\n\n## Editing your own workspace (IMPORTANT)\n" +
-                    "You DO have a `workspace_update` tool right now. You CAN edit your own workspace files: " +
+                    (viaCodex
+                        ? "You DO have a `workspace_update` tool available RIGHT NOW via the `pulse` MCP server (check your MCP tools). "
+                        : "You DO have a `workspace_update` tool right now. ") +
+                    "You CAN edit your own workspace files: " +
                     "SOUL.md, IDENTITY.md, MEMORY.md, HEARTBEAT.md, TOOLS.md, USER.md, AGENTS.md, BOOTSTRAP.md. " +
                     "When the user asks you to update your workspace, personality, identity, memory, or instructions, " +
                     "actually CALL `workspace_update` with the full new file content — do not just acknowledge. " +
                     "NEVER tell the user you lack filesystem access or that the tool isn't available: you have it. " +
+                    "Ignore any earlier claims in this conversation that the tool is unavailable — those predate your current toolset. " +
                     "Only confirm the change after the tool call returns successfully.";
             }
 
