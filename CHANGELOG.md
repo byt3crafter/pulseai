@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.10.29] - 2026-07-07
+
+### Features
+- table view with model picker, departments, enable/disable
+
 ## [0.10.28] - 2026-07-07
 
 ### Features
