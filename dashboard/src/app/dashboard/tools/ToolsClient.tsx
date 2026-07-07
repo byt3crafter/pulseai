@@ -28,49 +28,49 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
     };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <div className="flex justify-between items-start mb-6">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <WrenchScrewdriverIcon className="h-7 w-7 text-indigo-600" /> Custom Tools
+                    <h1 className="text-2xl font-bold text-pulse-text flex items-center gap-2">
+                        <WrenchScrewdriverIcon className="h-7 w-7 text-indigo-500" /> Custom Tools
                     </h1>
-                    <p className="text-sm text-slate-500 mt-1 max-w-2xl">
+                    <p className="text-sm text-pulse-muted mt-1 max-w-2xl">
                         Connect your own API or software. Each tool becomes an action your agents can call — define the
                         request once, and the AI fills in the parameters. Secrets (auth headers) are encrypted at rest.
                     </p>
                 </div>
                 <Link
                     href="/dashboard/tools/new"
-                    className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                    className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 self-start sm:self-auto"
                 >
                     <PlusIcon className="h-4 w-4" aria-hidden="true" /> New tool
                 </Link>
             </div>
 
             {msg && (
-                <div className={`mb-4 rounded-lg px-4 py-2 text-sm border ${msg.ok ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"}`}>
+                <div className={`mb-4 rounded-lg px-4 py-2 text-sm border ${msg.ok ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}>
                     {msg.text}
                 </div>
             )}
 
             <div className="space-y-3">
                 {tools.length === 0 && (
-                    <p className="text-slate-400 text-sm text-center py-10">No custom tools yet. Create one to connect your software.</p>
+                    <p className="text-pulse-faint text-sm text-center py-10">No custom tools yet. Create one to connect your software.</p>
                 )}
                 {tools.map((t) => (
-                    <div key={t.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-start justify-between gap-4">
+                    <div key={t.id} className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-4 flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                                <code className="text-sm font-semibold text-slate-900">{t.name}</code>
-                                <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{t.method}</span>
-                                {!t.enabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Disabled</span>}
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <code className="text-sm font-semibold text-pulse-text">{t.name}</code>
+                                <span className="text-[10px] font-medium uppercase px-1.5 py-0.5 rounded bg-pulse-panel-alt text-pulse-muted">{t.method}</span>
+                                {!t.enabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">Disabled</span>}
                             </div>
-                            <p className="text-sm text-slate-600 mt-1">{t.description}</p>
-                            <p className="text-xs text-slate-400 mt-1 truncate font-mono">{t.urlTemplate}</p>
+                            <p className="text-sm text-pulse-text-soft mt-1">{t.description}</p>
+                            <p className="text-xs text-pulse-faint mt-1 truncate font-mono">{t.urlTemplate}</p>
                             {t.params.length > 0 && (
-                                <p className="text-xs text-slate-400 mt-1">params: {t.params.map((p) => p.name).join(", ")}</p>
+                                <p className="text-xs text-pulse-faint mt-1">params: {t.params.map((p) => p.name).join(", ")}</p>
                             )}
-                            <p className="text-xs text-slate-400 mt-1">
+                            <p className="text-xs text-pulse-faint mt-1">
                                 {t.allowedAgentIds.length > 0 ? `scoped to ${t.allowedAgentIds.length} agent${t.allowedAgentIds.length > 1 ? "s" : ""}` : "available to all agents"}
                             </p>
                         </div>
@@ -78,12 +78,12 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
                             <button
                                 type="button"
                                 onClick={() => { const fd = new FormData(); fd.set("toolId", t.id); fd.set("enabled", String(!t.enabled)); run(toggleCustomToolAction, fd); }}
-                                className="text-xs text-slate-500 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md px-1"
+                                className="text-xs text-pulse-muted hover:text-pulse-text disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md px-1"
                                 disabled={pending}
                             >{t.enabled ? "Disable" : "Enable"}</button>
                             <Link
                                 href={`/dashboard/tools/${t.id}/edit`}
-                                className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                className="p-1.5 rounded-md text-pulse-faint hover:text-indigo-500 hover:bg-pulse-tint transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 title="Edit"
                                 aria-label={`Edit ${t.name}`}
                             >
@@ -92,7 +92,7 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
                             <button
                                 type="button"
                                 onClick={() => { if (!confirm(`Delete "${t.name}"?`)) return; const fd = new FormData(); fd.set("toolId", t.id); run(deleteCustomToolAction, fd); }}
-                                className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                className="p-1.5 rounded-md text-pulse-faint hover:text-red-400 hover:bg-red-500/10 transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 title="Delete"
                                 aria-label={`Delete ${t.name}`}
                                 disabled={pending}

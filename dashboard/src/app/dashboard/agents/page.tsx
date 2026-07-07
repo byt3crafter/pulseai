@@ -36,16 +36,16 @@ export default async function AgentsPage() {
     }
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <div>
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Agent Profiles</h1>
-                        <p className="text-sm text-gray-500 mt-1">Manage distinct AI personas, their workspaces, models, and tool access.</p>
+                        <h1 className="text-2xl font-bold text-pulse-text">Agent Profiles</h1>
+                        <p className="text-sm text-pulse-muted mt-1">Manage distinct AI personas, their workspaces, models, and tool access.</p>
                     </div>
                     <Link
                         href="/dashboard/agents/new"
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm shadow-sm"
+                        className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm shadow-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 self-start sm:self-auto"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -59,45 +59,45 @@ export default async function AgentsPage() {
                         <Link
                             key={agent.id}
                             href={`/dashboard/agents/${agent.id}`}
-                            className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md hover:border-indigo-200 transition-all group"
+                            className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden flex flex-col hover:shadow-md hover:border-pulse-accent/40 transition-all motion-reduce:transition-none group"
                         >
                             <div className="p-5 flex-1 relative">
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
-                                        <CpuChipIcon className="w-6 h-6 text-blue-600 group-hover:text-indigo-600 transition-colors" />
+                                    <div className="w-10 h-10 rounded-lg bg-pulse-tint flex items-center justify-center group-hover:bg-pulse-accent/15 transition-colors motion-reduce:transition-none">
+                                        <CpuChipIcon className="w-6 h-6 text-pulse-accent-hi" />
                                     </div>
                                     <div className="flex gap-2">
-                                        <span className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-full">
+                                        <span className="px-2 py-1 bg-pulse-tint text-pulse-accent-hi text-xs font-medium rounded-full">
                                             {getModelDisplayName(agent.modelId ?? "claude-sonnet-4-20250514")}
                                         </span>
                                         {agent.dockerSandboxEnabled && (
-                                            <span className="px-2 py-1 bg-red-50 text-red-700 text-xs font-semibold rounded border border-red-100 uppercase tracking-wider">
+                                            <span className="px-2 py-1 bg-red-500/10 text-red-400 text-xs font-semibold rounded border border-red-500/30 uppercase tracking-wider">
                                                 Sandbox
                                             </span>
                                         )}
                                     </div>
                                 </div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-1">{agent.name}</h3>
-                                <p className="text-xs text-gray-400 font-mono mb-4">ID: {agent.id.slice(0, 8)}...</p>
+                                <h3 className="text-lg font-bold text-pulse-text mb-1">{agent.name}</h3>
+                                <p className="text-xs text-pulse-faint font-mono mb-4">ID: {agent.id.slice(0, 8)}...</p>
 
-                                <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100 h-24 overflow-hidden relative">
-                                    <div className="font-semibold text-gray-400 text-xs uppercase mb-1">System Prompt</div>
+                                <div className="text-sm text-pulse-text-soft bg-pulse-panel-alt p-3 rounded-lg border border-pulse-border-subtle h-24 overflow-hidden relative">
+                                    <div className="font-semibold text-pulse-faint text-xs uppercase mb-1">System Prompt</div>
                                     <div className="line-clamp-3 leading-relaxed">{agent.systemPrompt || "No prompt configured. Click to set up workspace."}</div>
-                                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 to-transparent"></div>
+                                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-pulse-panel-alt to-transparent"></div>
                                 </div>
                             </div>
 
-                            <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-                                <span className="text-xs text-slate-400">
+                            <div className="px-5 py-3 bg-pulse-panel-alt border-t border-pulse-border-subtle flex justify-between items-center">
+                                <span className="text-xs text-pulse-faint">
                                     {getProviderName(agent.modelId ?? "claude-sonnet-4-20250514")}
                                 </span>
                                 <div className="flex items-center gap-1.5">
                                     {agent.workspacePath ? (
                                         <span className="w-2 h-2 rounded-full bg-emerald-400" title="Workspace active" />
                                     ) : (
-                                        <span className="w-2 h-2 rounded-full bg-slate-300" title="No workspace" />
+                                        <span className="w-2 h-2 rounded-full bg-pulse-border-strong" title="No workspace" />
                                     )}
-                                    <span className="text-xs text-slate-500 group-hover:text-indigo-600 transition-colors">
+                                    <span className="text-xs text-pulse-muted group-hover:text-pulse-accent-hi transition-colors motion-reduce:transition-none">
                                         Edit &rarr;
                                     </span>
                                 </div>
@@ -106,10 +106,10 @@ export default async function AgentsPage() {
                     ))}
 
                     {agents.length === 0 && (
-                        <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center">
-                            <CpuChipIcon className="w-12 h-12 text-gray-300 mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-1">No Agent Profiles Found</h3>
-                            <p className="text-sm text-gray-500 max-w-sm mx-auto">Create your first AI persona to start tailoring system prompts and connecting specialized tools.</p>
+                        <div className="col-span-full py-16 text-center bg-pulse-panel rounded-xl border border-dashed border-pulse-border flex flex-col items-center justify-center">
+                            <CpuChipIcon className="w-12 h-12 text-pulse-faint mb-4" />
+                            <h3 className="text-lg font-medium text-pulse-text mb-1">No Agent Profiles Found</h3>
+                            <p className="text-sm text-pulse-muted max-w-sm mx-auto">Create your first AI persona to start tailoring system prompts and connecting specialized tools.</p>
                         </div>
                     )}
                 </div>

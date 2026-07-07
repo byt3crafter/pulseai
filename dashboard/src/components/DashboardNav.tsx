@@ -47,12 +47,12 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                         key={href}
                         href={href}
                         aria-current={isActive ? "page" : undefined}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                                ? "bg-indigo-50 text-indigo-700"
-                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${isActive
+                                ? "bg-pulse-tint text-pulse-accent-hi"
+                                : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                             }`}
                     >
-                        <Icon aria-hidden="true" className={`w-4.5 h-4.5 flex-shrink-0 ${isActive ? "text-indigo-600" : "text-slate-400"}`} style={{ width: 18, height: 18 }} />
+                        <Icon aria-hidden="true" className={`w-4.5 h-4.5 flex-shrink-0 ${isActive ? "text-pulse-accent-hi" : "text-pulse-faint"}`} style={{ width: 18, height: 18 }} />
                         {label}
                     </Link>
                 );
@@ -61,13 +61,13 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
             {isAdmin && (
                 <>
                     <div className="pt-3 pb-1 px-3">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Administration</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-pulse-faint">Administration</span>
                     </div>
                     <Link
                         href="/admin"
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                     >
-                        <ShieldCheckIcon className="w-4.5 h-4.5 flex-shrink-0 text-slate-400" style={{ width: 18, height: 18 }} />
+                        <ShieldCheckIcon className="w-4.5 h-4.5 flex-shrink-0 text-pulse-faint" style={{ width: 18, height: 18 }} />
                         Admin Panel
                     </Link>
                 </>
