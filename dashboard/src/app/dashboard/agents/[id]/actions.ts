@@ -6,6 +6,7 @@ import { agentProfiles, workspaceRevisions, tenantProviderKeys, globalSettings }
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { readWorkspaceFile, writeWorkspaceFile } from "../../../../utils/workspace";
+import { stripReasoning } from "../../../../utils/strip-reasoning";
 import { redirect } from "next/navigation";
 
 export async function updateWorkspaceFileAction(formData: FormData) {
@@ -16,7 +17,10 @@ export async function updateWorkspaceFileAction(formData: FormData) {
 
     const agentId = formData.get("agentId") as string;
     const fileName = formData.get("fileName") as string;
-    const content = formData.get("content") as string;
+    // Defensively strip any leaked model reasoning (<think>…</think>) so it can
+    // never be persisted into a persona file / systemPrompt, regardless of how
+    // it got into the editor.
+    const content = stripReasoning(formData.get("content") as string);
     const summary = formData.get("summary") as string;
 
     const ALLOWED_FILES = new Set(["SOUL.md", "IDENTITY.md", "MEMORY.md", "HEARTBEAT.md", "TOOLS.md", "USER.md", "BOOTSTRAP.md", "AGENTS.md"]);

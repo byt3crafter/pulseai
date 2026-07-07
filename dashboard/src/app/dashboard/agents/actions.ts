@@ -9,6 +9,7 @@ import { initializeWorkspace, WORKSPACE_DEFAULTS } from "../../../utils/workspac
 import { requireTenant } from "../../../utils/tenant-auth";
 import { decrypt } from "../../../utils/crypto";
 import { PROVIDERS } from "../../../utils/models";
+import { stripReasoning } from "../../../utils/strip-reasoning";
 
 /**
  * Generate an agent persona (SOUL / system prompt) using the tenant's own connected
@@ -135,21 +136,13 @@ export async function generateAgentConfigAction(input: { description: string }):
     return { success: true, config };
 }
 
-// Reasoning models (e.g. MiniMax M2.5) emit <think>…</think> chain-of-thought.
-// Strip it so it never leaks into a generated SOUL/prompt.
-function stripReasoning(s: string): string {
-    return (s || "")
-        .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")
-        .replace(/<\/?think(?:ing)?>/gi, "")
-        .trim();
-}
 
 async function callProviderForText(provider: string, key: any, model: string, prompt: string): Promise<string> {
     if (provider === "google") {
         const apiKey = decrypt(key.encryptedApiKey);
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7 } }),
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 4000 } }),
         });
         if (!r.ok) throw new Error(`google ${r.status} ${(await r.text()).slice(0, 200)}`);
         const j = await r.json();
@@ -159,7 +152,7 @@ async function callProviderForText(provider: string, key: any, model: string, pr
         const apiKey = decrypt(key.encryptedApiKey);
         const r = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-            body: JSON.stringify({ model, max_tokens: 800, messages: [{ role: "user", content: prompt }] }),
+            body: JSON.stringify({ model, max_tokens: 4000, messages: [{ role: "user", content: prompt }] }),
         });
         if (!r.ok) throw new Error(`anthropic ${r.status} ${(await r.text()).slice(0, 200)}`);
         const j = await r.json();
@@ -179,7 +172,7 @@ async function callProviderForText(provider: string, key: any, model: string, pr
         const apiKey = decrypt(key.encryptedApiKey);
         const r = await fetch(`${openaiCompatBase[provider]}/chat/completions`, {
             method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7 }),
+            body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.7, max_tokens: 4000 }),
         });
         if (!r.ok) throw new Error(`${provider} ${r.status} ${(await r.text()).slice(0, 200)}`);
         const j = await r.json();
