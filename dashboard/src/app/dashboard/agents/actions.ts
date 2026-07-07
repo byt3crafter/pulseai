@@ -297,3 +297,22 @@ export async function getLiveModelsAction(
         return staticModels;
     }
 }
+
+// ── Enable / disable an agent (paused agents don't respond or route) ──────────
+export async function toggleAgentEnabledAction(agentId: string, enabled: boolean): Promise<{ success: boolean; message: string }> {
+    const tc = await requireTenant();
+    if (!tc.authorized) return { success: false, message: tc.message };
+    if (!agentId) return { success: false, message: "Missing agent id." };
+    try {
+        const res = await db.update(agentProfiles)
+            .set({ enabled })
+            .where(and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tc.tenantId)))
+            .returning({ id: agentProfiles.id });
+        if (!res.length) return { success: false, message: "Agent not found." };
+        revalidatePath("/dashboard/agents");
+        return { success: true, message: enabled ? "Agent enabled." : "Agent disabled." };
+    } catch (e) {
+        console.error("Failed to toggle agent enabled:", e);
+        return { success: false, message: "Failed to update the agent." };
+    }
+}

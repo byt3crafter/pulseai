@@ -134,7 +134,7 @@ export class AgentRuntime {
                 : await resolveAgent(inbound);
             if (!resolvedAgentProfileId) {
                 const fallbackProfile = await db.query.agentProfiles.findFirst({
-                    where: eq(agentProfiles.tenantId, inbound.tenantId),
+                    where: and(eq(agentProfiles.tenantId, inbound.tenantId), eq(agentProfiles.enabled, true)),
                 });
                 if (fallbackProfile) {
                     resolvedAgentProfileId = fallbackProfile.id;
@@ -192,6 +192,12 @@ export class AgentRuntime {
                 const profile = await db.query.agentProfiles.findFirst({
                     where: eq(agentProfiles.id, resolvedAgentProfileId)
                 });
+
+                // Disabled agents are paused — they don't respond or route.
+                if (profile && profile.enabled === false) {
+                    tenantLog.info({ agentProfileId: resolvedAgentProfileId }, "Resolved agent is disabled — not responding");
+                    return;
+                }
 
                 if (profile) {
                     // Use per-agent model if set
