@@ -84,7 +84,7 @@ export default async function TenantPluginsPage() {
     if (!session?.user) return redirect("/auth/login");
 
     const tenantId = (session.user as any).tenantId;
-    if (!tenantId) return <div className="p-8 text-slate-500">No tenant associated with this account.</div>;
+    if (!tenantId) return <div className="p-4 sm:p-6 lg:p-8 text-pulse-muted">No tenant associated with this account.</div>;
 
     // Get globally-enabled plugins
     const allPlugins = await db.query.installedPlugins.findMany({

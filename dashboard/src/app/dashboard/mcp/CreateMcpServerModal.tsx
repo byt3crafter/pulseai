@@ -65,7 +65,7 @@ export default function CreateMcpServerModal() {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
                 Add MCP Server
             </button>
@@ -80,23 +80,23 @@ export default function CreateMcpServerModal() {
             aria-labelledby="create-mcp-modal-title"
         >
             <div
-                className="absolute inset-0 bg-black/40"
+                className="absolute inset-0 bg-black/50"
                 onClick={() => setIsOpen(false)}
             />
-            <div ref={modalRef} className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
-                <h2 id="create-mcp-modal-title" className="text-lg font-semibold text-slate-900 mb-4">
+            <div ref={modalRef} className="relative bg-pulse-panel border border-pulse-border rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+                <h2 id="create-mcp-modal-title" className="text-lg font-semibold text-pulse-text mb-4">
                     Add MCP Server
                 </h2>
 
                 {error && (
-                    <div role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div role="alert" className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="mcp-server-name" className="block text-sm font-medium text-slate-700 mb-1">
+                        <label htmlFor="mcp-server-name" className="block text-sm font-medium text-pulse-text-soft mb-1">
                             Server Name
                         </label>
                         <input
@@ -105,12 +105,12 @@ export default function CreateMcpServerModal() {
                             type="text"
                             required
                             placeholder="e.g., ERPNext Production"
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="mcp-server-url" className="block text-sm font-medium text-slate-700 mb-1">
+                        <label htmlFor="mcp-server-url" className="block text-sm font-medium text-pulse-text-soft mb-1">
                             Server URL
                         </label>
                         <input
@@ -119,12 +119,12 @@ export default function CreateMcpServerModal() {
                             type="url"
                             required
                             placeholder="https://mcp.example.com/sse"
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                         />
                     </div>
 
                     <div>
-                        <label htmlFor="mcp-server-authHeaders" className="block text-sm font-medium text-slate-700 mb-1">
+                        <label htmlFor="mcp-server-authHeaders" className="block text-sm font-medium text-pulse-text-soft mb-1">
                             Auth Headers (JSON, optional)
                         </label>
                         <textarea
@@ -132,7 +132,7 @@ export default function CreateMcpServerModal() {
                             name="authHeaders"
                             rows={3}
                             placeholder='{"Authorization": "Bearer sk-..."}'
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y"
+                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm font-mono bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-y"
                         />
                     </div>
 
@@ -140,14 +140,14 @@ export default function CreateMcpServerModal() {
                         <button
                             type="button"
                             onClick={() => setIsOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                            className="px-4 py-2 text-sm font-medium text-pulse-text-soft bg-pulse-panel border border-pulse-border rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                             {loading ? "Creating..." : "Create Server"}
                         </button>

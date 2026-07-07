@@ -45,26 +45,26 @@ export default function TenantPluginsClient({ plugins, tenantId, savePluginCrede
     };
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
-                <a href="/dashboard/settings" className="text-sm text-indigo-600 hover:text-indigo-700 mb-2 inline-block">&larr; Back to Settings</a>
+                <a href="/dashboard/settings" className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-violet-50 rounded-lg">
-                        <PuzzleIcon className="w-6 h-6 text-violet-600" />
+                    <div className="p-2 bg-violet-500/10 rounded-lg">
+                        <PuzzleIcon className="w-6 h-6 text-violet-400" />
                     </div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Plugins</h1>
+                    <h1 className="text-3xl font-bold text-pulse-text tracking-tight">Plugins</h1>
                 </div>
-                <p className="text-slate-500">Plugins enabled for your account. Configure credentials to activate integrations.</p>
+                <p className="text-pulse-muted">Plugins enabled for your account. Configure credentials to activate integrations.</p>
             </div>
 
             {plugins.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                    <PuzzleIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500 text-sm">No plugins enabled for your account. Contact your administrator.</p>
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-12 text-center">
+                    <PuzzleIcon className="w-12 h-12 text-pulse-faint mx-auto mb-4" />
+                    <p className="text-pulse-muted text-sm">No plugins enabled for your account. Contact your administrator.</p>
                 </div>
             ) : (
                 <div className="space-y-4">
-                    <p className="text-sm text-slate-500">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} enabled</p>
+                    <p className="text-sm text-pulse-muted">{plugins.length} plugin{plugins.length !== 1 ? "s" : ""} enabled</p>
 
                     {plugins.map((plugin) => {
                         const { config } = plugin;
@@ -74,26 +74,26 @@ export default function TenantPluginsClient({ plugins, tenantId, savePluginCrede
                         const noneConfigured = config.credentialSchema.every((f) => !f.configured);
 
                         return (
-                            <div key={plugin.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div key={plugin.id} className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
                                 {/* Plugin Header */}
                                 <div className="p-5">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-1.5">
-                                                <h3 className="text-lg font-semibold text-slate-900">{plugin.name}</h3>
-                                                <span className="text-xs text-slate-400">v{plugin.version || "?"}</span>
+                                                <h3 className="text-lg font-semibold text-pulse-text">{plugin.name}</h3>
+                                                <span className="text-xs text-pulse-faint">v{plugin.version || "?"}</span>
                                             </div>
-                                            <p className="text-sm text-slate-500 mb-3">{config.description}</p>
+                                            <p className="text-sm text-pulse-muted mb-3">{config.description}</p>
 
                                             {/* Stats + Status */}
                                             <div className="flex flex-wrap items-center gap-2">
                                                 {config.toolCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-500/10 text-blue-400 rounded-full">
                                                         {config.toolCount} tool{config.toolCount !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
                                                 {config.routeCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-emerald-500/10 text-emerald-400 rounded-full">
                                                         {config.routeCount} route{config.routeCount !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
@@ -101,10 +101,10 @@ export default function TenantPluginsClient({ plugins, tenantId, savePluginCrede
                                                 {hasCredentials && (
                                                     <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full font-medium ${
                                                         allConfigured
-                                                            ? "bg-green-50 text-green-700"
+                                                            ? "bg-green-500/10 text-green-400"
                                                             : noneConfigured
-                                                            ? "bg-red-50 text-red-600"
-                                                            : "bg-amber-50 text-amber-700"
+                                                            ? "bg-red-500/10 text-red-400"
+                                                            : "bg-amber-500/10 text-amber-400"
                                                     }`}>
                                                         <span className={`w-1.5 h-1.5 rounded-full ${
                                                             allConfigured ? "bg-green-500" : noneConfigured ? "bg-red-400" : "bg-amber-500"
@@ -118,7 +118,7 @@ export default function TenantPluginsClient({ plugins, tenantId, savePluginCrede
                                         {hasCredentials && (
                                             <button
                                                 onClick={() => toggleExpand(plugin.id)}
-                                                className="ml-4 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                className="ml-4 px-3 py-1.5 text-sm font-medium text-indigo-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                             >
                                                 {isExpanded ? "Close" : "Configure"}
                                             </button>
@@ -128,8 +128,8 @@ export default function TenantPluginsClient({ plugins, tenantId, savePluginCrede
 
                                 {/* Expanded: Credential Form */}
                                 {isExpanded && hasCredentials && (
-                                    <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
-                                        <h4 className="text-sm font-medium text-slate-700 mb-3">Credentials</h4>
+                                    <div className="border-t border-pulse-border-subtle bg-pulse-panel-alt px-5 py-4">
+                                        <h4 className="text-sm font-medium text-pulse-text-soft mb-3">Credentials</h4>
                                         <form action={savePluginCredentials} className="space-y-4">
                                             <input type="hidden" name="tenantId" value={tenantId} />
                                             <input type="hidden" name="pluginName" value={plugin.name} />
@@ -137,37 +137,37 @@ export default function TenantPluginsClient({ plugins, tenantId, savePluginCrede
 
                                             <div className="space-y-3">
                                                 {config.credentialSchema.map((field) => (
-                                                    <div key={field.name} className="bg-white rounded-lg border border-slate-200 p-4">
+                                                    <div key={field.name} className="bg-pulse-panel rounded-lg border border-pulse-border-subtle p-4">
                                                         <div className="flex items-center gap-2 mb-1.5">
-                                                            <label className="text-sm font-medium text-slate-700">
+                                                            <label className="text-sm font-medium text-pulse-text-soft">
                                                                 {field.label}
                                                             </label>
                                                             {field.required && <span className="text-red-400 text-xs">required</span>}
                                                             <span className={`ml-auto inline-flex items-center gap-1 text-xs ${
-                                                                field.configured ? "text-green-600" : "text-slate-400"
+                                                                field.configured ? "text-green-400" : "text-pulse-faint"
                                                             }`}>
                                                                 <span className={`w-1.5 h-1.5 rounded-full ${
-                                                                    field.configured ? "bg-green-500" : "bg-slate-300"
+                                                                    field.configured ? "bg-green-500" : "bg-pulse-border-strong"
                                                                 }`} />
                                                                 {field.configured ? "Saved" : "Not set"}
                                                             </span>
                                                         </div>
                                                         {field.helpText && (
-                                                            <p className="text-xs text-slate-400 mb-2">{field.helpText}</p>
+                                                            <p className="text-xs text-pulse-faint mb-2">{field.helpText}</p>
                                                         )}
                                                         <input
                                                             type={field.type === "secret" ? "password" : field.type === "url" ? "url" : "text"}
                                                             name={`cred_${field.name}`}
                                                             placeholder={field.configured ? "Leave empty to keep current value" : field.placeholder || ""}
-                                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400"
+                                                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                                                         />
-                                                        <p className="text-xs text-slate-400 mt-1 font-mono">{field.name}</p>
+                                                        <p className="text-xs text-pulse-faint mt-1 font-mono">{field.name}</p>
                                                     </div>
                                                 ))}
                                             </div>
 
                                             <div className="flex items-center justify-between pt-2">
-                                                <p className="text-xs text-slate-400">
+                                                <p className="text-xs text-pulse-faint">
                                                     Encrypted with AES-256-GCM. Empty fields are skipped.
                                                 </p>
                                                 <SubmitButton />
@@ -190,7 +190,7 @@ function SubmitButton() {
     return (
         <button
             type="submit"
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel-alt"
         >
             Save Credentials
         </button>

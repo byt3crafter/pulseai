@@ -117,11 +117,11 @@ export default function SettingsClient({
     const router = useRouter();
 
     return (
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
             {/* Page header */}
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Settings</h1>
-                <p className="text-sm text-slate-500 mt-1">Manage your workspace, account, integrations, and API access.</p>
+                <h1 className="text-2xl font-bold text-pulse-text tracking-tight">Settings</h1>
+                <p className="text-sm text-pulse-muted mt-1">Manage your workspace, account, integrations, and API access.</p>
             </div>
 
             <div className="flex gap-8">
@@ -132,9 +132,9 @@ export default function SettingsClient({
                             <li key={t.id}>
                                 <Link
                                     href={`/dashboard/settings?tab=${t.id}`}
-                                    className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.id
-                                        ? "bg-slate-100 text-slate-900"
-                                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                    className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${tab === t.id
+                                        ? "bg-pulse-tint text-pulse-accent-hi"
+                                        : "text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
                                         }`}
                                 >
                                     {t.label}
@@ -196,9 +196,9 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
         <div className="space-y-6">
             {/* Show alert if first login */}
             {forcePasswordChange && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-amber-900">Password Change Required</h3>
-                    <p className="text-xs text-amber-700 mt-1">
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                    <h3 className="text-sm font-semibold text-amber-400">Password Change Required</h3>
+                    <p className="text-xs text-amber-400/90 mt-1">
                         For security, please change your temporary password before continuing.
                     </p>
                 </div>
@@ -219,12 +219,12 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
                     <FormInput label="New Password" name="newPassword" type="password" placeholder="Min. 8 characters" />
                     <FormInput label="Confirm New Password" name="confirmPassword" type="password" placeholder="--------" />
                     {status.type !== "idle" && (
-                        <p className={`text-sm ${status.type === "success" ? "text-emerald-600" : "text-red-500"}`}>{status.message}</p>
+                        <p className={`text-sm ${status.type === "success" ? "text-green-400" : "text-red-400"}`}>{status.message}</p>
                     )}
                     <button
                         type="submit"
                         disabled={status.type === "loading"}
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                     >
                         {status.type === "loading" ? "Updating..." : "Update Password"}
                     </button>
@@ -255,26 +255,26 @@ function IntegrationsTab({ telegramConnected, oauthEnabled }: { telegramConnecte
         <div className="space-y-6">
             {/* Integration Status Overview */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={`rounded-xl border p-4 ${telegramConnected ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+                <div className={`rounded-xl border p-4 ${telegramConnected ? "border-emerald-500/30 bg-emerald-500/10" : "border-pulse-border-subtle bg-pulse-panel"}`}>
                     <div className="flex items-center gap-2 mb-1">
-                        <div className={`w-2.5 h-2.5 rounded-full ${telegramConnected ? "bg-emerald-400" : "bg-slate-300"}`} />
-                        <span className="text-sm font-semibold text-slate-900">Telegram</span>
+                        <div className={`w-2.5 h-2.5 rounded-full ${telegramConnected ? "bg-emerald-400" : "bg-pulse-border-strong"}`} />
+                        <span className="text-sm font-semibold text-pulse-text">Telegram</span>
                     </div>
-                    <p className="text-xs text-slate-500">{telegramConnected ? "Bot connected" : "Not configured"}</p>
+                    <p className="text-xs text-pulse-muted">{telegramConnected ? "Bot connected" : "Not configured"}</p>
                 </div>
-                <div className={`rounded-xl border p-4 ${oauthEnabled ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
+                <div className={`rounded-xl border p-4 ${oauthEnabled ? "border-emerald-500/30 bg-emerald-500/10" : "border-pulse-border-subtle bg-pulse-panel"}`}>
                     <div className="flex items-center gap-2 mb-1">
-                        <div className={`w-2.5 h-2.5 rounded-full ${oauthEnabled ? "bg-emerald-400" : "bg-slate-300"}`} />
-                        <span className="text-sm font-semibold text-slate-900">OAuth / CLI</span>
+                        <div className={`w-2.5 h-2.5 rounded-full ${oauthEnabled ? "bg-emerald-400" : "bg-pulse-border-strong"}`} />
+                        <span className="text-sm font-semibold text-pulse-text">OAuth / CLI</span>
                     </div>
-                    <p className="text-xs text-slate-500">{oauthEnabled ? "Enabled" : "Disabled"}</p>
+                    <p className="text-xs text-pulse-muted">{oauthEnabled ? "Enabled" : "Disabled"}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="rounded-xl border border-pulse-border-subtle bg-pulse-panel p-4">
                     <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                        <span className="text-sm font-semibold text-slate-900">WhatsApp</span>
+                        <div className="w-2.5 h-2.5 rounded-full bg-pulse-border-strong" />
+                        <span className="text-sm font-semibold text-pulse-text">WhatsApp</span>
                     </div>
-                    <p className="text-xs text-slate-500">Coming soon</p>
+                    <p className="text-xs text-pulse-muted">Coming soon</p>
                 </div>
             </div>
 
@@ -292,12 +292,12 @@ function IntegrationsTab({ telegramConnected, oauthEnabled }: { telegramConnecte
                         mono
                     />
                     {tokenStatus.type !== "idle" && (
-                        <p className={`text-sm ${tokenStatus.type === "success" ? "text-emerald-600" : "text-red-500"}`}>{tokenStatus.message}</p>
+                        <p className={`text-sm ${tokenStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>{tokenStatus.message}</p>
                     )}
                     <button
                         type="submit"
                         disabled={tokenStatus.type === "loading"}
-                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                     >
                         {telegramConnected ? "Update Token" : "Connect Bot"}
                     </button>
@@ -305,7 +305,7 @@ function IntegrationsTab({ telegramConnected, oauthEnabled }: { telegramConnecte
             </Section>
 
             <Section title="WhatsApp Business" description="Connect WhatsApp Business API to handle customer conversations." badge="Coming Soon">
-                <p className="text-sm text-slate-400">WhatsApp integration will be available in a future update.</p>
+                <p className="text-sm text-pulse-faint">WhatsApp integration will be available in a future update.</p>
             </Section>
         </div>
     );
@@ -405,26 +405,26 @@ function TelegramTab({
     return (
         <div className="space-y-6">
             {actionError && (
-                <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100 mb-4">
+                <div role="alert" className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm border border-red-500/30 mb-4">
                     {actionError}
-                    <button onClick={() => setActionError(null)} aria-label="Dismiss error" className="ml-2 text-red-400 hover:text-red-600 font-bold">&times;</button>
+                    <button onClick={() => setActionError(null)} aria-label="Dismiss error" className="ml-2 text-red-400 hover:text-red-300 font-bold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">&times;</button>
                 </div>
             )}
             {/* Policies */}
             <Section title="Telegram Policies" description="Control how the bot handles DMs and group messages.">
                 <div className="space-y-5 max-w-md">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">DM Policy</label>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">DM Policy</label>
                         <select
                             value={dmPolicy}
                             onChange={(e) => setDmPolicy(e.target.value)}
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full border border-pulse-border rounded-lg px-3 py-2 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
                         >
                             <option value="open">Open — anyone can DM</option>
                             <option value="pairing">Pairing — require approval code</option>
                             <option value="disabled">Disabled — ignore all DMs</option>
                         </select>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-pulse-faint mt-1">
                             {dmPolicy === "pairing" && "Unknown users will receive a pairing code. You approve them below."}
                             {dmPolicy === "open" && "All direct messages are processed without approval."}
                             {dmPolicy === "disabled" && "The bot will not respond to any direct messages."}
@@ -432,11 +432,11 @@ function TelegramTab({
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Group Policy</label>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Group Policy</label>
                         <select
                             value={groupPolicy}
                             onChange={(e) => setGroupPolicy(e.target.value)}
-                            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full border border-pulse-border rounded-lg px-3 py-2 text-sm text-pulse-text bg-pulse-panel focus:ring-2 focus:ring-indigo-500 outline-none"
                         >
                             <option value="open">Open — respond in any group</option>
                             <option value="allowlist">Allowlist — only approved groups</option>
@@ -449,11 +449,11 @@ function TelegramTab({
                             type="checkbox"
                             checked={requireMention}
                             onChange={(e) => setRequireMention(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                            className="w-4 h-4 text-indigo-600 border-pulse-border rounded focus:ring-indigo-500 cursor-pointer"
                         />
                         <div>
-                            <span className="text-sm font-medium text-slate-700">Require @mention in Groups</span>
-                            <p className="text-xs text-slate-400">Bot only responds when @mentioned or replied to</p>
+                            <span className="text-sm font-medium text-pulse-text-soft">Require @mention in Groups</span>
+                            <p className="text-xs text-pulse-faint">Bot only responds when @mentioned or replied to</p>
                         </div>
                     </label>
 
@@ -461,12 +461,12 @@ function TelegramTab({
                         <button
                             onClick={handleSavePolicies}
                             disabled={saving}
-                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                         >
                             {saving ? "Saving..." : "Save Policies"}
                         </button>
                         {message && (
-                            <span className={`text-sm ${message.includes("saved") ? "text-emerald-600" : "text-red-500"}`}>{message}</span>
+                            <span className={`text-sm ${message.includes("saved") ? "text-green-400" : "text-red-400"}`}>{message}</span>
                         )}
                     </div>
                 </div>
@@ -479,30 +479,30 @@ function TelegramTab({
                 badge={pendingPairings.length > 0 ? `${pendingPairings.length} pending` : undefined}
             >
                 {pendingPairings.length === 0 ? (
-                    <p className="text-sm text-slate-400">No pending requests. When someone DMs the bot, they'll get a pairing code that shows up here.</p>
+                    <p className="text-sm text-pulse-faint">No pending requests. When someone DMs the bot, they'll get a pairing code that shows up here.</p>
                 ) : (
                     <div className="space-y-3">
                         {pendingPairings.map((p) => (
-                            <div key={p.id} className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                            <div key={p.id} className="flex items-center justify-between bg-pulse-panel-alt rounded-lg p-3">
                                 <div>
-                                    <div className="text-sm font-medium text-slate-900">{p.contactName || "Unknown User"}</div>
-                                    <div className="text-xs text-slate-500">
-                                        Telegram ID: <span className="font-mono">{p.contactId}</span> &middot; Code: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono">{p.code}</code>
+                                    <div className="text-sm font-medium text-pulse-text">{p.contactName || "Unknown User"}</div>
+                                    <div className="text-xs text-pulse-muted">
+                                        Telegram ID: <span className="font-mono">{p.contactId}</span> &middot; Code: <code className="bg-pulse-panel px-1.5 py-0.5 rounded text-pulse-text-soft font-mono">{p.code}</code>
                                     </div>
-                                    <div className="text-xs text-slate-400 mt-0.5">{new Date(p.createdAt).toLocaleString()}</div>
+                                    <div className="text-xs text-pulse-faint mt-0.5">{new Date(p.createdAt).toLocaleString()}</div>
                                 </div>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => handleApprove(p.code)}
                                         disabled={processing === p.code}
-                                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors motion-reduce:transition-none cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                     >
                                         {processing === p.code ? "..." : "Approve"}
                                     </button>
                                     <button
                                         onClick={() => setConfirmAction({ type: "block", contactId: p.contactId })}
                                         disabled={processing === p.contactId}
-                                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors motion-reduce:transition-none cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                     >
                                         {processing === p.contactId ? "..." : "Block"}
                                     </button>
@@ -516,19 +516,19 @@ function TelegramTab({
             {/* Approved Contacts */}
             <Section title="Approved Contacts" description="Users who have been approved to DM the bot.">
                 {approvedUsers.length === 0 ? (
-                    <p className="text-sm text-slate-400">No approved contacts yet.</p>
+                    <p className="text-sm text-pulse-faint">No approved contacts yet.</p>
                 ) : (
                     <div className="space-y-2">
                         {approvedUsers.map((u) => (
-                            <div key={u.id} className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                            <div key={u.id} className="flex items-center justify-between bg-pulse-panel-alt rounded-lg p-3">
                                 <div>
-                                    <div className="text-sm font-medium text-slate-900">{u.contactName || "Unknown"}</div>
-                                    <div className="text-xs text-slate-500 font-mono">{u.contactId}</div>
+                                    <div className="text-sm font-medium text-pulse-text">{u.contactName || "Unknown"}</div>
+                                    <div className="text-xs text-pulse-muted font-mono">{u.contactId}</div>
                                 </div>
                                 <button
                                     onClick={() => setConfirmAction({ type: "remove", contactId: u.contactId })}
                                     disabled={processing === u.contactId}
-                                    className="text-xs font-medium text-red-600 px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                                    className="text-xs font-medium text-red-400 px-3 py-1.5 border border-red-500/30 rounded-lg hover:bg-red-500/10 disabled:opacity-50 transition-colors motion-reduce:transition-none cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 >
                                     Remove
                                 </button>
@@ -541,19 +541,19 @@ function TelegramTab({
             {/* Approved Groups */}
             <Section title="Approved Groups" description="Groups where the bot is allowed to respond (when using allowlist policy).">
                 {approvedGroups.length === 0 ? (
-                    <p className="text-sm text-slate-400">No approved groups yet.</p>
+                    <p className="text-sm text-pulse-faint">No approved groups yet.</p>
                 ) : (
                     <div className="space-y-2 mb-4">
                         {approvedGroups.map((g) => (
-                            <div key={g.id} className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                            <div key={g.id} className="flex items-center justify-between bg-pulse-panel-alt rounded-lg p-3">
                                 <div>
-                                    <div className="text-sm font-medium text-slate-900">{g.contactName || "Unnamed Group"}</div>
-                                    <div className="text-xs text-slate-500 font-mono">{g.contactId}</div>
+                                    <div className="text-sm font-medium text-pulse-text">{g.contactName || "Unnamed Group"}</div>
+                                    <div className="text-xs text-pulse-muted font-mono">{g.contactId}</div>
                                 </div>
                                 <button
                                     onClick={() => setConfirmAction({ type: "remove", contactId: g.contactId })}
                                     disabled={processing === g.contactId}
-                                    className="text-xs font-medium text-red-600 px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                                    className="text-xs font-medium text-red-400 px-3 py-1.5 border border-red-500/30 rounded-lg hover:bg-red-500/10 disabled:opacity-50 transition-colors motion-reduce:transition-none cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 >
                                     Remove
                                 </button>
@@ -562,32 +562,32 @@ function TelegramTab({
                     </div>
                 )}
 
-                <div className="border-t border-slate-100 pt-4 mt-4">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Add Group</p>
+                <div className="border-t border-pulse-border-subtle pt-4 mt-4">
+                    <p className="text-xs font-semibold text-pulse-muted uppercase tracking-wider mb-3">Add Group</p>
                     <div className="flex flex-col sm:flex-row gap-2 max-w-lg">
                         <input
                             type="text"
                             placeholder="Group Chat ID (e.g. -1001234567890)"
                             value={groupChatId}
                             onChange={(e) => setGroupChatId(e.target.value)}
-                            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="flex-1 border border-pulse-border rounded-lg px-3 py-2 text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
                         <input
                             type="text"
                             placeholder="Group Name"
                             value={groupName}
                             onChange={(e) => setGroupName(e.target.value)}
-                            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="flex-1 border border-pulse-border rounded-lg px-3 py-2 text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
                         <button
                             onClick={handleAddGroup}
                             disabled={addingGroup}
-                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                         >
                             {addingGroup ? "Adding..." : "Add Group"}
                         </button>
                     </div>
-                    {groupError && <p className="text-xs text-red-500 mt-2">{groupError}</p>}
+                    {groupError && <p className="text-xs text-red-400 mt-2">{groupError}</p>}
                 </div>
             </Section>
 
@@ -601,6 +601,7 @@ function TelegramTab({
                 }
                 confirmLabel={confirmAction?.type === "block" ? "Block" : "Remove"}
                 variant={confirmAction?.type === "block" ? "danger" : "warning"}
+                theme="pulse"
                 onConfirm={handleConfirmAction}
                 onCancel={() => setConfirmAction(null)}
             />
@@ -628,8 +629,8 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                <p className="text-sm text-indigo-800">
+            <div className="bg-pulse-tint border border-pulse-border rounded-xl p-4">
+                <p className="text-sm text-pulse-text-soft">
                     <span className="font-semibold">Bring Your Own Key (BYOK)</span> — connect the LLM providers you want your agents to use.
                     Keys are encrypted at rest (AES-256-GCM). Tip: Google Gemini has a free tier to get started.
                 </p>
@@ -637,11 +638,11 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
 
             {/* Connected providers */}
             <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
-                    Connected {connected.length > 0 && <span className="text-slate-300">· {connected.length}</span>}
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-pulse-faint mb-3">
+                    Connected {connected.length > 0 && <span className="text-pulse-faint">· {connected.length}</span>}
                 </h3>
                 {connected.length === 0 ? (
-                    <p className="text-sm text-slate-400 bg-white border border-dashed border-slate-200 rounded-xl p-6 text-center">
+                    <p className="text-sm text-pulse-faint bg-pulse-panel border border-dashed border-pulse-border-subtle rounded-xl p-6 text-center">
                         No providers connected yet. Add one below to power your agents.
                     </p>
                 ) : (
@@ -652,12 +653,12 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
             {/* Add a provider */}
             {available.length > 0 && (
                 <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Add a provider</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-pulse-faint mb-3">Add a provider</h3>
                     <div className="flex items-center gap-2">
                         <select
                             value={adding}
                             onChange={(e) => setAdding(e.target.value)}
-                            className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                            className="border border-pulse-border rounded-lg px-3 py-2 text-sm text-pulse-text focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-pulse-panel"
                         >
                             <option value="">Choose a provider…</option>
                             {available.map((p) => (
@@ -889,20 +890,20 @@ function ProviderCard({
         .join(", ");
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-pulse-border-subtle flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${isConfigured ? "bg-emerald-400" : "bg-slate-300"}`} />
+                    <div className={`w-3 h-3 rounded-full ${isConfigured ? "bg-emerald-400" : "bg-pulse-border-strong"}`} />
                     <div>
-                        <h3 className="text-sm font-semibold text-slate-900">{providerName}</h3>
-                        <p className="text-xs text-slate-400">
+                        <h3 className="text-sm font-semibold text-pulse-text">{providerName}</h3>
+                        <p className="text-xs text-pulse-faint">
                             {modelCount} model{modelCount !== 1 ? "s" : ""} &middot; {displayAuthMethods}
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     {isConfigured && (
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
                             {existingKey?.authMethod === "setup_token" ? "Claude Account" : existingKey?.authMethod === "oauth" ? "ChatGPT Subscription" : "Configured"}
                         </span>
                     )}
@@ -913,21 +914,21 @@ function ProviderCard({
                 {isConfigured && !showForm && (
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm text-slate-600">
+                            <p className="text-sm text-pulse-muted">
                                 {existingKey?.authMethod === "setup_token" ? "Setup token configured" : existingKey?.authMethod === "oauth" ? "OAuth token configured" : "API key configured"}
-                                {existingKey?.keyAlias && <span className="text-slate-400"> ({existingKey.keyAlias})</span>}
+                                {existingKey?.keyAlias && <span className="text-pulse-faint"> ({existingKey.keyAlias})</span>}
                             </p>
                         </div>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setShowForm(true)}
-                                className="text-xs font-medium text-slate-600 px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                                className="text-xs font-medium text-pulse-muted px-3 py-1.5 border border-pulse-border-subtle rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                             >
                                 Update
                             </button>
                             <button
                                 onClick={handleRemove}
-                                className="text-xs font-medium text-red-600 px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                                className="text-xs font-medium text-red-400 px-3 py-1.5 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                             >
                                 Remove
                             </button>
@@ -939,14 +940,14 @@ function ProviderCard({
                     <div className="space-y-3 max-w-md">
                         {supportsSetupToken && (
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Authentication Method</label>
-                                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                                <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Authentication Method</label>
+                                <div className="flex rounded-lg border border-pulse-border overflow-hidden">
                                     <button
                                         type="button"
                                         onClick={() => { setAuthMethod("api_key"); setApiKey(""); setStatus({ type: "idle", message: "" }); }}
-                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${authMethod === "api_key"
-                                            ? "bg-slate-900 text-white"
-                                            : "bg-white text-slate-600 hover:bg-slate-50"
+                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${authMethod === "api_key"
+                                            ? "bg-indigo-600 text-white"
+                                            : "bg-pulse-panel text-pulse-muted hover:bg-pulse-hover"
                                             }`}
                                     >
                                         API Key
@@ -954,9 +955,9 @@ function ProviderCard({
                                     <button
                                         type="button"
                                         onClick={() => { setAuthMethod("setup_token"); setApiKey(""); setStatus({ type: "idle", message: "" }); }}
-                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${authMethod === "setup_token"
-                                            ? "bg-slate-900 text-white"
-                                            : "bg-white text-slate-600 hover:bg-slate-50"
+                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${authMethod === "setup_token"
+                                            ? "bg-indigo-600 text-white"
+                                            : "bg-pulse-panel text-pulse-muted hover:bg-pulse-hover"
                                             }`}
                                     >
                                         Claude Account
@@ -967,14 +968,14 @@ function ProviderCard({
 
                         {supportsOAuth && (
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Authentication Method</label>
-                                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                                <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Authentication Method</label>
+                                <div className="flex rounded-lg border border-pulse-border overflow-hidden">
                                     <button
                                         type="button"
                                         onClick={() => { setAuthMethod("api_key"); setApiKey(""); setStatus({ type: "idle", message: "" }); }}
-                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${authMethod === "api_key"
-                                            ? "bg-slate-900 text-white"
-                                            : "bg-white text-slate-600 hover:bg-slate-50"
+                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${authMethod === "api_key"
+                                            ? "bg-indigo-600 text-white"
+                                            : "bg-pulse-panel text-pulse-muted hover:bg-pulse-hover"
                                             }`}
                                     >
                                         API Key
@@ -982,9 +983,9 @@ function ProviderCard({
                                     <button
                                         type="button"
                                         onClick={() => { setAuthMethod("oauth"); setApiKey(""); setStatus({ type: "idle", message: "" }); }}
-                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${authMethod === "oauth"
-                                            ? "bg-slate-900 text-white"
-                                            : "bg-white text-slate-600 hover:bg-slate-50"
+                                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${authMethod === "oauth"
+                                            ? "bg-indigo-600 text-white"
+                                            : "bg-pulse-panel text-pulse-muted hover:bg-pulse-hover"
                                             }`}
                                     >
                                         ChatGPT Subscription
@@ -994,10 +995,10 @@ function ProviderCard({
                         )}
 
                         {isSetupToken && (
-                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                <p className="text-xs text-amber-800">
+                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                                <p className="text-xs text-amber-400">
                                     <span className="font-semibold">Use your Claude Pro/Max subscription.</span>{" "}
-                                    Run <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">claude setup-token</code> in
+                                    Run <code className="bg-amber-500/20 px-1 py-0.5 rounded font-mono">claude setup-token</code> in
                                     your terminal, then paste the token below.
                                 </p>
                             </div>
@@ -1006,8 +1007,8 @@ function ProviderCard({
                         {/* OpenAI OAuth: generate URL + paste callback */}
                         {isOAuth && isOpenAIOAuth && (
                             <>
-                                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
-                                    <p className="text-xs text-emerald-800">
+                                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                                    <p className="text-xs text-emerald-400">
                                         <span className="font-semibold">Use your ChatGPT Plus/Pro/Team subscription.</span>{" "}
                                         Click the button below to generate a sign-in link, then open it in your browser.
                                     </p>
@@ -1018,7 +1019,7 @@ function ProviderCard({
                                     type="button"
                                     onClick={handleOpenAISignIn}
                                     disabled={status.type === "saving"}
-                                    className="w-full px-4 py-2.5 bg-[#10a37f] hover:bg-[#0e8c6b] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full px-4 py-2.5 bg-[#10a37f] hover:bg-[#0e8c6b] text-white text-sm font-semibold rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z" /></svg>
                                     {status.type === "saving"
@@ -1030,15 +1031,15 @@ function ProviderCard({
 
                                 {/* Step 2: Show the generated URL for user to copy */}
                                 {authUrl && (
-                                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                                    <div className="bg-pulse-panel-alt border border-pulse-border-subtle rounded-lg p-3 space-y-2">
                                         <div className="flex items-center justify-between">
-                                            <label className="text-xs font-semibold text-slate-700">Sign-in Link {copied && <span className="text-emerald-600 font-normal">(copied to clipboard)</span>}</label>
+                                            <label className="text-xs font-semibold text-pulse-text-soft">Sign-in Link {copied && <span className="text-green-400 font-normal">(copied to clipboard)</span>}</label>
                                             <button
                                                 type="button"
                                                 onClick={async () => {
                                                     try { await navigator.clipboard.writeText(authUrl); setCopied(true); setTimeout(() => setCopied(false), 3000); } catch {}
                                                 }}
-                                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                                className="text-xs text-indigo-500 hover:text-indigo-400 font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                             >
                                                 Copy
                                             </button>
@@ -1048,10 +1049,10 @@ function ProviderCard({
                                             readOnly
                                             value={authUrl}
                                             onClick={(e) => (e.target as HTMLInputElement).select()}
-                                            className="w-full px-2 py-1.5 border border-slate-300 rounded text-[11px] font-mono bg-white text-slate-700 cursor-text"
+                                            className="w-full px-2 py-1.5 border border-pulse-border rounded text-[11px] font-mono bg-pulse-panel text-pulse-text-soft cursor-text"
                                         />
-                                        <p className="text-[11px] text-slate-500 leading-tight">
-                                            Open this link in your browser. After signing in, the page will redirect to a <code className="bg-slate-200 px-1 rounded">localhost</code> URL that won&apos;t load — that&apos;s expected. Copy that full URL and paste it below.
+                                        <p className="text-[11px] text-pulse-muted leading-tight">
+                                            Open this link in your browser. After signing in, the page will redirect to a <code className="bg-pulse-panel-alt px-1 rounded">localhost</code> URL that won&apos;t load — that&apos;s expected. Copy that full URL and paste it below.
                                         </p>
                                     </div>
                                 )}
@@ -1059,7 +1060,7 @@ function ProviderCard({
                                 {/* Step 3: Paste the callback URL */}
                                 {authUrl && (
                                     <div>
-                                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                        <label className="block text-xs font-semibold text-pulse-text-soft mb-1">
                                             Paste Callback URL
                                         </label>
                                         <div className="flex gap-2">
@@ -1068,13 +1069,13 @@ function ProviderCard({
                                                 value={manualUrl}
                                                 onChange={(e) => setManualUrl(e.target.value)}
                                                 placeholder="http://localhost:1455/auth/callback?code=..."
-                                                className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500 outline-none"
+                                                className="flex-1 px-3 py-1.5 border border-pulse-border rounded text-xs font-mono bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-1 focus:ring-emerald-500 outline-none"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={handleManualPaste}
                                                 disabled={!manualUrl.trim() || status.type === "saving"}
-                                                className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded hover:bg-slate-800 disabled:opacity-50"
+                                                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 disabled:opacity-50 transition-colors motion-reduce:transition-none cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                             >
                                                 Connect
                                             </button>
@@ -1086,8 +1087,8 @@ function ProviderCard({
 
                         {/* Non-OpenAI OAuth or setup_token: manual paste field */}
                         {isOAuth && !isOpenAIOAuth && (
-                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                                <p className="text-xs text-blue-800">
+                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                                <p className="text-xs text-blue-400">
                                     <span className="font-semibold">OAuth token.</span>{" "}
                                     Paste your OAuth token below.
                                 </p>
@@ -1098,7 +1099,7 @@ function ProviderCard({
                         {(!isOAuth || !isOpenAIOAuth) && (
                             <>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                                    <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">
                                         {isSetupToken ? "Setup Token" : isOAuth ? "OAuth Token" : "API Key"}
                                     </label>
                                     <input
@@ -1112,7 +1113,7 @@ function ProviderCard({
                                                     ? "Paste your OAuth token..."
                                                     : `Enter your ${providerName} API key...`
                                         }
-                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 placeholder:font-sans placeholder:text-slate-400"
+                                        className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text placeholder:font-sans placeholder:text-pulse-faint"
                                     />
                                 </div>
 
@@ -1120,21 +1121,21 @@ function ProviderCard({
                                     <button
                                         onClick={handleSave}
                                         disabled={!apiKey.trim() || status.type === "saving"}
-                                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                                     >
                                         {isTokenAuth ? "Save Token" : "Save Key"}
                                     </button>
                                     <button
                                         onClick={handleValidate}
                                         disabled={!apiKey.trim() || status.type === "validating"}
-                                        className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40"
+                                        className="px-4 py-2 text-sm font-medium text-pulse-muted border border-pulse-border rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                     >
                                         {isTokenAuth ? "Test Token" : "Test Key"}
                                     </button>
                                     {showForm && (
                                         <button
                                             onClick={() => { setShowForm(false); setApiKey(""); setStatus({ type: "idle", message: "" }); }}
-                                            className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                                            className="px-4 py-2 text-sm font-medium text-pulse-muted hover:text-pulse-text-soft transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
                                         >
                                             Cancel
                                         </button>
@@ -1145,24 +1146,24 @@ function ProviderCard({
 
                         {/* Status messages (shown for all auth methods) */}
                         {status.type !== "idle" && !isOpenAIOAuth && (
-                            <p className={`text-sm ${status.type === "success" ? "text-emerald-600" : status.type === "error" ? "text-red-500" : "text-slate-500"}`}>
+                            <p className={`text-sm ${status.type === "success" ? "text-green-400" : status.type === "error" ? "text-red-400" : "text-pulse-muted"}`}>
                                 {status.type === "saving" ? "Saving..." : status.type === "validating" ? "Validating..." : status.message}
                             </p>
                         )}
 
                         {/* OpenAI OAuth status (separate since button already shows saving state) */}
                         {isOpenAIOAuth && status.type === "error" && (
-                            <p className="text-sm text-red-500">{status.message}</p>
+                            <p className="text-sm text-red-400">{status.message}</p>
                         )}
                         {isOpenAIOAuth && status.type === "success" && (
-                            <p className="text-sm text-emerald-600">{status.message}</p>
+                            <p className="text-sm text-green-400">{status.message}</p>
                         )}
 
                         {/* Cancel button for OpenAI OAuth when updating */}
                         {isOpenAIOAuth && showForm && status.type !== "saving" && (
                             <button
                                 onClick={() => { setShowForm(false); setApiKey(""); setStatus({ type: "idle", message: "" }); }}
-                                className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-pulse-muted hover:text-pulse-text-soft transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
                             >
                                 Cancel
                             </button>
@@ -1265,9 +1266,9 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
     return (
         <div className="space-y-6">
             {apiError && (
-                <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100 mb-4">
+                <div role="alert" className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm border border-red-500/30 mb-4">
                     {apiError}
-                    <button onClick={() => setApiError(null)} aria-label="Dismiss error" className="ml-2 text-red-400 hover:text-red-600 font-bold">&times;</button>
+                    <button onClick={() => setApiError(null)} aria-label="Dismiss error" className="ml-2 text-red-400 hover:text-red-300 font-bold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">&times;</button>
                 </div>
             )}
             {/* CLI Access Toggle */}
@@ -1286,16 +1287,16 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                                 disabled={toggling}
                                 className="sr-only peer"
                             />
-                            <div className="w-10 h-5 bg-slate-200 rounded-full peer peer-checked:bg-indigo-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+                            <div className="w-10 h-5 bg-pulse-border-strong rounded-full peer peer-checked:bg-indigo-600 transition-colors motion-reduce:transition-none after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all after:motion-reduce:transition-none peer-checked:after:translate-x-5"></div>
                         </div>
-                        <span className="text-sm text-slate-700 group-hover:text-slate-900">
+                        <span className="text-sm text-pulse-text-soft group-hover:text-pulse-text">
                             {toggling ? "Saving..." : "Enable CLI tool authentication"}
                         </span>
                     </label>
 
                     {cliEnabled && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-                            <p className="text-xs text-emerald-800 font-medium">
+                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3">
+                            <p className="text-xs text-emerald-400 font-medium">
                                 OAuth is active. CLI tools can discover and authenticate with this workspace.
                             </p>
                         </div>
@@ -1310,22 +1311,22 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
             >
                 <div className="space-y-4 max-w-lg">
                     {!cliEnabled ? (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                            <p className="text-xs text-amber-800">Enable CLI access above first before connecting.</p>
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                            <p className="text-xs text-amber-400">Enable CLI access above first before connecting.</p>
                         </div>
                     ) : (
                         <div className="space-y-3">
                             <button
                                 onClick={handleConnect}
                                 disabled={connecting}
-                                className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                                className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                                 {connecting ? "Preparing..." : "Connect & Authorize"}
                             </button>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-pulse-muted">
                                 Opens a consent page where you review permissions and click <strong>Approve</strong>. You&apos;ll get an API token to copy.
                             </p>
                         </div>
@@ -1340,25 +1341,25 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
             >
                 <div className="space-y-3 max-w-lg">
                     <div className="flex gap-3 items-start">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">1</span>
-                        <p className="text-sm text-slate-700">Point the CLI tool at your API server URL below.</p>
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                        <p className="text-sm text-pulse-text-soft">Point the CLI tool at your API server URL below.</p>
                     </div>
                     <div className="flex gap-3 items-start">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">2</span>
-                        <p className="text-sm text-slate-700">The CLI auto-discovers OAuth endpoints and opens your browser.</p>
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                        <p className="text-sm text-pulse-text-soft">The CLI auto-discovers OAuth endpoints and opens your browser.</p>
                     </div>
                     <div className="flex gap-3 items-start">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">3</span>
-                        <p className="text-sm text-slate-700">You see the same consent page — click <strong>Approve</strong> and the CLI receives a token automatically.</p>
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                        <p className="text-sm text-pulse-text-soft">You see the same consent page — click <strong>Approve</strong> and the CLI receives a token automatically.</p>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-slate-100">
-                        <p className="text-xs font-medium text-slate-500 mb-2">API Server URL</p>
+                    <div className="mt-4 pt-4 border-t border-pulse-border-subtle">
+                        <p className="text-xs font-medium text-pulse-muted mb-2">API Server URL</p>
                         <div className="flex items-center gap-2">
-                            <code className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono text-slate-700 truncate">{apiBaseUrl}</code>
+                            <code className="flex-1 text-xs bg-pulse-panel-alt border border-pulse-border-subtle rounded-lg px-3 py-2 font-mono text-pulse-text-soft truncate">{apiBaseUrl}</code>
                             <button
                                 onClick={() => copy(apiBaseUrl, "api-url")}
-                                className="flex-shrink-0 text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-600"
+                                className="flex-shrink-0 text-xs px-2.5 py-1.5 border border-pulse-border-subtle rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none text-pulse-muted cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                             >
                                 {copiedId === "api-url" ? "Copied!" : "Copy"}
                             </button>
@@ -1377,27 +1378,28 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                         <button
                             onClick={handleGenerateApiToken}
                             disabled={generatingToken}
-                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
                         >
                             {generatingToken ? "Generating..." : "Generate New API Token"}
                         </button>
                     </div>
 
                     {newToken && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2 relative">
+                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 space-y-2 relative">
                             <button
                                 onClick={() => setNewToken(null)}
-                                className="absolute top-2 right-2 text-slate-400 hover:text-slate-600"
+                                aria-label="Dismiss"
+                                className="absolute top-2 right-2 text-pulse-faint hover:text-pulse-text-soft cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
                             </button>
-                            <p className="text-sm font-medium text-emerald-900">Your new API token</p>
-                            <p className="text-xs text-emerald-700">Please copy this token now. You won&apos;t be able to see it again!</p>
+                            <p className="text-sm font-medium text-emerald-300">Your new API token</p>
+                            <p className="text-xs text-emerald-400">Please copy this token now. You won&apos;t be able to see it again!</p>
                             <div className="flex items-center gap-2 mt-2">
-                                <code className="flex-1 text-sm bg-white border border-emerald-200 rounded-lg px-3 py-2 font-mono text-emerald-900">{newToken}</code>
+                                <code className="flex-1 text-sm bg-pulse-panel border border-emerald-500/30 rounded-lg px-3 py-2 font-mono text-emerald-300">{newToken}</code>
                                 <button
                                     onClick={() => copy(newToken, "new-token")}
-                                    className="px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                                    className="px-3 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 >
                                     {copiedId === "new-token" ? "Copied!" : "Copy"}
                                 </button>
@@ -1408,10 +1410,10 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                     {apiTokens.length > 0 && (
                         <div className="space-y-3 mt-6">
                             {apiTokens.map(token => (
-                                <div key={token.id} className="border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+                                <div key={token.id} className="border border-pulse-border-subtle rounded-xl p-4 flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-semibold text-slate-900">{token.name}</p>
-                                        <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                                        <p className="text-sm font-semibold text-pulse-text">{token.name}</p>
+                                        <div className="text-xs text-pulse-muted mt-1 space-y-0.5">
                                             <p>Created: {new Date(token.createdAt).toLocaleDateString()}</p>
                                             <p>Last used: {token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleDateString() : "Never"}</p>
                                         </div>
@@ -1419,7 +1421,7 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                                     <button
                                         onClick={() => setRevokeTokenId(token.id)}
                                         disabled={revoking === token.id}
-                                        className="text-xs font-medium text-red-600 px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                                        className="text-xs font-medium text-red-400 px-3 py-1.5 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                     >
                                         {revoking === token.id ? "Revoking..." : "Revoke"}
                                     </button>
@@ -1438,10 +1440,10 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                 >
                     <div className="space-y-3 max-w-lg">
                         {oauthClients.map(client => (
-                            <div key={client.clientId} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                            <div key={client.clientId} className="border border-pulse-border-subtle rounded-xl p-4 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{client.name}</span>
-                                    <span className="text-xs text-slate-400">{new Date(client.createdAt).toLocaleDateString()}</span>
+                                    <span className="text-xs font-semibold text-pulse-muted uppercase tracking-wider">{client.name}</span>
+                                    <span className="text-xs text-pulse-faint">{new Date(client.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 <CredentialRow
                                     label="Client ID"
@@ -1461,6 +1463,7 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
                 message="Are you sure you want to revoke this token? This action cannot be undone. Any applications using this token will lose access."
                 confirmLabel="Revoke Token"
                 variant="danger"
+                theme="pulse"
                 onConfirm={handleRevokeToken}
                 onCancel={() => setRevokeTokenId(null)}
             />
@@ -1471,17 +1474,17 @@ function ApiTab({ oauthClients, enableThirdPartyCli, apiBaseUrl, apiTokens }: {
 // ─── Billing Tab ─────────────────────────────────────────────────────────────
 
 function BillingTab({ credits }: { credits: number }) {
-    const status = credits > 500 ? { label: "Healthy", cls: "bg-emerald-100 text-emerald-700" }
-        : credits > 0 ? { label: "Low", cls: "bg-yellow-100 text-yellow-700" }
-            : { label: "Empty", cls: "bg-red-100 text-red-700" };
+    const status = credits > 500 ? { label: "Healthy", cls: "bg-emerald-500/10 text-emerald-400" }
+        : credits > 0 ? { label: "Low", cls: "bg-yellow-500/10 text-yellow-400" }
+            : { label: "Empty", cls: "bg-red-500/10 text-red-400" };
 
     return (
         <div className="space-y-6">
             <Section title="Credit Balance" description="AI usage is charged in credits. 1 credit = ~1,500 input tokens.">
                 <div className="flex items-center gap-4">
                     <div>
-                        <p className="text-3xl font-bold text-slate-900">{credits.toLocaleString()}</p>
-                        <p className="text-sm text-slate-500 mt-0.5">~{(credits * 1500).toLocaleString()} input tokens remaining</p>
+                        <p className="text-3xl font-bold text-pulse-text">{credits.toLocaleString()}</p>
+                        <p className="text-sm text-pulse-muted mt-0.5">~{(credits * 1500).toLocaleString()} input tokens remaining</p>
                     </div>
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${status.cls}`}>{status.label}</span>
                 </div>
@@ -1497,15 +1500,15 @@ function BillingTab({ credits }: { credits: number }) {
                         <button
                             key={plan.label}
                             disabled
-                            className="flex flex-col p-4 rounded-xl border border-slate-200 text-left hover:border-indigo-300 hover:bg-indigo-50/30 transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                            className="flex flex-col p-4 rounded-xl border border-pulse-border-subtle text-left hover:border-indigo-500/40 hover:bg-indigo-500/10 transition-all motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{plan.label}</span>
-                            <span className="text-xl font-bold text-slate-900 mt-1">{plan.price}</span>
-                            <span className="text-xs text-slate-400 mt-0.5">{plan.credits.toLocaleString()} credits</span>
+                            <span className="text-xs font-semibold text-pulse-muted uppercase tracking-wider">{plan.label}</span>
+                            <span className="text-xl font-bold text-pulse-text mt-1">{plan.price}</span>
+                            <span className="text-xs text-pulse-faint mt-0.5">{plan.credits.toLocaleString()} credits</span>
                         </button>
                     ))}
                 </div>
-                <p className="text-xs text-slate-400 mt-3">Contact your administrator to top up your balance.</p>
+                <p className="text-xs text-pulse-faint mt-3">Contact your administrator to top up your balance.</p>
             </Section>
         </div>
     );
@@ -1515,14 +1518,14 @@ function BillingTab({ credits }: { credits: number }) {
 
 function Section({ title, description, badge, children }: { title: string; description: string; badge?: string; children: React.ReactNode }) {
     return (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-pulse-border-subtle flex items-center gap-3">
                 <div>
-                    <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+                    <h2 className="text-sm font-semibold text-pulse-text">{title}</h2>
+                    <p className="text-xs text-pulse-faint mt-0.5">{description}</p>
                 </div>
                 {badge && (
-                    <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${badge === "Connected" ? "bg-emerald-100 text-emerald-700" : badge.includes("pending") ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500"}`}>
+                    <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${badge === "Connected" ? "bg-emerald-500/10 text-emerald-400" : badge.includes("pending") ? "bg-red-500/10 text-red-400" : "bg-pulse-panel-alt text-pulse-muted"}`}>
                         {badge}
                     </span>
                 )}
@@ -1535,8 +1538,8 @@ function Section({ title, description, badge, children }: { title: string; descr
 function Field({ label, value }: { label: string; value: string }) {
     return (
         <div>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">{label}</p>
-            <p className="text-sm text-slate-800 font-medium">{value}</p>
+            <p className="text-xs font-medium text-pulse-faint uppercase tracking-wider mb-1">{label}</p>
+            <p className="text-sm text-pulse-text-soft font-medium">{value}</p>
         </div>
     );
 }
@@ -1544,12 +1547,12 @@ function Field({ label, value }: { label: string; value: string }) {
 function FormInput({ label, name, type, placeholder, mono }: { label: string; name: string; type: string; placeholder: string; mono?: boolean }) {
     return (
         <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+            <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">{label}</label>
             <input
                 type={type}
                 name={name}
                 placeholder={placeholder}
-                className={`w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400 ${mono ? "font-mono placeholder:font-sans" : ""}`}
+                className={`w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text placeholder:text-pulse-faint ${mono ? "font-mono placeholder:font-sans" : ""}`}
             />
         </div>
     );
@@ -1572,15 +1575,15 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
 
     return (
         <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-1">Plugins</h2>
-            <p className="text-sm text-slate-500 mb-6">Configure credentials for each plugin to activate integrations.</p>
+            <h2 className="text-lg font-semibold text-pulse-text mb-1">Plugins</h2>
+            <p className="text-sm text-pulse-muted mb-6">Configure credentials for each plugin to activate integrations.</p>
 
             {plugins.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-slate-300 mx-auto mb-4">
+                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-12 text-center">
+                    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-pulse-faint mx-auto mb-4" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
                     </svg>
-                    <p className="text-slate-500 text-sm">No plugins enabled. Contact your administrator to enable plugins.</p>
+                    <p className="text-pulse-muted text-sm">No plugins enabled. Contact your administrator to enable plugins.</p>
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -1592,34 +1595,34 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
                         const noneConfigured = config.credentialSchema.every((f) => !f.configured);
 
                         return (
-                            <div key={plugin.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div key={plugin.id} className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
                                 <div className="p-5">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-3 mb-1.5">
-                                                <h3 className="text-base font-semibold text-slate-900 capitalize">{plugin.name}</h3>
-                                                <span className="text-xs text-slate-400">v{plugin.version || "?"}</span>
+                                                <h3 className="text-base font-semibold text-pulse-text capitalize">{plugin.name}</h3>
+                                                <span className="text-xs text-pulse-faint">v{plugin.version || "?"}</span>
                                             </div>
-                                            <p className="text-sm text-slate-500 mb-3">{config.description}</p>
+                                            <p className="text-sm text-pulse-muted mb-3">{config.description}</p>
 
                                             <div className="flex flex-wrap items-center gap-2">
                                                 {config.toolCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-500/10 text-blue-400 rounded-full">
                                                         {config.toolCount} tool{config.toolCount !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
                                                 {config.routeCount > 0 && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-emerald-500/10 text-emerald-400 rounded-full">
                                                         {config.routeCount} route{config.routeCount !== 1 ? "s" : ""}
                                                     </span>
                                                 )}
                                                 {hasCredentials && (
                                                     <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full font-medium ${
                                                         allConfigured
-                                                            ? "bg-green-50 text-green-700"
+                                                            ? "bg-green-500/10 text-green-400"
                                                             : noneConfigured
-                                                            ? "bg-red-50 text-red-600"
-                                                            : "bg-amber-50 text-amber-700"
+                                                            ? "bg-red-500/10 text-red-400"
+                                                            : "bg-amber-500/10 text-amber-400"
                                                     }`}>
                                                         <span className={`w-1.5 h-1.5 rounded-full ${
                                                             allConfigured ? "bg-green-500" : noneConfigured ? "bg-red-400" : "bg-amber-500"
@@ -1633,7 +1636,7 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
                                         {hasCredentials && (
                                             <button
                                                 onClick={() => toggleExpand(plugin.id)}
-                                                className="ml-4 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                className="ml-4 px-3 py-1.5 text-sm font-medium text-indigo-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                                             >
                                                 {isExpanded ? "Close" : "Configure"}
                                             </button>
@@ -1642,47 +1645,47 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
                                 </div>
 
                                 {isExpanded && hasCredentials && (
-                                    <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
-                                        <h4 className="text-sm font-medium text-slate-700 mb-3">Credentials</h4>
+                                    <div className="border-t border-pulse-border-subtle bg-pulse-panel-alt px-5 py-4">
+                                        <h4 className="text-sm font-medium text-pulse-text-soft mb-3">Credentials</h4>
                                         <form action={(formData) => startTransition(() => savePluginCredentials(formData))} className="space-y-4">
                                             <input type="hidden" name="pluginName" value={plugin.name} />
                                             <input type="hidden" name="credentialSchema" value={JSON.stringify(config.credentialSchema)} />
 
                                             <div className="space-y-3">
                                                 {config.credentialSchema.map((field) => (
-                                                    <div key={field.name} className="bg-white rounded-lg border border-slate-200 p-4">
+                                                    <div key={field.name} className="bg-pulse-panel rounded-lg border border-pulse-border-subtle p-4">
                                                         <div className="flex items-center gap-2 mb-1.5">
-                                                            <label className="text-sm font-medium text-slate-700">{field.label}</label>
+                                                            <label className="text-sm font-medium text-pulse-text-soft">{field.label}</label>
                                                             {field.required && <span className="text-red-400 text-xs">required</span>}
                                                             <span className={`ml-auto inline-flex items-center gap-1 text-xs ${
-                                                                field.configured ? "text-green-600" : "text-slate-400"
+                                                                field.configured ? "text-green-400" : "text-pulse-faint"
                                                             }`}>
                                                                 <span className={`w-1.5 h-1.5 rounded-full ${
-                                                                    field.configured ? "bg-green-500" : "bg-slate-300"
+                                                                    field.configured ? "bg-green-500" : "bg-pulse-border-strong"
                                                                 }`} />
                                                                 {field.configured ? "Saved" : "Not set"}
                                                             </span>
                                                         </div>
                                                         {field.helpText && (
-                                                            <p className="text-xs text-slate-400 mb-2">{field.helpText}</p>
+                                                            <p className="text-xs text-pulse-faint mb-2">{field.helpText}</p>
                                                         )}
                                                         <input
                                                             type={field.type === "secret" ? "password" : field.type === "url" ? "url" : "text"}
                                                             name={`cred_${field.name}`}
                                                             placeholder={field.configured ? "Leave empty to keep current value" : field.placeholder || ""}
-                                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                                                            className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                                                         />
-                                                        <p className="text-xs text-slate-400 mt-1 font-mono">{field.name}</p>
+                                                        <p className="text-xs text-pulse-faint mt-1 font-mono">{field.name}</p>
                                                     </div>
                                                 ))}
                                             </div>
 
                                             <div className="flex items-center justify-between pt-2">
-                                                <p className="text-xs text-slate-400">Encrypted with AES-256-GCM. Empty fields are skipped.</p>
+                                                <p className="text-xs text-pulse-faint">Encrypted with AES-256-GCM. Empty fields are skipped.</p>
                                                 <button
                                                     type="submit"
                                                     disabled={saving}
-                                                    className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel-alt"
                                                 >
                                                     {saving ? "Saving..." : "Save Credentials"}
                                                 </button>
@@ -1779,35 +1782,35 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
     return (
         <div className="space-y-6">
             {/* SMTP */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">SMTP (Outgoing Email)</h2>
-                    <p className="text-sm text-slate-500 mt-1">Configure SMTP for sending emails from your agents.</p>
+            <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                <div className="p-6 border-b border-pulse-border-subtle">
+                    <h2 className="text-lg font-semibold text-pulse-text">SMTP (Outgoing Email)</h2>
+                    <p className="text-sm text-pulse-muted mt-1">Configure SMTP for sending emails from your agents.</p>
                 </div>
                 <div className="p-6 grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Host</label>
-                        <input type="text" value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Host</label>
+                        <input type="text" value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Port</label>
-                        <input type="number" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Port</label>
+                        <input type="number" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
-                        <input type="text" value={smtpUsername} onChange={(e) => setSmtpUsername(e.target.value)} placeholder="user@company.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Username</label>
+                        <input type="text" value={smtpUsername} onChange={(e) => setSmtpUsername(e.target.value)} placeholder="user@company.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                        <input type="password" value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} placeholder={hasExistingSmtpPass ? "••••••••" : "App password"} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Password</label>
+                        <input type="password" value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} placeholder={hasExistingSmtpPass ? "••••••••" : "App password"} className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">From Address</label>
-                        <input type="email" value={smtpFrom} onChange={(e) => setSmtpFrom(e.target.value)} placeholder="agent@company.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">From Address</label>
+                        <input type="email" value={smtpFrom} onChange={(e) => setSmtpFrom(e.target.value)} placeholder="agent@company.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div className="flex items-end">
-                        <label className="flex items-center gap-2 text-sm text-slate-700">
-                            <input type="checkbox" checked={smtpTls} onChange={(e) => setSmtpTls(e.target.checked)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                        <label className="flex items-center gap-2 text-sm text-pulse-text-soft cursor-pointer">
+                            <input type="checkbox" checked={smtpTls} onChange={(e) => setSmtpTls(e.target.checked)} className="rounded border-pulse-border text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                             Use TLS
                         </label>
                     </div>
@@ -1815,31 +1818,31 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
             </div>
 
             {/* IMAP */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200">
-                    <h2 className="text-lg font-semibold text-slate-900">IMAP (Incoming Email)</h2>
-                    <p className="text-sm text-slate-500 mt-1">Configure IMAP for reading emails. Optional — needed for email_read and email_list tools.</p>
+            <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                <div className="p-6 border-b border-pulse-border-subtle">
+                    <h2 className="text-lg font-semibold text-pulse-text">IMAP (Incoming Email)</h2>
+                    <p className="text-sm text-pulse-muted mt-1">Configure IMAP for reading emails. Optional — needed for email_read and email_list tools.</p>
                 </div>
                 <div className="p-6 grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Host</label>
-                        <input type="text" value={imapHost} onChange={(e) => setImapHost(e.target.value)} placeholder="imap.gmail.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Host</label>
+                        <input type="text" value={imapHost} onChange={(e) => setImapHost(e.target.value)} placeholder="imap.gmail.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Port</label>
-                        <input type="number" value={imapPort} onChange={(e) => setImapPort(e.target.value)} placeholder="993" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Port</label>
+                        <input type="number" value={imapPort} onChange={(e) => setImapPort(e.target.value)} placeholder="993" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
-                        <input type="text" value={imapUsername} onChange={(e) => setImapUsername(e.target.value)} placeholder="user@company.com" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Username</label>
+                        <input type="text" value={imapUsername} onChange={(e) => setImapUsername(e.target.value)} placeholder="user@company.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                        <input type="password" value={imapPassword} onChange={(e) => setImapPassword(e.target.value)} placeholder={hasExistingImapPass ? "••••••••" : "App password"} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800" />
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1">Password</label>
+                        <input type="password" value={imapPassword} onChange={(e) => setImapPassword(e.target.value)} placeholder={hasExistingImapPass ? "••••••••" : "App password"} className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-pulse-panel text-pulse-text-soft placeholder:text-pulse-faint" />
                     </div>
                     <div className="flex items-end">
-                        <label className="flex items-center gap-2 text-sm text-slate-700">
-                            <input type="checkbox" checked={imapTls} onChange={(e) => setImapTls(e.target.checked)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                        <label className="flex items-center gap-2 text-sm text-pulse-text-soft cursor-pointer">
+                            <input type="checkbox" checked={imapTls} onChange={(e) => setImapTls(e.target.checked)} className="rounded border-pulse-border text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                             Use TLS
                         </label>
                     </div>
@@ -1848,16 +1851,16 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
 
             {/* Actions */}
             <div className="flex items-center gap-3">
-                <button onClick={handleSave} disabled={pending} className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                <button onClick={handleSave} disabled={pending} className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel">
                     {pending ? "Saving..." : "Save Email Config"}
                 </button>
-                <button onClick={handleTest} disabled={testResult.type === "testing"} className="px-6 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50">
+                <button onClick={handleTest} disabled={testResult.type === "testing"} className="px-6 py-2.5 text-sm font-medium text-pulse-text-soft bg-pulse-panel-alt rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
                     {testResult.type === "testing" ? "Testing..." : "Test Connection"}
                 </button>
-                {status.type === "success" && <span className="text-sm text-emerald-600">{status.message}</span>}
-                {status.type === "error" && <span className="text-sm text-red-600">{status.message}</span>}
-                {testResult.type === "success" && <span className="text-sm text-emerald-600">{testResult.message}</span>}
-                {testResult.type === "error" && <span className="text-sm text-red-600">{testResult.message}</span>}
+                {status.type === "success" && <span className="text-sm text-green-400">{status.message}</span>}
+                {status.type === "error" && <span className="text-sm text-red-400">{status.message}</span>}
+                {testResult.type === "success" && <span className="text-sm text-green-400">{testResult.message}</span>}
+                {testResult.type === "error" && <span className="text-sm text-red-400">{testResult.message}</span>}
             </div>
         </div>
     );
@@ -1866,15 +1869,15 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
 function CredentialRow({ label, value, onCopy, copied, masked, hint }: { label: string; value: string; onCopy?: () => void; copied?: boolean; masked?: boolean; hint?: string }) {
     return (
         <div>
-            <p className="text-xs font-medium text-slate-400 mb-1">{label}</p>
+            <p className="text-xs font-medium text-pulse-faint mb-1">{label}</p>
             <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono text-slate-700 truncate">{value}</code>
+                <code className="flex-1 text-xs bg-pulse-panel-alt border border-pulse-border-subtle rounded-lg px-3 py-2 font-mono text-pulse-text-soft truncate">{value}</code>
                 {onCopy && (
-                    <button onClick={onCopy} className="flex-shrink-0 text-xs px-2.5 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-slate-600">
+                    <button onClick={onCopy} className="flex-shrink-0 text-xs px-2.5 py-1.5 border border-pulse-border-subtle rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none text-pulse-muted cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
                         {copied ? "Copied!" : "Copy"}
                     </button>
                 )}
-                {masked && hint && <span className="text-xs text-slate-400 flex-shrink-0">{hint}</span>}
+                {masked && hint && <span className="text-xs text-pulse-faint flex-shrink-0">{hint}</span>}
             </div>
         </div>
     );
