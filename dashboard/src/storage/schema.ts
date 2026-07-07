@@ -48,6 +48,7 @@ export const agentProfiles = pgTable("agent_profiles", {
     workspacePath: varchar("workspace_path", { length: 512 }),
     dockerSandboxEnabled: boolean("docker_sandbox_enabled").default(false), // WARNING: Grants raw bash execution
     selfConfigEnabled: boolean("self_config_enabled").notNull().default(false), // Allow agent to edit its own workspace files
+    enabled: boolean("enabled").notNull().default(true), // Disabled agents don't respond or route
     heartbeatConfig: jsonb("heartbeat_config").default({}),
     sandboxConfig: jsonb("sandbox_config").default({}),
     toolPolicy: jsonb("tool_policy").default({}),

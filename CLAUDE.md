@@ -380,20 +380,21 @@ Never store plaintext secrets. Never log decrypted values.
 ## Styling
 
 - **Framework:** Tailwind CSS 4 (utility-first)
-- **Color palette:** Slate (neutral), Indigo (primary), Green (success), Yellow (warning), Red (danger)
-- **Component pattern:** No component library — raw Tailwind classes
+- **Theme:** token-driven via `--pulse-*` CSS vars — **light is the default (Google AI Studio look)**, `data-theme="dark"` = Clerk (near-black + violet). Both must always work. Accent = indigo-600.
+- **Always use the semantic tokens**, never hardcode `bg-white`/`bg-slate-900`: `bg-pulse-bg|panel|panel-alt|hover|tint`, `border-pulse-border|border-subtle|border-strong`, `text-pulse-text|text-soft|muted|faint`, `text-pulse-accent|accent-hi`. Status colors: `bg-<c>-500/10 text-<c>-400 border-<c>-500/30`.
+- **Shared primitives:** `dashboard/src/components/dashboard/ui.tsx` — `PageHeader`, `Card` (flat, border-only), `CardHeader`, `SettingRow` (settings-as-rows), `Toggle`, `InfoTip`/`SettingHint`. Reuse these; don't hand-roll.
+- **Component pattern:** No component library — raw Tailwind + the primitives above.
 - **Icons:** `@heroicons/react` (24/outline variant preferred)
 
-Standard card pattern:
+### Lists of managed entities → TABLE, not cards
+Anything the user *manages* (agents, tools, users, channels, keys…) renders as a **table** with columns + row actions (View/Edit, Enable/Disable, Delete) and an enable/disable status — like the Clerk dashboard. Cards are for **dashboards/overview/marketing only**, never for a list you act on. A managed table row should surface the key metadata inline (e.g. an agent row: name, model, department chips, status) so you don't have to open each item to see or change it.
+
+Standard card pattern (dashboards/detail panels only):
 ```tsx
-<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-    <div className="p-6 border-b border-slate-200">
-        <h2 className="text-lg font-semibold text-slate-900">Title</h2>
-    </div>
-    <div className="p-6">
-        {/* Content */}
-    </div>
-</div>
+<Card>
+    <CardHeader title="Title" description="…" />
+    <div className="p-5">{/* content */}</div>
+</Card>
 ```
 
 ---
