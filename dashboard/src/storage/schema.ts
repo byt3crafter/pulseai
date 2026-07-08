@@ -375,6 +375,37 @@ export const allowlists = pgTable(
     ]
 );
 
+// -- People (account-wide, Telegram-ID-based access control) --
+// One row per human the tenant has ever heard from on any channel (currently
+// Telegram). Scope is account-wide — applies to all groups/DMs, not per-channel.
+// `access` gates whether agents respond to this person at all; `allowedAgentIds`
+// (when non-empty) further restricts which agents they may address.
+// `isApprover` / `approvalMode` are stored now for a later approval-workflow
+// stage but are NOT enforced yet.
+export const people = pgTable(
+    "people",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        telegramUserId: varchar("telegram_user_id", { length: 32 }).notNull(),
+        displayName: varchar("display_name", { length: 255 }),
+        username: varchar("username", { length: 255 }),
+        access: varchar("access", { length: 12 }).notNull().default("observe"), // 'talk' | 'observe' | 'blocked'
+        isApprover: boolean("is_approver").notNull().default(false), // later stage: can approve others
+        approvalMode: varchar("approval_mode", { length: 20 }).notNull().default("auto"), // 'auto' | 'requires_approval' — later stage, not enforced yet
+        allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]), // [] = may address ALL agents; else subset of agent_profiles.id
+        lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        unique("idx_unique_people_tenant_telegram").on(table.tenantId, table.telegramUserId),
+        index("idx_people_tenant").on(table.tenantId),
+    ]
+);
+
 // -- Skills/tools enabled per tenant --
 export const tenantSkills = pgTable(
     "tenant_skills",

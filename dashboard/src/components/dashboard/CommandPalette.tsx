@@ -17,6 +17,7 @@ import {
     Cog6ToothIcon,
     ShieldCheckIcon,
     Squares2X2Icon,
+    UsersIcon,
 } from "@heroicons/react/24/outline";
 
 interface CommandPaletteProps {
@@ -73,6 +74,7 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
             { key: "page-agents", label: "Agent Profiles", href: "/dashboard/agents", group: "Pages", icon: CpuChipIcon },
             { key: "page-routing", label: "Routing", href: "/dashboard/agents/routing", group: "Pages", icon: ArrowsRightLeftIcon },
             { key: "page-departments", label: "Departments", href: "/dashboard/departments", group: "Pages", icon: BuildingOffice2Icon },
+            { key: "page-people", label: "People", href: "/dashboard/people", group: "Pages", icon: UsersIcon },
             { key: "page-tools", label: "Custom Tools", href: "/dashboard/tools", group: "Pages", icon: WrenchScrewdriverIcon },
             { key: "page-servers", label: "Servers", href: "/dashboard/servers", group: "Pages", icon: ServerIcon },
             { key: "page-conversations", label: "Conversations", href: "/dashboard/conversations", group: "Pages", icon: ChatBubbleLeftRightIcon },
