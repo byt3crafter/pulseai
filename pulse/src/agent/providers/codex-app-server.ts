@@ -39,13 +39,14 @@
 
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import * as os from "os";
+import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
 import { config } from "../../config.js";
 import { db } from "../../storage/db.js";
 import { tenants } from "../../storage/schema.js";
 import { mintAppAccessToken } from "../../gateway/oauth.js";
-import { ProviderResponse } from "./anthropic.js";
+import { ProviderResponse, ProviderAttachment } from "./anthropic.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const INITIALIZE_TIMEOUT_MS = 15_000;
@@ -486,6 +487,34 @@ function evictLru(): void {
     if (oldestKey) threadCache.delete(oldestKey);
 }
 
+/**
+ * Build a `turn/start` `input` array (codex's `UserInput` union — see
+ * `/tmp/codex-proto/v2/UserInput.ts`): one `text` item plus, for each image
+ * attachment, an `image` item with the file inlined as a `data:` URL. Inlining
+ * (rather than `localImage`'s host path) sidesteps the thread's read-only
+ * sandbox policy entirely — the bytes travel over the same stdio pipe as
+ * everything else.
+ */
+async function buildTurnInputItems(
+    text: string,
+    attachments?: ProviderAttachment[]
+): Promise<Array<Record<string, any>>> {
+    const items: Array<Record<string, any>> = [{ type: "text", text, text_elements: [] }];
+    if (!attachments?.length) return items;
+
+    for (const att of attachments) {
+        if (att.type !== "image") continue;
+        try {
+            const bytes = await readFile(att.path);
+            const mime = att.mime || "image/jpeg";
+            items.push({ type: "image", url: `data:${mime};base64,${bytes.toString("base64")}`, detail: "auto" });
+        } catch (err) {
+            logger.warn({ err, path: att.path }, "Failed to read image attachment for Codex; skipping");
+        }
+    }
+    return items;
+}
+
 export class CodexAppServerProvider {
     readonly name = "codex";
 
@@ -499,6 +528,8 @@ export class CodexAppServerProvider {
         systemPrompt: string;
         messages: Array<{ role: string; content: string }>;
         timeoutMs?: number;
+        /** Images attached to the current turn (e.g. a Telegram photo). */
+        attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
         // Serialize turns through the shared process (see harness docblock).
         // Chain from settled-state so one failed turn never wedges the queue.
@@ -516,6 +547,7 @@ export class CodexAppServerProvider {
         systemPrompt: string;
         messages: Array<{ role: string; content: string }>;
         timeoutMs?: number;
+        attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
         const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
         const deadline = Date.now() + timeoutMs;
@@ -606,16 +638,16 @@ export class CodexAppServerProvider {
             return lastUser?.content ?? buildTurnText(params.messages);
         };
 
-        const startTurn = async (tid: string, text: string) =>
+        const startTurn = async (tid: string, text: string, attachments?: ProviderAttachment[]) =>
             client.request(
                 "turn/start",
-                { threadId: tid, input: [{ type: "text", text, text_elements: [] }] },
+                { threadId: tid, input: await buildTurnInputItems(text, attachments) },
                 Math.min(TURN_START_TIMEOUT_MS, remaining())
             );
 
         let turnId: string | undefined;
         try {
-            turnId = (await startTurn(threadId, turnTextFor(reusedThread)))?.turn?.id;
+            turnId = (await startTurn(threadId, turnTextFor(reusedThread), params.attachments))?.turn?.id;
         } catch (err: any) {
             if (reusedThread) {
                 // Universal recovery: drop the stale thread, start fresh with
@@ -634,7 +666,7 @@ export class CodexAppServerProvider {
                         lastUsed: Date.now(),
                     });
                 }
-                turnId = (await startTurn(threadId, turnTextFor(false)))?.turn?.id;
+                turnId = (await startTurn(threadId, turnTextFor(false), params.attachments))?.turn?.id;
             } else {
                 const tail = client.stderrTail();
                 throw new Error(`codex turn/start failed: ${err.message}${tail ? `\ncodex stderr (tail):\n${tail}` : ""}`);

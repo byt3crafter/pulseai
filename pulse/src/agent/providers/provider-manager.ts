@@ -1,4 +1,4 @@
-import { AnthropicProvider, ProviderResponse, StreamCallbacks } from "./anthropic.js";
+import { AnthropicProvider, ProviderResponse, StreamCallbacks, ProviderAttachment } from "./anthropic.js";
 import { OpenAIProvider } from "./openai.js";
 import { CodexAppServerProvider } from "./codex-app-server.js";
 import { providerKeyService } from "./provider-key-service.js";
@@ -32,6 +32,8 @@ export class ProviderManager {
             input_schema: any;
         }>;
         stream?: StreamCallbacks;
+        /** Images attached to the current inbound message (e.g. a Telegram photo). */
+        attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse & { provider: string; canonicalModel: string; wasFallback: boolean }> {
         const modelDef = getModelById(params.model);
         const providerDef = getProviderByModel(params.model);
@@ -70,6 +72,7 @@ export class ProviderManager {
                 tools: params.tools,
                 stream: params.stream,
                 baseURL,
+                attachments: params.attachments,
             });
             return {
                 ...response,

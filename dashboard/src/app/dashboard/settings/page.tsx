@@ -223,6 +223,7 @@ export default async function SettingsPage({
                 dmPolicy: tenantConfig.telegram_dm_policy ?? "open",
                 groupPolicy: tenantConfig.telegram_group_policy ?? "disabled",
                 requireMention: tenantConfig.telegram_require_mention ?? true,
+                visionEnabled: tenantConfig.telegram_vision_enabled ?? true,
             }}
             autoMemoryConfig={{
                 enabled: tenantConfig.auto_memory?.enabled !== false,

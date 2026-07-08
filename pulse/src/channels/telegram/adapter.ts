@@ -3,7 +3,10 @@ import { ChannelAdapter, ChannelConnectionConfig } from "../channel.interface.js
 import { InboundMessage, OutboundMessage } from "../types.js";
 import { logger } from "../../utils/logger.js";
 import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { decrypt } from "../../utils/crypto.js";
+import { config } from "../../config.js";
 import { enqueueMessage, messageQueue } from "../../queue/message-queue.js";
 import { isGroupChat, hasBotMention, isReplyToBot, stripBotMention } from "./group-helpers.js";
 import { checkDmAccess, getOrCreatePairingCode } from "./pairing.js";
@@ -84,6 +87,9 @@ interface TenantConfig {
     telegram_dm_policy?: "open" | "pairing" | "disabled";
     telegram_group_policy?: "open" | "allowlist" | "disabled";
     telegram_require_mention?: boolean;
+    // Photo understanding (vision) — default ON. When off, inbound photos are
+    // never downloaded; the agent is told a photo arrived but it can't see it.
+    telegram_vision_enabled?: boolean;
     [key: string]: unknown;
 }
 
@@ -155,6 +161,10 @@ export class TelegramAdapter implements ChannelAdapter {
                 try { await this.handleTextMessage(ctx, conn); }
                 catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling text message"); }
             });
+            bot.on("message:photo", async (ctx) => {
+                try { await this.handlePhotoMessage(ctx, conn, botToken); }
+                catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling photo message"); }
+            });
 
             if (process.env.NODE_ENV === "development") {
                 bot.start().catch((err) => logger.error({ err, tenantId: conn.tenantId }, "Failed to start TG polling"));
@@ -180,10 +190,59 @@ export class TelegramAdapter implements ChannelAdapter {
         }
     }
 
+    /** Same routing as handleTextMessage, but for inbound photos (message:photo). */
+    private async handlePhotoMessage(ctx: Context, conn: ChannelConnectionConfig, botToken: string): Promise<void> {
+        const tenantConfig = await this.loadTenantConfig(conn.tenantId);
+        const isGroup = isGroupChat(ctx);
+
+        if (isGroup) {
+            await this.handleGroupMessage(ctx, conn, tenantConfig, botToken);
+        } else {
+            await this.handleDmMessage(ctx, conn, tenantConfig, botToken);
+        }
+    }
+
+    /**
+     * Download the largest size of an inbound Telegram photo via the Bot API
+     * getFile call, and save it into the agent's workspace so the runtime can
+     * hand it to a vision-capable provider. Returns undefined (never throws)
+     * on any failure — a photo the agent can't see should degrade to a text
+     * note, not break the whole message.
+     */
+    private async downloadPhotoAttachment(
+        ctx: Context,
+        conn: ChannelConnectionConfig,
+        botToken: string
+    ): Promise<InboundMessage["attachments"] | undefined> {
+        try {
+            const file = await ctx.getFile(); // grammY picks the largest photo size automatically
+            if (!file.file_path) return undefined;
+
+            const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
+            const res = await fetch(fileUrl);
+            if (!res.ok) {
+                logger.warn({ tenantId: conn.tenantId, status: res.status }, "Failed to download Telegram photo from Bot API");
+                return undefined;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+
+            const dir = join(config.WORKSPACE_BASE_DIR, conn.tenantId, conn.agentProfileId || "inbox", "inbound");
+            await mkdir(dir, { recursive: true });
+            const filePath = join(dir, `photo-${Date.now()}.jpg`);
+            await writeFile(filePath, buf);
+
+            return [{ type: "image", path: filePath, mime: "image/jpeg" }];
+        } catch (err) {
+            logger.warn({ err, tenantId: conn.tenantId }, "Error downloading Telegram photo (non-fatal)");
+            return undefined;
+        }
+    }
+
     private async handleGroupMessage(
         ctx: Context,
         conn: ChannelConnectionConfig,
-        tenantConfig: TenantConfig
+        tenantConfig: TenantConfig,
+        botToken?: string
     ): Promise<void> {
         const groupPolicy = tenantConfig.telegram_group_policy ?? "disabled";
         if (groupPolicy === "disabled") return;
@@ -210,15 +269,34 @@ export class TelegramAdapter implements ChannelAdapter {
             if (!entry || entry.status !== "approved") return;
         }
 
-        // Strip bot mention from content
-        let content = ctx.message!.text ?? "";
-        if (mentioned && ctx.me?.username) {
-            content = stripBotMention(content, ctx.me.username);
-        }
+        const isPhoto = !!botToken;
+        let content: string;
+        let attachments: InboundMessage["attachments"];
 
-        // Intercept bot commands that arrive via mention (e.g. "@bot /pair")
-        const handled = await this.handleBotCommand(ctx, conn, content.trim());
-        if (handled) return;
+        if (isPhoto) {
+            // Strip bot mention from the caption (photos have no .text, only .caption)
+            let caption = ctx.message!.caption ?? "";
+            if (mentioned && ctx.me?.username) {
+                caption = stripBotMention(caption, ctx.me.username);
+            }
+            const visionEnabled = tenantConfig.telegram_vision_enabled ?? true;
+            if (visionEnabled) {
+                attachments = await this.downloadPhotoAttachment(ctx, conn, botToken!);
+            }
+            content = attachments
+                ? (caption.trim() || "[photo]")
+                : `${caption.trim() ? caption.trim() + "\n\n" : ""}[The user sent a photo — this model cannot view images]`;
+        } else {
+            // Strip bot mention from content
+            content = ctx.message!.text ?? "";
+            if (mentioned && ctx.me?.username) {
+                content = stripBotMention(content, ctx.me.username);
+            }
+
+            // Intercept bot commands that arrive via mention (e.g. "@bot /pair") — text only
+            const handled = await this.handleBotCommand(ctx, conn, content.trim());
+            if (handled) return;
+        }
 
         const inbound: InboundMessage = {
             id: randomUUID(),
@@ -228,6 +306,7 @@ export class TelegramAdapter implements ChannelAdapter {
             channelContactId: groupChatId,
             contactName: (ctx.chat as any)?.title || "Group",
             content,
+            attachments,
             raw: ctx.message,
             receivedAt: new Date(ctx.message!.date * 1000),
             // Group fields
@@ -246,7 +325,8 @@ export class TelegramAdapter implements ChannelAdapter {
     private async handleDmMessage(
         ctx: Context,
         conn: ChannelConnectionConfig,
-        tenantConfig: TenantConfig
+        tenantConfig: TenantConfig,
+        botToken?: string
     ): Promise<void> {
         const dmPolicy = tenantConfig.telegram_dm_policy ?? "open";
         if (dmPolicy === "disabled") return;
@@ -275,9 +355,26 @@ export class TelegramAdapter implements ChannelAdapter {
             }
         }
 
-        // Intercept bot commands in DMs too
-        const handled = await this.handleBotCommand(ctx, conn, (ctx.message!.text ?? "").trim());
-        if (handled) return;
+        const isPhoto = !!botToken;
+        let content: string;
+        let attachments: InboundMessage["attachments"];
+
+        if (isPhoto) {
+            const caption = (ctx.message!.caption ?? "").trim();
+            const visionEnabled = tenantConfig.telegram_vision_enabled ?? true;
+            if (visionEnabled) {
+                attachments = await this.downloadPhotoAttachment(ctx, conn, botToken!);
+            }
+            content = attachments
+                ? (caption || "[photo]")
+                : `${caption ? caption + "\n\n" : ""}[The user sent a photo — this model cannot view images]`;
+        } else {
+            // Intercept bot commands in DMs too
+            const handled = await this.handleBotCommand(ctx, conn, (ctx.message!.text ?? "").trim());
+            if (handled) return;
+
+            content = ctx.message!.text ?? "";
+        }
 
         const inbound: InboundMessage = {
             id: randomUUID(),
@@ -286,7 +383,8 @@ export class TelegramAdapter implements ChannelAdapter {
             channelType: "telegram",
             channelContactId: contactId,
             contactName,
-            content: ctx.message!.text ?? "",
+            content,
+            attachments,
             raw: ctx.message,
             receivedAt: new Date(ctx.message!.date * 1000),
             isGroup: false,

@@ -417,6 +417,7 @@ export async function updateTelegramPoliciesAction(config: {
     telegram_dm_policy: string;
     telegram_group_policy: string;
     telegram_require_mention: boolean;
+    telegram_vision_enabled: boolean;
 }) {
     const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
