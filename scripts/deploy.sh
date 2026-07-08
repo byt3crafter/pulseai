@@ -120,9 +120,16 @@ else
     echo -e "${YELLOW}[4/5] Skipping DB migrations (--no-migrate)${NC}"
 fi
 
+# ─── Reclaim disk before building ────────────────────────────────────────────
+# Image rebuilds accumulate dangling layers; the VPS disk has hit 100% mid-build
+# (failing the build silently while the old container keeps serving — a deploy
+# that "succeeds" but ships nothing). Prune first so the build always has room.
+echo -e "${YELLOW}[5/6] Reclaiming disk (docker prune)...${NC}"
+ssh "$VPS_HOST" "docker image prune -af --filter 'until=24h' 2>&1 | tail -1; docker builder prune -af 2>&1 | tail -1; df -h / | tail -1" 2>&1
+
 # ─── Rebuild containers ──────────────────────────────────────────────────────
 
-echo -e "${YELLOW}[5/5] Rebuilding containers...${NC}"
+echo -e "${YELLOW}[6/6] Rebuilding containers...${NC}"
 
 case "$REBUILD_TARGET" in
     all)
