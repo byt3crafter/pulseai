@@ -8,8 +8,8 @@ import PulseLogo from "./PulseLogo";
 const CONTACT = "mailto:hello@runstate.mu?subject=Pulse%20AI%20%E2%80%94%20Book%20a%20Demo";
 
 const NAV_LINKS = [
-    { href: "#product", label: "Product" },
     { href: "#use-cases", label: "Use cases" },
+    { href: "#integrations", label: "Integrations" },
     { href: "#security", label: "Security" },
     { href: "#faq", label: "FAQ" },
 ];

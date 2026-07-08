@@ -33,7 +33,7 @@
 }
 
 .page {
-  background: #06040d;
+  background: #0a0714;
   color: #f4f1fb;
   -webkit-font-smoothing: antialiased;
 }
@@ -103,7 +103,7 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(6, 4, 13, 0.82);
+  background: rgba(10, 7, 20, 0.82);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(139, 92, 246, 0.14);
 }
@@ -223,7 +223,7 @@
 .hero {
   position: relative;
   background:
-    radial-gradient(1100px 600px at 75% 20%, rgba(109, 63, 217, 0.22), transparent 65%),
+    radial-gradient(1100px 600px at 75% 30%, rgba(109, 63, 217, 0.22), transparent 65%),
     radial-gradient(700px 500px at 70% 95%, rgba(249, 115, 22, 0.1), transparent 60%),
     #0a0714;
 }
@@ -873,6 +873,10 @@
 }
 @media (min-width: 1024px) {
   .useCasesGrid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1280px) {
+  /* Matches the mockup's 4-then-2 layout for the 6 department cards. */
+  .useCasesGrid { grid-template-columns: repeat(4, 1fr); }
 }
 
 .useCaseCard {
