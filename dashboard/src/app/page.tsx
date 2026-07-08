@@ -1,8 +1,8 @@
-import Image from "next/image";
 import { Sora, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import styles from "./landing.module.css";
 import LandingNav from "./LandingNav";
 import LandingFaq from "./LandingFaq";
+import PulseLogo from "./PulseLogo";
 
 const sora = Sora({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-sora" });
 const instrumentSans = Instrument_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-instrument" });
@@ -231,7 +231,7 @@ export default function LandingPage() {
                                 <div className={styles.dashboardMock}>
                                     <div className={styles.mockRail}>
                                         <span className={styles.mockRailLogo}>
-                                            <Image src="/pulse-icon.png" alt="" width={45} height={46} style={{ width: "100%", height: "auto", objectFit: "contain" }} aria-hidden="true" />
+                                            <PulseLogo size={28} showText={false} />
                                         </span>
                                         <span className={styles.mockRailDotActive} />
                                         <span className={styles.mockRailDot} />
@@ -517,7 +517,7 @@ export default function LandingPage() {
 
                 <footer className={styles.footer}>
                     <div className={styles.footerLogo}>
-                        <Image src="/pulse-logo.png" alt="Pulse AI" width={204} height={67} className={styles.footerLogoImg} />
+                        <PulseLogo size={30} textSize={18} />
                         <span>by Runstate</span>
                     </div>
                     <div className={styles.footerLinks}>
