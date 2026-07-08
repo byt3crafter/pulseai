@@ -772,6 +772,17 @@ export async function saveEmailConfigAction(formData: FormData) {
     const imapPassword = formData.get("imapPassword") as string;
     const imapTls = formData.get("imapTls") === "true";
 
+    const signatureRaw = formData.get("signature") as string | null;
+    let signature: any = undefined;
+    if (signatureRaw) {
+        try {
+            signature = JSON.parse(signatureRaw);
+        } catch {
+            // Ignore malformed signature payloads rather than failing the whole save.
+            signature = undefined;
+        }
+    }
+
     if (!smtpHost) return { success: false, message: "SMTP host is required." };
 
     try {
@@ -783,6 +794,7 @@ export async function saveEmailConfigAction(formData: FormData) {
                 tls: smtpTls,
                 fromAddress: smtpFrom,
             },
+            ...(signature ? { signature } : {}),
         };
 
         if (smtpPassword) {

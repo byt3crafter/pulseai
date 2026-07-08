@@ -38,6 +38,7 @@ import { buildOpenAIAuthUrl, getCallbackUrl } from "../../../utils/openai-oauth"
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import TwoFactorCard from "../../../components/TwoFactorCard";
 import { PageHeader, Card, CardHeader, SettingRow, Toggle } from "../../../components/dashboard/ui";
+import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../components/dashboard/SignatureEditor";
 
 const TABS = [
     { id: "account", label: "Account" },
@@ -131,7 +132,7 @@ interface Props {
     approvedGroups: AllowlistInfo[];
     plugins: PluginData[];
     savePluginCredentials: (formData: FormData) => Promise<void>;
-    emailConfig: { smtp?: any; imap?: any } | null;
+    emailConfig: { smtp?: any; imap?: any; signature?: SignatureValue } | null;
     embeddingConfigured: boolean;
 }
 
@@ -2340,9 +2341,11 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
 }
 
 /* ─── Email Tab ──────────────────────────────────────────────────── */
-function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
+function EmailTab({ config }: { config: { smtp?: any; imap?: any; signature?: SignatureValue } | null }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
+
+    const [signature, setSignature] = useState<SignatureValue>(config?.signature ?? DEFAULT_SIGNATURE);
 
     const [smtpHost, setSmtpHost] = useState(config?.smtp?.host ?? "");
     const [smtpPort, setSmtpPort] = useState(config?.smtp?.port?.toString() ?? "587");
@@ -2382,6 +2385,7 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
         fd.set("imapUsername", imapUsername);
         fd.set("imapPassword", imapPassword);
         fd.set("imapTls", imapTls.toString());
+        fd.set("signature", JSON.stringify(signature));
 
         startTransition(async () => {
             const result = await saveEmailConfigAction(fd);
@@ -2475,6 +2479,9 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
                     </div>
                 </div>
             </Card>
+
+            {/* Signature — company-wide default, inherited by any agent without its own override */}
+            <SignatureEditor value={signature} onChange={setSignature} />
 
             {/* Actions */}
             <div className="flex items-center gap-3">

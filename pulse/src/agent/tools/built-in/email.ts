@@ -9,7 +9,10 @@ import { resolveEmailConfig, sendEmail, readEmails } from "../../../channels/ema
 
 export const emailSendTool: Tool = {
     name: "email_send",
-    description: "Send an email via SMTP. Requires email to be configured for this agent or tenant.",
+    description:
+        "Send an email via SMTP. Requires email to be configured for this agent or tenant. " +
+        "If an email signature is configured, it is appended automatically after the body — " +
+        "do NOT write your own sign-off, name, or contact details at the end of the message.",
     parameters: {
         type: "object",
         properties: {
@@ -23,11 +26,11 @@ export const emailSendTool: Tool = {
             },
             body: {
                 type: "string",
-                description: "Email body text (plain text)",
+                description: "Email body text (plain text). Do not include a signature — one is appended automatically if configured.",
             },
             html: {
                 type: "string",
-                description: "Optional HTML body (if provided, sent alongside plain text)",
+                description: "Optional HTML body (if provided, sent alongside plain text). Do not include a signature — one is appended automatically if configured.",
             },
         },
         required: ["to", "subject", "body"],

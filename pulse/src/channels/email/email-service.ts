@@ -15,6 +15,7 @@ import { agentProfiles, channelConnections } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
 import { decrypt } from "../../utils/crypto.js";
 import { logger } from "../../utils/logger.js";
+import { renderSignature, extensionForMime, type SignatureConfig } from "./signature.js";
 
 export interface SmtpConfig {
     host: string;
@@ -23,6 +24,8 @@ export interface SmtpConfig {
     password: string; // plaintext (decrypted at resolve time)
     tls: boolean;
     fromAddress: string;
+    /** Resolved signature (agent override, else tenant default) to auto-append on send. */
+    signature?: SignatureConfig;
 }
 
 export interface ImapConfig {
@@ -36,23 +39,35 @@ export interface ImapConfig {
 export interface EmailConfig {
     smtp?: SmtpConfig;
     imap?: ImapConfig;
+    signature?: SignatureConfig;
 }
 
 /**
  * Resolve email configuration for an agent.
- * Agent-level overrides take priority over tenant-level config.
+ * Agent-level overrides take priority over tenant-level config for the SMTP/IMAP
+ * transport. The signature is resolved independently of which transport wins:
+ * an agent's own signature (if present at all, even disabled) always overrides
+ * the company default; only when the agent has none does the company default
+ * (if enabled) apply. This lets an agent borrow the company mailbox while
+ * still carrying its own signature, or vice versa.
  */
 export async function resolveEmailConfig(
     tenantId: string,
     agentProfileId: string
 ): Promise<EmailConfig | null> {
-    // 1. Check agent-level email config
+    let transport: EmailConfig | null = null;
+    let agentSignature: SignatureConfig | undefined;
+    let tenantSignature: SignatureConfig | undefined;
+
+    // 1. Agent-level email config (transport + signature)
     try {
         const profile = await db.query.agentProfiles.findFirst({
             where: eq(agentProfiles.id, agentProfileId),
         });
 
         const agentEmailCfg = profile?.emailConfig as any;
+        agentSignature = agentEmailCfg?.signature;
+
         if (agentEmailCfg?.smtp?.host) {
             const config: EmailConfig = {};
 
@@ -72,13 +87,13 @@ export async function resolveEmailConfig(
                         : agentEmailCfg.imap.password || "",
                 };
             }
-            return config;
+            transport = config;
         }
     } catch (err) {
         logger.warn({ err, agentProfileId }, "Failed to load agent email config");
     }
 
-    // 2. Fallback to tenant-level email connection
+    // 2. Tenant-level email connection (fallback transport + fallback signature)
     try {
         const conn = await db.query.channelConnections.findFirst({
             where: and(
@@ -87,39 +102,62 @@ export async function resolveEmailConfig(
             ),
         });
 
-        if (!conn) return null;
+        const connConfig = conn?.channelConfig as any;
+        tenantSignature = connConfig?.signature;
 
-        const connConfig = conn.channelConfig as any;
-        if (!connConfig?.smtp?.host) return null;
+        if (!transport && connConfig?.smtp?.host) {
+            const config: EmailConfig = {};
 
-        const config: EmailConfig = {};
-
-        if (connConfig.smtp) {
-            config.smtp = {
-                ...connConfig.smtp,
-                password: connConfig.smtp.encryptedPassword
-                    ? decrypt(connConfig.smtp.encryptedPassword)
-                    : connConfig.smtp.password || "",
-            };
+            if (connConfig.smtp) {
+                config.smtp = {
+                    ...connConfig.smtp,
+                    password: connConfig.smtp.encryptedPassword
+                        ? decrypt(connConfig.smtp.encryptedPassword)
+                        : connConfig.smtp.password || "",
+                };
+            }
+            if (connConfig.imap) {
+                config.imap = {
+                    ...connConfig.imap,
+                    password: connConfig.imap.encryptedPassword
+                        ? decrypt(connConfig.imap.encryptedPassword)
+                        : connConfig.imap.password || "",
+                };
+            }
+            transport = config;
         }
-        if (connConfig.imap) {
-            config.imap = {
-                ...connConfig.imap,
-                password: connConfig.imap.encryptedPassword
-                    ? decrypt(connConfig.imap.encryptedPassword)
-                    : connConfig.imap.password || "",
-            };
-        }
-        return config;
     } catch (err) {
         logger.warn({ err, tenantId }, "Failed to load tenant email config");
     }
 
-    return null;
+    if (!transport) return null;
+
+    // Agent signature (if the agent has one at all, even disabled) wins;
+    // otherwise fall back to the tenant/company default (only if enabled).
+    const signature = agentSignature ?? (tenantSignature?.enabled ? tenantSignature : undefined);
+    if (signature) {
+        transport.signature = signature;
+        if (transport.smtp) transport.smtp.signature = signature;
+    }
+
+    return transport;
+}
+
+/** Minimal HTML escaping + newline-to-<br> wrap for a plain-text body, so an HTML signature has valid HTML to sit alongside. */
+function wrapPlainBodyAsHtml(body: string): string {
+    const escaped = body
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#111111;white-space:pre-wrap;">${escaped.replace(/\n/g, "<br>")}</div>`;
 }
 
 /**
- * Send an email via SMTP.
+ * Send an email via SMTP. If the resolved config carries an enabled
+ * signature, it's auto-appended to both the HTML and plain-text parts (and
+ * its logo, if any, attached via CID so it renders without "show images"
+ * blocking). Signature failures are swallowed — the email always still
+ * sends, just without the signature.
  */
 export async function sendEmail(
     config: SmtpConfig,
@@ -138,12 +176,48 @@ export async function sendEmail(
         },
     });
 
+    let finalHtml = html;
+    let finalText = body;
+    let attachments: Array<{ filename: string; content: Buffer; cid: string; contentType?: string }> | undefined;
+
+    if (config.signature?.enabled) {
+        try {
+            const rendered = renderSignature(config.signature, { fromAddress: config.fromAddress });
+
+            if (rendered.html) {
+                const bodyHtml = finalHtml || wrapPlainBodyAsHtml(body);
+                finalHtml = `${bodyHtml}<br><br>${rendered.html}`;
+            }
+            if (rendered.text) {
+                finalText = `${body}\n\n-- \n${rendered.text}`;
+            }
+
+            const logo = config.signature.logo;
+            if (logo?.dataBase64) {
+                attachments = [
+                    {
+                        filename: `signature-logo.${extensionForMime(logo.mime)}`,
+                        content: Buffer.from(logo.dataBase64, "base64"),
+                        cid: "signature-logo",
+                        contentType: logo.mime,
+                    },
+                ];
+            }
+        } catch (err) {
+            logger.warn({ err }, "Failed to build email signature; sending without it");
+            finalHtml = html;
+            finalText = body;
+            attachments = undefined;
+        }
+    }
+
     const info = await transporter.sendMail({
         from: config.fromAddress,
         to,
         subject,
-        text: body,
-        html: html || undefined,
+        text: finalText,
+        html: finalHtml || undefined,
+        attachments,
     });
 
     return { messageId: info.messageId };

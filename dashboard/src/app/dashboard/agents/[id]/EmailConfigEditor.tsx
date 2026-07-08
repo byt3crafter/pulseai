@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAgentEmailConfigAction } from "./actions";
+import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../../components/dashboard/SignatureEditor";
 
 interface EmailConfig {
     useCustom?: boolean;
@@ -21,6 +22,7 @@ interface EmailConfig {
         encryptedPassword?: string;
         tls: boolean;
     };
+    signature?: SignatureValue;
 }
 
 interface Props {
@@ -56,8 +58,12 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
     const hasExistingSmtpPassword = !!emailConfig.smtp?.encryptedPassword;
     const hasExistingImapPassword = !!emailConfig.imap?.encryptedPassword;
 
+    // Signature — independent of useCustom: an agent can keep its own signature
+    // even while sending through the company mailbox.
+    const [signature, setSignature] = useState<SignatureValue>(emailConfig.signature ?? DEFAULT_SIGNATURE);
+
     function handleSave() {
-        const config: any = { useCustom };
+        const config: any = { useCustom, signature };
 
         if (useCustom) {
             config.smtp = {
@@ -277,6 +283,9 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                     </div>
                 </>
             )}
+
+            {/* Signature — independent of which mailbox is used above */}
+            <SignatureEditor value={signature} onChange={setSignature} />
 
             {/* Save button */}
             <div className="flex flex-wrap items-center gap-3">
