@@ -26,6 +26,8 @@ export interface SmtpConfig {
     fromAddress: string;
     /** Display name for the From header (e.g. "Natalie Harrington"). Falls back to the agent name. */
     fromName?: string;
+    /** Addresses always CC'd on every email this agent/tenant sends (comma-separated or array). */
+    defaultCc?: string | string[];
     /** Resolved signature (agent override, else tenant default) to auto-append on send. */
     signature?: SignatureConfig;
 }
@@ -164,13 +166,21 @@ function wrapPlainBodyAsHtml(body: string): string {
  * blocking). Signature failures are swallowed — the email always still
  * sends, just without the signature.
  */
+/** Normalize a recipient input (string with commas/semicolons, or array) to a clean array. */
+function normalizeRecipients(v: string | string[] | undefined | null): string[] {
+    if (!v) return [];
+    const arr = Array.isArray(v) ? v : String(v).split(/[,;]+/);
+    return arr.map((s) => s.trim()).filter(Boolean);
+}
+
 export async function sendEmail(
     config: SmtpConfig,
-    to: string,
+    to: string | string[],
     subject: string,
     body: string,
-    html?: string
-): Promise<{ messageId: string }> {
+    html?: string,
+    opts?: { cc?: string | string[]; bcc?: string | string[] }
+): Promise<{ messageId: string; to: string[]; cc: string[] }> {
     // TLS mode is determined by PORT, not a flag: 465 = implicit TLS (secure),
     // 587/25 = plaintext connect then STARTTLS upgrade. Using secure:true on
     // 587 causes "SSL wrong version number". The `tls` flag only decides whether
@@ -222,18 +232,29 @@ export async function sendEmail(
         }
     }
 
+    const toList = normalizeRecipients(to);
+    // CC = explicit CC from the caller + the agent's always-CC default (deduped,
+    // and never CC an address that's already a direct recipient).
+    const ccList = Array.from(new Set([
+        ...normalizeRecipients(opts?.cc),
+        ...normalizeRecipients(config.defaultCc),
+    ])).filter((a) => !toList.includes(a));
+    const bccList = normalizeRecipients(opts?.bcc);
+
     const info = await transporter.sendMail({
         from: config.fromName
             ? { name: config.fromName, address: config.fromAddress }
             : config.fromAddress,
-        to,
+        to: toList,
+        cc: ccList.length ? ccList : undefined,
+        bcc: bccList.length ? bccList : undefined,
         subject,
         text: finalText,
         html: finalHtml || undefined,
         attachments,
     });
 
-    return { messageId: info.messageId };
+    return { messageId: info.messageId, to: toList, cc: ccList };
 }
 
 /**

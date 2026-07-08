@@ -18,7 +18,15 @@ export const emailSendTool: Tool = {
         properties: {
             to: {
                 type: "string",
-                description: "Recipient email address",
+                description: "Recipient email address(es). For multiple, separate with commas: \"a@x.com, b@y.com\".",
+            },
+            cc: {
+                type: "string",
+                description: "Optional CC recipient(s), comma-separated. Visible to all recipients.",
+            },
+            bcc: {
+                type: "string",
+                description: "Optional BCC recipient(s), comma-separated. Hidden from other recipients.",
             },
             subject: {
                 type: "string",
@@ -52,13 +60,15 @@ export const emailSendTool: Tool = {
                 params.args.to,
                 params.args.subject,
                 params.args.body,
-                params.args.html
+                params.args.html,
+                { cc: params.args.cc, bcc: params.args.bcc }
             );
             return {
                 result: JSON.stringify({
                     success: true,
                     messageId: result.messageId,
-                    to: params.args.to,
+                    to: result.to,
+                    cc: result.cc,
                     subject: params.args.subject,
                 }),
             };
