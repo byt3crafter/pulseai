@@ -137,6 +137,10 @@ export class CredentialVault {
 
         const envVars: Record<string, string> = {};
 
+        // Agent-scoped credentials override tenant-wide ones of the same name:
+        // apply tenant-wide (agentId NULL) first, agent-specific last.
+        creds.sort((a, b) => (a.agentId ? 1 : 0) - (b.agentId ? 1 : 0));
+
         for (const cred of creds) {
             try {
                 envVars[cred.name] = decrypt(cred.encryptedValue);
