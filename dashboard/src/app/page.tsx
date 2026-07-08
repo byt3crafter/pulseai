@@ -156,7 +156,7 @@ export default function LandingPage() {
 
             <main>
                 {/* ── Hero ─────────────────────────────────────────────────────── */}
-                <section className={styles.hero} id="product">
+                <section className={styles.hero}>
                     <div className={styles.heroInner}>
                         <div className={styles.heroGrid}>
                             {/* Copy */}
@@ -400,7 +400,7 @@ export default function LandingPage() {
                 </section>
 
                 {/* ── Integrations ─────────────────────────────────────────────── */}
-                <section className={`${styles.section} ${styles.sectionAlt}`}>
+                <section className={`${styles.section} ${styles.sectionAlt}`} id="integrations">
                     <div className={styles.sectionInner}>
                         <div>
                             <div className={styles.eyebrow}>Integrations</div>
