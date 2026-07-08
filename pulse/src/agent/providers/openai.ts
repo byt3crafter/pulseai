@@ -212,6 +212,7 @@ export class OpenAIProvider {
         tenantId?: string;
         agentProfileId?: string;
         conversationId?: string;
+        onProgress?: (text: string) => void;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tenantApiKey?: string;

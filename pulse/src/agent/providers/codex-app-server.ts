@@ -582,6 +582,9 @@ export class CodexAppServerProvider {
         timeoutMs?: number;
         /** Images attached to the current turn (e.g. a Telegram photo). */
         attachments?: ProviderAttachment[];
+        /** Live progress callback — invoked as the agent calls tools / reasons,
+         *  so the channel can show "working…" activity during long turns. */
+        onProgress?: (text: string) => void;
     }): Promise<ProviderResponse> {
         // Per-conversation pooling: same-conversation turns serialize on this
         // entry's queue (its client has one notification slot); DIFFERENT
@@ -627,6 +630,7 @@ export class CodexAppServerProvider {
         messages: Array<{ role: string; content: string }>;
         timeoutMs?: number;
         attachments?: ProviderAttachment[];
+        onProgress?: (text: string) => void;
     }, poolKey: string, entry: PoolEntry): Promise<ProviderResponse> {
         // `remaining()` only bounds the short setup RPCs (initialize/thread/turn
         // start); the turn itself is governed by the inactivity watchdog below,
@@ -806,11 +810,30 @@ export class CodexAppServerProvider {
 
                 resetInactivity(); // arm the watchdog
 
+                const onProgress = params.onProgress;
+                const emitProgress = (item: any) => {
+                    if (!onProgress || !item?.type) return;
+                    try {
+                        if (item.type === "mcpToolCall") onProgress(`🔧 ${item.tool || "tool"}`);
+                        else if (item.type === "commandExecution") onProgress("⚡ running a command");
+                        else if (item.type === "webSearch") onProgress("🔍 searching the web");
+                        else if (item.type === "reasoning") onProgress("💭 thinking…");
+                        else if (item.type === "fileChange") onProgress("✏️ editing files");
+                    } catch { /* progress is best-effort */ }
+                };
+
                 client.onNotification((msg) => {
                     if (isOtherThread(msg.params)) return;
 
                     // Any activity for this thread means Codex is alive and working.
                     resetInactivity();
+
+                    // Progress: surface tool/reasoning activity as it STARTS so the
+                    // human sees the agent working during a long, silent turn.
+                    if (msg.method === "item/started") {
+                        emitProgress(msg.params?.item);
+                        return;
+                    }
 
                     if (msg.method === "thread/tokenUsage/updated") {
                         const last = msg.params?.tokenUsage?.last;
