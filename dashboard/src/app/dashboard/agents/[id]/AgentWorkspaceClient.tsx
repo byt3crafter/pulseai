@@ -73,6 +73,7 @@ interface Props {
 }
 
 const TABS = [
+    { id: "config", label: "Profile" },
     { id: "soul", label: "Soul" },
     { id: "identity", label: "Identity" },
     { id: "memory", label: "Memory" },
@@ -86,7 +87,6 @@ const TABS = [
     { id: "telegram", label: "Telegram" },
     { id: "tool-policy", label: "Tool Policy" },
     { id: "sandbox", label: "Sandbox" },
-    { id: "config", label: "Config" },
     { id: "revisions", label: "Revisions" },
 ];
 
@@ -114,7 +114,7 @@ export default function AgentWorkspaceClient({
     telegramConnected,
     telegramBotUsername,
 }: Props) {
-    const [activeTab, setActiveTab] = useState("soul");
+    const [activeTab, setActiveTab] = useState("config");
     const router = useRouter();
 
     return (
