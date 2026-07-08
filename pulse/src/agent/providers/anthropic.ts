@@ -111,6 +111,8 @@ export class AnthropicProvider {
         stream?: StreamCallbacks;
         /** Images attached to the current turn (e.g. a Telegram photo). */
         attachments?: ProviderAttachment[];
+        /** Not used by Anthropic today — accepted for cross-provider type compatibility. */
+        reasoningEffort?: string;
     }): Promise<ProviderResponse> {
         const client = this.getClient(params.tenantApiKey, params.authMethod);
 

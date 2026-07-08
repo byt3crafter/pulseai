@@ -15,22 +15,34 @@ const ALLOWED_MIME = ["image/png", "image/jpeg", "image/webp"];
  * file→base64 upload pattern in SignatureEditor.tsx (size cap + preview +
  * remove), persisted via updateAgentIdentityAction.
  */
+const REASONING_EFFORT_OPTIONS: { value: string; label: string }[] = [
+    { value: "default", label: "Default" },
+    { value: "minimal", label: "Minimal" },
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+    { value: "high", label: "High" },
+    { value: "xhigh", label: "Extra-high" },
+];
+
 export default function AgentIdentityEditor({
     agentId,
     initialName,
     initialTitle,
     initialAvatar,
+    initialReasoningEffort,
 }: {
     agentId: string;
     initialName: string;
     initialTitle: string | null;
     initialAvatar: string | null;
+    initialReasoningEffort: string | null;
 }) {
     const [name, setName] = useState(initialName);
     const [title, setTitle] = useState(initialTitle ?? "");
     const [avatar, setAvatar] = useState<string | null>(initialAvatar);
     const [avatarDirty, setAvatarDirty] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
+    const [reasoningEffort, setReasoningEffort] = useState(initialReasoningEffort ?? "default");
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
         type: "idle",
         message: "",
@@ -39,7 +51,10 @@ export default function AgentIdentityEditor({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
-    const isDirty = name !== initialName || title !== (initialTitle ?? "") || avatarDirty;
+    const isDirty = name !== initialName
+        || title !== (initialTitle ?? "")
+        || avatarDirty
+        || reasoningEffort !== (initialReasoningEffort ?? "default");
 
     /**
      * Downscale + re-encode an image to a small avatar entirely in the browser,
@@ -118,6 +133,7 @@ export default function AgentIdentityEditor({
         fd.set("agentId", agentId);
         fd.set("name", name.trim());
         fd.set("title", title.trim());
+        fd.set("reasoningEffort", reasoningEffort);
         if (avatarDirty) {
             if (avatar) {
                 fd.set("avatar", avatar);
@@ -203,6 +219,23 @@ export default function AgentIdentityEditor({
                             className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                         />
                     </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Thinking</label>
+                    <select
+                        value={reasoningEffort}
+                        onChange={(e) => setReasoningEffort(e.target.value)}
+                        className="w-full max-w-xs px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text"
+                    >
+                        {REASONING_EFFORT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-pulse-faint mt-1.5">
+                        How hard this agent thinks before answering. Higher = better reasoning, slower + more tokens.
+                        Applies to models that support reasoning effort (e.g. Codex/GPT-5.5).
+                    </p>
                 </div>
 
                 <div className="flex items-center justify-between">

@@ -127,9 +127,13 @@ function sanitizeAvatar(raw: string): { ok: true; value: string | null } | { ok:
     }
 }
 
+/** Allowed reasoning-effort levels — must match the Codex app-server's accepted values. */
+const REASONING_EFFORT_LEVELS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
+
 /**
- * Update an agent's display identity — full name, role/title subtitle, and
- * profile picture. Shown across the dashboard (agents table, agent header).
+ * Update an agent's display identity — full name, role/title subtitle,
+ * profile picture, and reasoning effort. Shown across the dashboard (agents
+ * table, agent header).
  */
 export async function updateAgentIdentityAction(formData: FormData) {
     const tenantCheck = await requireTenant();
@@ -141,20 +145,25 @@ export async function updateAgentIdentityAction(formData: FormData) {
     const titleRaw = (formData.get("title") as string || "").trim();
     const avatarRaw = formData.get("avatar") as string | null;
     const removeAvatar = formData.get("removeAvatar") === "true";
+    const reasoningEffortRaw = (formData.get("reasoningEffort") as string || "").trim().toLowerCase();
 
     if (!agentId) return { success: false, message: "Missing agent." };
     if (!name) return { success: false, message: "Name is required." };
     if (name.length > 255) return { success: false, message: "Name is too long." };
     if (titleRaw.length > 160) return { success: false, message: "Title is too long." };
+    if (reasoningEffortRaw && reasoningEffortRaw !== "default" && !REASONING_EFFORT_LEVELS.has(reasoningEffortRaw)) {
+        return { success: false, message: "Invalid reasoning effort level." };
+    }
 
     const agent = await db.query.agentProfiles.findFirst({
         where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)),
     });
     if (!agent) return { success: false, message: "Agent not found." };
 
-    const update: { name: string; title: string | null; avatar?: string | null; updatedAt: Date } = {
+    const update: { name: string; title: string | null; avatar?: string | null; reasoningEffort: string | null; updatedAt: Date } = {
         name,
         title: titleRaw || null,
+        reasoningEffort: reasoningEffortRaw && reasoningEffortRaw !== "default" ? reasoningEffortRaw : null,
         updatedAt: new Date(),
     };
 
