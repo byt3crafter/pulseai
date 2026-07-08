@@ -91,6 +91,13 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
             group: "Settings",
             icon: Cog6ToothIcon,
         }));
+        settings.push({
+            key: "settings-credentials",
+            label: "Settings — Credentials (agent API keys & secrets)",
+            href: "/dashboard/settings/credentials",
+            group: "Settings",
+            icon: Cog6ToothIcon,
+        });
 
         const admin: PaletteItem[] = isAdmin
             ? [{ key: "admin-panel", label: "Admin Panel", href: "/admin", group: "Administration", icon: ShieldCheckIcon }]
