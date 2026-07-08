@@ -38,14 +38,16 @@
  */
 
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import * as os from "os";
-import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
 import { config } from "../../config.js";
 import { db } from "../../storage/db.js";
 import { tenants } from "../../storage/schema.js";
 import { mintAppAccessToken } from "../../gateway/oauth.js";
+import { sendFileToConversation } from "../../utils/channel-delivery.js";
 import { ProviderResponse, ProviderAttachment } from "./anthropic.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -676,6 +678,7 @@ export class CodexAppServerProvider {
         // Drain notifications until turn/completed for THIS thread.
         let finalText = "";
         let sawAgentMessage = false;
+        const genImages: Array<{ result?: string; savedPath?: string }> = [];
         let usage: { inputTokens: number; outputTokens: number } | null = null;
         let turnError: string | null = null;
         let turnCompleted = false;
@@ -732,6 +735,12 @@ export class CodexAppServerProvider {
                             finalText = item.text;
                             sawAgentMessage = true;
                         }
+                        // Codex can generate images natively (ChatGPT plan). Capture
+                        // them so they can be delivered to the user's chat instead of
+                        // silently dropped with the model claiming success.
+                        if (item?.type === "imageGeneration" && (item.result || item.savedPath)) {
+                            genImages.push({ result: item.result, savedPath: item.savedPath });
+                        }
                         return;
                     }
 
@@ -760,7 +769,32 @@ export class CodexAppServerProvider {
             throw new Error("codex turn ended without producing any assistant text");
         }
 
-        const content = finalText || "(Codex returned no text response)";
+        let content = finalText || "(Codex returned no text response)";
+
+        // Persist + deliver any natively-generated images (best-effort).
+        if (genImages.length && params.tenantId) {
+            for (const img of genImages.slice(0, 4)) {
+                try {
+                    let bytes: Buffer | null = null;
+                    if (img.result && !img.result.startsWith("/")) {
+                        bytes = Buffer.from(img.result, "base64");
+                    } else if (img.savedPath || img.result) {
+                        bytes = await readFile((img.savedPath || img.result) as string);
+                    }
+                    if (!bytes?.length) continue;
+                    const agentDir = params.agentProfileId ?? "shared";
+                    const dir = join(config.WORKSPACE_BASE_DIR, params.tenantId, agentDir, "images");
+                    await mkdir(dir, { recursive: true });
+                    const filePath = join(dir, `codex-gen-${Date.now()}.png`);
+                    await writeFile(filePath, bytes);
+                    const delivery = await sendFileToConversation(params.tenantId, params.conversationId, filePath, "Generated image");
+                    log.info({ filePath, delivered: delivery.delivered }, "Codex-generated image captured");
+                    if (!delivery.delivered) content += `\n\n(Generated image saved: ${filePath})`;
+                } catch (err: any) {
+                    log.warn({ err: err.message }, "Failed to persist codex-generated image");
+                }
+            }
+        }
 
         // Fall back to a length-based estimate if the app-server never sent a
         // thread/tokenUsage/updated notification.
