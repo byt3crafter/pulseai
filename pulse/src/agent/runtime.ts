@@ -355,6 +355,19 @@ export class AgentRuntime {
                     "Only confirm the change after the tool call returns successfully.";
             }
 
+            // 3.886 If the agent has dedicated email tools, force it to use them.
+            // Otherwise (esp. on slow Codex turns) it tries to operate webmail
+            // through the browser tools — clicking Compose, filling the To field —
+            // which is dramatically slower and blows the turn timeout.
+            if (enabledTools.some((t) => t.name === "email_send")) {
+                activeSystemPrompt +=
+                    "\n\n## Sending & reading email (IMPORTANT)\n" +
+                    "To send email, ALWAYS call the `email_send` tool with {to, subject, body}. " +
+                    "To read or list email, use `email_read` / `email_list`. " +
+                    "NEVER operate a webmail site (SOGo, Gmail, Outlook) through the browser tools to send or read mail — " +
+                    "that is slow, error-prone, and will time out. The email tools talk to your mailbox directly over SMTP/IMAP.";
+            }
+
             // 3.89 Run before-prompt-build plugin hooks (plugins can append/modify)
             try {
                 const promptCtx = await hookRegistry.run("before-prompt-build", {
