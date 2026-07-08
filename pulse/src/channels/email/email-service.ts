@@ -24,6 +24,8 @@ export interface SmtpConfig {
     password: string; // plaintext (decrypted at resolve time)
     tls: boolean;
     fromAddress: string;
+    /** Display name for the From header (e.g. "Natalie Harrington"). Falls back to the agent name. */
+    fromName?: string;
     /** Resolved signature (agent override, else tenant default) to auto-append on send. */
     signature?: SignatureConfig;
 }
@@ -77,6 +79,9 @@ export async function resolveEmailConfig(
                     password: agentEmailCfg.smtp.encryptedPassword
                         ? decrypt(agentEmailCfg.smtp.encryptedPassword)
                         : agentEmailCfg.smtp.password || "",
+                    // From display name: explicit fromName, else the agent's real
+                    // name (so recipients see "Natalie Harrington", not "natalie").
+                    fromName: agentEmailCfg.smtp.fromName || profile?.name || undefined,
                 };
             }
             if (agentEmailCfg.imap) {
@@ -218,7 +223,9 @@ export async function sendEmail(
     }
 
     const info = await transporter.sendMail({
-        from: config.fromAddress,
+        from: config.fromName
+            ? { name: config.fromName, address: config.fromAddress }
+            : config.fromAddress,
         to,
         subject,
         text: finalText,
