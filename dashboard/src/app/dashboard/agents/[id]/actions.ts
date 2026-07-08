@@ -173,9 +173,58 @@ export async function updateAgentIdentityAction(formData: FormData) {
         return { success: false, message: "Failed to save profile." };
     }
 
+    // Best-effort: push the new name/title to this agent's own Telegram bot so
+    // it presents consistently in chats. (Bot API can set name + description;
+    // the bot's PROFILE PHOTO can only be set via @BotFather — not the API.)
+    await syncAgentTelegramProfile(tenantId, agentId, name, titleRaw || null);
+
     revalidatePath(`/dashboard/agents/${agentId}`);
     revalidatePath("/dashboard/agents");
     return { success: true, message: "Profile updated." };
+}
+
+/**
+ * Sync an agent's display identity to its dedicated Telegram bot (if connected).
+ * setMyName → bot name; setMyShortDescription → the role/title. Fully best-effort:
+ * Telegram rate-limits setMyName (~once/hour) and rejects no-op changes, so any
+ * failure is swallowed. Bot profile PHOTOS are not settable via the Bot API
+ * (BotFather /setuserpic only) — intentionally not attempted here.
+ */
+async function syncAgentTelegramProfile(
+    tenantId: string,
+    agentId: string,
+    name: string,
+    title: string | null,
+): Promise<void> {
+    try {
+        const conn = await db.query.channelConnections.findFirst({
+            where: and(
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                eq(channelConnections.agentProfileId, agentId),
+                sql`(${channelConnections.channelConfig}->>'scope') = 'agent'`,
+            ),
+        });
+        const raw = (conn?.channelConfig as any)?.botToken;
+        if (!raw) return;
+        let token: string;
+        try { token = decrypt(raw); } catch { return; }
+
+        await fetch(`https://api.telegram.org/bot${token}/setMyName`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.slice(0, 64) }),
+        }).catch(() => {});
+        if (title) {
+            await fetch(`https://api.telegram.org/bot${token}/setMyShortDescription`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ short_description: title.slice(0, 120) }),
+            }).catch(() => {});
+        }
+    } catch (err) {
+        console.error("Telegram profile sync skipped:", err);
+    }
 }
 
 export async function updateAgentModelAction(formData: FormData) {
@@ -662,6 +711,9 @@ export async function saveAgentTelegramBotAction(formData: FormData) {
                 return { success: true, message: `Connected to @${botUsername} (webhook will activate on next gateway restart).` };
             }
         }
+
+        // Name the bot after the agent immediately (best-effort).
+        await syncAgentTelegramProfile(tenantId, agentId, agent.name, (agent as any).title ?? null);
 
         revalidatePath(`/dashboard/agents/${agentId}`);
         return { success: true, message: `Connected to @${botUsername} — it now responds as ${agent.name}.` };
