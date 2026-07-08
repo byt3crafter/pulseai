@@ -1,9 +1,59 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { readFile } from "node:fs/promises";
 import { config } from "../../config.js";
+import { logger } from "../../utils/logger.js";
 
 interface ProviderMessage {
     role: "user" | "assistant" | "system";
     content: string;
+}
+
+/** An image attached to the current turn (e.g. a Telegram photo) — see InboundMessage.attachments. */
+export interface ProviderAttachment {
+    type: "image";
+    path: string;
+    mime: string;
+}
+
+const ANTHROPIC_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/**
+ * Find the last message with role "user" and plain-string content (the
+ * original user turn — tool-result "user" messages have array content and
+ * are skipped) and splice in Anthropic image content blocks ahead of the
+ * text. Mutates a shallow copy so the caller's array isn't touched.
+ */
+async function attachImagesToMessages(
+    messages: Array<{ role: string; content: any }>,
+    attachments: ProviderAttachment[]
+): Promise<Array<{ role: string; content: any }>> {
+    const targetIdx = [...messages].map((m, i) => ({ m, i })).reverse()
+        .find(({ m }) => m.role === "user" && typeof m.content === "string")?.i;
+    if (targetIdx === undefined) return messages;
+
+    const imageBlocks: Anthropic.ImageBlockParam[] = [];
+    for (const att of attachments) {
+        if (att.type !== "image") continue;
+        const mime = ANTHROPIC_IMAGE_MIME.has(att.mime) ? att.mime : "image/jpeg";
+        try {
+            const bytes = await readFile(att.path);
+            imageBlocks.push({
+                type: "image",
+                source: { type: "base64", media_type: mime as any, data: bytes.toString("base64") },
+            });
+        } catch (err) {
+            logger.warn({ err, path: att.path }, "Failed to read image attachment for Anthropic; skipping");
+        }
+    }
+    if (imageBlocks.length === 0) return messages;
+
+    const result = [...messages];
+    const original = result[targetIdx];
+    result[targetIdx] = {
+        ...original,
+        content: [...imageBlocks, { type: "text", text: original.content }],
+    };
+    return result;
 }
 
 export interface ToolCall {
@@ -59,6 +109,8 @@ export class AnthropicProvider {
             input_schema: any;
         }>;
         stream?: StreamCallbacks;
+        /** Images attached to the current turn (e.g. a Telegram photo). */
+        attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
         const client = this.getClient(params.tenantApiKey, params.authMethod);
 
@@ -67,11 +119,15 @@ export class AnthropicProvider {
             content: m.content,
         }));
 
+        const finalMessages = params.attachments?.length
+            ? await attachImagesToMessages(mappedMessages, params.attachments)
+            : mappedMessages;
+
         const createParams = {
             model: params.model || "claude-sonnet-4-20250514",
             max_tokens: 2048,
             system: params.systemPrompt,
-            messages: mappedMessages,
+            messages: finalMessages as any,
             tools: params.tools,
         };
 

@@ -11,6 +11,10 @@ export interface InboundMessage {
   content: string;
   mediaUrl?: string;
   mediaType?: "image" | "audio" | "video" | "document";
+  // Inbound files the agent can actually "see" (currently Telegram photos).
+  // Paths are absolute, on-disk under WORKSPACE_BASE_DIR — safe to round-trip
+  // through the BullMQ (Redis) JSON queue since only plain strings are stored.
+  attachments?: Array<{ type: "image"; path: string; mime: string }>;
   replyToMessageId?: string;
   raw?: unknown;  // Original channel-specific payload for advanced needs
   receivedAt: Date | string;

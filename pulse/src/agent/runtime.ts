@@ -447,6 +447,7 @@ export class AgentRuntime {
                 messages: llmMessages,
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
                 stream: streamCallbacks,
+                attachments: inbound.attachments,
             });
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
@@ -534,6 +535,7 @@ export class AgentRuntime {
                         toolResultMessage as any,
                     ],
                     tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+                    attachments: inbound.attachments,
                 });
 
                 totalInputTokens += llmResponse.usage.inputTokens;

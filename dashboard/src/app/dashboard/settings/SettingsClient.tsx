@@ -119,6 +119,7 @@ interface Props {
         dmPolicy: string;
         groupPolicy: string;
         requireMention: boolean;
+        visionEnabled: boolean;
     };
     autoMemoryConfig: {
         enabled: boolean;
@@ -422,7 +423,7 @@ function TelegramTab({
     approvedUsers,
     approvedGroups,
 }: {
-    config: { dmPolicy: string; groupPolicy: string; requireMention: boolean };
+    config: { dmPolicy: string; groupPolicy: string; requireMention: boolean; visionEnabled: boolean };
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -430,6 +431,7 @@ function TelegramTab({
     const [dmPolicy, setDmPolicy] = useState(config.dmPolicy);
     const [groupPolicy, setGroupPolicy] = useState(config.groupPolicy);
     const [requireMention, setRequireMention] = useState(config.requireMention);
+    const [visionEnabled, setVisionEnabled] = useState(config.visionEnabled);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [processing, setProcessing] = useState<string | null>(null);
@@ -449,6 +451,7 @@ function TelegramTab({
             telegram_dm_policy: dmPolicy,
             telegram_group_policy: groupPolicy,
             telegram_require_mention: requireMention,
+            telegram_vision_enabled: visionEnabled,
         });
         setMessage(result.success ? "Policies saved." : (result.message || "Failed to save."));
         setSaving(false);
@@ -556,6 +559,11 @@ function TelegramTab({
                         title="Require @mention in Groups"
                         description="Bot only responds when @mentioned or replied to."
                         control={<Toggle checked={requireMention} onChange={setRequireMention} label="Require @mention in groups" />}
+                    />
+                    <SettingRow
+                        title="Photo understanding (vision)"
+                        description="Let agents see photos sent on Telegram. When off, the bot still receives the message but tells the agent it can't view images."
+                        control={<Toggle checked={visionEnabled} onChange={setVisionEnabled} label="Photo understanding (vision)" />}
                     />
                 </div>
                 <div className="flex items-center gap-3 px-5 py-4 border-t border-pulse-border-subtle bg-pulse-panel-alt">
