@@ -1,6 +1,6 @@
 /**
- * Best-effort delivery of a screenshot to the conversation's channel, so the
- * user SEES the image instead of receiving a container file path.
+ * Best-effort delivery of a file (screenshot, fetched image, generated image)
+ * to the conversation's channel, so the user SEES it instead of a path.
  *
  * Telegram only for now: looks up the conversation → if it's a telegram chat,
  * decrypts the tenant's bot token (same storage the adapter uses) and calls
@@ -13,12 +13,12 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { and, eq } from "drizzle-orm";
-import { db } from "../../src/storage/db.js";
-import { conversations, channelConnections } from "../../src/storage/schema.js";
-import { decrypt } from "../../src/utils/crypto.js";
-import { logger } from "../../src/utils/logger.js";
+import { db } from "../storage/db.js";
+import { conversations, channelConnections } from "../storage/schema.js";
+import { decrypt } from "./crypto.js";
+import { logger } from "./logger.js";
 
-export async function deliverScreenshotToChannel(
+export async function sendFileToConversation(
     tenantId: string,
     conversationId: string | undefined,
     filePath: string,
@@ -49,13 +49,18 @@ export async function deliverScreenshotToChannel(
         }
 
         const bytes = await readFile(filePath);
+        const ext = (filePath.split(".").pop() || "").toLowerCase();
+        const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg"
+            : ext === "webp" ? "image/webp"
+            : ext === "gif" ? "image/gif"
+            : "image/png";
         const form = new FormData();
         form.append("chat_id", conversation.channelContactId);
         form.append("caption", caption.slice(0, 1024));
         // sendDocument, not sendPhoto: Telegram recompresses photos to lossy
         // JPEG (~1280px), which wrecks text in screenshots. Documents are
         // delivered as the original PNG and still render an inline preview.
-        form.append("document", new Blob([new Uint8Array(bytes)], { type: "image/png" }), basename(filePath));
+        form.append("document", new Blob([new Uint8Array(bytes)], { type: mime }), basename(filePath));
 
         const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
             method: "POST",
