@@ -15,6 +15,7 @@ interface EmailConfig {
         tls: boolean;
         fromAddress: string;
         fromName?: string;
+        defaultCc?: string;
     };
     imap?: {
         host: string;
@@ -49,6 +50,7 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
     const [smtpTls, setSmtpTls] = useState(emailConfig.smtp?.tls ?? true);
     const [smtpFrom, setSmtpFrom] = useState(emailConfig.smtp?.fromAddress ?? "");
     const [smtpFromName, setSmtpFromName] = useState(emailConfig.smtp?.fromName ?? "");
+    const [smtpDefaultCc, setSmtpDefaultCc] = useState(emailConfig.smtp?.defaultCc ?? "");
 
     // IMAP state
     const [imapHost, setImapHost] = useState(emailConfig.imap?.host ?? "");
@@ -75,6 +77,7 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                 tls: smtpTls,
                 fromAddress: smtpFrom,
                 fromName: smtpFromName || undefined,
+                defaultCc: smtpDefaultCc || undefined,
             };
             if (smtpPassword) {
                 config.smtp.password = smtpPassword; // Will be encrypted server-side
@@ -220,6 +223,17 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                                     className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                                 <p className="text-xs text-pulse-faint mt-1">Display name recipients see. Leave blank to use the agent&apos;s name.</p>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Always CC</label>
+                                <input
+                                    type="text"
+                                    value={smtpDefaultCc}
+                                    onChange={(e) => setSmtpDefaultCc(e.target.value)}
+                                    placeholder="dovik@runstate.mu, thierry@runstate.mu"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
+                                />
+                                <p className="text-xs text-pulse-faint mt-1">Comma-separated addresses copied on every email this agent sends. Leave blank for none. The agent can also CC per-email when you ask.</p>
                             </div>
                             <div className="flex items-end">
                                 <label className="flex items-center gap-2 text-sm text-pulse-text-soft">
