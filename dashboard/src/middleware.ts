@@ -7,6 +7,15 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
     const { nextUrl } = req;
+
+    // Static assets from /public (logo, images, fonts, etc.) are public — let
+    // them through untouched. Without this the matcher catches e.g.
+    // /pulse-logo.png and redirects it to /login (307 → broken images on the
+    // public landing page).
+    if (/\.(png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf|css|js|map|mp4|webm|txt|xml|json)$/i.test(nextUrl.pathname)) {
+        return NextResponse.next();
+    }
+
     const isLoggedIn = !!req.auth;
     const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth") || nextUrl.pathname === "/api/sso-status";
     const isOAuthCallbackRoute = nextUrl.pathname.startsWith("/auth/callback"); // OpenAI OAuth popup callback + bridge
