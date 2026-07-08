@@ -47,6 +47,7 @@ const TABS = [
     { id: "memory", label: "Memory" },
     { id: "email", label: "Email" },
     { id: "plugins", label: "Plugins" },
+    { id: "credentials", label: "Credentials", href: "/dashboard/settings/credentials" },
     { id: "api", label: "API & Developer" },
     { id: "billing", label: "Billing" },
 ];
@@ -156,7 +157,7 @@ export default function SettingsClient({
                         {TABS.map(t => (
                             <li key={t.id} className="flex-shrink-0">
                                 <Link
-                                    href={`/dashboard/settings?tab=${t.id}`}
+                                    href={(t as any).href ?? `/dashboard/settings?tab=${t.id}`}
                                     className={`block w-full text-left whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${tab === t.id
                                         ? "bg-pulse-tint text-pulse-accent-hi"
                                         : "text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
