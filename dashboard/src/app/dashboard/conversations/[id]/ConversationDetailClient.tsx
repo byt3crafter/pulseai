@@ -1,6 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import {
+    ChatBubbleLeftRightIcon,
+    CommandLineIcon,
+    EnvelopeIcon,
+    GlobeAltIcon,
+} from "@heroicons/react/24/outline";
+import AgentAvatar from "../../../../components/dashboard/AgentAvatar";
+import { relativeTime, secondaryChannelLabel } from "../utils";
 
 interface Message {
     id: string;
@@ -17,13 +25,29 @@ interface ConversationInfo {
     contactName: string | null;
     status: string | null;
     createdAt: string;
+    updatedAt?: string;
+    messageCount?: number;
 }
 
-const channelBadge: Record<string, { bg: string; text: string }> = {
-    telegram: { bg: "bg-blue-500/10", text: "text-blue-400" },
-    whatsapp: { bg: "bg-green-500/10", text: "text-green-400" },
-    webchat: { bg: "bg-purple-500/10", text: "text-purple-400" },
+/** Icon + accent color per channel — mirrors ConversationsClient.tsx so the chip reads the same everywhere. */
+const CHANNEL_META: Record<string, { icon: typeof GlobeAltIcon; bg: string; text: string; border: string }> = {
+    telegram: { icon: ChatBubbleLeftRightIcon, bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/30" },
+    webapp: { icon: GlobeAltIcon, bg: "bg-indigo-500/10", text: "text-indigo-400", border: "border-indigo-500/30" },
+    webchat: { icon: GlobeAltIcon, bg: "bg-violet-500/10", text: "text-violet-400", border: "border-violet-500/30" },
+    email: { icon: EnvelopeIcon, bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30" },
+    mcp: { icon: CommandLineIcon, bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/30" },
 };
+
+function channelMeta(channelType: string) {
+    return (
+        CHANNEL_META[channelType] ?? {
+            icon: ChatBubbleLeftRightIcon,
+            bg: "bg-pulse-panel-alt",
+            text: "text-pulse-muted",
+            border: "border-pulse-border-subtle",
+        }
+    );
+}
 
 function roleStyling(role: string) {
     switch (role) {
@@ -62,10 +86,10 @@ export default function ConversationDetailClient({
     conversation: ConversationInfo;
     messages: Message[];
 }) {
-    const badge = channelBadge[conversation.channelType] ?? {
-        bg: "bg-pulse-panel-alt",
-        text: "text-pulse-text-soft",
-    };
+    const meta = channelMeta(conversation.channelType);
+    const Icon = meta.icon;
+    const active = conversation.status === "active";
+    const lastActive = conversation.updatedAt || messages[messages.length - 1]?.createdAt || conversation.createdAt;
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
@@ -73,33 +97,37 @@ export default function ConversationDetailClient({
             <div className="mb-6">
                 <Link
                     href="/dashboard/conversations"
-                    className="text-sm text-pulse-muted hover:text-pulse-text transition-colors motion-reduce:transition-none mb-2 inline-block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md"
+                    className="text-sm text-pulse-muted hover:text-pulse-text transition-colors motion-reduce:transition-none mb-3 inline-block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md"
                 >
                     &larr; Back to Conversations
                 </Link>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-pulse-text">
-                            {conversation.contactName ||
-                                conversation.channelContactId}
+                <div className="flex items-center gap-3" title={conversation.channelContactId}>
+                    <AgentAvatar name={conversation.contactName || "?"} size="lg" />
+                    <div className="min-w-0">
+                        <h1 className="text-xl font-semibold text-pulse-text truncate">
+                            {conversation.contactName || "Unknown contact"}
                         </h1>
-                        <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs font-mono text-pulse-faint">
-                                {conversation.channelContactId}
-                            </span>
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
                             <span
-                                className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${badge.bg} ${badge.text}`}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${meta.bg} ${meta.text} ${meta.border}`}
                             >
-                                {conversation.channelType}
+                                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                                {secondaryChannelLabel(conversation)}
                             </span>
-                            <span
-                                className={`px-2 py-0.5 text-xs font-medium rounded-full capitalize ${
-                                    conversation.status === "active"
-                                        ? "bg-green-500/10 text-green-400"
-                                        : "bg-pulse-panel-alt text-pulse-muted"
-                                }`}
-                            >
-                                {conversation.status}
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-pulse-panel-alt text-pulse-muted border border-pulse-border-subtle">
+                                <span
+                                    className={`inline-block w-1.5 h-1.5 rounded-full ${active ? "bg-green-500" : "bg-pulse-border-strong"}`}
+                                    aria-hidden="true"
+                                />
+                                {conversation.status || "unknown"}
+                            </span>
+                            {typeof conversation.messageCount === "number" && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-pulse-panel-alt text-pulse-muted border border-pulse-border-subtle">
+                                    {conversation.messageCount} message{conversation.messageCount === 1 ? "" : "s"}
+                                </span>
+                            )}
+                            <span className="text-xs text-pulse-faint">
+                                Active {relativeTime(lastActive)}
                             </span>
                         </div>
                     </div>
