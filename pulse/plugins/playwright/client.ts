@@ -122,7 +122,12 @@ export async function getOrCreateSession(tenantId: string, agentId: string): Pro
     }
 
     const browser = await getBrowser();
-    const context = await browser.newContext();
+    // 1080p at 2x device scale: text in screenshots stays crisp even after
+    // chat clients downscale. PNG size grows ~4x — acceptable for this use.
+    const context = await browser.newContext({
+        viewport: { width: 1920, height: 1080 },
+        deviceScaleFactor: 2,
+    });
     const page = await context.newPage();
     page.setDefaultTimeout(ACTION_TIMEOUT_MS);
     page.setDefaultNavigationTimeout(ACTION_TIMEOUT_MS);

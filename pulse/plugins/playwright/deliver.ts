@@ -52,9 +52,12 @@ export async function deliverScreenshotToChannel(
         const form = new FormData();
         form.append("chat_id", conversation.channelContactId);
         form.append("caption", caption.slice(0, 1024));
-        form.append("photo", new Blob([new Uint8Array(bytes)], { type: "image/png" }), basename(filePath));
+        // sendDocument, not sendPhoto: Telegram recompresses photos to lossy
+        // JPEG (~1280px), which wrecks text in screenshots. Documents are
+        // delivered as the original PNG and still render an inline preview.
+        form.append("document", new Blob([new Uint8Array(bytes)], { type: "image/png" }), basename(filePath));
 
-        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
             method: "POST",
             body: form,
         });
