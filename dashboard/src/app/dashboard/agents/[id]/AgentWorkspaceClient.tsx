@@ -18,6 +18,7 @@ import SandboxConfigEditor from "./SandboxConfigEditor";
 import HeartbeatEditor from "./HeartbeatEditor";
 import SkillsEditor from "./SkillsEditor";
 import EmailConfigEditor from "./EmailConfigEditor";
+import TelegramConfigEditor from "./TelegramConfigEditor";
 import { InfoTip } from "../../../../components/dashboard/ui";
 
 interface AgentData {
@@ -63,6 +64,8 @@ interface Props {
     activeProviders: string[];
     defaultSkills: string[];
     hasTenantEmail: boolean;
+    telegramConnected: boolean;
+    telegramBotUsername: string | null;
 }
 
 const TABS = [
@@ -76,6 +79,7 @@ const TABS = [
     { id: "agents", label: "Agents" },
     { id: "skills", label: "Skills" },
     { id: "email", label: "Email" },
+    { id: "telegram", label: "Telegram" },
     { id: "tool-policy", label: "Tool Policy" },
     { id: "sandbox", label: "Sandbox" },
     { id: "config", label: "Config" },
@@ -103,6 +107,8 @@ export default function AgentWorkspaceClient({
     activeProviders,
     defaultSkills,
     hasTenantEmail,
+    telegramConnected,
+    telegramBotUsername,
 }: Props) {
     const [activeTab, setActiveTab] = useState("soul");
     const router = useRouter();
@@ -240,6 +246,14 @@ export default function AgentWorkspaceClient({
             )}
             {activeTab === "email" && (
                 <EmailConfigEditor agentId={agent.id} emailConfig={agent.emailConfig ?? {}} hasTenantEmail={hasTenantEmail} />
+            )}
+            {activeTab === "telegram" && (
+                <TelegramConfigEditor
+                    agentId={agent.id}
+                    agentName={agent.name}
+                    connected={telegramConnected}
+                    botUsername={telegramBotUsername}
+                />
             )}
             {activeTab === "tool-policy" && (
                 <ToolPolicyEditor agentId={agent.id} initialPolicy={agent.toolPolicy} />

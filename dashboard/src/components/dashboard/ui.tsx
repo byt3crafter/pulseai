@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
-import { InformationCircleIcon } from "@heroicons/react/24/outline";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { CheckIcon, ChevronUpDownIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
 
 /**
  * Shared visual primitives for the tenant dashboard — "Clerk-grade" flat
@@ -34,10 +34,23 @@ export function PageHeader({
     );
 }
 
-/** Flat card — border only, no drop shadow. The base surface for every grouped block. */
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+/**
+ * Flat card — border only, no drop shadow. The base surface for every
+ * grouped block. Pass `tint` for the rare "highlighted" variant (e.g. an
+ * AI-build panel) — it swaps the fill for `--pulse-tint` but keeps the same
+ * border/radius so it still reads as a Card, not a different component.
+ */
+export function Card({
+    children,
+    className = "",
+    tint = false,
+}: {
+    children: ReactNode;
+    className?: string;
+    tint?: boolean;
+}) {
     return (
-        <div className={`bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden ${className}`}>
+        <div className={`${tint ? "bg-pulse-tint" : "bg-pulse-panel"} border border-pulse-border-subtle rounded-xl overflow-hidden ${className}`}>
             {children}
         </div>
     );
@@ -188,4 +201,247 @@ export function InfoTip({ text, label = "More info" }: { text: string; label?: s
 /** Muted one-line helper line under a setting/label — for short plain-language context. */
 export function SettingHint({ children }: { children: ReactNode }) {
     return <p className="text-xs text-pulse-muted">{children}</p>;
+}
+
+export interface SelectMenuOption {
+    value: string;
+    label: string;
+    /** Small muted chip rendered at the right edge of the option row (e.g. a category tag). */
+    badge?: string;
+}
+
+export interface SelectMenuGroup {
+    /** Group heading — also doubles as the badge shown on the closed trigger for the selected option. */
+    label: string;
+    options: SelectMenuOption[];
+}
+
+/**
+ * Accessible custom listbox styled to match the rest of the token-driven UI —
+ * a drop-in replacement for a native `<select>`/`<optgroup>` (which render as
+ * unstyled OS dropdowns nobody can theme). Renders a hidden
+ * `<input type="hidden" name={name}>` alongside the trigger so it drops
+ * straight into a `<form>` exactly like a native select would — no change to
+ * surrounding form-handling code needed.
+ *
+ * Keyboard: ArrowUp/Down move the highlight, Home/End jump to the ends,
+ * Enter/Space commit, Escape closes. Closes on outside click; focus returns
+ * to the trigger button on close, and moves to the listbox on open.
+ *
+ * @example
+ * <SelectMenu
+ *   id="agent-model"
+ *   name="modelId"
+ *   ariaLabel="Model"
+ *   value={modelId}
+ *   onChange={setModelId}
+ *   groups={PROVIDERS.map((p) => ({
+ *     label: p.name,
+ *     options: p.models.map((m) => ({ value: m.id, label: m.displayName, badge: m.category })),
+ *   }))}
+ * />
+ */
+export function SelectMenu({
+    id,
+    name,
+    value,
+    onChange,
+    groups,
+    placeholder = "Select…",
+    ariaLabel,
+    disabled = false,
+}: {
+    id?: string;
+    name?: string;
+    value: string;
+    onChange: (value: string) => void;
+    groups: SelectMenuGroup[];
+    placeholder?: string;
+    ariaLabel?: string;
+    disabled?: boolean;
+}) {
+    const reactId = useId();
+    const baseId = id ?? reactId;
+    const buttonId = `${baseId}-button`;
+    const listboxId = `${baseId}-listbox`;
+
+    const [open, setOpen] = useState(false);
+    const [highlighted, setHighlighted] = useState(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLUListElement>(null);
+    const optionRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+    const flat = useMemo(
+        () => groups.flatMap((g) => g.options.map((o) => ({ ...o, groupLabel: g.label }))),
+        [groups]
+    );
+    const selectedIndex = flat.findIndex((o) => o.value === value);
+    const selected = selectedIndex >= 0 ? flat[selectedIndex] : undefined;
+
+    const close = (focusButton = true) => {
+        setOpen(false);
+        if (focusButton) requestAnimationFrame(() => document.getElementById(buttonId)?.focus());
+    };
+
+    const openList = () => {
+        if (disabled || flat.length === 0) return;
+        setHighlighted(selectedIndex >= 0 ? selectedIndex : 0);
+        setOpen(true);
+        requestAnimationFrame(() => listRef.current?.focus());
+    };
+
+    const commit = (index: number) => {
+        const opt = flat[index];
+        if (!opt) return;
+        onChange(opt.value);
+        close();
+    };
+
+    // Close on outside click.
+    useEffect(() => {
+        if (!open) return;
+        const onDocMouseDown = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) close(false);
+        };
+        document.addEventListener("mousedown", onDocMouseDown);
+        return () => document.removeEventListener("mousedown", onDocMouseDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+
+    // Keep the highlighted option scrolled into view as it changes.
+    useEffect(() => {
+        if (!open) return;
+        const opt = flat[highlighted];
+        if (opt) optionRefs.current[opt.value]?.scrollIntoView({ block: "nearest" });
+    }, [highlighted, open, flat]);
+
+    const handleListKeyDown = (e: React.KeyboardEvent) => {
+        switch (e.key) {
+            case "ArrowDown":
+                e.preventDefault();
+                setHighlighted((i) => Math.min(flat.length - 1, i + 1));
+                break;
+            case "ArrowUp":
+                e.preventDefault();
+                setHighlighted((i) => Math.max(0, i - 1));
+                break;
+            case "Home":
+                e.preventDefault();
+                setHighlighted(0);
+                break;
+            case "End":
+                e.preventDefault();
+                setHighlighted(flat.length - 1);
+                break;
+            case "Enter":
+            case " ":
+                e.preventDefault();
+                commit(highlighted);
+                break;
+            case "Escape":
+                e.preventDefault();
+                close();
+                break;
+            case "Tab":
+                close(false);
+                break;
+            default:
+                break;
+        }
+    };
+
+    const handleButtonKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openList();
+        }
+    };
+
+    return (
+        <div className="relative" ref={containerRef}>
+            {name && <input type="hidden" name={name} value={value} />}
+            <button
+                id={buttonId}
+                type="button"
+                disabled={disabled}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                aria-controls={listboxId}
+                aria-label={ariaLabel}
+                onClick={() => (open ? close() : openList())}
+                onKeyDown={handleButtonKeyDown}
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+                {selected ? (
+                    <span className="flex items-center gap-2 min-w-0">
+                        <span className="flex-shrink-0 text-[10px] font-medium uppercase tracking-wide text-pulse-faint bg-pulse-panel-alt border border-pulse-border-subtle rounded px-1.5 py-0.5">
+                            {selected.groupLabel}
+                        </span>
+                        <span className="truncate">{selected.label}</span>
+                    </span>
+                ) : (
+                    <span className="text-pulse-faint">{placeholder}</span>
+                )}
+                <ChevronUpDownIcon className="w-4 h-4 flex-shrink-0 text-pulse-faint" aria-hidden="true" />
+            </button>
+
+            {open && (
+                <ul
+                    ref={listRef}
+                    id={listboxId}
+                    role="listbox"
+                    tabIndex={-1}
+                    aria-label={ariaLabel}
+                    aria-activedescendant={flat[highlighted] ? `${listboxId}-opt-${flat[highlighted].value}` : undefined}
+                    onKeyDown={handleListKeyDown}
+                    className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-lg border border-pulse-border bg-pulse-panel shadow-lg py-1.5 outline-none"
+                >
+                    {groups.map((group) => (
+                        <li key={group.label} role="presentation">
+                            <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-pulse-faint">
+                                {group.label}
+                            </div>
+                            <ul role="group" aria-label={group.label} className="mb-1">
+                                {group.options.map((opt) => {
+                                    const index = flat.findIndex((f) => f.value === opt.value);
+                                    const isSelected = opt.value === value;
+                                    const isHighlighted = index === highlighted;
+                                    return (
+                                        <li
+                                            key={opt.value}
+                                            id={`${listboxId}-opt-${opt.value}`}
+                                            role="option"
+                                            aria-selected={isSelected}
+                                            ref={(el) => {
+                                                optionRefs.current[opt.value] = el;
+                                            }}
+                                            onMouseEnter={() => setHighlighted(index)}
+                                            onClick={() => commit(index)}
+                                            className={`flex items-center justify-between gap-2 mx-1.5 px-2.5 py-2 rounded-md text-sm cursor-pointer transition-colors motion-reduce:transition-none ${isHighlighted ? "bg-pulse-hover" : ""
+                                                }`}
+                                        >
+                                            <span className="flex items-center gap-2 min-w-0">
+                                                <CheckIcon
+                                                    className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? "text-pulse-accent-hi" : "text-transparent"}`}
+                                                    aria-hidden="true"
+                                                />
+                                                <span className={`truncate ${isSelected ? "text-pulse-accent-hi font-medium" : "text-pulse-text"}`}>
+                                                    {opt.label}
+                                                </span>
+                                            </span>
+                                            {opt.badge && (
+                                                <span className="flex-shrink-0 text-[10px] uppercase tracking-wide text-pulse-faint bg-pulse-panel-alt border border-pulse-border-subtle rounded px-1.5 py-0.5">
+                                                    {opt.badge}
+                                                </span>
+                                            )}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
 }

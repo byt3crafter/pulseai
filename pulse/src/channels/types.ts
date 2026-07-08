@@ -30,6 +30,10 @@ export interface InboundMessage {
 export interface OutboundMessage {
   conversationId: string; // Links back to our Postgres thread
   tenantId: string;
+  // The agent whose response this is. Multi-bot channel adapters (e.g. Telegram,
+  // where a tenant can connect a separate bot per agent) use this to pick the
+  // right outbound connection/bot instead of assuming one bot per tenant.
+  agentProfileId?: string;
   channelType: string;
   channelContactId: string;
   content: string;

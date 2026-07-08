@@ -65,8 +65,8 @@ export const worker =
 
                       // Build edit callback if the adapter supports it
                       const editCallback = adapter.editMessage
-                          ? (tenantId: string, chatId: string, messageId: string, content: string, parseMode?: string) =>
-                              adapter.editMessage(tenantId, chatId, messageId, content, parseMode)
+                          ? (tenantId: string, chatId: string, messageId: string, content: string, parseMode?: string, agentProfileId?: string) =>
+                              adapter.editMessage(tenantId, chatId, messageId, content, parseMode, agentProfileId)
                           : undefined;
 
                       // Process the message

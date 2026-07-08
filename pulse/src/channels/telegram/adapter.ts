@@ -16,6 +16,7 @@ import type { MessageIR } from "../formatting/ir.js";
 import { db } from "../../storage/db.js";
 import { tenants, allowlists, channelConnections } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
+import { selectConnectionId, type BotCandidate } from "./bot-selector.js";
 
 /**
  * Extensions that overlap with TLDs — Telegram auto-links "filename.ext" as a URL.
@@ -93,11 +94,18 @@ interface TenantConfig {
     [key: string]: unknown;
 }
 
+interface BotEntry {
+    bot: Bot<Context>;
+    conn: ChannelConnectionConfig;
+}
+
 export class TelegramAdapter implements ChannelAdapter {
     readonly channelType = "telegram";
 
-    // Maps a specific tenant ID to their running grammY Bot instance
-    public activeBots: Map<string, Bot<Context>> = new Map();
+    // Maps a channel_connections.id to its running grammY Bot instance.
+    // A tenant can have more than one entry here — one bot per agent, plus
+    // optionally the tenant-wide "default" bot from Settings → Telegram.
+    public activeBots: Map<string, BotEntry> = new Map();
     // Handler provided by the core agent runtime
     private messageHandler: ((msg: InboundMessage) => Promise<void>) | null = null;
     // Cached tenant configs with TTL
@@ -129,6 +137,11 @@ export class TelegramAdapter implements ChannelAdapter {
     /** Build a grammY bot for one connection, wire handlers, and register it. Reusable
      *  by initialize() (boot) and handleWebhookUpdate() (lazy, for bots added after boot). */
     private async loadBot(conn: ChannelConnectionConfig): Promise<Bot<Context> | null> {
+        if (!conn.id) {
+            logger.warn({ tenantId: conn.tenantId }, "Telegram connection missing id — cannot register bot");
+            return null;
+        }
+
         const { botToken: rawBotToken } = conn.channelConfig;
         if (!rawBotToken) {
             logger.warn({ tenantId: conn.tenantId }, "Missing botToken for telegram connection");
@@ -170,13 +183,37 @@ export class TelegramAdapter implements ChannelAdapter {
                 bot.start().catch((err) => logger.error({ err, tenantId: conn.tenantId }, "Failed to start TG polling"));
             }
 
-            this.activeBots.set(conn.tenantId, bot);
-            logger.info({ tenantId: conn.tenantId }, "Telegram bot initialized");
+            this.activeBots.set(conn.id, { bot, conn });
+            logger.info({ tenantId: conn.tenantId, connectionId: conn.id, agentProfileId: conn.agentProfileId ?? undefined }, "Telegram bot initialized");
             return bot;
         } catch (err) {
             logger.error({ err, tenantId: conn.tenantId }, "Failed to initialize Telegram connection");
             return null;
         }
+    }
+
+    /**
+     * Build the candidate list for a tenant's active bots and resolve which
+     * connection's bot should handle a send/edit. Non-agent-scoped ("default")
+     * connections are those whose channelConfig.scope !== "agent" — i.e. the
+     * tenant-wide bot connected via Settings → Telegram.
+     */
+    private pickBotEntry(tenantId: string, agentProfileId?: string | null): BotEntry | undefined {
+        const entriesForTenant = new Map<string, BotEntry>();
+        const candidates: BotCandidate[] = [];
+
+        for (const [connectionId, entry] of this.activeBots) {
+            if (entry.conn.tenantId !== tenantId) continue;
+            entriesForTenant.set(connectionId, entry);
+            candidates.push({
+                id: connectionId,
+                agentProfileId: entry.conn.agentProfileId,
+                isDefault: (entry.conn.channelConfig as any)?.scope !== "agent",
+            });
+        }
+
+        const chosenId = selectConnectionId(candidates, agentProfileId);
+        return chosenId ? entriesForTenant.get(chosenId) : undefined;
     }
 
     private async handleTextMessage(ctx: Context, conn: ChannelConnectionConfig): Promise<void> {
@@ -532,9 +569,9 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     async shutdown(): Promise<void> {
-        for (const [tenantId, bot] of this.activeBots.entries()) {
-            await bot.stop();
-            logger.info({ tenantId }, "Telegram bot connection stopped");
+        for (const [connectionId, entry] of this.activeBots.entries()) {
+            await entry.bot.stop();
+            logger.info({ tenantId: entry.conn.tenantId, connectionId }, "Telegram bot connection stopped");
         }
         this.activeBots.clear();
         this.tenantConfigs.clear();
@@ -545,8 +582,9 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     async sendMessage(msg: OutboundMessage): Promise<{ channelMessageId: string }> {
-        const bot = this.activeBots.get(msg.tenantId);
-        if (!bot) throw new Error("Bot not found for this tenant");
+        const entry = this.pickBotEntry(msg.tenantId, msg.agentProfileId);
+        if (!entry) throw new Error("Bot not found for this tenant");
+        const bot = entry.bot;
 
         // Convert standard Markdown to Telegram HTML for proper formatting
         let content = msg.content;
@@ -706,10 +744,12 @@ export class TelegramAdapter implements ChannelAdapter {
         chatId: string,
         messageId: string,
         content: string,
-        parseMode?: string
+        parseMode?: string,
+        agentProfileId?: string
     ): Promise<void> {
-        const bot = this.activeBots.get(tenantId);
-        if (!bot) return;
+        const entry = this.pickBotEntry(tenantId, agentProfileId);
+        if (!entry) return;
+        const bot = entry.bot;
 
         // If parseMode is "markdown", convert to HTML
         let text = content;
@@ -744,52 +784,72 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     /**
-     * Handle webhook updates from Telegram
-     * This method is called by the webhook endpoint when an update is received
+     * Handle webhook updates from Telegram.
+     * Called by the webhook route. `connectionId` is present when the webhook
+     * URL was registered for a specific per-agent bot
+     * (`/webhooks/telegram/:tenantSlug/:connectionId`); omitted for the
+     * legacy/default tenant-wide bot URL (`/webhooks/telegram/:tenantSlug`).
      */
-    async handleWebhookUpdate(tenantId: string, update: any): Promise<void> {
-        let bot = this.activeBots.get(tenantId);
-        if (!bot) {
+    async handleWebhookUpdate(tenantId: string, update: any, connectionId?: string): Promise<void> {
+        let entry = connectionId ? this.activeBots.get(connectionId) : this.pickBotEntry(tenantId);
+        // Guard against a connectionId belonging to a different tenant (defense
+        // in depth — the route already scopes the DB lookup below by tenant).
+        if (entry && entry.conn.tenantId !== tenantId) entry = undefined;
+
+        if (!entry) {
             // Lazy-load: the bot may have been connected after the gateway booted.
-            logger.info({ tenantId }, "Telegram bot not loaded — lazy-loading from DB");
-            const [conn] = await db.select().from(channelConnections)
-                .where(and(
-                    eq(channelConnections.tenantId, tenantId),
-                    eq(channelConnections.channelType, "telegram"),
-                    eq(channelConnections.status, "active"),
-                )).limit(1);
+            logger.info({ tenantId, connectionId }, "Telegram bot not loaded — lazy-loading from DB");
+            const baseWhere = [
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                eq(channelConnections.status, "active"),
+            ];
+
+            let conn: any;
+            if (connectionId) {
+                [conn] = await db.select().from(channelConnections)
+                    .where(and(eq(channelConnections.id, connectionId), ...baseWhere)).limit(1);
+            } else {
+                const rows = await db.select().from(channelConnections).where(and(...baseWhere));
+                conn = rows.find((r) => (r.channelConfig as any)?.scope !== "agent") ?? rows[0];
+            }
+
             if (conn) {
-                bot = await this.loadBot({
-                    tenantId,
+                await this.loadBot({
+                    id: conn.id,
+                    tenantId: conn.tenantId,
+                    agentProfileId: conn.agentProfileId,
                     channelType: "telegram",
                     channelConfig: conn.channelConfig as any,
-                } as ChannelConnectionConfig) || undefined;
+                });
+                entry = this.activeBots.get(conn.id);
             }
-            if (!bot) {
-                logger.warn({ tenantId }, "Bot not found for tenant in webhook handler");
+
+            if (!entry) {
+                logger.warn({ tenantId, connectionId }, "Bot not found for tenant in webhook handler");
                 return;
             }
         }
 
         try {
             // Process the update using grammY's handleUpdate method
-            await bot.handleUpdate(update);
+            await entry.bot.handleUpdate(update);
         } catch (err) {
-            logger.error({ err, tenantId }, "Failed to handle webhook update");
+            logger.error({ err, tenantId, connectionId }, "Failed to handle webhook update");
             throw err;
         }
     }
 
     /**
-     * Get webhook info for a specific tenant's bot
-     * Useful for debugging webhook configuration
+     * Get webhook info for a specific bot connection.
+     * Useful for debugging webhook configuration.
      */
-    async getWebhookInfo(tenantId: string): Promise<any> {
-        const bot = this.activeBots.get(tenantId);
-        if (!bot) {
-            throw new Error("Bot not found for tenant");
+    async getWebhookInfo(connectionId: string): Promise<any> {
+        const entry = this.activeBots.get(connectionId);
+        if (!entry) {
+            throw new Error("Bot not found for connection");
         }
 
-        return await bot.api.getWebhookInfo();
+        return await entry.bot.api.getWebhookInfo();
     }
 }
