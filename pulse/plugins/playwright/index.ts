@@ -19,6 +19,7 @@ import {
     browserFillTool,
     browserExtractTool,
     browserCloseTool,
+    browserSaveImageTool,
 } from "./tools/index.js";
 
 const PLAYWRIGHT_PROMPT_CONTEXT = `
@@ -32,13 +33,15 @@ You have a real, headless Chromium browser available through the browser_* tools
 - **browser_fill** — Fill one or more form fields, optionally submitting afterward.
 - **browser_extract** — Pull structured content off the page: visible text, all links, or the title.
 - **browser_screenshot** — Capture the current page as an image.
+- **browser_save_image** — Download an image by URL; it is sent to the user's chat (Telegram) or saved to your workspace.
 - **browser_close** — Close your browser session when you're done with it.
 
 ### Behavior Rules
 - Always call \`browser_navigate\` before any other browser_* tool — every other tool operates on the
   page from your most recent navigation, and will error if no session exists yet.
-- Screenshots are saved to your workspace, not returned inline. \`browser_screenshot\` gives you back a
-  file path — you can tell the user that path, or reference it, but you cannot "see" the image yourself.
+- \`browser_screenshot\` and \`browser_save_image\` deliver the image straight into the user's chat when
+  the channel supports it (Telegram) — the tool result says whether it was sent. Only mention a file path
+  when delivery wasn't possible. You cannot "see" the images yourself.
 - \`browser_extract\` reads structured page content only (text/links/title) — it cannot run custom
   JavaScript on the page.
 - Your browser session is private to you and auto-closes after a few minutes of inactivity, or when you
@@ -74,6 +77,16 @@ export default definePlugin({
                 'Type "true" to let this tenant\'s agents navigate to internal/private network addresses ' +
                 "(intranet access). Default: false — internal/loopback/link-local hosts are blocked.",
         },
+        {
+            name: "PLAYWRIGHT_ENABLE_IMAGE_FETCH",
+            label: "Allow Image Downloads (browser_save_image)",
+            type: "text",
+            placeholder: "true",
+            required: false,
+            helpText:
+                'Type "false" to disable the browser_save_image tool (downloading images from the web ' +
+                "and sending them into the chat). Default: enabled.",
+        },
     ],
 
     tools: [
@@ -83,6 +96,7 @@ export default definePlugin({
         browserFillTool,
         browserExtractTool,
         browserCloseTool,
+        browserSaveImageTool,
     ],
 
     hooks: {

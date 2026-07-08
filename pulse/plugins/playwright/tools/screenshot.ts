@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { Tool } from "../../../src/agent/tools/tool.interface.js";
 import { getExistingPage, ACTION_TIMEOUT_MS } from "../client.js";
 import { config } from "../../../src/config.js";
-import { deliverScreenshotToChannel } from "../deliver.js";
+import { sendFileToConversation } from "../../../src/utils/channel-delivery.js";
 
 export const browserScreenshotTool: Tool = {
     name: "browser_screenshot",
@@ -41,7 +41,7 @@ export const browserScreenshotTool: Tool = {
             // Best-effort: push the image into the conversation's channel
             // (Telegram sendPhoto) so the user actually SEES it instead of a
             // container file path. Non-fatal on any failure.
-            const delivery = await deliverScreenshotToChannel(
+            const delivery = await sendFileToConversation(
                 tenantId,
                 conversationId,
                 filePath,
