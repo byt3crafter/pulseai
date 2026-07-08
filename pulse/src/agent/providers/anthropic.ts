@@ -99,6 +99,7 @@ export class AnthropicProvider {
         tenantId?: string;
         agentProfileId?: string;
         conversationId?: string;
+        onProgress?: (text: string) => void;
         systemPrompt: string;
         messages: ProviderMessage[];
         tenantApiKey?: string;

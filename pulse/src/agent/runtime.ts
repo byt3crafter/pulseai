@@ -465,11 +465,51 @@ export class AgentRuntime {
                 lastEditTime = Date.now();
             }
 
+            // Progress streaming for TOOL turns (text streaming above only fires
+            // for tool-less turns). While the agent works through a long,
+            // otherwise-silent operation (e.g. cOrtex running server commands),
+            // show a live "working…" status the human can watch — like
+            // OpenClaw/Hermes. The final reply replaces it; a silent turn just
+            // leaves the last status. Only for channels that support edits.
+            let progressMsgId: string | null = null;
+            let progressLines: string[] = [];
+            let lastProgressEdit = 0;
+            const PROGRESS_THROTTLE_MS = 2500;
+            let onProgress: ((text: string) => void) | undefined;
+            if (options?.editMessageCallback && toolDefinitions.length > 0) {
+                onProgress = (text: string) => {
+                    // De-dupe consecutive identical steps; keep the last ~6 lines.
+                    if (progressLines[progressLines.length - 1] !== text) progressLines.push(text);
+                    if (progressLines.length > 6) progressLines = progressLines.slice(-6);
+                    const now = Date.now();
+                    if (now - lastProgressEdit < PROGRESS_THROTTLE_MS) return;
+                    lastProgressEdit = now;
+                    const body = "⚙️ Working…\n" + progressLines.map((l) => "• " + l).join("\n");
+                    if (!progressMsgId) {
+                        // Send the status message once (fire-and-forget); capture its id.
+                        sendMessageCallback({
+                            conversationId: conversation.id,
+                            tenantId: inbound.tenantId,
+                            agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
+                            channelType: inbound.channelType,
+                            channelContactId: inbound.channelContactId,
+                            content: body,
+                        }).then((r) => { progressMsgId = r.channelMessageId; }).catch(() => {});
+                    } else {
+                        options.editMessageCallback!(
+                            inbound.tenantId, inbound.channelContactId, progressMsgId, body,
+                            undefined, resolvedAgentProfileId ?? undefined,
+                        ).catch(() => {});
+                    }
+                };
+            }
+
             let llmResponse = await this.providerManager.chat({
                 agentProfileId: resolvedAgentProfileId ?? undefined,
                 conversationId: conversation.id,
                 model: activeModelId,
                 tenantId: inbound.tenantId,
+                onProgress,
                 systemPrompt: activeSystemPrompt,
                 messages: llmMessages,
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
