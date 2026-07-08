@@ -207,6 +207,7 @@ export class AgentRuntime {
             // 3.75 Resolve per-agent model and system prompt (workspace-first, DB fallback)
             let basePrompt = defaultSystemPrompt;
             let activeModelId = getDefaultModel().id;
+            let activeAgentName = "Agent";
             // Per-agent reasoning effort override (Codex/GPT-5.5 etc.). Undefined
             // means "let the provider use its own default" — never send a bogus value.
             let activeReasoningEffort: string | undefined = undefined;
@@ -229,6 +230,7 @@ export class AgentRuntime {
                     if (profile.modelId) {
                         activeModelId = profile.modelId;
                     }
+                    if (profile.name) activeAgentName = profile.name;
 
                     // Use per-agent reasoning effort if set (null/absent = inherit default)
                     if (profile.reasoningEffort) {
@@ -472,21 +474,37 @@ export class AgentRuntime {
             // OpenClaw/Hermes. The final reply replaces it; a silent turn just
             // leaves the last status. Only for channels that support edits.
             let progressMsgId: string | null = null;
-            let progressLines: string[] = [];
+            const progressSteps: string[] = [];
+            let progressStepCount = 0;
             let lastProgressEdit = 0;
+            let progressSending = false;
             const PROGRESS_THROTTLE_MS = 2500;
+            const agentDisplayName = activeAgentName || "Agent";
+            const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const spinnerFrames = ["◐", "◓", "◑", "◒"];
+            const renderProgress = () => {
+                const frame = spinnerFrames[progressStepCount % spinnerFrames.length];
+                const shown = progressSteps.slice(-7);
+                const hidden = progressSteps.length - shown.length;
+                const lines = shown.map((l) => `<code>❯ ${escHtml(l)}</code>`);
+                const head = `${frame} <b>${escHtml(agentDisplayName)}</b> <i>working…</i>`;
+                const more = hidden > 0 ? `\n<i>…+${hidden} earlier</i>` : "";
+                return `${head}\n\n${lines.join("\n")}${more}`;
+            };
             let onProgress: ((text: string) => void) | undefined;
             if (options?.editMessageCallback && toolDefinitions.length > 0) {
                 onProgress = (text: string) => {
-                    // De-dupe consecutive identical steps; keep the last ~6 lines.
-                    if (progressLines[progressLines.length - 1] !== text) progressLines.push(text);
-                    if (progressLines.length > 6) progressLines = progressLines.slice(-6);
+                    // De-dupe consecutive identical steps.
+                    if (progressSteps[progressSteps.length - 1] !== text) {
+                        progressSteps.push(text);
+                        progressStepCount++;
+                    }
                     const now = Date.now();
-                    if (now - lastProgressEdit < PROGRESS_THROTTLE_MS) return;
+                    if (now - lastProgressEdit < PROGRESS_THROTTLE_MS || progressSending) return;
                     lastProgressEdit = now;
-                    const body = "⚙️ Working…\n" + progressLines.map((l) => "• " + l).join("\n");
+                    const body = renderProgress();
                     if (!progressMsgId) {
-                        // Send the status message once (fire-and-forget); capture its id.
+                        progressSending = true;
                         sendMessageCallback({
                             conversationId: conversation.id,
                             tenantId: inbound.tenantId,
@@ -494,11 +512,12 @@ export class AgentRuntime {
                             channelType: inbound.channelType,
                             channelContactId: inbound.channelContactId,
                             content: body,
-                        }).then((r) => { progressMsgId = r.channelMessageId; }).catch(() => {});
+                            format: "html",
+                        }).then((r) => { progressMsgId = r.channelMessageId; }).catch(() => {}).finally(() => { progressSending = false; });
                     } else {
                         options.editMessageCallback!(
                             inbound.tenantId, inbound.channelContactId, progressMsgId, body,
-                            undefined, resolvedAgentProfileId ?? undefined,
+                            "html", resolvedAgentProfileId ?? undefined,
                         ).catch(() => {});
                     }
                 };

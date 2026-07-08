@@ -811,14 +811,34 @@ export class CodexAppServerProvider {
                 resetInactivity(); // arm the watchdog
 
                 const onProgress = params.onProgress;
+                // Pull the most meaningful single detail out of a tool's args so
+                // progress reads like a terminal ("server_exec  df -h") instead of
+                // a bare tool name.
+                const detailOf = (args: any): string => {
+                    if (!args || typeof args !== "object") return "";
+                    const prefer = ["command", "url", "query", "path", "to", "subject", "prompt", "name", "doctype", "selector"];
+                    let v: any;
+                    for (const k of prefer) { if (typeof args[k] === "string" && args[k]) { v = args[k]; break; } }
+                    if (v === undefined) v = Object.values(args).find((x) => typeof x === "string" && x);
+                    if (typeof v !== "string") return "";
+                    return v.replace(/\s+/g, " ").trim().slice(0, 64);
+                };
                 const emitProgress = (item: any) => {
                     if (!onProgress || !item?.type) return;
                     try {
-                        if (item.type === "mcpToolCall") onProgress(`🔧 ${item.tool || "tool"}`);
-                        else if (item.type === "commandExecution") onProgress("⚡ running a command");
-                        else if (item.type === "webSearch") onProgress("🔍 searching the web");
-                        else if (item.type === "reasoning") onProgress("💭 thinking…");
-                        else if (item.type === "fileChange") onProgress("✏️ editing files");
+                        // Reasoning ("thinking") is intentionally dropped — it's noise;
+                        // real actions are the signal.
+                        if (item.type === "mcpToolCall") {
+                            const d = detailOf(item.arguments);
+                            onProgress(`${item.tool || "tool"}${d ? "  " + d : ""}`);
+                        } else if (item.type === "commandExecution") {
+                            const d = detailOf(item);
+                            onProgress(`$ ${d || "command"}`);
+                        } else if (item.type === "webSearch") {
+                            onProgress(`web_search  ${detailOf(item) || ""}`.trim());
+                        } else if (item.type === "fileChange") {
+                            onProgress("edit files");
+                        }
                     } catch { /* progress is best-effort */ }
                 };
 

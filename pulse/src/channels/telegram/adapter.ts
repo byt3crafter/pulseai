@@ -592,6 +592,9 @@ export class TelegramAdapter implements ChannelAdapter {
         if (msg.format === "markdown") {
             content = this.markdownToTelegramHtml(content);
             isHtml = true;
+        } else if (msg.format === "html") {
+            // Caller already produced Telegram-safe HTML (e.g. progress status).
+            isHtml = true;
         }
 
         // Split into chunks respecting Telegram's 4096-char limit
@@ -757,7 +760,7 @@ export class TelegramAdapter implements ChannelAdapter {
         if (parseMode === "markdown") {
             text = this.markdownToTelegramHtml(content);
             mode = "HTML";
-        } else if (parseMode === "HTML") {
+        } else if (parseMode === "HTML" || parseMode === "html") {
             mode = "HTML";
         }
 
