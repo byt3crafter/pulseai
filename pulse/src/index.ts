@@ -104,8 +104,10 @@ async function start() {
 
         // Initialize Heartbeat Scheduler
         heartbeatScheduler.setRuntime(agentRuntime);
-        heartbeatScheduler.setSendCallback(async (tenantId, channelContactId, content) => {
-            // Route heartbeat messages through Telegram if available
+        heartbeatScheduler.setSendCallback(async (tenantId, channelContactId, content, agentProfileId) => {
+            // Route heartbeat messages through Telegram if available — via the
+            // agent's OWN bot when it has one (bot-selector falls back to the
+            // tenant default otherwise).
             if (telegramAdapter) {
                 await telegramAdapter.sendMessage({
                     conversationId: "heartbeat",
@@ -114,6 +116,7 @@ async function start() {
                     channelContactId,
                     content,
                     format: "markdown",
+                    agentProfileId,
                 });
             }
         });

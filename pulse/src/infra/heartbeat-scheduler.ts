@@ -21,14 +21,14 @@ interface AgentHeartbeatState {
 export class HeartbeatScheduler {
     private agents = new Map<string, AgentHeartbeatState>();
     private agentRuntime: AgentRuntime | null = null;
-    private sendCallback: ((tenantId: string, channelContactId: string, content: string) => Promise<void>) | null = null;
+    private sendCallback: ((tenantId: string, channelContactId: string, content: string, agentProfileId?: string) => Promise<void>) | null = null;
     private log = logger.child({ component: "heartbeat-scheduler" });
 
     setRuntime(runtime: AgentRuntime) {
         this.agentRuntime = runtime;
     }
 
-    setSendCallback(cb: (tenantId: string, channelContactId: string, content: string) => Promise<void>) {
+    setSendCallback(cb: (tenantId: string, channelContactId: string, content: string, agentProfileId?: string) => Promise<void>) {
         this.sendCallback = cb;
     }
 
