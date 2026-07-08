@@ -30,7 +30,7 @@ export async function runHeartbeatOnce(
     agentId: string,
     tenantId: string,
     agentRuntime: AgentRuntime,
-    sendCallback: (tenantId: string, channelContactId: string, content: string) => Promise<void>
+    sendCallback: (tenantId: string, channelContactId: string, content: string, agentProfileId?: string) => Promise<void>
 ): Promise<void> {
     const log = logger.child({ component: "heartbeat", agentId, tenantId });
 
@@ -99,7 +99,7 @@ export async function runHeartbeatOnce(
 
         // 8. Route to target channel
         if (targetChannel !== "heartbeat" && sendCallback) {
-            await sendCallback(tenantId, targetChannel, capturedContent);
+            await sendCallback(tenantId, targetChannel, capturedContent, agentId);
         }
 
         log.info({ contentLength: capturedContent.length }, "Heartbeat executed successfully");
