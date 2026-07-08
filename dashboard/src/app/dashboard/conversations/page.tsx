@@ -5,6 +5,10 @@ import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import ConversationsClient from "./ConversationsClient";
 
+// Live data (message counts, last-updated) — never statically cache, or the
+// list freezes at the state it had when first rendered (all "0 messages").
+export const dynamic = "force-dynamic";
+
 export default async function ConversationsPage() {
     const isNextBuild =
         process.env.npm_lifecycle_event === "build" ||

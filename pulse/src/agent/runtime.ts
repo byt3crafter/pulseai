@@ -593,6 +593,12 @@ export class AgentRuntime {
                 });
             }
 
+            // Bump the conversation's updatedAt so "Last Updated" reflects real
+            // activity (not just creation) and threads sort by recency.
+            await db.update(conversations)
+                .set({ updatedAt: new Date() })
+                .where(eq(conversations.id, conversation.id));
+
             // Auto-memory runs in the BACKGROUND (fire-and-forget) so its extra
             // extraction LLM call never delays the user's reply. It bills its own
             // usage in a separate record rather than the main turn's.
