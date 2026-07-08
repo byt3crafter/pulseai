@@ -51,7 +51,7 @@ export const erpnextMethodTool: Tool = {
     },
 
     async execute({ tenantId, args: toolArgs }) {
-        const creds = await getErpNextCredentials(tenantId);
+        const creds = await getErpNextCredentials(tenantId, (toolArgs as any)._agentId);
         if (!creds) return { result: MISSING_CREDENTIALS_MSG };
 
         const method = toolArgs.method as string;

@@ -31,8 +31,10 @@ interface ErpNextCredentials {
  * Resolve ERPNext credentials from the credential vault for a tenant.
  * Expects: ERPNEXT_URL, ERPNEXT_API_KEY, ERPNEXT_API_SECRET
  */
-export async function getErpNextCredentials(tenantId: string): Promise<ErpNextCredentials | null> {
-    const envVars = await credentialVault.getEnvVars(tenantId);
+export async function getErpNextCredentials(tenantId: string, agentId?: string): Promise<ErpNextCredentials | null> {
+    // Per-agent credentials (Settings → Credentials → Agent Scope) override
+    // the tenant-wide ERPNext key, so each agent can be its own ERPNext user.
+    const envVars = await credentialVault.getEnvVars(tenantId, agentId);
 
     const url = envVars["ERPNEXT_URL"];
     const apiKey = envVars["ERPNEXT_API_KEY"];
