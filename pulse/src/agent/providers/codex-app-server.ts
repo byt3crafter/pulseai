@@ -92,7 +92,7 @@ interface TenantMcpConfig {
  * same `enable_third_party_cli` gate on every call, so skipping it here just
  * avoids minting a token that would be rejected on first use.
  */
-async function resolveTenantMcpConfig(tenantId: string, agentProfileId?: string): Promise<TenantMcpConfig | null> {
+async function resolveTenantMcpConfig(tenantId: string, agentProfileId?: string, conversationId?: string): Promise<TenantMcpConfig | null> {
     const tenant = await db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
     const tenantConfig = tenant?.config as Record<string, any> | undefined;
     if (!tenantConfig?.enable_third_party_cli) return null;
@@ -101,7 +101,12 @@ async function resolveTenantMcpConfig(tenantId: string, agentProfileId?: string)
 
     // ?agent=<id> scopes the MCP session to that agent's enabled Pulse tools
     // (workspace_update, memory_*, sandbox, custom tools) — operator mode.
-    const agentQs = agentProfileId ? `?agent=${encodeURIComponent(agentProfileId)}` : "";
+    const qs = new URLSearchParams();
+    if (agentProfileId) qs.set("agent", agentProfileId);
+    // Real conversation id → tools that deliver into the chat (e.g. screenshot
+    // → Telegram photo) know which conversation this thread belongs to.
+    if (conversationId) qs.set("conv", conversationId);
+    const agentQs = qs.size ? `?${qs.toString()}` : "";
 
     return {
         mcpServers: {
@@ -544,7 +549,7 @@ export class CodexAppServerProvider {
             let tenantMcp: TenantMcpConfig | null = null;
             if (params.tenantId) {
                 try {
-                    tenantMcp = await resolveTenantMcpConfig(params.tenantId, params.agentProfileId);
+                    tenantMcp = await resolveTenantMcpConfig(params.tenantId, params.agentProfileId, params.conversationId);
                 } catch (err: any) {
                     log.warn({ err: err.message, tenantId: params.tenantId }, "Failed to resolve tenant MCP tool config; continuing without tools");
                 }

@@ -76,7 +76,7 @@ async function resolveToken(authHeader: string | undefined): Promise<{ tenantId:
  * tools (workspace_update, memory_*, sandbox, custom tools, …) are also
  * exposed, so a Codex-backed agent is an operator, not just a chat box.
  */
-async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, agentProfileId?: string): Promise<McpServer> {
+async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, agentProfileId?: string, conversationId?: string): Promise<McpServer> {
     const mcp = new McpServer(
         { name: "pulse-ai", version: "1.0.0" },
         { capabilities: { tools: {} } },
@@ -226,7 +226,10 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
                         try {
                             const result = await tool.execute({
                                 tenantId,
-                                conversationId: `codex-mcp-${agentProfileId}`,
+                                // Real conversation when the codex provider passed one
+                                // (?conv=...) so channel-aware tools (screenshot ->
+                                // Telegram photo) can find the chat; synthetic otherwise.
+                                conversationId: conversationId || `codex-mcp-${agentProfileId}`,
                                 args: { ...args, _agentId: agentProfileId },
                             });
                             return { content: [{ type: "text" as const, text: result.result }] };
@@ -292,12 +295,24 @@ export const mcpRoutes: FastifyPluginAsync = async (fastify) => {
             if (profile) agentProfileId = profile.id;
         }
 
+        // ?conv=<conversationId> — the real conversation this codex thread
+        // serves (validated against the tenant), for channel-aware tools.
+        let mcpConversationId: string | undefined;
+        const convParam = (request.query as Record<string, string> | undefined)?.conv;
+        if (convParam) {
+            const conv = await db.query.conversations.findFirst({
+                where: and(eq(conversations.id, convParam), eq(conversations.tenantId, auth.tenantId)),
+                columns: { id: true },
+            });
+            if (conv) mcpConversationId = conv.id;
+        }
+
         // New session — create transport + server, let handleRequest process initialize
         const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
         });
 
-        const mcp = await createMcpServer(auth.tenantId, agentRuntime, agentProfileId);
+        const mcp = await createMcpServer(auth.tenantId, agentRuntime, agentProfileId, mcpConversationId);
         await mcp.connect(transport);
 
         // handleRequest processes initialize and generates the session ID

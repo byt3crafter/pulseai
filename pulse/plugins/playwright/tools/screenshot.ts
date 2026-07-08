@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { Tool } from "../../../src/agent/tools/tool.interface.js";
 import { getExistingPage, ACTION_TIMEOUT_MS } from "../client.js";
 import { config } from "../../../src/config.js";
+import { deliverScreenshotToChannel } from "../deliver.js";
 
 export const browserScreenshotTool: Tool = {
     name: "browser_screenshot",
@@ -37,12 +38,24 @@ export const browserScreenshotTool: Tool = {
 
             const viewport = page.viewportSize();
 
+            // Best-effort: push the image into the conversation's channel
+            // (Telegram sendPhoto) so the user actually SEES it instead of a
+            // container file path. Non-fatal on any failure.
+            const delivery = await deliverScreenshotToChannel(
+                tenantId,
+                conversationId,
+                filePath,
+                `Screenshot: ${page.url()}`,
+            );
+
             return {
                 result: JSON.stringify({
                     path: filePath,
                     width: viewport?.width ?? null,
                     height: viewport?.height ?? null,
-                    note: "saved to agent workspace",
+                    note: delivery.delivered
+                        ? "saved to agent workspace AND sent to the user's chat as a photo — tell the user the screenshot is in this chat, do not give them the file path"
+                        : "saved to agent workspace (file path only — this channel can't display images)",
                 }),
             };
         } catch (err: any) {
