@@ -74,20 +74,28 @@ export async function saveTelegramTokenAction(formData: FormData) {
             .limit(1);
         const agentProfileId = agentProfile[0]?.id ?? null;
 
+        // Scope this lookup to the tenant-wide "default" bot only — per-agent bots
+        // (connected from an agent's own Telegram tab, tagged channelConfig.scope
+        // = "agent") are separate channel_connections rows and must not be
+        // overwritten by this tenant-wide Settings action.
         const existing = await db.select().from(channelConnections)
-            .where(and(eq(channelConnections.tenantId, tenantId), eq(channelConnections.channelType, "telegram"))).limit(1);
+            .where(and(
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                sql`(${channelConnections.channelConfig}->>'scope') IS DISTINCT FROM 'agent'`
+            )).limit(1);
 
         const encryptedToken = encrypt(token);
 
         if (existing.length > 0) {
             await db.update(channelConnections)
-                .set({ channelConfig: { botToken: encryptedToken }, status: "active", agentProfileId })
+                .set({ channelConfig: { botToken: encryptedToken, scope: "default" }, status: "active", agentProfileId })
                 .where(eq(channelConnections.id, existing[0].id));
         } else {
             await db.insert(channelConnections).values({
                 tenantId,
                 channelType: "telegram",
-                channelConfig: { botToken: encryptedToken },
+                channelConfig: { botToken: encryptedToken, scope: "default" },
                 status: "active",
                 agentProfileId,
             });

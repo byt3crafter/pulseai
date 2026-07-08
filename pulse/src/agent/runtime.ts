@@ -50,7 +50,8 @@ export class AgentRuntime {
                 chatId: string,
                 messageId: string,
                 content: string,
-                parseMode?: string
+                parseMode?: string,
+                agentProfileId?: string
             ) => Promise<void>;
         }
     ): Promise<void> {
@@ -81,6 +82,7 @@ export class AgentRuntime {
                     await sendMessageCallback({
                         conversationId: randomUUID(), // Fallback conversation string
                         tenantId: inbound.tenantId,
+                        agentProfileId: inbound.agentProfileId,
                         channelType: inbound.channelType,
                         channelContactId: inbound.channelContactId,
                         content: "Your account has insufficient credits to process this message. Please top up your balance in the dashboard.",
@@ -379,6 +381,7 @@ export class AgentRuntime {
                 await sendMessageCallback({
                     conversationId: conversation.id,
                     tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
                     channelType: inbound.channelType,
                     channelContactId: inbound.channelContactId,
                     content: `Setup required: No AI provider key is configured for ${providerDef?.name || providerId}. Please go to your dashboard Settings > AI Providers and add an API key, or ask your administrator to configure one.`,
@@ -416,7 +419,9 @@ export class AgentRuntime {
                                 inbound.tenantId,
                                 inbound.channelContactId,
                                 streamMessageId,
-                                streamAccumulated + " ..."
+                                streamAccumulated + " ...",
+                                undefined,
+                                resolvedAgentProfileId ?? undefined
                             ).catch(() => {});
                         }
                     },
@@ -429,6 +434,7 @@ export class AgentRuntime {
                 const placeholder = await sendMessageCallback({
                     conversationId: conversation.id,
                     tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
                     channelType: inbound.channelType,
                     channelContactId: inbound.channelContactId,
                     content: "...",
@@ -702,12 +708,14 @@ export class AgentRuntime {
                     inbound.channelContactId,
                     streamMessageId,
                     llmResponse.content,
-                    "markdown"
+                    "markdown",
+                    resolvedAgentProfileId ?? undefined
                 ).catch((e) => tenantLog.error({ e }, "Failed final streaming edit"));
             } else {
                 const outbound: OutboundMessage = {
                     conversationId: conversation.id,
                     tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
                     channelType: inbound.channelType,
                     channelContactId: inbound.channelContactId,
                     content: llmResponse.content,
@@ -761,6 +769,7 @@ export class AgentRuntime {
             await sendMessageCallback({
                 conversationId: randomUUID(),
                 tenantId: inbound.tenantId,
+                agentProfileId: inbound.agentProfileId,
                 channelType: inbound.channelType,
                 channelContactId: inbound.channelContactId,
                 content: userMessage,

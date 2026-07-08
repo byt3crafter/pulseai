@@ -2,12 +2,14 @@
 
 import { auth } from "../../../../auth";
 import { db } from "../../../../storage/db";
-import { agentProfiles, workspaceRevisions, tenantProviderKeys, globalSettings } from "../../../../storage/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { agentProfiles, workspaceRevisions, tenantProviderKeys, globalSettings, channelConnections, tenants } from "../../../../storage/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { readWorkspaceFile, writeWorkspaceFile } from "../../../../utils/workspace";
 import { stripReasoning } from "../../../../utils/strip-reasoning";
 import { redirect } from "next/navigation";
+import { requireTenant } from "../../../../utils/tenant-auth";
+import { encrypt, decrypt } from "../../../../utils/crypto";
 
 export async function updateWorkspaceFileAction(formData: FormData) {
     const session = await auth();
@@ -474,5 +476,149 @@ export async function updateAgentEmailConfigAction(formData: FormData) {
 
     revalidatePath(`/dashboard/agents/${agentId}`);
     return { success: true, message: "Email configuration saved." };
+}
+
+/**
+ * Connect (or update) a dedicated Telegram bot for one agent. Stored as its own
+ * channel_connections row — tagged channelConfig.scope = "agent" — separate
+ * from the tenant-wide default bot managed by Settings → Telegram
+ * (saveTelegramTokenAction), so the two never collide or overwrite each other.
+ */
+export async function saveAgentTelegramBotAction(formData: FormData) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const agentId = formData.get("agentId") as string;
+    const token = (formData.get("telegramToken") as string || "").trim();
+    if (!agentId) return { success: false, message: "Missing agent." };
+    if (!token) return { success: false, message: "Bot token is required." };
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)),
+    });
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+        const data = await res.json();
+        if (!data.ok) return { success: false, message: `Telegram rejected the token: ${data.description}` };
+
+        const botUsername = data.result?.username as string | undefined;
+        const encryptedToken = encrypt(token);
+
+        const existing = await db.select().from(channelConnections)
+            .where(and(
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                eq(channelConnections.agentProfileId, agentId),
+                sql`(${channelConnections.channelConfig}->>'scope') = 'agent'`
+            )).limit(1);
+
+        let connectionId: string;
+        if (existing.length > 0) {
+            connectionId = existing[0].id;
+            await db.update(channelConnections)
+                .set({
+                    channelConfig: { botToken: encryptedToken, scope: "agent", botUsername },
+                    status: "active",
+                    agentProfileId: agentId,
+                })
+                .where(eq(channelConnections.id, connectionId));
+        } else {
+            const [inserted] = await db.insert(channelConnections).values({
+                tenantId,
+                channelType: "telegram",
+                channelConfig: { botToken: encryptedToken, scope: "agent", botUsername },
+                status: "active",
+                agentProfileId: agentId,
+            }).returning();
+            connectionId = inserted.id;
+        }
+
+        // Register the webhook for this specific connection — no gateway restart
+        // needed, the gateway lazy-loads the bot on its first inbound webhook hit.
+        const webhookBase = process.env.WEBHOOK_BASE_URL;
+        if (webhookBase) {
+            try {
+                const [t] = await db.select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+                if (t?.slug) {
+                    const webhookUrl = `${webhookBase.replace(/\/$/, "")}/webhooks/telegram/${t.slug}/${connectionId}`;
+                    const wh = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            url: webhookUrl,
+                            drop_pending_updates: false,
+                            ...(process.env.TELEGRAM_WEBHOOK_SECRET ? { secret_token: process.env.TELEGRAM_WEBHOOK_SECRET } : {}),
+                        }),
+                    });
+                    const whData = await wh.json().catch(() => ({}));
+                    if (!whData.ok) {
+                        console.error("Telegram setWebhook failed:", whData.description);
+                        revalidatePath(`/dashboard/agents/${agentId}`);
+                        return {
+                            success: true,
+                            message: `Connected to @${botUsername}, but webhook setup failed — messages may not arrive until the gateway restarts.`,
+                        };
+                    }
+                }
+            } catch (e) {
+                console.error("Telegram setWebhook error:", e);
+                revalidatePath(`/dashboard/agents/${agentId}`);
+                return { success: true, message: `Connected to @${botUsername} (webhook will activate on next gateway restart).` };
+            }
+        }
+
+        revalidatePath(`/dashboard/agents/${agentId}`);
+        return { success: true, message: `Connected to @${botUsername} — it now responds as ${agent.name}.` };
+    } catch {
+        return { success: false, message: "Failed to reach Telegram. Check your connection." };
+    }
+}
+
+/** Disconnect this agent's dedicated Telegram bot (does not touch the tenant-wide default bot). */
+export async function disconnectAgentTelegramBotAction(formData: FormData) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const agentId = formData.get("agentId") as string;
+    if (!agentId) return { success: false, message: "Missing agent." };
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)),
+    });
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    const existing = await db.select().from(channelConnections)
+        .where(and(
+            eq(channelConnections.tenantId, tenantId),
+            eq(channelConnections.channelType, "telegram"),
+            eq(channelConnections.agentProfileId, agentId),
+            sql`(${channelConnections.channelConfig}->>'scope') = 'agent'`
+        )).limit(1);
+
+    if (existing.length === 0) {
+        return { success: true, message: "No Telegram bot connected for this agent." };
+    }
+
+    const conn = existing[0];
+    try {
+        const cfg = conn.channelConfig as any;
+        if (cfg?.botToken) {
+            const token = decrypt(cfg.botToken);
+            await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, { method: "POST" }).catch(() => {});
+        }
+    } catch (e) {
+        console.error("Failed to delete Telegram webhook on disconnect:", e);
+    }
+
+    await db.update(channelConnections)
+        .set({ status: "disabled" })
+        .where(eq(channelConnections.id, conn.id));
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    return { success: true, message: "Telegram bot disconnected." };
 }
 

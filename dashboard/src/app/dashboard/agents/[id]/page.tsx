@@ -1,6 +1,6 @@
 import { db } from "../../../../storage/db";
 import { agentProfiles, workspaceRevisions, globalSettings, channelConnections } from "../../../../storage/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { auth } from "../../../../auth";
 import { redirect, notFound } from "next/navigation";
 import { readWorkspaceFile, workspaceExists } from "../../../../utils/workspace";
@@ -58,7 +58,7 @@ export default async function AgentDetailPage({
         : null;
 
     // Get revision counts, active providers, and default skills in parallel
-    const [revisions, activeProviders, globalSettingsRow, tenantEmailConn] = await Promise.all([
+    const [revisions, activeProviders, globalSettingsRow, tenantEmailConn, agentTelegramConn] = await Promise.all([
         db.select()
             .from(workspaceRevisions)
             .where(eq(workspaceRevisions.agentProfileId, agent.id)),
@@ -68,6 +68,17 @@ export default async function AgentDetailPage({
             where: and(
                 eq(channelConnections.tenantId, session.user.tenantId),
                 eq(channelConnections.channelType, "email")
+            ),
+        }),
+        // This agent's own dedicated Telegram bot — tagged scope="agent" so it's
+        // never confused with the tenant-wide default bot from Settings → Telegram.
+        db.query.channelConnections.findFirst({
+            where: and(
+                eq(channelConnections.tenantId, session.user.tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                eq(channelConnections.agentProfileId, agent.id),
+                eq(channelConnections.status, "active"),
+                sql`(${channelConnections.channelConfig}->>'scope') = 'agent'`
             ),
         }),
     ]);
@@ -118,6 +129,8 @@ export default async function AgentDetailPage({
             activeProviders={activeProviders}
             defaultSkills={defaultSkills}
             hasTenantEmail={!!tenantEmailConn}
+            telegramConnected={!!agentTelegramConn}
+            telegramBotUsername={(agentTelegramConn?.channelConfig as any)?.botUsername ?? null}
         />
     );
 }
