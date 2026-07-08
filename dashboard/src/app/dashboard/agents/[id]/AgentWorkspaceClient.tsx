@@ -28,6 +28,7 @@ interface AgentData {
     name: string;
     title: string | null;
     avatar: string | null;
+    reasoningEffort: string | null;
     modelId: string;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
@@ -487,6 +488,7 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                 initialName={agent.name}
                 initialTitle={agent.title}
                 initialAvatar={agent.avatar}
+                initialReasoningEffort={agent.reasoningEffort}
             />
 
             {/* Model Selection */}

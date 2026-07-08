@@ -225,6 +225,8 @@ export class OpenAIProvider {
         baseURL?: string;
         /** Images attached to the current turn (e.g. a Telegram photo). */
         attachments?: ProviderAttachment[];
+        /** Not used by the OpenAI provider today — accepted for cross-provider type compatibility. */
+        reasoningEffort?: string;
     }): Promise<ProviderResponse> {
         // OAuth tokens use ChatGPT backend Codex Responses API;
         // standard API keys use Chat Completions

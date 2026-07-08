@@ -2,11 +2,12 @@
  * Codex App-Server Provider — runs an agent turn on the user's ChatGPT/Codex
  * *subscription* (no API key), the same way Hermes and OpenClaw drive it.
  *
- * Persistent harness (OpenClaw/Hermes-style): ONE long-lived `codex
- * app-server` subprocess serves all chats, and each Pulse conversation maps to
- * one Codex thread that carries its history server-side — so turn 2+ skips
- * the cold start and the full-context reload. See the harness docblock above
- * CodexAppServerProvider for the concurrency/recovery model.
+ * Persistent harness (OpenClaw/Hermes-style "one client per session"): a POOL
+ * of `codex app-server` subprocesses, ONE PER CONVERSATION. Each holds its own
+ * Codex thread (history server-side, so turn 2+ skips cold start) and its own
+ * serial turn queue. Different conversations run on different subprocesses →
+ * true parallelism with no cross-talk; same-conversation turns serialize
+ * (a client has a single notification slot). See the pool docs below.
  *
  * IMPORTANT — this is a host-level credential, not a per-tenant one. The
  * subprocess inherits `process.env` and reads `~/.codex/auth.json` on the
@@ -63,6 +64,9 @@ const TURN_ABSOLUTE_MAX_MS = Number(process.env.CODEX_TURN_MAX_MS) || 30 * 60_00
 // Codex reasoning effort (minimal|low|medium|high|xhigh). Default high — Pulse
 // agents do multi-step tool work where thinking pays off. Override per deploy.
 const DEFAULT_REASONING_EFFORT = process.env.CODEX_REASONING_EFFORT || "high";
+// Verbose: log the agent's reasoning/plan trace. Off by default (private
+// reasoning shouldn't hit logs unless an operator opts in for debugging).
+const CODEX_VERBOSE = process.env.CODEX_VERBOSE === "true";
 const STDERR_TAIL_LINES = 60;
 
 // ── Pulse-as-MCP-server wiring (Codex operator mode) ───────────────────────
@@ -82,8 +86,9 @@ const MCP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const MCP_TOKEN_ROTATE_MARGIN_MS = 60 * 60 * 1000;
 /** clientId recorded on the minted oauth_tokens row — identifies the issuer, not an end user. */
 const MCP_TOKEN_CLIENT_ID = "pulse-codex-operator";
-/** Max conversations with a cached codex thread; least-recently-used beyond this are evicted. */
-const THREAD_CACHE_MAX = 200;
+/** Max concurrent codex subprocesses (one per active conversation); LRU-evicted
+ *  beyond this. Each is a real process (~50-100MB), so keep it modest. */
+const POOL_MAX = Number(process.env.CODEX_POOL_MAX) || 16;
 
 interface TenantMcpConfig {
     /** Value for `thread/start`'s `config.mcp_servers` override (token inlined). */
@@ -436,25 +441,26 @@ function handleServerRequest(client: CodexRpcClient, msg: { id: number | string;
 // fixed at thread/start, so mid-conversation SOUL edits only take effect on
 // the next fresh thread (new conversation, rotation, or recovery).
 
-interface CachedThread {
-    threadId: string;
-    generation: number;
-    tokenExpiresAt: number; // Infinity when the thread has no MCP token
+/**
+ * ONE codex app-server PROCESS PER CONVERSATION (the Hermes/OpenClaw model:
+ * "one client per session"). Each pool entry owns its own subprocess, its own
+ * Codex thread, and its own serial turn queue. This is what makes concurrency
+ * SAFE: CodexRpcClient has a single notification-handler slot, so a client can
+ * only ever drive ONE turn at a time — but different conversations use
+ * different clients, so their turns run in TRUE PARALLEL with zero cross-talk.
+ * (The earlier single-shared-process design had to serialize everything and
+ * still cross-contaminated when it didn't — this fixes the root cause.)
+ */
+interface PoolEntry {
+    client: CodexRpcClient | null;
+    clientInit: Promise<CodexRpcClient> | null;
+    threadId?: string;
+    tokenExpiresAt: number;
     lastUsed: number;
+    queue: Promise<unknown>; // serializes turns within THIS conversation
 }
-
-let sharedClient: CodexRpcClient | null = null;
-let sharedClientInit: Promise<CodexRpcClient> | null = null;
-let clientGeneration = 0;
-const threadCache = new Map<string, CachedThread>();
-// Global serial turn queue. Turns MUST be serialized because CodexRpcClient has
-// a single notification-handler slot — concurrent turns would overwrite each
-// other's handler and cross-contaminate responses (verified: two agents both
-// returned the same reply). The deadlock risk this used to carry is now removed
-// by the withTimeout() hard-bound below, so a hung turn can no longer wedge the
-// queue permanently. (True concurrency needs per-thread notification routing in
-// CodexRpcClient — a larger change deferred on purpose.)
-let turnQueue: Promise<unknown> = Promise.resolve();
+const pool = new Map<string, PoolEntry>();
+let oneshotCounter = 0;
 
 /**
  * Reject if `p` doesn't settle within `ms`. Guards the WHOLE turn (incl.
@@ -471,58 +477,66 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
     });
 }
 
-async function getSharedClient(codexBin: string): Promise<{ client: CodexRpcClient; generation: number }> {
-    if (sharedClient?.isAlive()) return { client: sharedClient, generation: clientGeneration };
-    if (sharedClientInit) {
-        const client = await sharedClientInit;
-        return { client, generation: clientGeneration };
+function getPoolEntry(key: string): PoolEntry {
+    let e = pool.get(key);
+    if (!e) {
+        evictPool();
+        e = { client: null, clientInit: null, tokenExpiresAt: Infinity, lastUsed: Date.now(), queue: Promise.resolve() };
+        pool.set(key, e);
     }
-    sharedClientInit = (async () => {
-        const client = new CodexRpcClient(codexBin);
-        await client.request(
-            "initialize",
-            { clientInfo: { name: "pulse", title: "Pulse AI", version: "1.0" }, capabilities: null },
-            INITIALIZE_TIMEOUT_MS
-        );
-        client.notify("initialized");
-        // Approval/elicitation handling is stateless — register once for the
-        // process lifetime so tool calls never hang between turns.
-        client.onServerRequest((msg) => handleServerRequest(client, msg));
-        clientGeneration++;
-        sharedClient = client;
-        logger.info({ component: "codex-app-server", generation: clientGeneration }, "codex app-server (shared) started");
-        return client;
-    })();
+    return e;
+}
+
+/** Ensure the entry has a live, initialized codex client (lazy spawn per conversation). */
+async function ensureClient(entry: PoolEntry, codexBin: string): Promise<CodexRpcClient> {
+    if (entry.client?.isAlive()) return entry.client;
+    // Dead/absent client → its server-side thread is gone too.
+    entry.client = null;
+    entry.threadId = undefined;
+    if (!entry.clientInit) {
+        entry.clientInit = (async () => {
+            const client = new CodexRpcClient(codexBin);
+            await client.request(
+                "initialize",
+                { clientInfo: { name: "pulse", title: "Pulse AI", version: "1.0" }, capabilities: null },
+                INITIALIZE_TIMEOUT_MS
+            );
+            client.notify("initialized");
+            // Approval/elicitation handling is stateless — register once per client.
+            client.onServerRequest((msg) => handleServerRequest(client, msg));
+            entry.client = client;
+            logger.info({ component: "codex-app-server" }, "codex app-server client started (per-conversation)");
+            return client;
+        })();
+    }
     try {
-        // Bound the init (spawn + initialize handshake) so a wedged startup can
-        // never hang the caller forever.
-        const client = await withTimeout(sharedClientInit, INITIALIZE_TIMEOUT_MS + 5_000, "codex app-server init");
-        return { client, generation: clientGeneration };
+        return await withTimeout(entry.clientInit, INITIALIZE_TIMEOUT_MS + 5_000, "codex app-server init");
     } catch (err) {
-        sharedClient = null; // failed/hung startup — don't reuse it
+        entry.client = null; // failed/hung startup — don't reuse it
         throw err;
     } finally {
-        sharedClientInit = null;
+        entry.clientInit = null;
     }
 }
 
-/** Kill the shared subprocess (next chat respawns it). Exported for shutdown hooks/tests. */
-export function shutdownCodexAppServer(): void {
-    sharedClient?.close();
-    sharedClient = null;
-}
-
-function evictLru(): void {
-    if (threadCache.size < THREAD_CACHE_MAX) return;
+/** Cap the number of concurrent codex processes; close the least-recently-used. */
+function evictPool(): void {
+    if (pool.size < POOL_MAX) return;
     let oldestKey: string | null = null;
     let oldest = Infinity;
-    for (const [key, entry] of threadCache) {
-        if (entry.lastUsed < oldest) {
-            oldest = entry.lastUsed;
-            oldestKey = key;
-        }
+    for (const [key, entry] of pool) {
+        if (entry.lastUsed < oldest) { oldest = entry.lastUsed; oldestKey = key; }
     }
-    if (oldestKey) threadCache.delete(oldestKey);
+    if (oldestKey) {
+        pool.get(oldestKey)?.client?.close();
+        pool.delete(oldestKey);
+    }
+}
+
+/** Kill ALL codex subprocesses (next chats respawn per conversation). Exported for shutdown/tests. */
+export function shutdownCodexAppServer(): void {
+    for (const entry of pool.values()) entry.client?.close();
+    pool.clear();
 }
 
 /**
@@ -569,24 +583,38 @@ export class CodexAppServerProvider {
         /** Images attached to the current turn (e.g. a Telegram photo). */
         attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
-        // Serialize turns (single-notification-handler constraint above). Each
-        // turn is hard-bounded by withTimeout so a hang can never permanently
-        // wedge the queue — the chain always advances even if internal awaits
-        // stall. Chain from settled state (then(run, run)) so a rejection also
-        // advances it.
+        // Per-conversation pooling: same-conversation turns serialize on this
+        // entry's queue (its client has one notification slot); DIFFERENT
+        // conversations use different entries/clients and run in true parallel.
+        // Each turn is hard-bounded by withTimeout so a hang can't wedge the
+        // queue — the chain always advances even if internal awaits stall.
+        const poolKey = params.conversationId
+            ? `${params.tenantId ?? "host"}:${params.agentProfileId ?? "none"}:${params.conversationId}`
+            : `oneshot:${++oneshotCounter}`;
+        const entry = getPoolEntry(poolKey);
         const run = () => withTimeout(
-            this.runTurn(params),
+            this.runTurn(params, poolKey, entry),
             TURN_ABSOLUTE_MAX_MS + 30_000,
             "codex turn (overall)",
         ).catch((err) => {
-            // An overall-timeout almost always means the shared subprocess is
-            // wedged — recycle it so the NEXT turn spawns a clean one instead of
-            // inheriting the hang.
-            if (/exceeded \d+ms/.test(err?.message ?? "")) shutdownCodexAppServer();
+            // An overall-timeout almost always means THIS conversation's
+            // subprocess is wedged — recycle just it (not everyone else's).
+            if (/exceeded \d+ms/.test(err?.message ?? "")) {
+                entry.client?.close();
+                entry.client = null;
+                entry.threadId = undefined;
+            }
             throw err;
         });
-        const result = turnQueue.then(run, run);
-        turnQueue = result.catch(() => {});
+        const result = entry.queue.then(run, run);
+        entry.queue = result.catch(() => {});
+        // Ephemeral (no conversationId) entries are throwaway — close + drop after use.
+        if (!params.conversationId) {
+            entry.queue.finally(() => {
+                entry.client?.close();
+                pool.delete(poolKey);
+            });
+        }
         return result;
     }
 
@@ -599,7 +627,7 @@ export class CodexAppServerProvider {
         messages: Array<{ role: string; content: string }>;
         timeoutMs?: number;
         attachments?: ProviderAttachment[];
-    }): Promise<ProviderResponse> {
+    }, poolKey: string, entry: PoolEntry): Promise<ProviderResponse> {
         // `remaining()` only bounds the short setup RPCs (initialize/thread/turn
         // start); the turn itself is governed by the inactivity watchdog below,
         // not this deadline — so base it on the absolute ceiling, never 120s.
@@ -609,24 +637,21 @@ export class CodexAppServerProvider {
         const log = logger.child({ component: "codex-app-server", model: params.model });
 
         let client: CodexRpcClient;
-        let generation: number;
         try {
-            ({ client, generation } = await getSharedClient(this.codexBin));
+            client = await ensureClient(entry, this.codexBin);
         } catch (err: any) {
-            sharedClient = null;
-            log.error({ err: err.message }, "Failed to start shared codex app-server");
+            log.error({ err: err.message }, "Failed to start codex app-server client");
             throw new Error(`Failed to start "codex app-server": ${err.message}`);
         }
 
-        const cacheKey = params.conversationId
-            ? `${params.tenantId ?? "host"}:${params.agentProfileId ?? "none"}:${params.conversationId}`
-            : null;
-
-        // Reuse this conversation's thread when it's from the live process
-        // generation and its MCP token isn't near expiry.
-        let cached = cacheKey ? threadCache.get(cacheKey) : undefined;
-        if (cached && (cached.generation !== generation || cached.tokenExpiresAt - Date.now() < MCP_TOKEN_ROTATE_MARGIN_MS)) {
-            threadCache.delete(cacheKey!);
+        // Reuse this conversation's thread (on this entry's own client) unless
+        // its MCP token is near expiry. A reusable conversation is any non-
+        // ephemeral pool key.
+        const reusable = !poolKey.startsWith("oneshot:");
+        const cacheKey = reusable ? poolKey : null;
+        let cached = (reusable && entry.threadId) ? { threadId: entry.threadId, tokenExpiresAt: entry.tokenExpiresAt } : undefined;
+        if (cached && cached.tokenExpiresAt - Date.now() < MCP_TOKEN_ROTATE_MARGIN_MS) {
+            entry.threadId = undefined;
             cached = undefined;
         }
 
@@ -676,13 +701,9 @@ export class CodexAppServerProvider {
             const started = await startThread();
             threadId = started.threadId;
             if (cacheKey) {
-                evictLru();
-                threadCache.set(cacheKey, {
-                    threadId,
-                    generation,
-                    tokenExpiresAt: started.tokenExpiresAt,
-                    lastUsed: Date.now(),
-                });
+                entry.threadId = threadId;
+                entry.tokenExpiresAt = started.tokenExpiresAt;
+                entry.lastUsed = Date.now();
             }
         }
 
@@ -710,18 +731,14 @@ export class CodexAppServerProvider {
                 // Universal recovery: drop the stale thread, start fresh with
                 // full history replay, retry once.
                 log.warn({ err: err.message, threadId }, "turn/start failed on cached thread — starting a fresh thread");
-                if (cacheKey) threadCache.delete(cacheKey);
+                entry.threadId = undefined;
                 const started = await startThread();
                 threadId = started.threadId;
                 reusedThread = false;
                 if (cacheKey) {
-                    evictLru();
-                    threadCache.set(cacheKey, {
-                        threadId,
-                        generation,
-                        tokenExpiresAt: started.tokenExpiresAt,
-                        lastUsed: Date.now(),
-                    });
+                    entry.threadId = threadId;
+                    entry.tokenExpiresAt = started.tokenExpiresAt;
+                    entry.lastUsed = Date.now();
                 }
                 turnId = (await startTurn(threadId, turnTextFor(false), params.attachments))?.turn?.id;
             } else {
@@ -768,7 +785,8 @@ export class CodexAppServerProvider {
                 const aliveCheck = setInterval(() => {
                     if (!client.isAlive()) {
                         cleanup();
-                        sharedClient = null; // force respawn next call
+                        entry.client = null; // this conversation's client died → respawn next call
+                        entry.threadId = undefined;
                         const tail = client.stderrTail();
                         reject(new Error(`codex app-server subprocess exited before turn/completed${tail ? `\ncodex stderr (tail):\n${tail}` : ""}`));
                     }
@@ -811,6 +829,19 @@ export class CodexAppServerProvider {
                             finalText = item.text;
                             sawAgentMessage = true;
                         }
+                        // Verbose: surface the agent's reasoning ("thinking") + its
+                        // plan/tool-use trace to the logs. Codex emits a dedicated
+                        // `reasoning` thread-item; log it so operators can see HOW an
+                        // agent reached its answer (gated by CODEX_VERBOSE to avoid
+                        // noise + keep private reasoning out of logs by default).
+                        if (CODEX_VERBOSE) {
+                            const summary = item?.summary || item?.text;
+                            if (item?.type === "reasoning" && summary) {
+                                log.info({ threadId, reasoning: String(summary).slice(0, 2000) }, "codex reasoning");
+                            } else if (item?.type === "plan" && item?.plan) {
+                                log.info({ threadId, plan: item.plan }, "codex plan");
+                            }
+                        }
                         // Codex can generate images natively (ChatGPT plan). Capture
                         // them so they can be delivered to the user's chat instead of
                         // silently dropped with the model claiming success.
@@ -832,8 +863,7 @@ export class CodexAppServerProvider {
                 });
             });
         } finally {
-            const entry = cacheKey ? threadCache.get(cacheKey) : undefined;
-            if (entry) entry.lastUsed = Date.now();
+            entry.lastUsed = Date.now();
         }
 
         if (turnError && !sawAgentMessage) {

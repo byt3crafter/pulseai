@@ -34,6 +34,8 @@ export class ProviderManager {
         stream?: StreamCallbacks;
         /** Images attached to the current inbound message (e.g. a Telegram photo). */
         attachments?: ProviderAttachment[];
+        /** Per-agent reasoning effort override (e.g. Codex/GPT-5.5). Undefined = provider default. */
+        reasoningEffort?: string;
     }): Promise<ProviderResponse & { provider: string; canonicalModel: string; wasFallback: boolean }> {
         const modelDef = getModelById(params.model);
         const providerDef = getProviderByModel(params.model);
@@ -73,6 +75,7 @@ export class ProviderManager {
                 stream: params.stream,
                 baseURL,
                 attachments: params.attachments,
+                reasoningEffort: params.reasoningEffort,
             });
             return {
                 ...response,

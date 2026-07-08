@@ -207,6 +207,9 @@ export class AgentRuntime {
             // 3.75 Resolve per-agent model and system prompt (workspace-first, DB fallback)
             let basePrompt = defaultSystemPrompt;
             let activeModelId = getDefaultModel().id;
+            // Per-agent reasoning effort override (Codex/GPT-5.5 etc.). Undefined
+            // means "let the provider use its own default" — never send a bogus value.
+            let activeReasoningEffort: string | undefined = undefined;
             // Determine prompt mode — delegated calls use minimal mode
             const promptMode: PromptMode = inbound.channelType === "heartbeat" ? "minimal" : "full";
 
@@ -225,6 +228,11 @@ export class AgentRuntime {
                     // Use per-agent model if set
                     if (profile.modelId) {
                         activeModelId = profile.modelId;
+                    }
+
+                    // Use per-agent reasoning effort if set (null/absent = inherit default)
+                    if (profile.reasoningEffort) {
+                        activeReasoningEffort = profile.reasoningEffort;
                     }
 
                     // Try workspace prompt first, fall back to DB systemPrompt
@@ -467,6 +475,7 @@ export class AgentRuntime {
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
                 stream: streamCallbacks,
                 attachments: inbound.attachments,
+                reasoningEffort: activeReasoningEffort,
             });
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
@@ -555,6 +564,7 @@ export class AgentRuntime {
                     ],
                     tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
                     attachments: inbound.attachments,
+                    reasoningEffort: activeReasoningEffort,
                 });
 
                 totalInputTokens += llmResponse.usage.inputTokens;
