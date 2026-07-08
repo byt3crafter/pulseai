@@ -15,6 +15,7 @@ import {
     WrenchScrewdriverIcon,
     ServerIcon,
     SparklesIcon,
+    UsersIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
 
@@ -23,6 +24,7 @@ const links = [
     { href: "/dashboard/agents", label: "Agent Profiles", icon: CpuChipIcon, exact: false, exclude: "/dashboard/agents/routing" },
     { href: "/dashboard/agents/routing", label: "Routing", icon: ArrowsRightLeftIcon, exact: false },
     { href: "/dashboard/departments", label: "Departments", icon: BuildingOffice2Icon, exact: false },
+    { href: "/dashboard/people", label: "People", icon: UsersIcon, exact: false },
     { href: "/dashboard/tools", label: "Custom Tools", icon: WrenchScrewdriverIcon, exact: false },
     { href: "/dashboard/servers", label: "Servers", icon: ServerIcon, exact: false },
     { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },

@@ -10,6 +10,7 @@ import { config } from "../../config.js";
 import { enqueueMessage, messageQueue } from "../../queue/message-queue.js";
 import { isGroupChat, hasBotMention, isReplyToBot, stripBotMention } from "./group-helpers.js";
 import { checkDmAccess, getOrCreatePairingCode } from "./pairing.js";
+import { resolvePerson, type Person } from "../people-service.js";
 import { chunkHtmlMessage, chunkMessage } from "./chunking.js";
 import { markdownToIR, renderTelegramHtml } from "../formatting/index.js";
 import type { MessageIR } from "../formatting/ir.js";
@@ -216,6 +217,34 @@ export class TelegramAdapter implements ChannelAdapter {
         return chosenId ? entriesForTenant.get(chosenId) : undefined;
     }
 
+    /**
+     * Resolve (upsert) the account-wide Person record for whoever sent this
+     * update, keyed by their Telegram user id. Fails open (returns null) on
+     * any DB error so a people-service hiccup never blocks messaging outright
+     * — callers should only use this to *restrict* delivery, never to grant it.
+     */
+    private async resolveInboundPerson(
+        ctx: Context,
+        tenantId: string
+    ): Promise<{ person: Person; isNew: boolean } | null> {
+        const telegramUserId = ctx.from?.id?.toString();
+        if (!telegramUserId) return null;
+
+        const displayName = ctx.from?.first_name
+            ? `${ctx.from.first_name}${ctx.from.last_name ? ` ${ctx.from.last_name}` : ""}`
+            : undefined;
+
+        try {
+            return await resolvePerson(tenantId, telegramUserId, {
+                displayName,
+                username: ctx.from?.username,
+            });
+        } catch (err) {
+            logger.warn({ err, tenantId }, "Failed to resolve person for people-access gate (failing open)");
+            return null;
+        }
+    }
+
     private async handleTextMessage(ctx: Context, conn: ChannelConnectionConfig): Promise<void> {
         const tenantConfig = await this.loadTenantConfig(conn.tenantId);
         const isGroup = isGroupChat(ctx);
@@ -306,6 +335,21 @@ export class TelegramAdapter implements ChannelAdapter {
             if (!entry || entry.status !== "approved") return;
         }
 
+        // People access gate (account-wide, Telegram-ID based) — additive on top of
+        // the group/allowlist policies above. blocked = fully silent; observe = agents
+        // never reply (a one-time notice only fires on an explicit @mention/reply).
+        const personResult = await this.resolveInboundPerson(ctx, conn.tenantId);
+        if (personResult) {
+            const { person } = personResult;
+            if (person.access === "blocked") return;
+            if (person.access === "observe") {
+                if (mentioned || replyToMe) {
+                    ctx.reply("You don't have access to chat with agents here yet — an admin needs to grant you access.").catch(() => {});
+                }
+                return;
+            }
+        }
+
         const isPhoto = !!botToken;
         let content: string;
         let attachments: InboundMessage["attachments"];
@@ -388,6 +432,21 @@ export class TelegramAdapter implements ChannelAdapter {
                     `This code expires in 1 hour.`,
                     { parse_mode: "Markdown" }
                 );
+                return;
+            }
+        }
+
+        // People access gate (account-wide, Telegram-ID based) — additive on top of
+        // the DM/pairing policy above. blocked = fully silent; observe = agents never
+        // reply (a one-time notice only fires on the person's first-ever contact).
+        const personResult = await this.resolveInboundPerson(ctx, conn.tenantId);
+        if (personResult) {
+            const { person, isNew } = personResult;
+            if (person.access === "blocked") return;
+            if (person.access === "observe") {
+                if (isNew) {
+                    await ctx.reply("You don't have access to chat with agents here yet — an admin needs to grant you access.").catch(() => {});
+                }
                 return;
             }
         }

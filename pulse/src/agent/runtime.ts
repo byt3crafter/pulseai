@@ -10,6 +10,7 @@ import { autoMemoryService } from "../memory/auto-memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
 import { resolveAgent } from "./orchestration/agent-router.js";
 import { getChannelLeadContext } from "../gateway/channel-service.js";
+import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
@@ -161,6 +162,41 @@ export class AgentRuntime {
                 if (fallbackProfile) {
                     resolvedAgentProfileId = fallbackProfile.id;
                     tenantLog.warn({ agentProfileId: resolvedAgentProfileId }, "No routing rule matched, using tenant fallback");
+                }
+            }
+
+            // 3.55. People access control (Telegram-only, Stage 1): the adapter already
+            // filters out "blocked"/"observe" senders before a message ever reaches the
+            // queue/runtime. What the adapter *can't* know in advance is which agent a
+            // tenant-wide default bot will route to (that's decided above, by
+            // resolveAgent/the tenant fallback) — so this is the one check that has to
+            // live here rather than in the adapter: does this "talk"-access person have
+            // permission to address the agent that was just resolved?
+            if (inbound.channelType === "telegram" && resolvedAgentProfileId) {
+                const telegramUserId = inbound.isGroup ? inbound.senderUserId : inbound.channelContactId;
+                if (telegramUserId) {
+                    const person = await getPerson(inbound.tenantId, telegramUserId);
+                    if (person && person.access !== "talk") {
+                        // Defense in depth — should not normally trigger since the adapter
+                        // already stops blocked/observe senders before dispatch.
+                        tenantLog.info({ access: person.access }, "Person lacks talk access — dropping message");
+                        return;
+                    }
+                    if (person && !canAddressAgent(person, resolvedAgentProfileId)) {
+                        const targetProfile = await db.query.agentProfiles.findFirst({
+                            where: eq(agentProfiles.id, resolvedAgentProfileId),
+                            columns: { name: true },
+                        });
+                        await sendMessageCallback({
+                            conversationId: conversation.id,
+                            tenantId: inbound.tenantId,
+                            agentProfileId: resolvedAgentProfileId,
+                            channelType: inbound.channelType,
+                            channelContactId: inbound.channelContactId,
+                            content: `You don't have access to ${targetProfile?.name ?? "this agent"} here.`,
+                        });
+                        return;
+                    }
                 }
             }
 
