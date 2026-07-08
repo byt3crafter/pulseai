@@ -41,7 +41,44 @@ export default function AgentIdentityEditor({
 
     const isDirty = name !== initialName || title !== (initialTitle ?? "") || avatarDirty;
 
-    function handlePickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    /**
+     * Downscale + re-encode an image to a small avatar entirely in the browser,
+     * so users can upload a photo of any size and it just works (no manual
+     * shrinking). Fits within a 512px box, exports JPEG at decreasing quality
+     * until it's comfortably under the size cap.
+     */
+    async function compressToAvatar(file: File): Promise<string> {
+        const dataUrl: string = await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result as string);
+            r.onerror = () => reject(new Error("read failed"));
+            r.readAsDataURL(file);
+        });
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = () => reject(new Error("decode failed"));
+            i.src = dataUrl;
+        });
+        const MAX_DIM = 512;
+        const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return dataUrl; // fall back to original if canvas unavailable
+        ctx.drawImage(img, 0, 0, w, h);
+        // Estimated bytes of a data URL ≈ length * 0.75 (base64 overhead).
+        for (const q of [0.85, 0.7, 0.55, 0.4]) {
+            const out = canvas.toDataURL("image/jpeg", q);
+            if (out.length * 0.75 <= MAX_AVATAR_BYTES) return out;
+        }
+        return canvas.toDataURL("image/jpeg", 0.4);
+    }
+
+    async function handlePickFile(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         e.target.value = "";
         if (!file) return;
@@ -51,18 +88,18 @@ export default function AgentIdentityEditor({
             setAvatarError("Avatar must be a PNG, JPEG, or WEBP image.");
             return;
         }
-        if (file.size > MAX_AVATAR_BYTES) {
-            setAvatarError("Avatar must be smaller than 500KB.");
-            return;
-        }
 
-        const reader = new FileReader();
-        reader.onload = () => {
-            setAvatar(reader.result as string);
+        try {
+            const compressed = await compressToAvatar(file);
+            if (compressed.length * 0.75 > MAX_AVATAR_BYTES) {
+                setAvatarError("Couldn't compress this image below 500KB — try a simpler picture.");
+                return;
+            }
+            setAvatar(compressed);
             setAvatarDirty(true);
-        };
-        reader.onerror = () => setAvatarError("Failed to read the selected file.");
-        reader.readAsDataURL(file);
+        } catch {
+            setAvatarError("Failed to process the selected image.");
+        }
     }
 
     function handleRemoveAvatar() {
