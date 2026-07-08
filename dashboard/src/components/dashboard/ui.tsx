@@ -37,7 +37,8 @@ export function PageHeader({
 /**
  * Flat card — border only, no drop shadow. The base surface for every
  * grouped block. Pass `tint` for the rare "highlighted" variant (e.g. an
- * AI-build panel) — it swaps the fill for `--pulse-tint` but keeps the same
+ * AI-build panel) — a subtle accent wash fading into the panel surface
+ * (a solid --pulse-tint fill read as a heavy violet slab in dark mode),
  * border/radius so it still reads as a Card, not a different component.
  */
 export function Card({
@@ -50,7 +51,7 @@ export function Card({
     tint?: boolean;
 }) {
     return (
-        <div className={`${tint ? "bg-pulse-tint" : "bg-pulse-panel"} border border-pulse-border-subtle rounded-xl overflow-hidden ${className}`}>
+        <div className={`${tint ? "bg-gradient-to-b from-pulse-tint/45 to-pulse-panel border-pulse-border" : "bg-pulse-panel border-pulse-border-subtle"} border rounded-xl overflow-hidden ${className}`}>
             {children}
         </div>
     );
