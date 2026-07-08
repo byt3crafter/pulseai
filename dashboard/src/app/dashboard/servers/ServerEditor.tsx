@@ -15,6 +15,7 @@ import { PageHeader, Card, CardHeader, SettingRow, Toggle, InfoTip, SelectMenu }
 type AuthType = "key" | "password";
 type Environment = "production" | "staging" | "dev";
 type SafetyMode = "observe" | "safe" | "full";
+type ApprovalMode = "off" | "writes" | "all";
 type Agent = { id: string; name: string };
 
 export type ServerData = {
@@ -28,6 +29,7 @@ export type ServerData = {
     safetyMode: SafetyMode;
     instructions: string;
     allowedAgentIds: string[];
+    approvalMode: ApprovalMode;
     enabled: boolean;
 };
 
@@ -51,6 +53,7 @@ export default function ServerEditor({ agents, server }: { agents: Agent[]; serv
     const [safetyMode, setSafetyMode] = useState<SafetyMode>(server?.safetyMode ?? "observe");
     const [instructions, setInstructions] = useState(server?.instructions ?? "");
     const [allowed, setAllowed] = useState<string[]>(server?.allowedAgentIds ?? []);
+    const [approvalMode, setApprovalMode] = useState<ApprovalMode>(server?.approvalMode ?? "off");
     const [enabled, setEnabled] = useState(server?.enabled ?? false);
     const [riskAcknowledged, setRiskAcknowledged] = useState(false);
 
@@ -268,6 +271,27 @@ export default function ServerEditor({ agents, server }: { agents: Agent[]; serv
                                         </label>
                                     );
                                 })}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                                <span className="text-sm font-medium text-pulse-text-soft">Require approval</span>
+                                <InfoTip text="Holds a command until a designated approver taps Allow/Deny on a Telegram DM card. Mark someone as an approver on the People page first." />
+                            </div>
+                            <div className="max-w-xs">
+                                <SelectMenu
+                                    id="srv-approval-mode"
+                                    name="approvalMode"
+                                    ariaLabel="Require approval"
+                                    value={approvalMode}
+                                    onChange={(v) => setApprovalMode(v as ApprovalMode)}
+                                    groups={[{ label: "Require approval", options: [
+                                        { value: "off", label: "Off" },
+                                        { value: "writes", label: "Writes only" },
+                                        { value: "all", label: "Everything" },
+                                    ] }]}
+                                />
                             </div>
                         </div>
 

@@ -88,7 +88,7 @@ export async function updatePersonApproverAction(formData: FormData): Promise<Re
     }
 }
 
-// Stored now for the upcoming approval-workflow stage — NOT enforced yet.
+// Enforced in the Telegram adapter's approval gate — see pulse/src/channels/approval-service.ts.
 export async function updatePersonApprovalModeAction(formData: FormData): Promise<Result> {
     const check = await requireTenant();
     if (!check.authorized) return { success: false, message: check.message };

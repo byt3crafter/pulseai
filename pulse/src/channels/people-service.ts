@@ -47,7 +47,8 @@ function normalizeApprovalMode(value: unknown): ApprovalMode {
     return value === "requires_approval" ? "requires_approval" : "auto";
 }
 
-function toPerson(row: typeof people.$inferSelect): Person {
+/** Exported so approval-service (and other callers doing raw row lookups) don't duplicate this normalization. */
+export function toPerson(row: typeof people.$inferSelect): Person {
     return {
         id: row.id,
         tenantId: row.tenantId,

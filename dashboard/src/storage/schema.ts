@@ -302,6 +302,7 @@ export const servers = pgTable(
         safetyMode: varchar("safety_mode", { length: 10 }).notNull().default("observe"), // 'observe' | 'safe' | 'full'
         instructions: text("instructions"), // operator guidance shown to the agent verbatim
         allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]), // [] = no agent access (default-deny)
+        approvalMode: varchar("approval_mode", { length: 10 }).notNull().default("off"), // 'off' | 'writes' | 'all' — gates server_exec via pending_approvals
         enabled: boolean("enabled").notNull().default(false),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
         updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -380,8 +381,8 @@ export const allowlists = pgTable(
 // Telegram). Scope is account-wide — applies to all groups/DMs, not per-channel.
 // `access` gates whether agents respond to this person at all; `allowedAgentIds`
 // (when non-empty) further restricts which agents they may address.
-// `isApprover` / `approvalMode` are stored now for a later approval-workflow
-// stage but are NOT enforced yet.
+// `isApprover` / `approvalMode` are enforced by the approval workflow — see
+// pulse/src/channels/approval-service.ts.
 export const people = pgTable(
     "people",
     {
@@ -393,8 +394,8 @@ export const people = pgTable(
         displayName: varchar("display_name", { length: 255 }),
         username: varchar("username", { length: 255 }),
         access: varchar("access", { length: 12 }).notNull().default("observe"), // 'talk' | 'observe' | 'blocked'
-        isApprover: boolean("is_approver").notNull().default(false), // later stage: can approve others
-        approvalMode: varchar("approval_mode", { length: 20 }).notNull().default("auto"), // 'auto' | 'requires_approval' — later stage, not enforced yet
+        isApprover: boolean("is_approver").notNull().default(false), // can approve pending_approvals via Telegram inline buttons
+        approvalMode: varchar("approval_mode", { length: 20 }).notNull().default("auto"), // 'auto' | 'requires_approval' — gates this person's messages via pending_approvals
         allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]), // [] = may address ALL agents; else subset of agent_profiles.id
         lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -404,6 +405,38 @@ export const people = pgTable(
         unique("idx_unique_people_tenant_telegram").on(table.tenantId, table.telegramUserId),
         index("idx_people_tenant").on(table.tenantId),
     ]
+);
+
+// -- Pending approvals (Telegram inline-button approval workflow) --
+// One row per gated action awaiting a designated approver's decision:
+//   'user_request' — a message from a person whose approval_mode requires it.
+//   'command'      — a server_exec command on a server whose approval_mode requires it.
+// Every approver gets a DM card with Allow/Deny/Allow-all buttons; `approvalMessageIds`
+// tracks which Telegram message id was sent to which approver so all cards can be
+// edited to a final state once someone decides. See ../channels/approval-service.ts.
+export const pendingApprovals = pgTable(
+    "pending_approvals",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        kind: varchar("kind", { length: 20 }).notNull(), // 'user_request' | 'command'
+        status: varchar("status", { length: 12 }).notNull().default("pending"), // 'pending' | 'approved' | 'denied' | 'expired'
+        requesterTelegramId: varchar("requester_telegram_id", { length: 32 }),
+        agentProfileId: uuid("agent_profile_id").references(() => agentProfiles.id),
+        serverId: uuid("server_id").references(() => servers.id),
+        summary: text("summary").notNull(),
+        payload: jsonb("payload").notNull().default({}), // enough to resume, e.g. { command, serverName }
+        channelType: varchar("channel_type", { length: 20 }),
+        channelContactId: varchar("channel_contact_id", { length: 255 }),
+        approvalMessageIds: jsonb("approval_message_ids").notNull().default({}), // { approverTelegramId: messageId }
+        decidedBy: varchar("decided_by", { length: 32 }),
+        decidedAt: timestamp("decided_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        expiresAt: timestamp("expires_at", { withTimezone: true }),
+    },
+    (table) => [index("idx_pending_approvals_tenant_status").on(table.tenantId, table.status)]
 );
 
 // -- Skills/tools enabled per tenant --

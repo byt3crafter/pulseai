@@ -8,7 +8,7 @@
  *   - "full":    no restrictions
  */
 import { describe, it, expect } from "vitest";
-import { checkCommandPolicy } from "../servers/command-policy.js";
+import { checkCommandPolicy, isReadOnlyCommand } from "../servers/command-policy.js";
 
 function allowed(command: string, mode: "observe" | "safe" | "full"): boolean {
     return checkCommandPolicy(command, mode).allowed;
@@ -304,5 +304,41 @@ describe("checkCommandPolicy — return value structure", () => {
     it("allowed results don't require a reason", () => {
         const res = checkCommandPolicy("uptime", "full");
         expect(res.allowed).toBe(true);
+    });
+});
+
+// ─── isReadOnlyCommand — writes-vs-read classification (server approval_mode='writes') ──
+
+describe("isReadOnlyCommand", () => {
+    it("classifies observe-allowlisted diagnostics as read-only", () => {
+        expect(isReadOnlyCommand("uptime")).toBe(true);
+        expect(isReadOnlyCommand("df -h")).toBe(true);
+        expect(isReadOnlyCommand("ps aux")).toBe(true);
+        expect(isReadOnlyCommand("systemctl status nginx")).toBe(true);
+        expect(isReadOnlyCommand("docker ps")).toBe(true);
+        expect(isReadOnlyCommand("curl -I https://example.com")).toBe(true);
+    });
+
+    it("classifies a mutating command as NOT read-only, needing approval under 'writes'", () => {
+        expect(isReadOnlyCommand("systemctl restart nginx")).toBe(false);
+        expect(isReadOnlyCommand("docker rm mycontainer")).toBe(false);
+        expect(isReadOnlyCommand("rm -rf /var/cache/myapp/tmp")).toBe(false);
+        expect(isReadOnlyCommand("./deploy.sh")).toBe(false);
+    });
+
+    it("classifies a chained/piped command as NOT read-only, even if every segment looks read-only", () => {
+        // Same rule as observe mode: chaining disqualifies "simple read-only command".
+        expect(isReadOnlyCommand("ps aux | grep nginx")).toBe(false);
+        expect(isReadOnlyCommand("uptime; whoami")).toBe(false);
+    });
+
+    it("treats a curl POST/write as NOT read-only", () => {
+        expect(isReadOnlyCommand("curl -X POST https://example.com -d '{}'")).toBe(false);
+        expect(isReadOnlyCommand("curl -o out.txt https://example.com")).toBe(false);
+    });
+
+    it("treats an empty command as NOT read-only", () => {
+        expect(isReadOnlyCommand("")).toBe(false);
+        expect(isReadOnlyCommand("   ")).toBe(false);
     });
 });
