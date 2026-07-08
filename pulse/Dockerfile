@@ -43,6 +43,11 @@ RUN npm install drizzle-kit@0.31.9 -g
 # host daemon (socket is mounted + group-added in docker-compose). Docker-out-of-Docker.
 RUN apk add --no-cache docker-cli
 
+# System Chromium for the playwright plugin's browser tools. playwright-core drives
+# this install directly (no bundled browser download).
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
+
 # Codex CLI — lets an agent run on the ChatGPT/Codex subscription via the codex
 # app-server provider (no API key). Auth lives in the mounted CODEX_HOME volume.
 RUN npm install -g @openai/codex@0.142.1
