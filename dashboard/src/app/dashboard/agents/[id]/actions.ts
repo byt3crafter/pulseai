@@ -85,6 +85,99 @@ export async function updateWorkspaceFileAction(formData: FormData) {
     }
 }
 
+const MAX_AVATAR_BYTES = 500 * 1024;
+const ALLOWED_AVATAR_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+/**
+ * Validate an agent avatar value before it's persisted. Accepts either:
+ * - a data URL (data:image/<png|jpeg|webp>;base64,...) capped at ~500KB, or
+ * - a plain https:// URL (basic sanity check only — not fetched/verified).
+ * Returns the sanitized value to store, or null if invalid.
+ */
+function sanitizeAvatar(raw: string): { ok: true; value: string | null } | { ok: false; message: string } {
+    const trimmed = raw.trim();
+    if (!trimmed) return { ok: true, value: null };
+
+    if (trimmed.startsWith("data:")) {
+        const match = trimmed.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/);
+        if (!match) return { ok: false, message: "Unsupported image format." };
+        const [, mime, base64] = match;
+        if (!ALLOWED_AVATAR_MIME.has(mime.toLowerCase())) {
+            return { ok: false, message: "Avatar must be a PNG, JPEG, or WEBP image." };
+        }
+        // Rough byte-size estimate from base64 length (each 4 chars ≈ 3 bytes).
+        const approxBytes = Math.floor((base64.length * 3) / 4);
+        if (approxBytes > MAX_AVATAR_BYTES) {
+            return { ok: false, message: "Avatar image must be smaller than 500KB." };
+        }
+        return { ok: true, value: trimmed };
+    }
+
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol !== "https:") {
+            return { ok: false, message: "Avatar URL must use https://." };
+        }
+        if (trimmed.length > 2048) {
+            return { ok: false, message: "Avatar URL is too long." };
+        }
+        return { ok: true, value: trimmed };
+    } catch {
+        return { ok: false, message: "Invalid avatar URL." };
+    }
+}
+
+/**
+ * Update an agent's display identity — full name, role/title subtitle, and
+ * profile picture. Shown across the dashboard (agents table, agent header).
+ */
+export async function updateAgentIdentityAction(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const agentId = formData.get("agentId") as string;
+    const name = (formData.get("name") as string || "").trim();
+    const titleRaw = (formData.get("title") as string || "").trim();
+    const avatarRaw = formData.get("avatar") as string | null;
+    const removeAvatar = formData.get("removeAvatar") === "true";
+
+    if (!agentId) return { success: false, message: "Missing agent." };
+    if (!name) return { success: false, message: "Name is required." };
+    if (name.length > 255) return { success: false, message: "Name is too long." };
+    if (titleRaw.length > 160) return { success: false, message: "Title is too long." };
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)),
+    });
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    const update: { name: string; title: string | null; avatar?: string | null; updatedAt: Date } = {
+        name,
+        title: titleRaw || null,
+        updatedAt: new Date(),
+    };
+
+    if (removeAvatar) {
+        update.avatar = null;
+    } else if (avatarRaw && avatarRaw.trim()) {
+        const result = sanitizeAvatar(avatarRaw);
+        if (!result.ok) return { success: false, message: result.message };
+        update.avatar = result.value;
+    }
+
+    try {
+        await db.update(agentProfiles).set(update).where(eq(agentProfiles.id, agentId));
+    } catch (error) {
+        console.error("Failed to update agent identity:", error);
+        return { success: false, message: "Failed to save profile." };
+    }
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    revalidatePath("/dashboard/agents");
+    return { success: true, message: "Profile updated." };
+}
+
 export async function updateAgentModelAction(formData: FormData) {
     const session = await auth();
     if (!session?.user?.tenantId) {

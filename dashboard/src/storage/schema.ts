@@ -43,6 +43,8 @@ export const agentProfiles = pgTable("agent_profiles", {
         .references(() => tenants.id)
         .notNull(),
     name: varchar("name", { length: 255 }).notNull(), // e.g., "Sélina - COO"
+    title: varchar("title", { length: 160 }), // Role/subtitle shown under the name, e.g. "Chief Financial Officer"
+    avatar: text("avatar"), // Profile picture: data URL (data:image/...;base64,...) or an https URL
     systemPrompt: text("system_prompt"), // The specific instructions injected to the LLM
     modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),
     workspacePath: varchar("workspace_path", { length: 512 }),
