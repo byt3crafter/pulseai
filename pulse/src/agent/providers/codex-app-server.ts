@@ -50,10 +50,19 @@ import { mintAppAccessToken } from "../../gateway/oauth.js";
 import { sendFileToConversation } from "../../utils/channel-delivery.js";
 import { ProviderResponse, ProviderAttachment } from "./anthropic.js";
 
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 120_000; // legacy param default (RPC math only — NOT a turn cap)
 const INITIALIZE_TIMEOUT_MS = 15_000;
 const THREAD_START_TIMEOUT_MS = 20_000;
 const TURN_START_TIMEOUT_MS = 15_000;
+// A turn is NOT capped by wall-clock — high-reasoning turns legitimately run
+// long. Instead (matching Hermes) we interrupt only after genuine silence, and
+// keep a generous absolute backstop against a truly wedged turn. Any streaming
+// notification (reasoning summary, item, token usage) resets the inactivity clock.
+const TURN_INACTIVITY_TIMEOUT_MS = Number(process.env.CODEX_TURN_INACTIVITY_MS) || 240_000;
+const TURN_ABSOLUTE_MAX_MS = Number(process.env.CODEX_TURN_MAX_MS) || 30 * 60_000;
+// Codex reasoning effort (minimal|low|medium|high|xhigh). Default high — Pulse
+// agents do multi-step tool work where thinking pays off. Override per deploy.
+const DEFAULT_REASONING_EFFORT = process.env.CODEX_REASONING_EFFORT || "high";
 const STDERR_TAIL_LINES = 60;
 
 // ── Pulse-as-MCP-server wiring (Codex operator mode) ───────────────────────
@@ -551,9 +560,12 @@ export class CodexAppServerProvider {
         timeoutMs?: number;
         attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
-        const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-        const deadline = Date.now() + timeoutMs;
+        // `remaining()` only bounds the short setup RPCs (initialize/thread/turn
+        // start); the turn itself is governed by the inactivity watchdog below,
+        // not this deadline — so base it on the absolute ceiling, never 120s.
+        const deadline = Date.now() + TURN_ABSOLUTE_MAX_MS;
         const remaining = () => Math.max(1000, deadline - Date.now());
+        const reasoningEffort = (params as any).reasoningEffort || DEFAULT_REASONING_EFFORT;
         const log = logger.child({ component: "codex-app-server", model: params.model });
 
         let client: CodexRpcClient;
@@ -599,7 +611,10 @@ export class CodexAppServerProvider {
                     // Cached (reusable) threads must not be ephemeral; one-shot
                     // calls without a conversationId keep the ephemeral behavior.
                     ephemeral: cacheKey ? false : true,
-                    ...(tenantMcp ? { config: { mcp_servers: tenantMcp.mcpServers } } : {}),
+                    config: {
+                        model_reasoning_effort: reasoningEffort,
+                        ...(tenantMcp ? { mcp_servers: tenantMcp.mcpServers } : {}),
+                    },
                 },
                 Math.min(THREAD_START_TIMEOUT_MS, remaining())
             );
@@ -685,15 +700,30 @@ export class CodexAppServerProvider {
 
         try {
             await new Promise<void>((resolve, reject) => {
-                const hardTimeout = setTimeout(() => {
+                // Inactivity watchdog (NOT a wall-clock turn cap): reset on every
+                // streaming notification for this thread. A high-reasoning turn
+                // that keeps thinking/streaming is never killed; only true silence
+                // (or the absolute backstop) triggers an interrupt.
+                let inactivityTimer: NodeJS.Timeout;
+                const interruptTurn = (reason: string) => {
                     cleanup();
-                    // Best-effort interrupt; if the process is wedged, kill it so
-                    // the next call gets a clean respawn (generation bump).
                     client.request("turn/interrupt", { threadId, turnId }, 3000).catch(() => {
                         shutdownCodexAppServer();
                     });
-                    reject(new Error(`codex turn did not complete within ${timeoutMs}ms`));
-                }, remaining());
+                    reject(new Error(reason));
+                };
+                const resetInactivity = () => {
+                    clearTimeout(inactivityTimer);
+                    inactivityTimer = setTimeout(
+                        () => interruptTurn(`codex turn stalled — no activity for ${TURN_INACTIVITY_TIMEOUT_MS}ms`),
+                        TURN_INACTIVITY_TIMEOUT_MS
+                    );
+                };
+
+                const absoluteCeiling = setTimeout(
+                    () => interruptTurn(`codex turn exceeded absolute max ${TURN_ABSOLUTE_MAX_MS}ms`),
+                    TURN_ABSOLUTE_MAX_MS
+                );
 
                 const aliveCheck = setInterval(() => {
                     if (!client.isAlive()) {
@@ -705,7 +735,8 @@ export class CodexAppServerProvider {
                 }, 500);
 
                 const cleanup = () => {
-                    clearTimeout(hardTimeout);
+                    clearTimeout(inactivityTimer);
+                    clearTimeout(absoluteCeiling);
                     clearInterval(aliveCheck);
                     client.onNotification(() => {});
                 };
@@ -715,8 +746,13 @@ export class CodexAppServerProvider {
                     return typeof tid === "string" && tid !== threadId;
                 };
 
+                resetInactivity(); // arm the watchdog
+
                 client.onNotification((msg) => {
                     if (isOtherThread(msg.params)) return;
+
+                    // Any activity for this thread means Codex is alive and working.
+                    resetInactivity();
 
                     if (msg.method === "thread/tokenUsage/updated") {
                         const last = msg.params?.tokenUsage?.last;
