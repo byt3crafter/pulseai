@@ -19,11 +19,15 @@ import HeartbeatEditor from "./HeartbeatEditor";
 import SkillsEditor from "./SkillsEditor";
 import EmailConfigEditor from "./EmailConfigEditor";
 import TelegramConfigEditor from "./TelegramConfigEditor";
+import AgentIdentityEditor from "./AgentIdentityEditor";
 import { InfoTip } from "../../../../components/dashboard/ui";
+import AgentAvatar from "../../../../components/dashboard/AgentAvatar";
 
 interface AgentData {
     id: string;
     name: string;
+    title: string | null;
+    avatar: string | null;
     modelId: string;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
@@ -124,18 +128,24 @@ export default function AgentWorkspaceClient({
                     &larr; Back to Agents
                 </Link>
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-pulse-text">{agent.name}</h1>
-                        <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs font-mono text-pulse-faint">ID: {agent.id.slice(0, 8)}...</span>
-                            <span className="px-2 py-0.5 bg-pulse-tint text-pulse-accent-hi text-xs font-medium rounded-full">
-                                {getModelDisplayName(agent.modelId)}
-                            </span>
-                            {agent.dockerSandboxEnabled && (
-                                <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs font-semibold rounded-full">
-                                    Sandbox
-                                </span>
+                    <div className="flex items-center gap-4 min-w-0">
+                        <AgentAvatar name={agent.name} avatar={agent.avatar} size="lg" />
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-bold text-pulse-text truncate">{agent.name}</h1>
+                            {agent.title && (
+                                <p className="text-sm text-pulse-muted truncate">{agent.title}</p>
                             )}
+                            <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                <span className="text-xs font-mono text-pulse-faint">ID: {agent.id.slice(0, 8)}...</span>
+                                <span className="px-2 py-0.5 bg-pulse-tint text-pulse-accent-hi text-xs font-medium rounded-full">
+                                    {getModelDisplayName(agent.modelId)}
+                                </span>
+                                {agent.dockerSandboxEnabled && (
+                                    <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs font-semibold rounded-full">
+                                        Sandbox
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -406,6 +416,14 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
 
     return (
         <div className="space-y-6">
+            {/* Profile (name, title, avatar) */}
+            <AgentIdentityEditor
+                agentId={agent.id}
+                initialName={agent.name}
+                initialTitle={agent.title}
+                initialAvatar={agent.avatar}
+            />
+
             {/* Model Selection */}
             <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-pulse-border-subtle">

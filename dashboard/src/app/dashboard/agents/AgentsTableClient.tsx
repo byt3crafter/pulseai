@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CpuChipIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { PageHeader, Card, Toggle } from "../../../components/dashboard/ui";
+import AgentAvatar from "../../../components/dashboard/AgentAvatar";
 import { getLiveModelsAction, toggleAgentEnabledAction } from "./actions";
 import { updateAgentModelAction, deleteAgentAction } from "./[id]/actions";
 import { PROVIDERS, DEFAULT_MODEL_ID, getModelDisplayName } from "../../../utils/models";
@@ -12,6 +13,8 @@ import { PROVIDERS, DEFAULT_MODEL_ID, getModelDisplayName } from "../../../utils
 interface AgentRow {
     id: string;
     name: string;
+    title: string | null;
+    avatar: string | null;
     modelId: string | null;
     enabled: boolean;
     dockerSandboxEnabled: boolean | null;
@@ -198,12 +201,7 @@ export default function AgentsTableClient({
                                             {/* Agent */}
                                             <td className="px-4 py-3 align-top">
                                                 <div className={`flex items-center gap-3 ${!agent.enabled ? "opacity-60" : ""}`}>
-                                                    <div
-                                                        aria-hidden="true"
-                                                        className="w-8 h-8 rounded-full bg-pulse-tint text-pulse-accent-hi flex items-center justify-center font-semibold text-sm flex-shrink-0"
-                                                    >
-                                                        {agent.name.trim().charAt(0).toUpperCase() || "?"}
-                                                    </div>
+                                                    <AgentAvatar name={agent.name} avatar={agent.avatar} size="sm" />
                                                     <div className="min-w-0">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <Link
@@ -218,7 +216,11 @@ export default function AgentsTableClient({
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-xs text-pulse-faint font-mono">{agent.id.slice(0, 8)}…</p>
+                                                        {agent.title ? (
+                                                            <p className="text-xs text-pulse-muted truncate">{agent.title}</p>
+                                                        ) : (
+                                                            <p className="text-xs text-pulse-faint font-mono">{agent.id.slice(0, 8)}…</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>

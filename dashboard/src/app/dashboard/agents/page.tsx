@@ -19,6 +19,8 @@ export default async function AgentsPage() {
     let agents: {
         id: string;
         name: string;
+        title: string | null;
+        avatar: string | null;
         modelId: string | null;
         enabled: boolean;
         dockerSandboxEnabled: boolean | null;
@@ -33,6 +35,8 @@ export default async function AgentsPage() {
         agents = await db.select({
             id: agentProfiles.id,
             name: agentProfiles.name,
+            title: agentProfiles.title,
+            avatar: agentProfiles.avatar,
             modelId: agentProfiles.modelId,
             enabled: agentProfiles.enabled,
             dockerSandboxEnabled: agentProfiles.dockerSandboxEnabled,
