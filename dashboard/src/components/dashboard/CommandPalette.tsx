@@ -9,6 +9,7 @@ import {
     ArrowsRightLeftIcon,
     BuildingOffice2Icon,
     WrenchScrewdriverIcon,
+    ServerIcon,
     ChatBubbleLeftRightIcon,
     ServerStackIcon,
     ChartBarSquareIcon,
@@ -73,6 +74,7 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
             { key: "page-routing", label: "Routing", href: "/dashboard/agents/routing", group: "Pages", icon: ArrowsRightLeftIcon },
             { key: "page-departments", label: "Departments", href: "/dashboard/departments", group: "Pages", icon: BuildingOffice2Icon },
             { key: "page-tools", label: "Custom Tools", href: "/dashboard/tools", group: "Pages", icon: WrenchScrewdriverIcon },
+            { key: "page-servers", label: "Servers", href: "/dashboard/servers", group: "Pages", icon: ServerIcon },
             { key: "page-conversations", label: "Conversations", href: "/dashboard/conversations", group: "Pages", icon: ChatBubbleLeftRightIcon },
             { key: "page-mcp", label: "MCP Servers", href: "/dashboard/mcp", group: "Pages", icon: ServerStackIcon },
         ];

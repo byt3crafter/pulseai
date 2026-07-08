@@ -278,6 +278,55 @@ export const customTools = pgTable(
     ]
 );
 
+// -- Server Inventory: per-tenant VPS/servers registered for agent SSH access. --
+// Safety is enforced in code (pulse/src/servers/command-policy.ts) based on
+// `safetyMode`. Access is default-deny: an empty `allowedAgentIds` means NO
+// agent may use the server — unlike custom tools, this is infra access and
+// requires explicit per-agent assignment.
+export const servers = pgTable(
+    "servers",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        name: varchar("name", { length: 120 }).notNull(),
+        host: varchar("host", { length: 255 }).notNull(),
+        port: integer("port").notNull().default(22),
+        username: varchar("username", { length: 120 }).notNull(),
+        authType: varchar("auth_type", { length: 10 }).notNull().default("key"), // 'key' | 'password'
+        encryptedSecret: text("encrypted_secret").notNull(), // AES-256-GCM: private key or password
+        environment: varchar("environment", { length: 12 }).notNull().default("dev"), // 'production' | 'staging' | 'dev'
+        safetyMode: varchar("safety_mode", { length: 10 }).notNull().default("observe"), // 'observe' | 'safe' | 'full'
+        instructions: text("instructions"), // operator guidance shown to the agent verbatim
+        allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]), // [] = no agent access (default-deny)
+        enabled: boolean("enabled").notNull().default(false),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [index("idx_servers_tenant").on(table.tenantId)]
+);
+
+// -- Server exec logs: every server_exec attempt (blocked or not), for audit. --
+export const serverExecLogs = pgTable(
+    "server_exec_logs",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        serverId: uuid("server_id").references(() => servers.id).notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id),
+        command: text("command").notNull(),
+        blocked: boolean("blocked").notNull().default(false),
+        blockReason: text("block_reason"),
+        exitCode: integer("exit_code"),
+        durationMs: integer("duration_ms"),
+        outputHead: text("output_head"), // first 500 chars of stdout+stderr
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_server_exec_logs_tenant").on(table.tenantId, table.createdAt),
+        index("idx_server_exec_logs_server").on(table.serverId, table.createdAt),
+    ]
+);
+
 // -- Usage tracking (Billing and credits) --
 export const usageRecords = pgTable(
     "usage_records",

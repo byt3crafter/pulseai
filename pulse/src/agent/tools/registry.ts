@@ -21,6 +21,7 @@ import { workspaceUpdateTool } from "./built-in/workspace-update.js";
 import { filterTools, ToolPolicy } from "./tool-policy.js";
 import { pluginManager } from "../../plugins/manager.js";
 import { getTenantCustomTools } from "./custom-tools.js";
+import { getTenantServerTools } from "../../servers/tools.js";
 import { routeToChannelTool } from "./built-in/route-to-channel.js";
 
 /**
@@ -132,6 +133,10 @@ export class ToolRegistry {
                 // 3.5 Inject per-tenant custom tools (customer's own API/software), scoped to this agent
                 const customToolList = await getTenantCustomTools(tenantId, agentProfileId);
                 tools.push(...customToolList);
+
+                // 3.6 Inject Server Inventory SSH tools, scoped to servers this agent is explicitly allowed on
+                const serverToolList = await getTenantServerTools(tenantId, agentProfileId);
+                tools.push(...serverToolList);
 
                 // 4. Apply tool policy filtering
                 if (profile?.toolPolicy) {
