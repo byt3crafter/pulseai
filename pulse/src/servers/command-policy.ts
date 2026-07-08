@@ -164,3 +164,16 @@ export function checkCommandPolicy(command: string, mode: SafetyMode): PolicyRes
     if (mode === "observe") return checkObserve(trimmed);
     return checkSafe(trimmed);
 }
+
+/**
+ * Classify whether `command` is read-only, by reusing the "observe" mode
+ * allowlist as the read-only definition. Used by the server-approval workflow
+ * to decide whether a command needs approval under `approval_mode = 'writes'`
+ * (only non-read-only commands do) — independent of the server's actual
+ * `safetyMode`, which may be more permissive (e.g. 'safe' or 'full').
+ */
+export function isReadOnlyCommand(command: string): boolean {
+    const trimmed = (command || "").trim();
+    if (!trimmed) return false;
+    return checkObserve(trimmed).allowed;
+}

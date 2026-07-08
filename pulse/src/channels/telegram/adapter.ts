@@ -11,6 +11,7 @@ import { enqueueMessage, messageQueue } from "../../queue/message-queue.js";
 import { isGroupChat, hasBotMention, isReplyToBot, stripBotMention } from "./group-helpers.js";
 import { checkDmAccess, getOrCreatePairingCode } from "./pairing.js";
 import { resolvePerson, type Person } from "../people-service.js";
+import { createApproval, awaitDecision, hasSessionAllowance, decide, parseCallbackData } from "../approval-service.js";
 import { chunkHtmlMessage, chunkMessage } from "./chunking.js";
 import { markdownToIR, renderTelegramHtml } from "../formatting/index.js";
 import type { MessageIR } from "../formatting/ir.js";
@@ -179,6 +180,10 @@ export class TelegramAdapter implements ChannelAdapter {
                 try { await this.handlePhotoMessage(ctx, conn, botToken); }
                 catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling photo message"); }
             });
+            bot.on("callback_query:data", async (ctx) => {
+                try { await this.handleApprovalCallback(ctx, conn); }
+                catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling callback query"); }
+            });
 
             if (process.env.NODE_ENV === "development") {
                 bot.start().catch((err) => logger.error({ err, tenantId: conn.tenantId }, "Failed to start TG polling"));
@@ -215,6 +220,51 @@ export class TelegramAdapter implements ChannelAdapter {
 
         const chosenId = selectConnectionId(candidates, agentProfileId);
         return chosenId ? entriesForTenant.get(chosenId) : undefined;
+    }
+
+    /**
+     * Public accessor used by approval-service to deliver/edit inline-keyboard
+     * approval cards without duplicating the bot-selection logic in
+     * pickBotEntry(). Falls back to the tenant's default bot when no
+     * agentProfileId is given (the common case — approvers are DM'd
+     * independent of which agent triggered the approval).
+     */
+    getTenantBot(tenantId: string, agentProfileId?: string | null): Bot<Context> | undefined {
+        return this.pickBotEntry(tenantId, agentProfileId)?.bot;
+    }
+
+    /**
+     * Handle a tap on an approval card's inline button. Any Telegram user can
+     * tap it, so decide() re-validates that the tapper is actually a
+     * designated approver for this tenant — non-approvers get a "Not
+     * authorized" toast and nothing changes.
+     */
+    private async handleApprovalCallback(ctx: Context, conn: ChannelConnectionConfig): Promise<void> {
+        const data = ctx.callbackQuery?.data;
+        if (!data) return;
+        const parsed = parseCallbackData(data);
+        if (!parsed) return; // not one of ours — ignore silently
+
+        const approverTelegramId = ctx.from?.id?.toString();
+        if (!approverTelegramId) {
+            await ctx.answerCallbackQuery({ text: "Could not identify you.", show_alert: true }).catch(() => {});
+            return;
+        }
+
+        const result = await decide(parsed.approvalId, parsed.action, approverTelegramId);
+        if (!result.ok) {
+            const text =
+                result.reason === "not_authorized"
+                    ? "Not authorized."
+                    : result.reason === "already_decided"
+                        ? "Already decided by someone else."
+                        : "Approval not found (it may have expired).";
+            await ctx.answerCallbackQuery({ text, show_alert: false }).catch(() => {});
+            return;
+        }
+
+        const toast = parsed.action === "deny" ? "Denied." : "Approved.";
+        await ctx.answerCallbackQuery({ text: toast }).catch(() => {});
     }
 
     /**
@@ -304,6 +354,54 @@ export class TelegramAdapter implements ChannelAdapter {
         }
     }
 
+    /**
+     * Enforce `person.approvalMode === 'requires_approval'` (stage 2 of People
+     * access control): DM every designated approver an inline-keyboard card
+     * and block on their decision before the caller proceeds to dispatch the
+     * message to the runtime. Returns true iff the message should proceed.
+     *
+     * Fails CLOSED (returns false) on any error — unlike the People-access
+     * gate itself, which fails open. An approval gate that silently lets
+     * messages through when it can't run would defeat its purpose.
+     */
+    private async gateOnApprovalForMessage(
+        ctx: Context,
+        conn: ChannelConnectionConfig,
+        person: Person,
+        rawText: string
+    ): Promise<boolean> {
+        if (person.approvalMode !== "requires_approval") return true;
+        if (hasSessionAllowance(conn.tenantId, "user_request", person.telegramUserId)) return true;
+
+        const label = person.displayName || person.username || `Telegram user ${person.telegramUserId}`;
+        const text = (rawText || "").trim();
+        const truncated = text.length > 300 ? `${text.slice(0, 300)}…` : text;
+
+        try {
+            const { id } = await createApproval({
+                tenantId: conn.tenantId,
+                kind: "user_request",
+                summary: `👤 ${label} asked:\n${truncated || "(no text)"}`,
+                requesterTelegramId: person.telegramUserId,
+                agentProfileId: conn.agentProfileId ?? null,
+                channelType: "telegram",
+                channelContactId: ctx.chat?.id?.toString(),
+            });
+
+            const { status } = await awaitDecision(id);
+            if (status === "approved") return true;
+
+            if (status === "denied") {
+                await ctx.reply("Your request needs approval and wasn't approved.").catch(() => {});
+            }
+            // 'expired' → stay silent, per spec.
+            return false;
+        } catch (err) {
+            logger.error({ err, tenantId: conn.tenantId }, "Approval workflow failed — not processing this message");
+            return false;
+        }
+    }
+
     private async handleGroupMessage(
         ctx: Context,
         conn: ChannelConnectionConfig,
@@ -348,6 +446,10 @@ export class TelegramAdapter implements ChannelAdapter {
                 }
                 return;
             }
+
+            const rawText = botToken ? (ctx.message!.caption ?? "") : (ctx.message!.text ?? "");
+            const approved = await this.gateOnApprovalForMessage(ctx, conn, person, rawText);
+            if (!approved) return;
         }
 
         const isPhoto = !!botToken;
@@ -449,6 +551,10 @@ export class TelegramAdapter implements ChannelAdapter {
                 }
                 return;
             }
+
+            const rawText = botToken ? (ctx.message!.caption ?? "") : (ctx.message!.text ?? "");
+            const approved = await this.gateOnApprovalForMessage(ctx, conn, person, rawText);
+            if (!approved) return;
         }
 
         const isPhoto = !!botToken;

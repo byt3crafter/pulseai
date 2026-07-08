@@ -12,12 +12,13 @@
  */
 import { Tool } from "../agent/tools/tool.interface.js";
 import { db } from "../storage/db.js";
-import { servers, serverExecLogs } from "../storage/schema.js";
+import { servers, serverExecLogs, agentProfiles } from "../storage/schema.js";
 import { eq, and } from "drizzle-orm";
 import { decrypt } from "../utils/crypto.js";
 import { logger } from "../utils/logger.js";
-import { checkCommandPolicy, SafetyMode } from "./command-policy.js";
+import { checkCommandPolicy, isReadOnlyCommand, SafetyMode } from "./command-policy.js";
 import { sshExec } from "./ssh-exec.js";
+import { createApproval, awaitDecision, hasSessionAllowance } from "../channels/approval-service.js";
 
 const DEFAULT_TIMEOUT_SECONDS = 30;
 const MAX_TIMEOUT_SECONDS = 120;
@@ -36,6 +37,7 @@ interface ServerRow {
     safetyMode: string;
     instructions: string | null;
     allowedAgentIds: unknown;
+    approvalMode: string;
     enabled: boolean;
 }
 
@@ -171,6 +173,67 @@ function buildServerExecTool(tenantId: string, agentProfileId: string): Tool {
                 };
             }
 
+            // Approval gate (stage 2 of People access control): 'off' never asks,
+            // 'writes' asks for anything not classified read-only, 'all' asks
+            // for every command. Session allowances ("Allow all") bypass this
+            // for the rest of the process lifetime, scoped per-server.
+            let approvalNote = "";
+            const approvalMode = server.approvalMode || "off";
+            if (approvalMode !== "off") {
+                const needsApproval = approvalMode === "all" || !isReadOnlyCommand(command);
+                if (needsApproval && !hasSessionAllowance(effectiveTenantId, "command", server.id)) {
+                    let agentName = "An agent";
+                    try {
+                        const profile = await db.query.agentProfiles.findFirst({
+                            where: eq(agentProfiles.id, agentProfileId),
+                            columns: { name: true },
+                        });
+                        if (profile?.name) agentName = profile.name;
+                    } catch {
+                        // Best-effort label only — never blocks the approval flow.
+                    }
+
+                    let outcome: { status: string; approverLabel?: string };
+                    try {
+                        const { id: approvalId } = await createApproval({
+                            tenantId: effectiveTenantId,
+                            kind: "command",
+                            summary: `🔐 ${agentName} wants to run on ${server.name}:\n\`${command}\``,
+                            agentProfileId,
+                            serverId: server.id,
+                            payload: { command, serverName: server.name },
+                        });
+                        outcome = await awaitDecision(approvalId);
+                    } catch (err) {
+                        logger.error({ err, serverId: server.id }, "Approval workflow failed for server_exec — failing closed");
+                        outcome = { status: "expired" };
+                    }
+
+                    if (outcome.status !== "approved") {
+                        const blockReason =
+                            outcome.status === "denied"
+                                ? `Denied by approver${outcome.approverLabel ? ` (${outcome.approverLabel})` : ""} — approval required.`
+                                : "Approval timed out — command not run.";
+                        await logAttempt({
+                            tenantId: effectiveTenantId,
+                            serverId: server.id,
+                            agentId: agentProfileId,
+                            command,
+                            blocked: true,
+                            blockReason,
+                        });
+                        return {
+                            result:
+                                outcome.status === "denied"
+                                    ? `Denied by approver${outcome.approverLabel ? ` (${outcome.approverLabel})` : ""}.`
+                                    : "Approval timed out — not run.",
+                        };
+                    }
+
+                    approvalNote = `[Approved${outcome.approverLabel ? ` by ${outcome.approverLabel}` : ""} via approval workflow]\n`;
+                }
+            }
+
             let secret: string;
             try {
                 secret = decrypt(server.encryptedSecret);
@@ -193,7 +256,7 @@ function buildServerExecTool(tenantId: string, agentProfileId: string): Tool {
                     { timeoutSeconds }
                 );
                 const durationMs = Date.now() - start;
-                const combinedHead = `${execResult.stdout}${execResult.stderr}`.slice(0, LOG_OUTPUT_HEAD_CHARS);
+                const combinedHead = `${approvalNote}${execResult.stdout}${execResult.stderr}`.slice(0, LOG_OUTPUT_HEAD_CHARS);
                 await logAttempt({
                     tenantId: effectiveTenantId,
                     serverId: server.id,

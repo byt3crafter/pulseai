@@ -320,7 +320,6 @@ export default function PeopleClient({
                                                     <option value="auto">Auto</option>
                                                     <option value="requires_approval">Requires approval</option>
                                                 </select>
-                                                <p className="text-[10px] text-pulse-faint mt-1">(enforced in a later update)</p>
                                             </td>
 
                                             {/* Allowed agents */}
@@ -360,7 +359,8 @@ export default function PeopleClient({
             </Card>
             <SettingHint>
                 "Observe" people can be present in a chat but agents will never respond to them. "Blocked" people are fully ignored.
-                Approver / approval mode are reserved for an upcoming approval-workflow stage and aren't enforced yet.
+                "Requires approval" holds a person's messages until a designated approver taps Allow/Deny on a Telegram DM card —
+                mark someone as an "Approver" above so they receive those cards.
             </SettingHint>
         </div>
     );

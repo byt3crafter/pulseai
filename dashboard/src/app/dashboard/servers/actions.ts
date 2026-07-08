@@ -13,6 +13,7 @@ type Result = { success: boolean; message: string };
 
 const ENVIRONMENTS = ["production", "staging", "dev"] as const;
 const SAFETY_MODES = ["observe", "safe", "full"] as const;
+const APPROVAL_MODES = ["off", "writes", "all"] as const;
 
 function normalizePort(raw: FormDataEntryValue | null): number {
     const n = parseInt((raw as string) || "22", 10);
@@ -38,6 +39,9 @@ export async function saveServerAction(formData: FormData): Promise<Result> {
     const safetyMode = SAFETY_MODES.includes(formData.get("safetyMode") as any)
         ? (formData.get("safetyMode") as string)
         : "observe";
+    const approvalMode = APPROVAL_MODES.includes(formData.get("approvalMode") as any)
+        ? (formData.get("approvalMode") as string)
+        : "off";
     const instructions = ((formData.get("instructions") as string) || "").trim() || null;
     const enabled = formData.get("enabled") === "true";
     const riskAcknowledged = formData.get("riskAcknowledged") === "true";
@@ -94,6 +98,7 @@ export async function saveServerAction(formData: FormData): Promise<Result> {
                     safetyMode,
                     instructions,
                     allowedAgentIds,
+                    approvalMode,
                     enabled,
                     updatedAt: new Date(),
                 })
@@ -112,6 +117,7 @@ export async function saveServerAction(formData: FormData): Promise<Result> {
                 safetyMode,
                 instructions,
                 allowedAgentIds,
+                approvalMode,
                 enabled,
             });
         }

@@ -39,6 +39,7 @@ export default async function EditServerPage({ params }: { params: Promise<{ id:
         safetyMode: (["observe", "safe", "full"].includes(row.safetyMode) ? row.safetyMode : "observe") as "observe" | "safe" | "full",
         instructions: row.instructions || "",
         allowedAgentIds: Array.isArray(row.allowedAgentIds) ? (row.allowedAgentIds as string[]) : [],
+        approvalMode: (["off", "writes", "all"].includes(row.approvalMode) ? row.approvalMode : "off") as "off" | "writes" | "all",
         enabled: row.enabled,
     };
 
