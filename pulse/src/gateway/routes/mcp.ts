@@ -232,6 +232,12 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
                                 conversationId: conversationId || `codex-mcp-${agentProfileId}`,
                                 args: { ...args, _agentId: agentProfileId },
                             });
+                            // Observability: agent tool results were previously invisible,
+                            // letting models claim success on silent error JSONs.
+                            logger.info(
+                                { tenantId, agentProfileId, tool: tool.name, resultHead: String(result.result).slice(0, 200) },
+                                "Agent MCP tool executed"
+                            );
                             return { content: [{ type: "text" as const, text: result.result }] };
                         } catch (err: any) {
                             logger.error({ err, tool: tool.name, tenantId, agentProfileId }, "Agent MCP tool failed");
