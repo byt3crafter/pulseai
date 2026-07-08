@@ -29,6 +29,7 @@ interface AgentData {
     title: string | null;
     avatar: string | null;
     reasoningEffort: string | null;
+    progressVerbosity?: string | null;
     modelId: string;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
@@ -489,6 +490,7 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                 initialTitle={agent.title}
                 initialAvatar={agent.avatar}
                 initialReasoningEffort={agent.reasoningEffort}
+                initialProgressVerbosity={agent.progressVerbosity ?? null}
             />
 
             {/* Model Selection */}

@@ -146,6 +146,8 @@ export async function updateAgentIdentityAction(formData: FormData) {
     const avatarRaw = formData.get("avatar") as string | null;
     const removeAvatar = formData.get("removeAvatar") === "true";
     const reasoningEffortRaw = (formData.get("reasoningEffort") as string || "").trim().toLowerCase();
+    const progressVerbosityRaw = (formData.get("progressVerbosity") as string || "").trim().toLowerCase();
+    const PROGRESS_LEVELS = new Set(["off", "progress", "verbose"]);
 
     if (!agentId) return { success: false, message: "Missing agent." };
     if (!name) return { success: false, message: "Name is required." };
@@ -160,10 +162,11 @@ export async function updateAgentIdentityAction(formData: FormData) {
     });
     if (!agent) return { success: false, message: "Agent not found." };
 
-    const update: { name: string; title: string | null; avatar?: string | null; reasoningEffort: string | null; updatedAt: Date } = {
+    const update: { name: string; title: string | null; avatar?: string | null; reasoningEffort: string | null; progressVerbosity: string | null; updatedAt: Date } = {
         name,
         title: titleRaw || null,
         reasoningEffort: reasoningEffortRaw && reasoningEffortRaw !== "default" ? reasoningEffortRaw : null,
+        progressVerbosity: PROGRESS_LEVELS.has(progressVerbosityRaw) && progressVerbosityRaw !== "progress" ? progressVerbosityRaw : (progressVerbosityRaw === "progress" ? "progress" : null),
         updatedAt: new Date(),
     };
 

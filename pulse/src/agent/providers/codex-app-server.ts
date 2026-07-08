@@ -585,6 +585,7 @@ export class CodexAppServerProvider {
         /** Live progress callback — invoked as the agent calls tools / reasons,
          *  so the channel can show "working…" activity during long turns. */
         onProgress?: (text: string) => void;
+        progressVerbosity?: string;
     }): Promise<ProviderResponse> {
         // Per-conversation pooling: same-conversation turns serialize on this
         // entry's queue (its client has one notification slot); DIFFERENT
@@ -631,6 +632,7 @@ export class CodexAppServerProvider {
         timeoutMs?: number;
         attachments?: ProviderAttachment[];
         onProgress?: (text: string) => void;
+        progressVerbosity?: string;
     }, poolKey: string, entry: PoolEntry): Promise<ProviderResponse> {
         // `remaining()` only bounds the short setup RPCs (initialize/thread/turn
         // start); the turn itself is governed by the inactivity watchdog below,
@@ -838,6 +840,9 @@ export class CodexAppServerProvider {
                             onProgress(`web_search  ${detailOf(item) || ""}`.trim());
                         } else if (item.type === "fileChange") {
                             onProgress("edit files");
+                        } else if (item.type === "reasoning" && params.progressVerbosity === "verbose") {
+                            const sum = Array.isArray(item.summary) ? item.summary.join(" ") : "";
+                            onProgress(`💭 ${(sum || "reasoning").replace(/\s+/g, " ").trim().slice(0, 80)}`);
                         }
                     } catch { /* progress is best-effort */ }
                 };
