@@ -208,6 +208,8 @@ export class AgentRuntime {
             let basePrompt = defaultSystemPrompt;
             let activeModelId = getDefaultModel().id;
             let activeAgentName = "Agent";
+            // Per-agent progress verbosity: "off" | "progress" (default) | "verbose".
+            let activeProgressVerbosity = "progress";
             // Per-agent reasoning effort override (Codex/GPT-5.5 etc.). Undefined
             // means "let the provider use its own default" — never send a bogus value.
             let activeReasoningEffort: string | undefined = undefined;
@@ -231,6 +233,7 @@ export class AgentRuntime {
                         activeModelId = profile.modelId;
                     }
                     if (profile.name) activeAgentName = profile.name;
+                    if (profile.progressVerbosity) activeProgressVerbosity = profile.progressVerbosity;
 
                     // Use per-agent reasoning effort if set (null/absent = inherit default)
                     if (profile.reasoningEffort) {
@@ -492,7 +495,7 @@ export class AgentRuntime {
                 return `${head}\n\n${lines.join("\n")}${more}`;
             };
             let onProgress: ((text: string) => void) | undefined;
-            if (options?.editMessageCallback && toolDefinitions.length > 0) {
+            if (options?.editMessageCallback && toolDefinitions.length > 0 && activeProgressVerbosity !== "off") {
                 onProgress = (text: string) => {
                     // De-dupe consecutive identical steps.
                     if (progressSteps[progressSteps.length - 1] !== text) {
@@ -529,6 +532,7 @@ export class AgentRuntime {
                 model: activeModelId,
                 tenantId: inbound.tenantId,
                 onProgress,
+                progressVerbosity: activeProgressVerbosity,
                 systemPrompt: activeSystemPrompt,
                 messages: llmMessages,
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,

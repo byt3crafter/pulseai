@@ -25,6 +25,7 @@ export class ProviderManager {
         agentProfileId?: string;
         conversationId?: string;
         onProgress?: (text: string) => void;
+        progressVerbosity?: string;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tools?: Array<{
@@ -69,6 +70,7 @@ export class ProviderManager {
                 agentProfileId: params.agentProfileId,
                 conversationId: params.conversationId,
                 onProgress: params.onProgress,
+                progressVerbosity: params.progressVerbosity,
                 systemPrompt: params.systemPrompt,
                 messages: params.messages,
                 tenantApiKey: apiKey,

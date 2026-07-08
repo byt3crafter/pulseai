@@ -48,6 +48,7 @@ export const agentProfiles = pgTable("agent_profiles", {
     systemPrompt: text("system_prompt"), // The specific instructions injected to the LLM
     modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),
     reasoningEffort: varchar("reasoning_effort", { length: 12 }), // "minimal"|"low"|"medium"|"high"|"xhigh"; null/absent = provider default
+    progressVerbosity: varchar("progress_verbosity", { length: 12 }), // "off"|"progress"|"verbose"; null/absent = "progress"
     workspacePath: varchar("workspace_path", { length: 512 }),
     dockerSandboxEnabled: boolean("docker_sandbox_enabled").default(false), // WARNING: Grants raw bash execution
     selfConfigEnabled: boolean("self_config_enabled").notNull().default(false), // Allow agent to edit its own workspace files

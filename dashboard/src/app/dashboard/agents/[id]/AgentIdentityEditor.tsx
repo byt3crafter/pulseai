@@ -15,6 +15,11 @@ const ALLOWED_MIME = ["image/png", "image/jpeg", "image/webp"];
  * file→base64 upload pattern in SignatureEditor.tsx (size cap + preview +
  * remove), persisted via updateAgentIdentityAction.
  */
+const PROGRESS_OPTIONS: { value: string; label: string }[] = [
+    { value: "progress", label: "Steps (default) — show each action" },
+    { value: "verbose", label: "Verbose — steps + reasoning" },
+    { value: "off", label: "Off — silent until done" },
+];
 const REASONING_EFFORT_OPTIONS: { value: string; label: string }[] = [
     { value: "default", label: "Default" },
     { value: "minimal", label: "Minimal" },
@@ -30,12 +35,14 @@ export default function AgentIdentityEditor({
     initialTitle,
     initialAvatar,
     initialReasoningEffort,
+    initialProgressVerbosity,
 }: {
     agentId: string;
     initialName: string;
     initialTitle: string | null;
     initialAvatar: string | null;
     initialReasoningEffort: string | null;
+    initialProgressVerbosity: string | null;
 }) {
     const [name, setName] = useState(initialName);
     const [title, setTitle] = useState(initialTitle ?? "");
@@ -43,6 +50,7 @@ export default function AgentIdentityEditor({
     const [avatarDirty, setAvatarDirty] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const [reasoningEffort, setReasoningEffort] = useState(initialReasoningEffort ?? "default");
+    const [progressVerbosity, setProgressVerbosity] = useState(initialProgressVerbosity ?? "progress");
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
         type: "idle",
         message: "",
@@ -54,7 +62,8 @@ export default function AgentIdentityEditor({
     const isDirty = name !== initialName
         || title !== (initialTitle ?? "")
         || avatarDirty
-        || reasoningEffort !== (initialReasoningEffort ?? "default");
+        || reasoningEffort !== (initialReasoningEffort ?? "default")
+        || progressVerbosity !== (initialProgressVerbosity ?? "progress");
 
     /**
      * Downscale + re-encode an image to a small avatar entirely in the browser,
@@ -134,6 +143,7 @@ export default function AgentIdentityEditor({
         fd.set("name", name.trim());
         fd.set("title", title.trim());
         fd.set("reasoningEffort", reasoningEffort);
+        fd.set("progressVerbosity", progressVerbosity);
         if (avatarDirty) {
             if (avatar) {
                 fd.set("avatar", avatar);
@@ -235,6 +245,23 @@ export default function AgentIdentityEditor({
                     <p className="text-xs text-pulse-faint mt-1.5">
                         How hard this agent thinks before answering. Higher = better reasoning, slower + more tokens.
                         Applies to models that support reasoning effort (e.g. Codex/GPT-5.5).
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Progress updates</label>
+                    <select
+                        value={progressVerbosity}
+                        onChange={(e) => setProgressVerbosity(e.target.value)}
+                        className="w-full max-w-xs px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text"
+                    >
+                        {PROGRESS_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-pulse-faint mt-1.5">
+                        What the agent shows in chat while working on a long task: a live step-by-step trail,
+                        verbose (steps + its reasoning), or stay silent until the final reply.
                     </p>
                 </div>
 
