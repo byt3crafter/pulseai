@@ -447,7 +447,25 @@ let sharedClient: CodexRpcClient | null = null;
 let sharedClientInit: Promise<CodexRpcClient> | null = null;
 let clientGeneration = 0;
 const threadCache = new Map<string, CachedThread>();
-let turnQueue: Promise<unknown> = Promise.resolve();
+// PER-CONVERSATION turn queues (was a single global queue — one slow/hung turn
+// then blocked EVERY agent). Same-conversation turns still serialize because
+// they share a Codex thread; different conversations run concurrently.
+const turnQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Reject if `p` doesn't settle within `ms`. Guards the WHOLE turn (incl.
+ * un-timed awaits like DB/token/client-init) so a hang can never permanently
+ * wedge its queue — the queue always advances.
+ */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`${label} exceeded ${ms}ms`)), ms);
+        p.then(
+            (v) => { clearTimeout(timer); resolve(v); },
+            (e) => { clearTimeout(timer); reject(e); },
+        );
+    });
+}
 
 async function getSharedClient(codexBin: string): Promise<{ client: CodexRpcClient; generation: number }> {
     if (sharedClient?.isAlive()) return { client: sharedClient, generation: clientGeneration };
@@ -472,8 +490,13 @@ async function getSharedClient(codexBin: string): Promise<{ client: CodexRpcClie
         return client;
     })();
     try {
-        const client = await sharedClientInit;
+        // Bound the init (spawn + initialize handshake) so a wedged startup can
+        // never hang the caller forever.
+        const client = await withTimeout(sharedClientInit, INITIALIZE_TIMEOUT_MS + 5_000, "codex app-server init");
         return { client, generation: clientGeneration };
+    } catch (err) {
+        sharedClient = null; // failed/hung startup — don't reuse it
+        throw err;
     } finally {
         sharedClientInit = null;
     }
@@ -542,11 +565,32 @@ export class CodexAppServerProvider {
         /** Images attached to the current turn (e.g. a Telegram photo). */
         attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
-        // Serialize turns through the shared process (see harness docblock).
-        // Chain from settled-state so one failed turn never wedges the queue.
-        const run = () => this.runTurn(params);
-        const result = turnQueue.then(run, run);
-        turnQueue = result.catch(() => {});
+        // Serialize only within the same conversation (shared Codex thread);
+        // different conversations run concurrently. Each turn is hard-bounded by
+        // withTimeout so a hang can never permanently wedge the queue — the
+        // chain always advances even if a turn's internal awaits stall.
+        const queueKey = params.conversationId
+            ? `${params.tenantId ?? "host"}:${params.agentProfileId ?? "none"}:${params.conversationId}`
+            : `oneshot:${Math.random()}`; // ephemeral calls never block each other
+        const prev = turnQueues.get(queueKey) ?? Promise.resolve();
+        const run = () => withTimeout(
+            this.runTurn(params),
+            TURN_ABSOLUTE_MAX_MS + 30_000,
+            "codex turn (overall)",
+        ).catch((err) => {
+            // An overall-timeout almost always means the shared subprocess is
+            // wedged — recycle it so the NEXT turn spawns a clean one instead of
+            // inheriting the hang.
+            if (/exceeded \d+ms/.test(err?.message ?? "")) shutdownCodexAppServer();
+            throw err;
+        });
+        const result = prev.then(run, run);
+        // Keep the queue chain alive on settled state only; prune when idle.
+        const tail = result.catch(() => {});
+        turnQueues.set(queueKey, tail);
+        tail.finally(() => {
+            if (turnQueues.get(queueKey) === tail) turnQueues.delete(queueKey);
+        });
         return result;
     }
 
