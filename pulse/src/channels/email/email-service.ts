@@ -166,10 +166,16 @@ export async function sendEmail(
     body: string,
     html?: string
 ): Promise<{ messageId: string }> {
+    // TLS mode is determined by PORT, not a flag: 465 = implicit TLS (secure),
+    // 587/25 = plaintext connect then STARTTLS upgrade. Using secure:true on
+    // 587 causes "SSL wrong version number". The `tls` flag only decides whether
+    // STARTTLS is *required* on the non-implicit ports.
+    const implicitTls = config.port === 465;
     const transporter = nodemailer.createTransport({
         host: config.host,
         port: config.port,
-        secure: config.tls,
+        secure: implicitTls,
+        requireTLS: !implicitTls && config.tls !== false,
         auth: {
             user: config.username,
             pass: config.password,
