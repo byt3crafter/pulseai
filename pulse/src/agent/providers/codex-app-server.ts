@@ -447,10 +447,14 @@ let sharedClient: CodexRpcClient | null = null;
 let sharedClientInit: Promise<CodexRpcClient> | null = null;
 let clientGeneration = 0;
 const threadCache = new Map<string, CachedThread>();
-// PER-CONVERSATION turn queues (was a single global queue — one slow/hung turn
-// then blocked EVERY agent). Same-conversation turns still serialize because
-// they share a Codex thread; different conversations run concurrently.
-const turnQueues = new Map<string, Promise<unknown>>();
+// Global serial turn queue. Turns MUST be serialized because CodexRpcClient has
+// a single notification-handler slot — concurrent turns would overwrite each
+// other's handler and cross-contaminate responses (verified: two agents both
+// returned the same reply). The deadlock risk this used to carry is now removed
+// by the withTimeout() hard-bound below, so a hung turn can no longer wedge the
+// queue permanently. (True concurrency needs per-thread notification routing in
+// CodexRpcClient — a larger change deferred on purpose.)
+let turnQueue: Promise<unknown> = Promise.resolve();
 
 /**
  * Reject if `p` doesn't settle within `ms`. Guards the WHOLE turn (incl.
@@ -565,14 +569,11 @@ export class CodexAppServerProvider {
         /** Images attached to the current turn (e.g. a Telegram photo). */
         attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
-        // Serialize only within the same conversation (shared Codex thread);
-        // different conversations run concurrently. Each turn is hard-bounded by
-        // withTimeout so a hang can never permanently wedge the queue — the
-        // chain always advances even if a turn's internal awaits stall.
-        const queueKey = params.conversationId
-            ? `${params.tenantId ?? "host"}:${params.agentProfileId ?? "none"}:${params.conversationId}`
-            : `oneshot:${Math.random()}`; // ephemeral calls never block each other
-        const prev = turnQueues.get(queueKey) ?? Promise.resolve();
+        // Serialize turns (single-notification-handler constraint above). Each
+        // turn is hard-bounded by withTimeout so a hang can never permanently
+        // wedge the queue — the chain always advances even if internal awaits
+        // stall. Chain from settled state (then(run, run)) so a rejection also
+        // advances it.
         const run = () => withTimeout(
             this.runTurn(params),
             TURN_ABSOLUTE_MAX_MS + 30_000,
@@ -584,13 +585,8 @@ export class CodexAppServerProvider {
             if (/exceeded \d+ms/.test(err?.message ?? "")) shutdownCodexAppServer();
             throw err;
         });
-        const result = prev.then(run, run);
-        // Keep the queue chain alive on settled state only; prune when idle.
-        const tail = result.catch(() => {});
-        turnQueues.set(queueKey, tail);
-        tail.finally(() => {
-            if (turnQueues.get(queueKey) === tail) turnQueues.delete(queueKey);
-        });
+        const result = turnQueue.then(run, run);
+        turnQueue = result.catch(() => {});
         return result;
     }
 
