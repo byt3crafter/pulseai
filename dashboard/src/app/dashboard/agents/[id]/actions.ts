@@ -239,8 +239,15 @@ export async function getActiveProvidersAction(): Promise<string[]> {
 
     const activeProviders = new Set<string>();
 
-    // Tier 1: Tenant-specific BYOK keys
-    const tenantKeys = await db.select({ provider: tenantProviderKeys.provider })
+    // Tier 1: Tenant-specific BYOK keys.
+    // OpenAI connected via ChatGPT OAuth only (no API key) is EXCLUDED from
+    // model selection: the OpenAI API rejects ChatGPT tokens, so its models
+    // could never run — showing them just produces broken agents.
+    const tenantKeys = await db.select({
+        provider: tenantProviderKeys.provider,
+        authMethod: tenantProviderKeys.authMethod,
+        encryptedApiKey: tenantProviderKeys.encryptedApiKey,
+    })
         .from(tenantProviderKeys)
         .where(
             and(
@@ -250,8 +257,13 @@ export async function getActiveProvidersAction(): Promise<string[]> {
         );
 
     for (const key of tenantKeys) {
+        if (key.provider === "openai" && (key.authMethod !== "api_key" || !key.encryptedApiKey)) continue;
         activeProviders.add(key.provider);
     }
+
+    // Codex runs on the host's ChatGPT subscription (keyless) — always offered.
+    // TODO: admin gate / per-tenant CODEX_HOME before multi-tenant use.
+    activeProviders.add("codex");
 
     // Tier 2: Global admin-configured keys
     const rootSettings = await db.query.globalSettings.findFirst({

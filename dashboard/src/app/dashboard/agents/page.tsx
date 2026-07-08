@@ -41,16 +41,9 @@ export default async function AgentsPage() {
             .from(agentProfiles)
             .where(eq(agentProfiles.tenantId, tenantId));
 
-        const providerRows = await db.select({ provider: tenantProviderKeys.provider })
-            .from(tenantProviderKeys)
-            .where(and(
-                eq(tenantProviderKeys.tenantId, tenantId),
-                eq(tenantProviderKeys.isActive, true)
-            ));
-        connectedProviders = providerRows.map((r) => r.provider);
-        // Codex runs on the host's ChatGPT subscription (no per-tenant key), so it's
-        // available host-level. TODO: gate/per-tenant CODEX_HOME before multi-tenant use.
-        connectedProviders.push("codex");
+        // Single source of truth (excludes OAuth-only OpenAI, includes codex).
+        const { getActiveProvidersAction } = await import("./[id]/actions");
+        connectedProviders = await getActiveProvidersAction();
 
         // Departments / groups each agent belongs to (for the "Departments" column).
         const membershipRows = await db.select({
