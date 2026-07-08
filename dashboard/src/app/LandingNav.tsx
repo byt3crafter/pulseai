@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import styles from "./landing.module.css";
+import PulseLogo from "./PulseLogo";
 
 const CONTACT = "mailto:hello@runstate.mu?subject=Pulse%20AI%20%E2%80%94%20Book%20a%20Demo";
 
@@ -21,7 +21,7 @@ export default function LandingNav() {
         <header className={styles.nav}>
             <div className={styles.navInner}>
                 <Link href="/" className={styles.navLogo} aria-label="Pulse AI home">
-                    <Image src="/pulse-logo.png" alt="Pulse AI" width={204} height={67} className={styles.navLogoImg} priority />
+                    <PulseLogo size={40} textSize={24} />
                 </Link>
 
                 <nav className={styles.navLinks} aria-label="Primary">

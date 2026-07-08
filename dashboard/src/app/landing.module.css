@@ -1305,3 +1305,16 @@
 .footerLinks a:hover {
   color: #c9c2e0;
 }
+
+/* Brand logo mark — animated equalizer bars (see PulseLogo.tsx) */
+@keyframes eqbar {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.45); }
+}
+.logoBar {
+  transform-origin: center;
+  animation: eqbar 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .logoBar { animation: none !important; }
+}
