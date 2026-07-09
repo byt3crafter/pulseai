@@ -11,7 +11,7 @@ import { enqueueMessage, messageQueue } from "../../queue/message-queue.js";
 import { isGroupChat, hasBotMention, isReplyToBot, stripBotMention } from "./group-helpers.js";
 import { checkDmAccess, getOrCreatePairingCode } from "./pairing.js";
 import { resolvePerson, type Person } from "../people-service.js";
-import { createApproval, awaitDecision, hasSessionAllowance, decide, parseCallbackData } from "../approval-service.js";
+import { createApproval, awaitDecision, hasStandingAllowance, decide, parseCallbackData } from "../approval-service.js";
 import { chunkHtmlMessage, chunkMessage } from "./chunking.js";
 import { markdownToIR, renderTelegramHtml } from "../formatting/index.js";
 import type { MessageIR } from "../formatting/ir.js";
@@ -371,13 +371,14 @@ export class TelegramAdapter implements ChannelAdapter {
         rawText: string
     ): Promise<boolean> {
         if (person.approvalMode !== "requires_approval") return true;
-        if (hasSessionAllowance(conn.tenantId, "user_request", person.telegramUserId)) return true;
 
         const label = person.displayName || person.username || `Telegram user ${person.telegramUserId}`;
         const text = (rawText || "").trim();
         const truncated = text.length > 300 ? `${text.slice(0, 300)}…` : text;
 
         try {
+            if (await hasStandingAllowance(conn.tenantId, "user", person.telegramUserId)) return true;
+
             const { id } = await createApproval({
                 tenantId: conn.tenantId,
                 kind: "user_request",

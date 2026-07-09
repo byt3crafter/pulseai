@@ -1,10 +1,13 @@
 /**
- * Approval workflow tests — focused on the two pure/DB-mockable pieces that
- * matter most for correctness and security:
+ * Approval workflow tests — focused on the pieces that matter most for
+ * correctness and security:
  *   - callback_data encode/parse (what a Telegram button tap sends back)
  *   - decide(): the approver-authorization check — only a designated
  *     approver (people.is_approver = true) for the SAME tenant as the
  *     approval may resolve it; everyone else is rejected untouched.
+ *   - standing allowances ("Allow always"): grant/dedupe/list/revoke, and
+ *     that tapping "allow always" turns into a persistent allowance while a
+ *     plain "allow" does not.
  *
  * Telegram delivery (postApprovalCard/editApprovalCard) is exercised only
  * indirectly here — channelAdapters is mocked to an empty Map so those calls
@@ -16,14 +19,23 @@ const mockPendingFindFirst = vi.fn();
 const mockPeopleFindMany = vi.fn();
 const mockUpdateReturning = vi.fn();
 const mockGetPerson = vi.fn();
+const mockAllowanceFindFirst = vi.fn();
+const mockAllowanceFindMany = vi.fn();
+const mockServerFindFirst = vi.fn();
+const mockInsertValues = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../storage/db.js", () => ({
     db: {
         query: {
             pendingApprovals: { findFirst: (...args: any[]) => mockPendingFindFirst(...args) },
             people: { findMany: (...args: any[]) => mockPeopleFindMany(...args) },
+            approvalAllowances: {
+                findFirst: (...args: any[]) => mockAllowanceFindFirst(...args),
+                findMany: (...args: any[]) => mockAllowanceFindMany(...args),
+            },
+            servers: { findFirst: (...args: any[]) => mockServerFindFirst(...args) },
         },
-        insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+        insert: vi.fn().mockReturnValue({ values: (...args: any[]) => mockInsertValues(...args) }),
         update: vi.fn().mockReturnValue({
             set: vi.fn().mockReturnValue({
                 where: vi.fn().mockReturnValue({
@@ -51,7 +63,10 @@ import {
     buildCallbackData,
     parseCallbackData,
     decide,
-    hasSessionAllowance,
+    hasStandingAllowance,
+    grantAllowance,
+    listAllowances,
+    revokeAllowance,
 } from "../channels/approval-service.js";
 
 function baseApprovalRow(overrides: Partial<Record<string, unknown>> = {}) {
@@ -94,6 +109,17 @@ function approverPerson(overrides: Partial<Record<string, unknown>> = {}) {
     };
 }
 
+beforeEach(() => {
+    mockPendingFindFirst.mockReset();
+    mockPeopleFindMany.mockReset();
+    mockUpdateReturning.mockReset();
+    mockGetPerson.mockReset();
+    mockAllowanceFindFirst.mockReset();
+    mockAllowanceFindMany.mockReset();
+    mockServerFindFirst.mockReset();
+    mockInsertValues.mockReset().mockResolvedValue(undefined);
+});
+
 // ─── callback_data encode/parse ─────────────────────────────────────────────
 
 describe("buildCallbackData / parseCallbackData", () => {
@@ -122,12 +148,6 @@ describe("buildCallbackData / parseCallbackData", () => {
 // ─── decide() — approver authorization ──────────────────────────────────────
 
 describe("decide — approver authorization", () => {
-    beforeEach(() => {
-        mockPendingFindFirst.mockReset();
-        mockUpdateReturning.mockReset();
-        mockGetPerson.mockReset();
-    });
-
     it("rejects a tap from someone who isn't in People at all", async () => {
         mockPendingFindFirst.mockResolvedValue(baseApprovalRow());
         mockGetPerson.mockResolvedValue(null);
@@ -188,21 +208,57 @@ describe("decide — approver authorization", () => {
         expect(result).toEqual({ ok: false, reason: "already_decided" });
         expect(mockGetPerson).not.toHaveBeenCalled();
     });
+});
 
-    it("grants a session allowance scoped to the requester when the approver taps 'allow all'", async () => {
+// ─── decide() — "Allow always" grants a persistent standing allowance ──────
+
+describe("decide — 'allow always' grants a persistent allowance", () => {
+    it("grants a standing allowance scoped to the requester ('user') when the approver taps 'allow always'", async () => {
         const row = baseApprovalRow({ kind: "user_request", requesterTelegramId: "999" });
         mockPendingFindFirst.mockResolvedValue(row);
-        mockGetPerson.mockResolvedValue(approverPerson());
+        // First getPerson() call authorizes the approver; the second (inside
+        // grantAllowanceForApproval) looks up the requester's display name.
+        mockGetPerson
+            .mockResolvedValueOnce(approverPerson())
+            .mockResolvedValueOnce({ displayName: "Bob Requester", username: "bob" });
         mockUpdateReturning.mockResolvedValue([{ ...row, status: "approved", decidedBy: "42" }]);
-
-        expect(hasSessionAllowance("tenant-1", "user_request", "999")).toBe(false);
+        mockAllowanceFindFirst.mockResolvedValue(undefined); // no existing allowance — dedupe passes
 
         await decide(row.id, "allowall", "42");
 
-        expect(hasSessionAllowance("tenant-1", "user_request", "999")).toBe(true);
+        expect(mockInsertValues).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: "tenant-1",
+                kind: "user",
+                subject: "999",
+                label: "Bob Requester",
+                createdBy: "42",
+            })
+        );
     });
 
-    it("does NOT grant a session allowance on a plain 'allow' (only 'allowall' does)", async () => {
+    it("grants a standing allowance scoped to the server when the approver taps 'allow always' on a command", async () => {
+        const row = baseApprovalRow({ kind: "command", requesterTelegramId: null, serverId: "server-1" });
+        mockPendingFindFirst.mockResolvedValue(row);
+        mockGetPerson.mockResolvedValue(approverPerson());
+        mockUpdateReturning.mockResolvedValue([{ ...row, status: "approved", decidedBy: "42" }]);
+        mockAllowanceFindFirst.mockResolvedValue(undefined);
+        mockServerFindFirst.mockResolvedValue({ name: "prod-web-1" });
+
+        await decide(row.id, "allowall", "42");
+
+        expect(mockInsertValues).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: "tenant-1",
+                kind: "server",
+                subject: "server-1",
+                label: "prod-web-1",
+                createdBy: "42",
+            })
+        );
+    });
+
+    it("does NOT grant a standing allowance on a plain 'allow' (only 'allowall' does)", async () => {
         const row = baseApprovalRow({ kind: "user_request", requesterTelegramId: "888" });
         mockPendingFindFirst.mockResolvedValue(row);
         mockGetPerson.mockResolvedValue(approverPerson());
@@ -210,6 +266,89 @@ describe("decide — approver authorization", () => {
 
         await decide(row.id, "allow", "42");
 
-        expect(hasSessionAllowance("tenant-1", "user_request", "888")).toBe(false);
+        expect(mockInsertValues).not.toHaveBeenCalled();
+    });
+
+});
+
+// ─── Standing allowances: hasStandingAllowance / grantAllowance / listAllowances / revokeAllowance ──
+
+describe("hasStandingAllowance", () => {
+    it("returns true when an active (un-revoked) row matches", async () => {
+        mockAllowanceFindFirst.mockResolvedValue({ id: "a-1" });
+        await expect(hasStandingAllowance("tenant-1", "user", "999")).resolves.toBe(true);
+    });
+
+    it("returns false when no matching row exists", async () => {
+        mockAllowanceFindFirst.mockResolvedValue(undefined);
+        await expect(hasStandingAllowance("tenant-1", "user", "999")).resolves.toBe(false);
+    });
+});
+
+describe("grantAllowance — dedupe", () => {
+    it("inserts a new row when no active allowance exists yet", async () => {
+        mockAllowanceFindFirst.mockResolvedValue(undefined);
+
+        await grantAllowance("tenant-1", "server", "server-1", "prod-web-1", "42");
+
+        expect(mockInsertValues).toHaveBeenCalledWith({
+            tenantId: "tenant-1",
+            kind: "server",
+            subject: "server-1",
+            label: "prod-web-1",
+            createdBy: "42",
+        });
+    });
+
+    it("does NOT insert a duplicate when an active allowance already exists", async () => {
+        mockAllowanceFindFirst.mockResolvedValue({ id: "existing" });
+
+        await grantAllowance("tenant-1", "server", "server-1", "prod-web-1", "42");
+
+        expect(mockInsertValues).not.toHaveBeenCalled();
+    });
+});
+
+describe("listAllowances", () => {
+    it("maps rows to the Allowance shape", async () => {
+        const createdAt = new Date();
+        mockAllowanceFindMany.mockResolvedValue([
+            {
+                id: "a-1",
+                tenantId: "tenant-1",
+                kind: "user",
+                subject: "999",
+                label: "Bob Requester",
+                createdBy: "42",
+                createdAt,
+                revokedAt: null,
+            },
+        ]);
+
+        const result = await listAllowances("tenant-1");
+
+        expect(result).toEqual([
+            {
+                id: "a-1",
+                tenantId: "tenant-1",
+                kind: "user",
+                subject: "999",
+                label: "Bob Requester",
+                createdBy: "42",
+                createdAt,
+            },
+        ]);
+    });
+});
+
+describe("revokeAllowance", () => {
+    it("returns true when a matching active row was revoked", async () => {
+        mockUpdateReturning.mockResolvedValue([{ id: "a-1" }]);
+        await expect(revokeAllowance("tenant-1", "a-1")).resolves.toBe(true);
+    });
+
+    it("returns false when no matching active row was found", async () => {
+        mockUpdateReturning.mockResolvedValue([]);
+        await expect(revokeAllowance("tenant-1", "does-not-exist")).resolves.toBe(false);
     });
 });

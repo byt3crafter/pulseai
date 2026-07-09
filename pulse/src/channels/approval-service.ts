@@ -17,12 +17,17 @@
  * Delivery reuses the Telegram adapter's already-running bot instance (via
  * the shared `channelAdapters` registry) rather than spinning up a second
  * bot connection — see channels/telegram/adapter.ts `getTenantBot()`.
+ *
+ * "Allow always" grants a PERSISTENT, revocable standing allowance
+ * (`approval_allowances` table) — it lasts until an admin revokes it from
+ * the dashboard, not a 30-minute in-memory window. See hasStandingAllowance/
+ * grantAllowance/listAllowances/revokeAllowance below.
  */
 import { randomUUID } from "node:crypto";
 import { InlineKeyboard } from "grammy";
 import { db } from "../storage/db.js";
-import { pendingApprovals, people } from "../storage/schema.js";
-import { eq, and } from "drizzle-orm";
+import { pendingApprovals, people, servers, approvalAllowances } from "../storage/schema.js";
+import { eq, and, isNull, desc } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
 import { getPerson, toPerson } from "./people-service.js";
 import { channelAdapters } from "../queue/worker.js";
@@ -32,8 +37,10 @@ export type ApprovalKind = "user_request" | "command";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ApprovalDecisionAction = "allow" | "deny" | "allowall";
 
+/** Standing-allowance kind — distinct from ApprovalKind's naming (user_request/command). */
+export type AllowanceKind = "user" | "server";
+
 export const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
-const SESSION_ALLOWANCE_TTL_MS = 30 * 60_000; // "Allow all (session)" — 30 minutes, in-memory only
 
 export interface CreateApprovalInput {
     tenantId: string;
@@ -83,27 +90,86 @@ function registerResolver(id: string): ResolverEntry {
     return entry;
 }
 
-// ─── "Allow all (session)" — in-memory, process-lifetime only ─────────────
+// ─── "Allow always" — persistent, revocable standing allowances ───────────
+// Backed by the `approval_allowances` table. A grant lasts until an admin
+// revokes it from the dashboard — there is no expiry/timer.
 
-const sessionAllowances = new Map<string, number>(); // scopeKey -> expiry epoch ms
-
-function sessionKey(tenantId: string, kind: ApprovalKind, scope: string): string {
-    return `${tenantId}:${kind}:${scope}`;
+export interface Allowance {
+    id: string;
+    tenantId: string;
+    kind: AllowanceKind;
+    subject: string;
+    label: string | null;
+    createdBy: string | null;
+    createdAt: Date | null;
 }
 
-function grantSessionAllowance(tenantId: string, kind: ApprovalKind, scope: string): void {
-    sessionAllowances.set(sessionKey(tenantId, kind, scope), Date.now() + SESSION_ALLOWANCE_TTL_MS);
+function toAllowance(row: typeof approvalAllowances.$inferSelect): Allowance {
+    return {
+        id: row.id,
+        tenantId: row.tenantId,
+        kind: row.kind as AllowanceKind,
+        subject: row.subject,
+        label: row.label,
+        createdBy: row.createdBy,
+        createdAt: row.createdAt,
+    };
 }
 
-/** Whether `scope` (requesterTelegramId for user_request, serverId for command) was granted a session allowance. */
-export function hasSessionAllowance(tenantId: string, kind: ApprovalKind, scope: string): boolean {
-    const expiry = sessionAllowances.get(sessionKey(tenantId, kind, scope));
-    if (!expiry) return false;
-    if (Date.now() > expiry) {
-        sessionAllowances.delete(sessionKey(tenantId, kind, scope));
-        return false;
-    }
-    return true;
+/** Whether `subject` (a requester's telegram id for kind='user', a server id for kind='server') has an active, un-revoked standing allowance. */
+export async function hasStandingAllowance(tenantId: string, kind: AllowanceKind, subject: string): Promise<boolean> {
+    const row = await db.query.approvalAllowances.findFirst({
+        where: and(
+            eq(approvalAllowances.tenantId, tenantId),
+            eq(approvalAllowances.kind, kind),
+            eq(approvalAllowances.subject, subject),
+            isNull(approvalAllowances.revokedAt)
+        ),
+    });
+    return !!row;
+}
+
+/**
+ * Insert a standing allowance, unless an active one already exists for this
+ * (tenantId, kind, subject) — deduped in code rather than a DB unique
+ * constraint, so re-granting after a revoke (a new row) is always allowed.
+ */
+export async function grantAllowance(
+    tenantId: string,
+    kind: AllowanceKind,
+    subject: string,
+    label: string | null,
+    createdBy: string | null
+): Promise<void> {
+    const existing = await hasStandingAllowance(tenantId, kind, subject);
+    if (existing) return;
+
+    await db.insert(approvalAllowances).values({
+        tenantId,
+        kind,
+        subject,
+        label,
+        createdBy,
+    });
+}
+
+/** Active (un-revoked) standing allowances for this tenant, newest first — for the dashboard panel. */
+export async function listAllowances(tenantId: string): Promise<Allowance[]> {
+    const rows = await db.query.approvalAllowances.findMany({
+        where: and(eq(approvalAllowances.tenantId, tenantId), isNull(approvalAllowances.revokedAt)),
+        orderBy: [desc(approvalAllowances.createdAt)],
+    });
+    return rows.map(toAllowance);
+}
+
+/** Revoke a standing allowance. Returns true iff a matching active row was found and revoked. */
+export async function revokeAllowance(tenantId: string, id: string): Promise<boolean> {
+    const [row] = await db
+        .update(approvalAllowances)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(approvalAllowances.id, id), eq(approvalAllowances.tenantId, tenantId), isNull(approvalAllowances.revokedAt)))
+        .returning({ id: approvalAllowances.id });
+    return !!row;
 }
 
 // ─── callback_data encoding ─────────────────────────────────────────────────
@@ -142,7 +208,7 @@ function buildApprovalKeyboard(approvalId: string): InlineKeyboard {
         .text("✅ Allow", buildCallbackData(approvalId, "allow"))
         .text("🚫 Deny", buildCallbackData(approvalId, "deny"))
         .row()
-        .text("✅ Allow all (session)", buildCallbackData(approvalId, "allowall"));
+        .text("♾️ Allow always", buildCallbackData(approvalId, "allowall"));
 }
 
 function cardText(summary: string): string {
@@ -297,9 +363,46 @@ export async function decide(approvalId: string, action: ApprovalDecisionAction,
     if (!applied) return { ok: false, reason: "already_decided" };
 
     if (action === "allowall" && status === "approved") {
-        const scope = row.kind === "command" ? row.serverId : row.requesterTelegramId;
-        if (scope) grantSessionAllowance(row.tenantId, row.kind as ApprovalKind, scope);
+        await grantAllowanceForApproval(row, approverTelegramId);
     }
 
     return { ok: true, approverLabel };
+}
+
+/**
+ * "Allow always" was tapped: turn the just-decided approval's scope into a
+ * persistent standing allowance. Best-effort label lookup only — a failure
+ * there never blocks the grant itself (it just falls back to the raw id).
+ */
+async function grantAllowanceForApproval(
+    row: typeof pendingApprovals.$inferSelect,
+    createdBy: string
+): Promise<void> {
+    if (row.kind === "command") {
+        if (!row.serverId) return;
+        let label = row.serverId;
+        try {
+            const server = await db.query.servers.findFirst({
+                where: eq(servers.id, row.serverId),
+                columns: { name: true },
+            });
+            if (server?.name) label = server.name;
+        } catch (err) {
+            logger.warn({ err, serverId: row.serverId }, "Failed to look up server name for allowance label");
+        }
+        await grantAllowance(row.tenantId, "server", row.serverId, label, createdBy);
+        return;
+    }
+
+    if (!row.requesterTelegramId) return;
+    let label = row.requesterTelegramId;
+    try {
+        const requester = await getPerson(row.tenantId, row.requesterTelegramId);
+        if (requester?.displayName || requester?.username) {
+            label = requester.displayName || requester.username || label;
+        }
+    } catch (err) {
+        logger.warn({ err, requesterTelegramId: row.requesterTelegramId }, "Failed to look up requester name for allowance label");
+    }
+    await grantAllowance(row.tenantId, "user", row.requesterTelegramId, label, createdBy);
 }
