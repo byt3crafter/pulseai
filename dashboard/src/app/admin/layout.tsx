@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SidebarUserMenu from "../../components/SidebarUserMenu";
 import AdminNav from "../../components/AdminNav";
+import BrandMark from "../../components/BrandMark";
 import CommandPalette from "../../components/admin/CommandPalette";
 import StatusBar from "../../components/admin/StatusBar";
 import ThemeToggle from "../../components/admin/ThemeToggle";
@@ -40,11 +41,9 @@ export default async function AdminLayout({
                 <aside className="w-[232px] flex-shrink-0 bg-pulse-panel border-r border-pulse-border flex flex-col">
                     {/* Brand */}
                     <div className="h-14 px-4 flex items-center gap-2.5 border-b border-pulse-border">
-                        <span className="w-7 h-7 rounded bg-pulse-accent flex items-center justify-center flex-shrink-0">
-                            <span className="text-white font-bold text-sm">P</span>
-                        </span>
+                        <BrandMark size={28} />
                         <div className="min-w-0">
-                            <p className="text-sm font-bold text-pulse-text leading-none">PULSE</p>
+                            <p className="text-sm font-bold text-pulse-text leading-none">Pulse AI</p>
                             <p className="text-[10px] uppercase tracking-[0.2em] text-pulse-faint mt-1">Admin Console</p>
                         </div>
                     </div>
