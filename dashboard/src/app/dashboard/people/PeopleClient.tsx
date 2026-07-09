@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { TrashIcon, UsersIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
-import { PageHeader, Card, CardHeader, Toggle, SettingHint } from "../../../components/dashboard/ui";
+import { PageHeader, Card, CardHeader, SettingRow, Toggle, InfoTip } from "../../../components/dashboard/ui";
 import AgentAvatar from "../../../components/dashboard/AgentAvatar";
 import {
     updateDefaultPersonAccessAction,
@@ -90,6 +90,35 @@ function AccessSegmented({
                     </button>
                 );
             })}
+        </div>
+    );
+}
+
+/**
+ * Compact legend for the People table — folds in what used to be a raw
+ * paragraph dumped at the page bottom. Colored dots mirror the Access pill
+ * colors (green/amber/red); "Requires approval" gets an InfoTip since it
+ * needs a full sentence to explain the approver hand-off.
+ */
+function AccessLegend() {
+    return (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-5 py-2.5 border-b border-pulse-border-subtle bg-pulse-panel-alt/60 text-xs text-pulse-muted">
+            <span className="inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" aria-hidden="true" />
+                <span className="font-medium text-pulse-text-soft">Talk</span> responds
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                <span className="font-medium text-pulse-text-soft">Observe</span> watches only
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden="true" />
+                <span className="font-medium text-pulse-text-soft">Blocked</span> ignored
+            </span>
+            <span className="inline-flex items-center gap-1">
+                <span className="font-medium text-pulse-text-soft">Requires approval</span> holds messages for an approver
+                <InfoTip text={'Held until a designated "Approver" taps Allow/Deny on a Telegram DM card. Toggle a person as an Approver in the table below so they receive those cards.'} />
+            </span>
         </div>
     );
 }
@@ -253,199 +282,210 @@ export default function PeopleClient({
                 </div>
             )}
 
-            <Card className="mb-6">
-                <CardHeader
-                    title="Default access for new people"
-                    description="Applied automatically the first time someone messages your agents. 'Observe' lets them sit in the chat without agents replying, until you grant 'talk'."
-                />
-                <div className="px-5 py-4">
-                    <AccessSegmented value={defaultAccessValue} onChange={handleDefaultAccessChange} />
-                </div>
-            </Card>
+            <div className="space-y-6">
+                <Card>
+                    <SettingRow
+                        title="Default access for new people"
+                        description="Applied automatically the first time someone messages your agents on Telegram."
+                        control={<AccessSegmented value={defaultAccessValue} onChange={handleDefaultAccessChange} />}
+                    />
+                </Card>
 
-            <Card>
-                <CardHeader
-                    title="People"
-                    description="Everyone who has messaged your agents on Telegram, across every group and DM."
-                />
+                <Card>
+                    <CardHeader
+                        title="People"
+                        description="Everyone who has messaged your agents on Telegram, across every group and DM."
+                    />
 
-                {people.length === 0 ? (
-                    <div className="py-16 text-center flex flex-col items-center justify-center">
-                        <UsersIcon className="w-10 h-10 text-pulse-faint mb-3" aria-hidden="true" />
-                        <p className="text-sm text-pulse-muted">No one has messaged your agents yet.</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm border-collapse">
-                            <thead>
-                                <tr className="text-xs uppercase tracking-wide text-pulse-faint border-b border-pulse-border-subtle">
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Person</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Access</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Approver</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Approval mode</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Allowed agents</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Last seen</th>
-                                    <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {people.map((person) => {
-                                    const busy = !!busyRows[person.id];
-                                    const label = person.displayName || person.username || `Telegram user`;
-                                    return (
-                                        <tr key={person.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
-                                            {/* Person */}
-                                            <td className="px-4 py-3 align-top">
-                                                <div className="flex items-center gap-3">
-                                                    <AgentAvatar name={label} avatar={null} size="sm" />
-                                                    <div className="min-w-0">
-                                                        <p className="font-medium text-pulse-text truncate">{label}</p>
-                                                        {person.username && (
-                                                            <p className="text-xs text-pulse-muted truncate">@{person.username}</p>
-                                                        )}
-                                                        <p className="text-[11px] font-mono text-pulse-faint">{person.telegramUserId}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            {/* Access */}
-                                            <td className="px-4 py-3 align-top">
-                                                <AccessSegmented
-                                                    value={person.access}
-                                                    onChange={(next) => handleAccessChange(person, next)}
-                                                    disabled={busy}
-                                                />
-                                            </td>
-
-                                            {/* Approver */}
-                                            <td className="px-4 py-3 align-top">
-                                                <Toggle
-                                                    checked={person.isApprover}
-                                                    onChange={(next) => handleApproverToggle(person, next)}
-                                                    label={`${person.isApprover ? "Remove" : "Mark"} ${label} as approver`}
-                                                    disabled={busy}
-                                                />
-                                            </td>
-
-                                            {/* Approval mode */}
-                                            <td className="px-4 py-3 align-top">
-                                                <select
-                                                    value={person.approvalMode}
-                                                    onChange={(e) => handleApprovalModeChange(person, e.target.value as ApprovalMode)}
-                                                    disabled={busy}
-                                                    aria-label={`Approval mode for ${label}`}
-                                                    className="px-2.5 py-1.5 border border-pulse-border rounded-lg text-xs bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors motion-reduce:transition-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    <option value="auto">Auto</option>
-                                                    <option value="requires_approval">Requires approval</option>
-                                                </select>
-                                            </td>
-
-                                            {/* Allowed agents */}
-                                            <td className="px-4 py-3 align-top">
-                                                <AllowedAgentsPicker
-                                                    agents={agents}
-                                                    allowed={person.allowedAgentIds}
-                                                    onChange={(next) => handleAllowedAgentsChange(person, next)}
-                                                    disabled={busy}
-                                                />
-                                            </td>
-
-                                            {/* Last seen */}
-                                            <td className="px-4 py-3 align-top text-pulse-muted text-xs whitespace-nowrap">
-                                                {formatRelativeTime(person.lastSeenAt)}
-                                            </td>
-
-                                            {/* Actions */}
-                                            <td className="px-4 py-3 align-top text-right">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDelete(person)}
-                                                    disabled={busy}
-                                                    aria-label={`Delete ${label}`}
-                                                    className="p-1.5 rounded-lg text-pulse-faint hover:text-red-500 hover:bg-red-500/10 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    <TrashIcon className="w-4 h-4" aria-hidden="true" />
-                                                </button>
-                                            </td>
+                    {people.length === 0 ? (
+                        <div className="py-12 px-5 text-center flex flex-col items-center justify-center">
+                            <UsersIcon className="w-8 h-8 text-pulse-faint mb-3" aria-hidden="true" />
+                            <p className="text-sm font-medium text-pulse-text">No one has messaged your agents yet.</p>
+                            <p className="text-xs text-pulse-muted mt-1 max-w-sm">
+                                People appear here automatically when they message an agent on Telegram — new people start as{" "}
+                                <span className="font-medium text-amber-500">Observe</span> by default.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <AccessLegend />
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse">
+                                    <thead>
+                                        <tr className="text-xs uppercase tracking-wide text-pulse-faint border-b border-pulse-border-subtle">
+                                            <th scope="col" className="px-4 py-3 text-left font-medium">Person</th>
+                                            <th scope="col" className="px-4 py-3 text-left font-medium">Access</th>
+                                            <th scope="col" className="px-4 py-3 text-left font-medium">
+                                                <span className="inline-flex items-center gap-1">
+                                                    Approver
+                                                    <InfoTip text="Approvers receive Allow/Deny cards on Telegram whenever a person's message requires approval." />
+                                                </span>
+                                            </th>
+                                            <th scope="col" className="px-4 py-3 text-left font-medium">
+                                                <span className="inline-flex items-center gap-1">
+                                                    Approval mode
+                                                    <InfoTip text="Auto responds normally per their access level. Requires approval holds their messages until an Approver taps Allow." />
+                                                </span>
+                                            </th>
+                                            <th scope="col" className="px-4 py-3 text-left font-medium">Allowed agents</th>
+                                            <th scope="col" className="px-4 py-3 text-left font-medium">Last seen</th>
+                                            <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </Card>
-            <SettingHint>
-                "Observe" people can be present in a chat but agents will never respond to them. "Blocked" people are fully ignored.
-                "Requires approval" holds a person's messages until a designated approver taps Allow/Deny on a Telegram DM card —
-                mark someone as an "Approver" above so they receive those cards.
-            </SettingHint>
+                                    </thead>
+                                    <tbody>
+                                        {people.map((person) => {
+                                            const busy = !!busyRows[person.id];
+                                            const label = person.displayName || person.username || `Telegram user`;
+                                            return (
+                                                <tr key={person.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
+                                                    {/* Person */}
+                                                    <td className="px-4 py-3 align-top">
+                                                        <div className="flex items-center gap-3">
+                                                            <AgentAvatar name={label} avatar={null} size="sm" />
+                                                            <div className="min-w-0">
+                                                                <p className="font-medium text-pulse-text truncate">{label}</p>
+                                                                {person.username && (
+                                                                    <p className="text-xs text-pulse-muted truncate">@{person.username}</p>
+                                                                )}
+                                                                <p className="text-[11px] font-mono text-pulse-faint">{person.telegramUserId}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
 
-            <Card className="mt-6">
-                <CardHeader
-                    title="Standing approvals"
-                    description={'People or servers a Telegram approver has tapped "Allow always" for — every future gated request is auto-approved with no prompt until revoked here.'}
-                />
+                                                    {/* Access */}
+                                                    <td className="px-4 py-3 align-top">
+                                                        <AccessSegmented
+                                                            value={person.access}
+                                                            onChange={(next) => handleAccessChange(person, next)}
+                                                            disabled={busy}
+                                                        />
+                                                    </td>
+
+                                                    {/* Approver */}
+                                                    <td className="px-4 py-3 align-top">
+                                                        <Toggle
+                                                            checked={person.isApprover}
+                                                            onChange={(next) => handleApproverToggle(person, next)}
+                                                            label={`${person.isApprover ? "Remove" : "Mark"} ${label} as approver`}
+                                                            disabled={busy}
+                                                        />
+                                                    </td>
+
+                                                    {/* Approval mode */}
+                                                    <td className="px-4 py-3 align-top">
+                                                        <select
+                                                            value={person.approvalMode}
+                                                            onChange={(e) => handleApprovalModeChange(person, e.target.value as ApprovalMode)}
+                                                            disabled={busy}
+                                                            aria-label={`Approval mode for ${label}`}
+                                                            className="px-2.5 py-1.5 border border-pulse-border rounded-lg text-xs bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors motion-reduce:transition-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <option value="auto">Auto</option>
+                                                            <option value="requires_approval">Requires approval</option>
+                                                        </select>
+                                                    </td>
+
+                                                    {/* Allowed agents */}
+                                                    <td className="px-4 py-3 align-top">
+                                                        <AllowedAgentsPicker
+                                                            agents={agents}
+                                                            allowed={person.allowedAgentIds}
+                                                            onChange={(next) => handleAllowedAgentsChange(person, next)}
+                                                            disabled={busy}
+                                                        />
+                                                    </td>
+
+                                                    {/* Last seen */}
+                                                    <td className="px-4 py-3 align-top text-pulse-muted text-xs whitespace-nowrap">
+                                                        {formatRelativeTime(person.lastSeenAt)}
+                                                    </td>
+
+                                                    {/* Actions */}
+                                                    <td className="px-4 py-3 align-top text-right">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDelete(person)}
+                                                            disabled={busy}
+                                                            aria-label={`Delete ${label}`}
+                                                            className="p-1.5 rounded-lg text-pulse-faint hover:text-red-500 hover:bg-red-500/10 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <TrashIcon className="w-4 h-4" aria-hidden="true" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
+                </Card>
 
                 {allowances.length === 0 ? (
-                    <div className="py-16 text-center flex flex-col items-center justify-center">
-                        <ShieldCheckIcon className="w-10 h-10 text-pulse-faint mb-3" aria-hidden="true" />
-                        <p className="text-sm text-pulse-muted">No standing approvals — every gated request is asked each time.</p>
+                    <div className="flex items-center gap-2 px-1 text-xs text-pulse-muted">
+                        <ShieldCheckIcon className="w-4 h-4 text-pulse-faint flex-shrink-0" aria-hidden="true" />
+                        No standing approvals — every gated request is asked each time.
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm border-collapse">
-                            <thead>
-                                <tr className="text-xs uppercase tracking-wide text-pulse-faint border-b border-pulse-border-subtle">
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Type</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Granted to</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Granted</th>
-                                    <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {allowances.map((allowance) => {
-                                    const busy = !!busyRows[allowance.id];
-                                    const label = allowance.label || allowance.subject;
-                                    return (
-                                        <tr key={allowance.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
-                                            <td className="px-4 py-3 align-top">
-                                                <span
-                                                    className={`inline-flex items-center text-xs font-medium rounded-full px-2.5 py-1 border ${
-                                                        allowance.kind === "user"
-                                                            ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
-                                                            : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
-                                                    }`}
-                                                >
-                                                    {allowance.kind === "user" ? "Person" : "Server"}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 align-top">
-                                                <p className="font-medium text-pulse-text truncate">{label}</p>
-                                                <p className="text-[11px] font-mono text-pulse-faint">{allowance.subject}</p>
-                                            </td>
-                                            <td className="px-4 py-3 align-top text-pulse-muted text-xs whitespace-nowrap">
-                                                {formatRelativeTime(allowance.createdAt)}
-                                            </td>
-                                            <td className="px-4 py-3 align-top text-right">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRevokeAllowance(allowance)}
-                                                    disabled={busy}
-                                                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-pulse-border text-pulse-muted hover:border-red-400/60 hover:text-red-500 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    Revoke
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    <Card>
+                        <CardHeader
+                            title="Standing approvals"
+                            description={'People or servers a Telegram approver has tapped "Allow always" for — every future gated request is auto-approved with no prompt until revoked here.'}
+                        />
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm border-collapse">
+                                <thead>
+                                    <tr className="text-xs uppercase tracking-wide text-pulse-faint border-b border-pulse-border-subtle">
+                                        <th scope="col" className="px-4 py-3 text-left font-medium">Type</th>
+                                        <th scope="col" className="px-4 py-3 text-left font-medium">Granted to</th>
+                                        <th scope="col" className="px-4 py-3 text-left font-medium">Granted</th>
+                                        <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {allowances.map((allowance) => {
+                                        const busy = !!busyRows[allowance.id];
+                                        const label = allowance.label || allowance.subject;
+                                        return (
+                                            <tr key={allowance.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
+                                                <td className="px-4 py-3 align-top">
+                                                    <span
+                                                        className={`inline-flex items-center text-xs font-medium rounded-full px-2.5 py-1 border ${
+                                                            allowance.kind === "user"
+                                                                ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
+                                                                : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+                                                        }`}
+                                                    >
+                                                        {allowance.kind === "user" ? "Person" : "Server"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 align-top">
+                                                    <p className="font-medium text-pulse-text truncate">{label}</p>
+                                                    <p className="text-[11px] font-mono text-pulse-faint">{allowance.subject}</p>
+                                                </td>
+                                                <td className="px-4 py-3 align-top text-pulse-muted text-xs whitespace-nowrap">
+                                                    {formatRelativeTime(allowance.createdAt)}
+                                                </td>
+                                                <td className="px-4 py-3 align-top text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRevokeAllowance(allowance)}
+                                                        disabled={busy}
+                                                        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-pulse-border text-pulse-muted hover:border-red-400/60 hover:text-red-500 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Revoke
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
                 )}
-            </Card>
+            </div>
         </div>
     );
 }
