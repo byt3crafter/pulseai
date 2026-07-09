@@ -1,8 +1,8 @@
 import "server-only";
 import nodemailer from "nodemailer";
 import { db } from "../storage/db";
-import { globalSettings } from "../storage/schema";
-import { eq } from "drizzle-orm";
+import { globalSettings, channelConnections } from "../storage/schema";
+import { eq, and } from "drizzle-orm";
 import { decrypt } from "./crypto";
 
 /**
@@ -76,6 +76,45 @@ export async function resolveSmtp(): Promise<ResolvedSmtp | null> {
 
 export async function isEmailConfigured(): Promise<boolean> {
     return (await resolveSmtp()) !== null;
+}
+
+/**
+ * Resolve a TENANT's own SMTP config — stored on channel_connections
+ * (channelType = 'email', configured in the dashboard's Settings → Email tab)
+ * rather than the platform-wide global_settings row. Used to send account
+ * emails (team invites) "from" the tenant's own mailbox when they've set one
+ * up, before falling back to the platform SMTP via `resolveSmtp()`.
+ */
+export async function resolveTenantSmtp(tenantId: string): Promise<ResolvedSmtp | null> {
+    try {
+        const conn = await db.query.channelConnections.findFirst({
+            where: and(eq(channelConnections.tenantId, tenantId), eq(channelConnections.channelType, "email")),
+        });
+        const smtp = (conn?.channelConfig as any)?.smtp;
+        if (!smtp?.host || !smtp?.username || !smtp?.encryptedPassword) return null;
+        let password: string;
+        try {
+            password = decrypt(smtp.encryptedPassword);
+        } catch {
+            console.error("[mailer] Failed to decrypt tenant SMTP password");
+            return null;
+        }
+        return {
+            host: smtp.host,
+            port: smtp.port || 587,
+            secure: !!smtp.tls,
+            user: smtp.username,
+            password,
+            from: smtp.fromAddress || smtp.username,
+        };
+    } catch (error) {
+        console.error("[mailer] Failed to resolve tenant SMTP:", error);
+        return null;
+    }
+}
+
+export async function isTenantEmailConfigured(tenantId: string): Promise<boolean> {
+    return (await resolveTenantSmtp(tenantId)) !== null;
 }
 
 /** Base URL for links in emails (deployment config, not a secret). */
@@ -154,10 +193,9 @@ export async function sendPasswordResetEmail(to: string, link: string): Promise<
     });
 }
 
-export async function sendInviteEmail(to: string, name: string | null, link: string): Promise<boolean> {
+function inviteEmailContent(name: string | null, link: string): { subject: string; html: string; text: string } {
     const greeting = name ? `Hi ${name},` : "Hi,";
-    return sendMail({
-        to,
+    return {
         subject: "You've been invited to Pulse",
         text: `${greeting}\n\nAn account has been created for you on Pulse. Set your password to get started (link valid for 7 days):\n\n${link}`,
         html: layout("Welcome to Pulse", `
@@ -165,5 +203,20 @@ export async function sendInviteEmail(to: string, name: string | null, link: str
             <p style="font-size:14px;line-height:1.6">An account has been created for you on Pulse. Set your password to get started. This link is valid for <strong>7 days</strong>.</p>
             <p style="margin:20px 0">${button(link, "Set your password")}</p>
         `),
-    });
+    };
+}
+
+export async function sendInviteEmail(to: string, name: string | null, link: string): Promise<boolean> {
+    return sendMail({ to, ...inviteEmailContent(name, link) });
+}
+
+/** Same invite email, sent through an explicit (e.g. tenant-owned) SMTP config instead of the platform default. */
+export async function sendInviteEmailWithSmtp(smtp: ResolvedSmtp, to: string, name: string | null, link: string): Promise<boolean> {
+    try {
+        await sendMailWith(smtp, { to, ...inviteEmailContent(name, link) });
+        return true;
+    } catch (error) {
+        console.error("[mailer] Failed to send invite via tenant SMTP:", error);
+        return false;
+    }
 }

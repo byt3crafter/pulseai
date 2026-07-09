@@ -18,6 +18,7 @@ import {
     ShieldCheckIcon,
     Squares2X2Icon,
     UsersIcon,
+    UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
 interface CommandPaletteProps {
@@ -86,6 +87,7 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
         if (chatgptConnect) {
             pages.push({ key: "page-chatgpt", label: "ChatGPT Connect", href: "/dashboard/chatgpt", group: "Pages", icon: SparklesIcon });
         }
+        pages.push({ key: "page-team", label: "Team", href: "/dashboard/team", group: "Pages", icon: UserGroupIcon });
         pages.push({ key: "page-settings", label: "Settings", href: "/dashboard/settings", group: "Pages", icon: Cog6ToothIcon });
 
         const settings: PaletteItem[] = SETTINGS_TABS.map((t) => ({

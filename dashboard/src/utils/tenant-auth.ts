@@ -10,7 +10,10 @@ import { hasPermission, type Permission } from "./permissions";
  */
 export async function requireTenant(
     permission?: Permission,
-): Promise<{ authorized: true; tenantId: string; accessRole: string } | { authorized: false; message: string }> {
+): Promise<
+    | { authorized: true; tenantId: string; accessRole: string; userId: string }
+    | { authorized: false; message: string }
+> {
     const resolved = await resolveTenantUser();
     if (!resolved) return { authorized: false, message: "Unauthorized." };
 
@@ -19,14 +22,19 @@ export async function requireTenant(
     if (permission && !hasPermission("tenant", effectiveRole, permission)) {
         return { authorized: false, message: "You don't have permission to perform this action." };
     }
-    return { authorized: true, tenantId: resolved.tenantId, accessRole: effectiveRole };
+    return { authorized: true, tenantId: resolved.tenantId, accessRole: effectiveRole, userId: resolved.userId };
 }
 
-async function resolveTenantUser(): Promise<{ tenantId: string; accessRole: string; isPlatform: boolean } | null> {
+async function resolveTenantUser(): Promise<{ tenantId: string; accessRole: string; userId: string; isPlatform: boolean } | null> {
     const session = await auth();
     const u = session?.user;
     if ((u?.role === "TENANT" || u?.role === "ADMIN") && u.tenantId) {
-        return { tenantId: u.tenantId, accessRole: (u as any).accessRole || "owner", isPlatform: u.role === "ADMIN" };
+        return {
+            tenantId: u.tenantId,
+            accessRole: (u as any).accessRole || "owner",
+            userId: u.id,
+            isPlatform: u.role === "ADMIN",
+        };
     }
 
     try {
@@ -44,6 +52,7 @@ async function resolveTenantUser(): Promise<{ tenantId: string; accessRole: stri
             return {
                 tenantId: decoded.tenantId as string,
                 accessRole: (decoded.accessRole as string) || "owner",
+                userId: decoded.id as string,
                 isPlatform: decoded.role === "ADMIN",
             };
         }
