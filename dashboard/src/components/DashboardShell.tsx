@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bars3Icon, CpuChipIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import BrandMark from "./BrandMark";
 import ThemeToggle from "./ThemeToggle";
 
 interface DashboardShellProps {
@@ -68,9 +69,7 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
             <aside className="hidden md:flex w-60 bg-pulse-panel flex-shrink-0 flex-col border-r border-pulse-border-subtle h-dvh">
                 <div className="h-14 px-5 flex items-center border-b border-pulse-border-subtle flex-shrink-0">
                     <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <CpuChipIcon className="w-4 h-4 text-white" aria-hidden="true" />
-                        </div>
+                        <BrandMark size={28} />
                         <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
                     </Link>
                 </div>
@@ -109,9 +108,7 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
                 >
                     <div className="h-14 px-4 flex items-center justify-between border-b border-pulse-border-subtle flex-shrink-0">
                         <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0" onClick={() => setDrawerOpen(false)}>
-                            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <CpuChipIcon className="w-4 h-4 text-white" aria-hidden="true" />
-                            </div>
+                            <BrandMark size={28} />
                             <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
                         </Link>
                         <button
