@@ -171,10 +171,10 @@ export default function SkillsEditor({ agentId, skillConfig, defaultSkills }: Pr
                                         return (
                                             <div
                                                 key={skill.name}
-                                                className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
-                                                    enabled
-                                                        ? "border-indigo-500/30 bg-pulse-tint"
-                                                        : "border-pulse-border-subtle bg-pulse-panel-alt"
+                                                className={`flex items-center justify-between px-4 py-3 rounded-lg border border-pulse-border-subtle ${
+                                                    overridden
+                                                        ? "bg-pulse-panel-alt"
+                                                        : "bg-pulse-panel-alt/40"
                                                 }`}
                                             >
                                                 <div className="flex-1 min-w-0">
