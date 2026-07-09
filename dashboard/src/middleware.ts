@@ -15,6 +15,12 @@ export default auth((req) => {
     if (/\.(png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf|css|js|map|mp4|webm|txt|xml|json)$/i.test(nextUrl.pathname)) {
         return NextResponse.next();
     }
+    // Next.js metadata routes (favicon/app icon, apple-icon, og image) are served
+    // at extension-less paths like /icon — let them through so the favicon loads
+    // on public pages instead of 307-redirecting to /login.
+    if (/^\/(icon|apple-icon|favicon|opengraph-image|twitter-image)($|\/|-|\?)/.test(nextUrl.pathname)) {
+        return NextResponse.next();
+    }
 
     const isLoggedIn = !!req.auth;
     const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth") || nextUrl.pathname === "/api/sso-status";
