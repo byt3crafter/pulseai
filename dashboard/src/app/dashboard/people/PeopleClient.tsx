@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { TrashIcon, UsersIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
-import { PageHeader, Card, CardHeader, SettingRow, Toggle, InfoTip } from "../../../components/dashboard/ui";
+import { PageHeader, Card, CardHeader, EmptyState, SettingRow, Toggle, InfoTip } from "../../../components/dashboard/ui";
 import AgentAvatar from "../../../components/dashboard/AgentAvatar";
 import {
     updateDefaultPersonAccessAction,
@@ -298,14 +298,16 @@ export default function PeopleClient({
                     />
 
                     {people.length === 0 ? (
-                        <div className="py-12 px-5 text-center flex flex-col items-center justify-center">
-                            <UsersIcon className="w-8 h-8 text-pulse-faint mb-3" aria-hidden="true" />
-                            <p className="text-sm font-medium text-pulse-text">No one has messaged your agents yet.</p>
-                            <p className="text-xs text-pulse-muted mt-1 max-w-sm">
-                                People appear here automatically when they message an agent on Telegram — new people start as{" "}
-                                <span className="font-medium text-amber-500">Observe</span> by default.
-                            </p>
-                        </div>
+                        <EmptyState
+                            icon={UsersIcon}
+                            title="No one has messaged your agents yet"
+                            description={
+                                <>
+                                    People appear here automatically when they message an agent on Telegram — new people start as{" "}
+                                    <span className="font-medium text-amber-500">Observe</span> by default.
+                                </>
+                            }
+                        />
                     ) : (
                         <>
                             <AccessLegend />

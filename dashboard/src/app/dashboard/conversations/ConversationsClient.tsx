@@ -10,7 +10,7 @@ import {
     InboxIcon,
     MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
-import { PageHeader, Card, Toggle } from "../../../components/dashboard/ui";
+import { PageHeader, Card, EmptyState, Toggle } from "../../../components/dashboard/ui";
 import AgentAvatar from "../../../components/dashboard/AgentAvatar";
 import { humanizeChannel, isSystemConversation, relativeTime, secondaryChannelLabel } from "./utils";
 
@@ -107,7 +107,7 @@ export default function ConversationsClient({
     const allSystemHidden = !showSystem && scoped.length === 0 && conversations.length > 0;
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
             <PageHeader
                 title="Conversations"
                 description="Every conversation thread with your contacts, across every channel."
@@ -261,27 +261,6 @@ export default function ConversationsClient({
                     </ul>
                 )}
             </Card>
-        </div>
-    );
-}
-
-function EmptyState({
-    icon: Icon,
-    title,
-    description,
-    action,
-}: {
-    icon: typeof InboxIcon;
-    title: string;
-    description: string;
-    action?: React.ReactNode;
-}) {
-    return (
-        <div className="flex flex-col items-center justify-center text-center px-6 py-16">
-            <Icon className="w-10 h-10 text-pulse-faint mb-3" aria-hidden="true" />
-            <p className="text-sm font-medium text-pulse-text">{title}</p>
-            <p className="text-sm text-pulse-muted mt-1 max-w-sm">{description}</p>
-            {action && <div className="mt-4">{action}</div>}
         </div>
     );
 }
