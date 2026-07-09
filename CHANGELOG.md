@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.8] - 2026-07-09
+
+### Bug Fixes
+- fold Credentials into the Settings tab shell for uniform layout
+
 ## [0.14.7] - 2026-07-09
 
 ### Bug Fixes
