@@ -126,8 +126,8 @@ export class ToolRegistry {
                     }
                 }
 
-                // 3. Inject plugin-contributed tools
-                const pluginTools = pluginManager.getPluginTools();
+                // 3. Inject tenant-enabled plugin-contributed tools
+                const pluginTools = await pluginManager.getPluginToolsForTenant(tenantId);
                 tools.push(...pluginTools);
 
                 // 3.5 Inject per-tenant custom tools (customer's own API/software), scoped to this agent

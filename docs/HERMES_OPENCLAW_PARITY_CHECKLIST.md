@@ -39,7 +39,8 @@ Scale observed:
 | Discord | Draft setup UI only | Credentials can be saved as draft; runtime adapter missing | P1 | Tenant UI supports bot token/guild setup, adapter routes DMs/groups |
 | WebChat | Draft setup UI only | Widget/runtime path still missing | P1 | Tenant can create webchat widget config and embed script without code edits |
 | Signal/Teams/Matrix/Google Chat/LINE/etc. | Missing | OpenClaw/Hermes have broad platform catalogs | P2 | Channel adapter SDK supports these as plugins without core edits |
-| Plugin catalog | Thin | ERPNext only | P0 | Catalog UI shows installed/available plugins and can configure at least ERPNext, QuickBooks/Xero, browser/search |
+| Business integration catalog | Implemented foundation | ERPNext is runtime-backed with tenant enable/disable; QuickBooks/Xero/Pastel/Generic REST are setup-visible, runtime plugins still missing | P0 | Catalog UI shows setup and runtime status honestly, and tenant disablement affects runtime tools |
+| Plugin catalog | Partial | Business integration catalog exists; broader plugin marketplace/catalog still thin | P0 | Catalog UI shows installed/available plugins and can configure ERPNext, QuickBooks/Xero, browser/search |
 | Plugin permissions | Partial | Hash approval exists; runtime enforcement and signing need hardening | P0 | Admin approves signed manifests, permissions enforced at runtime, drift disables plugin |
 | Provider catalog | Partial | Static provider registry, not catalog/plugin driven | P1 | Providers can be added/configured without source edits and appear in admin/tenant UI |
 | Browser automation | Missing | No browser/computer-use tool in registry | P0 | Admin enables browser backend, tenant/agent policy controls it, tool can browse/scrape/forms with tests |

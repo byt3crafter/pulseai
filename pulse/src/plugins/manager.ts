@@ -13,10 +13,11 @@ import { db } from "../storage/db.js";
 import { installedPlugins } from "../storage/schema.js";
 import { eq } from "drizzle-orm";
 import { computeManifestHash, summarizeCapabilities, CapabilitySummary } from "./manifest-hash.js";
+import { isPluginEnabledForTenant } from "./tenant-access.js";
 
 export class PluginManager {
     private loadedPlugins: Map<string, LoadedPlugin> = new Map();
-    private pluginTools: Tool[] = [];
+    private pluginTools: Array<{ pluginName: string; tool: Tool }> = [];
     private activePlugins: Set<string> = new Set();
 
     /**
@@ -94,7 +95,7 @@ export class PluginManager {
 
         // Collect tools
         if (manifest.tools && manifest.tools.length > 0) {
-            this.pluginTools.push(...manifest.tools);
+            this.pluginTools.push(...manifest.tools.map((tool) => ({ pluginName: manifest.name, tool })));
             logger.debug(
                 { pluginName: manifest.name, toolCount: manifest.tools.length },
                 "Plugin tools registered"
@@ -163,7 +164,27 @@ export class PluginManager {
      * Get all tools provided by plugins.
      */
     getPluginTools(): Tool[] {
-        return this.pluginTools;
+        return this.pluginTools.map((entry) => entry.tool);
+    }
+
+    /**
+     * Get plugin tools enabled for a tenant. Platform plugin activation is checked
+     * at load time; tenant overrides are checked per request.
+     */
+    async getPluginToolsForTenant(tenantId: string): Promise<Tool[]> {
+        const tools: Tool[] = [];
+        const enabledCache = new Map<string, boolean>();
+
+        for (const entry of this.pluginTools) {
+            let enabled = enabledCache.get(entry.pluginName);
+            if (enabled === undefined) {
+                enabled = await isPluginEnabledForTenant(entry.pluginName, tenantId);
+                enabledCache.set(entry.pluginName, enabled);
+            }
+            if (enabled) tools.push(entry.tool);
+        }
+
+        return tools;
     }
 
     /**
