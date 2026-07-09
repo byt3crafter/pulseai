@@ -99,6 +99,7 @@ export async function addCredential(formData: FormData) {
             });
 
         revalidatePath("/dashboard/settings/credentials");
+        revalidatePath("/dashboard/settings");
     } catch (error) {
         console.error("Failed to add credential:", error);
     }
@@ -113,6 +114,7 @@ export async function deleteCredential(formData: FormData) {
         const credentialId = formData.get("credentialId") as string;
         await db.delete(credentials).where(and(eq(credentials.id, credentialId), eq(credentials.tenantId, tenantId)));
         revalidatePath("/dashboard/settings/credentials");
+        revalidatePath("/dashboard/settings");
     } catch (error) {
         console.error("Failed to delete credential:", error);
     }

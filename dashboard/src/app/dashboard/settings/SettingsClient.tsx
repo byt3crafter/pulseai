@@ -41,6 +41,16 @@ import ConfirmDialog from "../../../components/ConfirmDialog";
 import TwoFactorCard from "../../../components/TwoFactorCard";
 import { PageHeader, Card, CardHeader, EmptyState, SettingRow, Toggle } from "../../../components/dashboard/ui";
 import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../components/dashboard/SignatureEditor";
+import DeleteCredentialButton from "./credentials/DeleteCredentialButton";
+
+interface CredentialInfo {
+    id: string;
+    name: string;
+    credentialType: string;
+    description: string | null;
+    agentId: string | null;
+    updatedAt: string | null;
+}
 
 const TABS = [
     { id: "account", label: "Account" },
@@ -50,7 +60,7 @@ const TABS = [
     { id: "memory", label: "Memory" },
     { id: "email", label: "Email" },
     { id: "plugins", label: "Plugins" },
-    { id: "credentials", label: "Credentials", href: "/dashboard/settings/credentials" },
+    { id: "credentials", label: "Credentials" },
     { id: "api", label: "API & Developer" },
     { id: "billing", label: "Billing" },
 ];
@@ -137,6 +147,9 @@ interface Props {
     emailConfig: { smtp?: any; imap?: any; signature?: SignatureValue } | null;
     embeddingConfigured: boolean;
     allowSelfReset: boolean;
+    credentials: CredentialInfo[];
+    credentialAgents: { id: string; name: string }[];
+    addCredential: (formData: FormData) => Promise<void>;
 }
 
 export default function SettingsClient({
@@ -148,6 +161,9 @@ export default function SettingsClient({
     emailConfig,
     embeddingConfigured,
     allowSelfReset,
+    credentials,
+    credentialAgents,
+    addCredential,
 }: Props) {
     const router = useRouter();
 
@@ -196,6 +212,7 @@ export default function SettingsClient({
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} />}
+                    {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
                     {tab === "billing" && <BillingTab credits={credits} />}
                 </div>
@@ -2313,6 +2330,111 @@ function BillingTab({ credits }: { credits: number }) {
                     ))}
                 </div>
                 <p className="text-xs text-pulse-faint mt-3">Contact your administrator to top up your balance.</p>
+            </Section>
+        </div>
+    );
+}
+
+// ─── Credentials Tab ─────────────────────────────────────────────────────────
+
+function CredentialsTab({
+    credentials,
+    agents,
+    addCredential,
+}: {
+    credentials: CredentialInfo[];
+    agents: { id: string; name: string }[];
+    addCredential: (formData: FormData) => Promise<void>;
+}) {
+    const inputCls = "w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all";
+    const agentName = (id: string | null) => (id ? agents.find((a) => a.id === id)?.name || "Specific agent" : "All agents");
+
+    return (
+        <div className="space-y-6">
+            <Section title="API Credentials" description="Store API keys and secrets securely. Agents access these as environment variables in code execution.">
+                <form action={addCredential} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Name (env var name)</label>
+                            <input name="name" required placeholder="ERPNEXT_API_KEY" className={`${inputCls} font-mono uppercase`} />
+                            <p className="text-xs text-pulse-faint mt-1">Auto-uppercased. Agents use: os.environ[&quot;NAME&quot;]</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Type</label>
+                            <select name="credentialType" className={inputCls}>
+                                <option value="api_key">API Key</option>
+                                <option value="bearer">Bearer Token</option>
+                                <option value="basic">Basic Auth</option>
+                                <option value="oauth2">OAuth2</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Value (secret)</label>
+                        <input type="password" name="value" required placeholder="Your API key or secret" className={inputCls} />
+                        <p className="text-xs text-pulse-faint mt-1">Encrypted at rest with AES-256-GCM. Never shown after saving.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Description</label>
+                            <input name="description" placeholder="What this credential is for" className={inputCls} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Base URL (optional)</label>
+                            <input name="baseUrl" placeholder="https://erp.company.com" className={inputCls} />
+                            <p className="text-xs text-pulse-faint mt-1">Injected as NAME_URL env var</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Agent Scope</label>
+                        <select name="agentId" className={inputCls}>
+                            <option value="">All Agents</option>
+                            {agents.map((a) => (
+                                <option key={a.id} value={a.id}>{a.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex justify-end">
+                        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel">
+                            Add Credential
+                        </button>
+                    </div>
+                </form>
+            </Section>
+
+            <Section title="Stored Credentials" description={`${credentials.length} credential(s) configured.`}>
+                {credentials.length === 0 ? (
+                    <p className="text-sm text-pulse-faint py-6 text-center">No credentials stored yet. Add one above.</p>
+                ) : (
+                    <div className="overflow-x-auto -mx-5">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-xs text-pulse-muted border-b border-pulse-border-subtle">
+                                    <th className="px-5 py-2.5 font-medium">Name</th>
+                                    <th className="px-5 py-2.5 font-medium">Type</th>
+                                    <th className="px-5 py-2.5 font-medium">Description</th>
+                                    <th className="px-5 py-2.5 font-medium">Scope</th>
+                                    <th className="px-5 py-2.5 font-medium">Updated</th>
+                                    <th className="px-5 py-2.5 font-medium text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {credentials.map((c) => (
+                                    <tr key={c.id} className="border-b border-pulse-border-subtle last:border-0 hover:bg-pulse-hover transition-colors motion-reduce:transition-none">
+                                        <td className="px-5 py-3 font-mono text-pulse-text">{c.name}</td>
+                                        <td className="px-5 py-3">
+                                            <span className="px-2 py-0.5 text-xs bg-pulse-panel-alt text-pulse-muted rounded-full">{c.credentialType}</span>
+                                        </td>
+                                        <td className="px-5 py-3 text-pulse-muted">{c.description || "—"}</td>
+                                        <td className="px-5 py-3 text-pulse-muted">{agentName(c.agentId)}</td>
+                                        <td className="px-5 py-3 text-xs text-pulse-faint">{c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "—"}</td>
+                                        <td className="px-5 py-3 text-right"><DeleteCredentialButton credentialId={c.id} /></td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </Section>
         </div>
     );
