@@ -10,6 +10,7 @@ import { autoMemoryService } from "../memory/auto-memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
 import { resolveAgent } from "./orchestration/agent-router.js";
 import { getChannelLeadContext } from "../gateway/channel-service.js";
+import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
@@ -50,7 +51,8 @@ export class AgentRuntime {
                 chatId: string,
                 messageId: string,
                 content: string,
-                parseMode?: string
+                parseMode?: string,
+                agentProfileId?: string
             ) => Promise<void>;
         }
     ): Promise<void> {
@@ -81,6 +83,7 @@ export class AgentRuntime {
                     await sendMessageCallback({
                         conversationId: randomUUID(), // Fallback conversation string
                         tenantId: inbound.tenantId,
+                        agentProfileId: inbound.agentProfileId,
                         channelType: inbound.channelType,
                         channelContactId: inbound.channelContactId,
                         content: "Your account has insufficient credits to process this message. Please top up your balance in the dashboard.",
@@ -162,6 +165,41 @@ export class AgentRuntime {
                 }
             }
 
+            // 3.55. People access control (Telegram-only, Stage 1): the adapter already
+            // filters out "blocked"/"observe" senders before a message ever reaches the
+            // queue/runtime. What the adapter *can't* know in advance is which agent a
+            // tenant-wide default bot will route to (that's decided above, by
+            // resolveAgent/the tenant fallback) — so this is the one check that has to
+            // live here rather than in the adapter: does this "talk"-access person have
+            // permission to address the agent that was just resolved?
+            if (inbound.channelType === "telegram" && resolvedAgentProfileId) {
+                const telegramUserId = inbound.isGroup ? inbound.senderUserId : inbound.channelContactId;
+                if (telegramUserId) {
+                    const person = await getPerson(inbound.tenantId, telegramUserId);
+                    if (person && person.access !== "talk") {
+                        // Defense in depth — should not normally trigger since the adapter
+                        // already stops blocked/observe senders before dispatch.
+                        tenantLog.info({ access: person.access }, "Person lacks talk access — dropping message");
+                        return;
+                    }
+                    if (person && !canAddressAgent(person, resolvedAgentProfileId)) {
+                        const targetProfile = await db.query.agentProfiles.findFirst({
+                            where: eq(agentProfiles.id, resolvedAgentProfileId),
+                            columns: { name: true },
+                        });
+                        await sendMessageCallback({
+                            conversationId: conversation.id,
+                            tenantId: inbound.tenantId,
+                            agentProfileId: resolvedAgentProfileId,
+                            channelType: inbound.channelType,
+                            channelContactId: inbound.channelContactId,
+                            content: `You don't have access to ${targetProfile?.name ?? "this agent"} here.`,
+                        });
+                        return;
+                    }
+                }
+            }
+
             // 3.6. Get enabled tools for tenant and agent profile
             const enabledTools = await this.toolRegistry.getEnabledTools(inbound.tenantId, resolvedAgentProfileId ?? undefined);
 
@@ -205,6 +243,12 @@ export class AgentRuntime {
             // 3.75 Resolve per-agent model and system prompt (workspace-first, DB fallback)
             let basePrompt = defaultSystemPrompt;
             let activeModelId = getDefaultModel().id;
+            let activeAgentName = "Agent";
+            // Per-agent progress verbosity: "off" | "progress" (default) | "verbose".
+            let activeProgressVerbosity = "progress";
+            // Per-agent reasoning effort override (Codex/GPT-5.5 etc.). Undefined
+            // means "let the provider use its own default" — never send a bogus value.
+            let activeReasoningEffort: string | undefined = undefined;
             // Determine prompt mode — delegated calls use minimal mode
             const promptMode: PromptMode = inbound.channelType === "heartbeat" ? "minimal" : "full";
 
@@ -223,6 +267,13 @@ export class AgentRuntime {
                     // Use per-agent model if set
                     if (profile.modelId) {
                         activeModelId = profile.modelId;
+                    }
+                    if (profile.name) activeAgentName = profile.name;
+                    if (profile.progressVerbosity) activeProgressVerbosity = profile.progressVerbosity;
+
+                    // Use per-agent reasoning effort if set (null/absent = inherit default)
+                    if (profile.reasoningEffort) {
+                        activeReasoningEffort = profile.reasoningEffort;
                     }
 
                     // Try workspace prompt first, fall back to DB systemPrompt
@@ -327,23 +378,44 @@ export class AgentRuntime {
                 skills: skillsContent,
                 promptMode,
                 contactName: inbound.contactName,
+                senderUsername: inbound.senderUsername,
                 isGroup: inbound.isGroup,
                 groupTitle: inbound.groupTitle,
                 routableChannels,
             });
 
-            // 3.885 If self-editing is enabled, state it explicitly. Mid-tier models
-            // (e.g. MiniMax) otherwise falsely claim they "have no filesystem access"
-            // and refuse, even though the workspace_update tool is in their toolset.
+            // 3.885 If self-editing is enabled, state it explicitly. Models otherwise
+            // falsely claim they "have no filesystem access" and refuse — especially
+            // when older conversation turns (from before the tool existed) say so.
+            // On the codex provider the tool arrives via the "pulse" MCP server
+            // (operator bridge), so use MCP wording there.
             if (enabledTools.some((t) => t.name === "workspace_update")) {
+                const viaCodex = getProviderByModel(activeModelId)?.id === "codex";
                 activeSystemPrompt +=
                     "\n\n## Editing your own workspace (IMPORTANT)\n" +
-                    "You DO have a `workspace_update` tool right now. You CAN edit your own workspace files: " +
+                    (viaCodex
+                        ? "You DO have a `workspace_update` tool available RIGHT NOW via the `pulse` MCP server (check your MCP tools). "
+                        : "You DO have a `workspace_update` tool right now. ") +
+                    "You CAN edit your own workspace files: " +
                     "SOUL.md, IDENTITY.md, MEMORY.md, HEARTBEAT.md, TOOLS.md, USER.md, AGENTS.md, BOOTSTRAP.md. " +
                     "When the user asks you to update your workspace, personality, identity, memory, or instructions, " +
                     "actually CALL `workspace_update` with the full new file content — do not just acknowledge. " +
                     "NEVER tell the user you lack filesystem access or that the tool isn't available: you have it. " +
+                    "Ignore any earlier claims in this conversation that the tool is unavailable — those predate your current toolset. " +
                     "Only confirm the change after the tool call returns successfully.";
+            }
+
+            // 3.886 If the agent has dedicated email tools, force it to use them.
+            // Otherwise (esp. on slow Codex turns) it tries to operate webmail
+            // through the browser tools — clicking Compose, filling the To field —
+            // which is dramatically slower and blows the turn timeout.
+            if (enabledTools.some((t) => t.name === "email_send")) {
+                activeSystemPrompt +=
+                    "\n\n## Sending & reading email (IMPORTANT)\n" +
+                    "To send email, ALWAYS call the `email_send` tool with {to, subject, body}. " +
+                    "To read or list email, use `email_read` / `email_list`. " +
+                    "NEVER operate a webmail site (SOGo, Gmail, Outlook) through the browser tools to send or read mail — " +
+                    "that is slow, error-prone, and will time out. The email tools talk to your mailbox directly over SMTP/IMAP.";
             }
 
             // 3.89 Run before-prompt-build plugin hooks (plugins can append/modify)
@@ -359,16 +431,20 @@ export class AgentRuntime {
                 tenantLog.warn({ err }, "Plugin before-prompt-build hook failed (non-fatal)");
             }
 
-            // 3.9 Pre-Flight: Verify an AI provider key exists before calling the LLM
+            // 3.9 Pre-Flight: Verify an AI provider key exists before calling the LLM.
+            // "codex" is keyless — it authenticates via the local Codex CLI (CODEX_HOME
+            // / ChatGPT subscription), so it's exempt from the API-key requirement.
             const providerDef = getProviderByModel(activeModelId);
             const providerId = providerDef?.id ?? "anthropic";
-            const resolvedKey = await providerKeyService.resolveKey(inbound.tenantId, providerId);
+            const keylessProvider = providerId === "codex";
+            const resolvedKey = keylessProvider ? null : await providerKeyService.resolveKey(inbound.tenantId, providerId);
 
-            if (!resolvedKey) {
+            if (!resolvedKey && !keylessProvider) {
                 tenantLog.warn({ model: activeModelId, provider: providerId }, "No AI provider key configured");
                 await sendMessageCallback({
                     conversationId: conversation.id,
                     tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
                     channelType: inbound.channelType,
                     channelContactId: inbound.channelContactId,
                     content: `Setup required: No AI provider key is configured for ${providerDef?.name || providerId}. Please go to your dashboard Settings > AI Providers and add an API key, or ask your administrator to configure one.`,
@@ -406,7 +482,9 @@ export class AgentRuntime {
                                 inbound.tenantId,
                                 inbound.channelContactId,
                                 streamMessageId,
-                                streamAccumulated + " ..."
+                                streamAccumulated + " ...",
+                                undefined,
+                                resolvedAgentProfileId ?? undefined
                             ).catch(() => {});
                         }
                     },
@@ -419,6 +497,7 @@ export class AgentRuntime {
                 const placeholder = await sendMessageCallback({
                     conversationId: conversation.id,
                     tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
                     channelType: inbound.channelType,
                     channelContactId: inbound.channelContactId,
                     content: "...",
@@ -428,13 +507,75 @@ export class AgentRuntime {
                 lastEditTime = Date.now();
             }
 
+            // Progress streaming for TOOL turns (text streaming above only fires
+            // for tool-less turns). While the agent works through a long,
+            // otherwise-silent operation (e.g. cOrtex running server commands),
+            // show a live "working…" status the human can watch — like
+            // OpenClaw/Hermes. The final reply replaces it; a silent turn just
+            // leaves the last status. Only for channels that support edits.
+            let progressMsgId: string | null = null;
+            const progressSteps: string[] = [];
+            let progressStepCount = 0;
+            let lastProgressEdit = 0;
+            let progressSending = false;
+            const PROGRESS_THROTTLE_MS = 2500;
+            const agentDisplayName = activeAgentName || "Agent";
+            const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const spinnerFrames = ["◐", "◓", "◑", "◒"];
+            const renderProgress = () => {
+                const frame = spinnerFrames[progressStepCount % spinnerFrames.length];
+                const shown = progressSteps.slice(-7);
+                const hidden = progressSteps.length - shown.length;
+                const lines = shown.map((l) => `<code>❯ ${escHtml(l)}</code>`);
+                const head = `${frame} <b>${escHtml(agentDisplayName)}</b> <i>working…</i>`;
+                const more = hidden > 0 ? `\n<i>…+${hidden} earlier</i>` : "";
+                return `${head}\n\n${lines.join("\n")}${more}`;
+            };
+            let onProgress: ((text: string) => void) | undefined;
+            if (options?.editMessageCallback && toolDefinitions.length > 0 && activeProgressVerbosity !== "off") {
+                onProgress = (text: string) => {
+                    // De-dupe consecutive identical steps.
+                    if (progressSteps[progressSteps.length - 1] !== text) {
+                        progressSteps.push(text);
+                        progressStepCount++;
+                    }
+                    const now = Date.now();
+                    if (now - lastProgressEdit < PROGRESS_THROTTLE_MS || progressSending) return;
+                    lastProgressEdit = now;
+                    const body = renderProgress();
+                    if (!progressMsgId) {
+                        progressSending = true;
+                        sendMessageCallback({
+                            conversationId: conversation.id,
+                            tenantId: inbound.tenantId,
+                            agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
+                            channelType: inbound.channelType,
+                            channelContactId: inbound.channelContactId,
+                            content: body,
+                            format: "html",
+                        }).then((r) => { progressMsgId = r.channelMessageId; }).catch(() => {}).finally(() => { progressSending = false; });
+                    } else {
+                        options.editMessageCallback!(
+                            inbound.tenantId, inbound.channelContactId, progressMsgId, body,
+                            "html", resolvedAgentProfileId ?? undefined,
+                        ).catch(() => {});
+                    }
+                };
+            }
+
             let llmResponse = await this.providerManager.chat({
+                agentProfileId: resolvedAgentProfileId ?? undefined,
+                conversationId: conversation.id,
                 model: activeModelId,
                 tenantId: inbound.tenantId,
+                onProgress,
+                progressVerbosity: activeProgressVerbosity,
                 systemPrompt: activeSystemPrompt,
                 messages: llmMessages,
                 tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
                 stream: streamCallbacks,
+                attachments: inbound.attachments,
+                reasoningEffort: activeReasoningEffort,
             });
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
@@ -511,6 +652,8 @@ export class AgentRuntime {
 
                 // Call LLM with tool results — same model + tenant routing
                 llmResponse = await this.providerManager.chat({
+                    agentProfileId: resolvedAgentProfileId ?? undefined,
+                    conversationId: conversation.id,
                     model: activeModelId,
                     tenantId: inbound.tenantId,
                     systemPrompt: activeSystemPrompt,
@@ -520,6 +663,8 @@ export class AgentRuntime {
                         toolResultMessage as any,
                     ],
                     tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+                    attachments: inbound.attachments,
+                    reasoningEffort: activeReasoningEffort,
                 });
 
                 totalInputTokens += llmResponse.usage.inputTokens;
@@ -557,6 +702,12 @@ export class AgentRuntime {
                     senderAgentId: inbound.channelId ? (resolvedAgentProfileId ?? null) : null,
                 });
             }
+
+            // Bump the conversation's updatedAt so "Last Updated" reflects real
+            // activity (not just creation) and threads sort by recency.
+            await db.update(conversations)
+                .set({ updatedAt: new Date() })
+                .where(eq(conversations.id, conversation.id));
 
             // Auto-memory runs in the BACKGROUND (fire-and-forget) so its extra
             // extraction LLM call never delays the user's reply. It bills its own
@@ -686,12 +837,14 @@ export class AgentRuntime {
                     inbound.channelContactId,
                     streamMessageId,
                     llmResponse.content,
-                    "markdown"
+                    "markdown",
+                    resolvedAgentProfileId ?? undefined
                 ).catch((e) => tenantLog.error({ e }, "Failed final streaming edit"));
             } else {
                 const outbound: OutboundMessage = {
                     conversationId: conversation.id,
                     tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
                     channelType: inbound.channelType,
                     channelContactId: inbound.channelContactId,
                     content: llmResponse.content,
@@ -745,6 +898,7 @@ export class AgentRuntime {
             await sendMessageCallback({
                 conversationId: randomUUID(),
                 tenantId: inbound.tenantId,
+                agentProfileId: inbound.agentProfileId,
                 channelType: inbound.channelType,
                 channelContactId: inbound.channelContactId,
                 content: userMessage,

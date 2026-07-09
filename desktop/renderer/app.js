@@ -1,9 +1,27 @@
 // Pulse desktop renderer — talks to the gateway App API (/api/app/*).
-const DEFAULT_SERVER = "https://pulse.runstate.mu:8082";
+// The gateway is fronted by HTTPS at /api/gateway on the main domain (valid
+// cert + WebSocket). Port 8082 is plain HTTP and must NOT be used for login.
+const DEFAULT_SERVER = "https://pulse.runstate.mu/api/gateway";
+// Auto-migrate machines that saved a known-broken URL from an older build.
+const LEGACY_SERVERS = [
+    "https://pulse.runstate.mu:8082",
+    "http://pulse.runstate.mu:8082",
+    "https://pulse.runstate.mu",
+    "https://pulse.runstate.mu/",
+];
 const $ = (id) => document.getElementById(id);
 
+function resolveSavedServer() {
+    const saved = localStorage.getItem("pulse.server");
+    if (!saved || LEGACY_SERVERS.includes(saved.replace(/\/$/, "")) || LEGACY_SERVERS.includes(saved)) {
+        localStorage.setItem("pulse.server", DEFAULT_SERVER);
+        return DEFAULT_SERVER;
+    }
+    return saved;
+}
+
 const state = {
-    server: localStorage.getItem("pulse.server") || DEFAULT_SERVER,
+    server: resolveSavedServer(),
     token: localStorage.getItem("pulse.token") || "",
     user: JSON.parse(localStorage.getItem("pulse.user") || "null"),
     channels: [],
@@ -38,10 +56,23 @@ async function doLogin() {
     $("signin").disabled = true; $("signin").textContent = "Signing in…";
     try {
         const res = await api("/api/app/login", { method: "POST", auth: false, body: { email, password, totp: totp || undefined } });
+        // A wrong Gateway URL (e.g. the bare domain) hits the dashboard and
+        // 307-redirects to its login PAGE — fetch follows it, so res.redirected
+        // is the reliable signal (the real /api/app/login endpoint never
+        // redirects). NB: don't test res.url for "/login" — the API path itself
+        // ends in /login and that false-flagged valid logins.
+        if (res.redirected) {
+            $("adv").hidden = false;
+            return showLoginErr("Wrong Gateway URL — it must end in /api/gateway. Fix it in Server settings.");
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             if (data.error === "2fa_required") { $("totpRow").hidden = false; $("totp").focus(); return showLoginErr("Enter your authentication code."); }
             return showLoginErr(data.error || "Sign in failed.");
+        }
+        if (!data.token) {
+            $("adv").hidden = false;
+            return showLoginErr("Unexpected response — check the Gateway URL (should end in /api/gateway).");
         }
         state.token = data.token; state.user = data.user;
         localStorage.setItem("pulse.token", state.token);

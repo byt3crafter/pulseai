@@ -3,16 +3,22 @@ import { ChannelAdapter, ChannelConnectionConfig } from "../channel.interface.js
 import { InboundMessage, OutboundMessage } from "../types.js";
 import { logger } from "../../utils/logger.js";
 import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { decrypt } from "../../utils/crypto.js";
+import { config } from "../../config.js";
 import { enqueueMessage, messageQueue } from "../../queue/message-queue.js";
 import { isGroupChat, hasBotMention, isReplyToBot, stripBotMention } from "./group-helpers.js";
 import { checkDmAccess, getOrCreatePairingCode } from "./pairing.js";
+import { resolvePerson, type Person } from "../people-service.js";
+import { createApproval, awaitDecision, hasStandingAllowance, decide, parseCallbackData } from "../approval-service.js";
 import { chunkHtmlMessage, chunkMessage } from "./chunking.js";
 import { markdownToIR, renderTelegramHtml } from "../formatting/index.js";
 import type { MessageIR } from "../formatting/ir.js";
 import { db } from "../../storage/db.js";
 import { tenants, allowlists, channelConnections } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
+import { selectConnectionId, type BotCandidate } from "./bot-selector.js";
 
 /**
  * Extensions that overlap with TLDs — Telegram auto-links "filename.ext" as a URL.
@@ -84,14 +90,24 @@ interface TenantConfig {
     telegram_dm_policy?: "open" | "pairing" | "disabled";
     telegram_group_policy?: "open" | "allowlist" | "disabled";
     telegram_require_mention?: boolean;
+    // Photo understanding (vision) — default ON. When off, inbound photos are
+    // never downloaded; the agent is told a photo arrived but it can't see it.
+    telegram_vision_enabled?: boolean;
     [key: string]: unknown;
+}
+
+interface BotEntry {
+    bot: Bot<Context>;
+    conn: ChannelConnectionConfig;
 }
 
 export class TelegramAdapter implements ChannelAdapter {
     readonly channelType = "telegram";
 
-    // Maps a specific tenant ID to their running grammY Bot instance
-    public activeBots: Map<string, Bot<Context>> = new Map();
+    // Maps a channel_connections.id to its running grammY Bot instance.
+    // A tenant can have more than one entry here — one bot per agent, plus
+    // optionally the tenant-wide "default" bot from Settings → Telegram.
+    public activeBots: Map<string, BotEntry> = new Map();
     // Handler provided by the core agent runtime
     private messageHandler: ((msg: InboundMessage) => Promise<void>) | null = null;
     // Cached tenant configs with TTL
@@ -123,6 +139,11 @@ export class TelegramAdapter implements ChannelAdapter {
     /** Build a grammY bot for one connection, wire handlers, and register it. Reusable
      *  by initialize() (boot) and handleWebhookUpdate() (lazy, for bots added after boot). */
     private async loadBot(conn: ChannelConnectionConfig): Promise<Bot<Context> | null> {
+        if (!conn.id) {
+            logger.warn({ tenantId: conn.tenantId }, "Telegram connection missing id — cannot register bot");
+            return null;
+        }
+
         const { botToken: rawBotToken } = conn.channelConfig;
         if (!rawBotToken) {
             logger.warn({ tenantId: conn.tenantId }, "Missing botToken for telegram connection");
@@ -155,16 +176,121 @@ export class TelegramAdapter implements ChannelAdapter {
                 try { await this.handleTextMessage(ctx, conn); }
                 catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling text message"); }
             });
+            bot.on("message:photo", async (ctx) => {
+                try { await this.handlePhotoMessage(ctx, conn, botToken); }
+                catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling photo message"); }
+            });
+            bot.on("callback_query:data", async (ctx) => {
+                try { await this.handleApprovalCallback(ctx, conn); }
+                catch (err) { logger.error({ err, tenantId: conn.tenantId }, "Error handling callback query"); }
+            });
 
             if (process.env.NODE_ENV === "development") {
                 bot.start().catch((err) => logger.error({ err, tenantId: conn.tenantId }, "Failed to start TG polling"));
             }
 
-            this.activeBots.set(conn.tenantId, bot);
-            logger.info({ tenantId: conn.tenantId }, "Telegram bot initialized");
+            this.activeBots.set(conn.id, { bot, conn });
+            logger.info({ tenantId: conn.tenantId, connectionId: conn.id, agentProfileId: conn.agentProfileId ?? undefined }, "Telegram bot initialized");
             return bot;
         } catch (err) {
             logger.error({ err, tenantId: conn.tenantId }, "Failed to initialize Telegram connection");
+            return null;
+        }
+    }
+
+    /**
+     * Build the candidate list for a tenant's active bots and resolve which
+     * connection's bot should handle a send/edit. Non-agent-scoped ("default")
+     * connections are those whose channelConfig.scope !== "agent" — i.e. the
+     * tenant-wide bot connected via Settings → Telegram.
+     */
+    private pickBotEntry(tenantId: string, agentProfileId?: string | null): BotEntry | undefined {
+        const entriesForTenant = new Map<string, BotEntry>();
+        const candidates: BotCandidate[] = [];
+
+        for (const [connectionId, entry] of this.activeBots) {
+            if (entry.conn.tenantId !== tenantId) continue;
+            entriesForTenant.set(connectionId, entry);
+            candidates.push({
+                id: connectionId,
+                agentProfileId: entry.conn.agentProfileId,
+                isDefault: (entry.conn.channelConfig as any)?.scope !== "agent",
+            });
+        }
+
+        const chosenId = selectConnectionId(candidates, agentProfileId);
+        return chosenId ? entriesForTenant.get(chosenId) : undefined;
+    }
+
+    /**
+     * Public accessor used by approval-service to deliver/edit inline-keyboard
+     * approval cards without duplicating the bot-selection logic in
+     * pickBotEntry(). Falls back to the tenant's default bot when no
+     * agentProfileId is given (the common case — approvers are DM'd
+     * independent of which agent triggered the approval).
+     */
+    getTenantBot(tenantId: string, agentProfileId?: string | null): Bot<Context> | undefined {
+        return this.pickBotEntry(tenantId, agentProfileId)?.bot;
+    }
+
+    /**
+     * Handle a tap on an approval card's inline button. Any Telegram user can
+     * tap it, so decide() re-validates that the tapper is actually a
+     * designated approver for this tenant — non-approvers get a "Not
+     * authorized" toast and nothing changes.
+     */
+    private async handleApprovalCallback(ctx: Context, conn: ChannelConnectionConfig): Promise<void> {
+        const data = ctx.callbackQuery?.data;
+        if (!data) return;
+        const parsed = parseCallbackData(data);
+        if (!parsed) return; // not one of ours — ignore silently
+
+        const approverTelegramId = ctx.from?.id?.toString();
+        if (!approverTelegramId) {
+            await ctx.answerCallbackQuery({ text: "Could not identify you.", show_alert: true }).catch(() => {});
+            return;
+        }
+
+        const result = await decide(parsed.approvalId, parsed.action, approverTelegramId);
+        if (!result.ok) {
+            const text =
+                result.reason === "not_authorized"
+                    ? "Not authorized."
+                    : result.reason === "already_decided"
+                        ? "Already decided by someone else."
+                        : "Approval not found (it may have expired).";
+            await ctx.answerCallbackQuery({ text, show_alert: false }).catch(() => {});
+            return;
+        }
+
+        const toast = parsed.action === "deny" ? "Denied." : "Approved.";
+        await ctx.answerCallbackQuery({ text: toast }).catch(() => {});
+    }
+
+    /**
+     * Resolve (upsert) the account-wide Person record for whoever sent this
+     * update, keyed by their Telegram user id. Fails open (returns null) on
+     * any DB error so a people-service hiccup never blocks messaging outright
+     * — callers should only use this to *restrict* delivery, never to grant it.
+     */
+    private async resolveInboundPerson(
+        ctx: Context,
+        tenantId: string
+    ): Promise<{ person: Person; isNew: boolean } | null> {
+        const telegramUserId = ctx.from?.id?.toString();
+        if (!telegramUserId) return null;
+
+        const displayName = ctx.from?.first_name
+            ? `${ctx.from.first_name}${ctx.from.last_name ? ` ${ctx.from.last_name}` : ""}`
+            : undefined;
+
+        try {
+            return await resolvePerson(tenantId, telegramUserId, {
+                displayName,
+                username: ctx.from?.username,
+            });
+        } catch (err) {
+            logger.warn({ err, tenantId }, "Failed to resolve person for people-access gate (failing open)");
             return null;
         }
     }
@@ -180,10 +306,108 @@ export class TelegramAdapter implements ChannelAdapter {
         }
     }
 
+    /** Same routing as handleTextMessage, but for inbound photos (message:photo). */
+    private async handlePhotoMessage(ctx: Context, conn: ChannelConnectionConfig, botToken: string): Promise<void> {
+        const tenantConfig = await this.loadTenantConfig(conn.tenantId);
+        const isGroup = isGroupChat(ctx);
+
+        if (isGroup) {
+            await this.handleGroupMessage(ctx, conn, tenantConfig, botToken);
+        } else {
+            await this.handleDmMessage(ctx, conn, tenantConfig, botToken);
+        }
+    }
+
+    /**
+     * Download the largest size of an inbound Telegram photo via the Bot API
+     * getFile call, and save it into the agent's workspace so the runtime can
+     * hand it to a vision-capable provider. Returns undefined (never throws)
+     * on any failure — a photo the agent can't see should degrade to a text
+     * note, not break the whole message.
+     */
+    private async downloadPhotoAttachment(
+        ctx: Context,
+        conn: ChannelConnectionConfig,
+        botToken: string
+    ): Promise<InboundMessage["attachments"] | undefined> {
+        try {
+            const file = await ctx.getFile(); // grammY picks the largest photo size automatically
+            if (!file.file_path) return undefined;
+
+            const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
+            const res = await fetch(fileUrl);
+            if (!res.ok) {
+                logger.warn({ tenantId: conn.tenantId, status: res.status }, "Failed to download Telegram photo from Bot API");
+                return undefined;
+            }
+            const buf = Buffer.from(await res.arrayBuffer());
+
+            const dir = join(config.WORKSPACE_BASE_DIR, conn.tenantId, conn.agentProfileId || "inbox", "inbound");
+            await mkdir(dir, { recursive: true });
+            const filePath = join(dir, `photo-${Date.now()}.jpg`);
+            await writeFile(filePath, buf);
+
+            return [{ type: "image", path: filePath, mime: "image/jpeg" }];
+        } catch (err) {
+            logger.warn({ err, tenantId: conn.tenantId }, "Error downloading Telegram photo (non-fatal)");
+            return undefined;
+        }
+    }
+
+    /**
+     * Enforce `person.approvalMode === 'requires_approval'` (stage 2 of People
+     * access control): DM every designated approver an inline-keyboard card
+     * and block on their decision before the caller proceeds to dispatch the
+     * message to the runtime. Returns true iff the message should proceed.
+     *
+     * Fails CLOSED (returns false) on any error — unlike the People-access
+     * gate itself, which fails open. An approval gate that silently lets
+     * messages through when it can't run would defeat its purpose.
+     */
+    private async gateOnApprovalForMessage(
+        ctx: Context,
+        conn: ChannelConnectionConfig,
+        person: Person,
+        rawText: string
+    ): Promise<boolean> {
+        if (person.approvalMode !== "requires_approval") return true;
+
+        const label = person.displayName || person.username || `Telegram user ${person.telegramUserId}`;
+        const text = (rawText || "").trim();
+        const truncated = text.length > 300 ? `${text.slice(0, 300)}…` : text;
+
+        try {
+            if (await hasStandingAllowance(conn.tenantId, "user", person.telegramUserId)) return true;
+
+            const { id } = await createApproval({
+                tenantId: conn.tenantId,
+                kind: "user_request",
+                summary: `👤 ${label} asked:\n${truncated || "(no text)"}`,
+                requesterTelegramId: person.telegramUserId,
+                agentProfileId: conn.agentProfileId ?? null,
+                channelType: "telegram",
+                channelContactId: ctx.chat?.id?.toString(),
+            });
+
+            const { status } = await awaitDecision(id);
+            if (status === "approved") return true;
+
+            if (status === "denied") {
+                await ctx.reply("Your request needs approval and wasn't approved.").catch(() => {});
+            }
+            // 'expired' → stay silent, per spec.
+            return false;
+        } catch (err) {
+            logger.error({ err, tenantId: conn.tenantId }, "Approval workflow failed — not processing this message");
+            return false;
+        }
+    }
+
     private async handleGroupMessage(
         ctx: Context,
         conn: ChannelConnectionConfig,
-        tenantConfig: TenantConfig
+        tenantConfig: TenantConfig,
+        botToken?: string
     ): Promise<void> {
         const groupPolicy = tenantConfig.telegram_group_policy ?? "disabled";
         if (groupPolicy === "disabled") return;
@@ -210,15 +434,53 @@ export class TelegramAdapter implements ChannelAdapter {
             if (!entry || entry.status !== "approved") return;
         }
 
-        // Strip bot mention from content
-        let content = ctx.message!.text ?? "";
-        if (mentioned && ctx.me?.username) {
-            content = stripBotMention(content, ctx.me.username);
+        // People access gate (account-wide, Telegram-ID based) — additive on top of
+        // the group/allowlist policies above. blocked = fully silent; observe = agents
+        // never reply (a one-time notice only fires on an explicit @mention/reply).
+        const personResult = await this.resolveInboundPerson(ctx, conn.tenantId);
+        if (personResult) {
+            const { person } = personResult;
+            if (person.access === "blocked") return;
+            if (person.access === "observe") {
+                if (mentioned || replyToMe) {
+                    ctx.reply("You don't have access to chat with agents here yet — an admin needs to grant you access.").catch(() => {});
+                }
+                return;
+            }
+
+            const rawText = botToken ? (ctx.message!.caption ?? "") : (ctx.message!.text ?? "");
+            const approved = await this.gateOnApprovalForMessage(ctx, conn, person, rawText);
+            if (!approved) return;
         }
 
-        // Intercept bot commands that arrive via mention (e.g. "@bot /pair")
-        const handled = await this.handleBotCommand(ctx, conn, content.trim());
-        if (handled) return;
+        const isPhoto = !!botToken;
+        let content: string;
+        let attachments: InboundMessage["attachments"];
+
+        if (isPhoto) {
+            // Strip bot mention from the caption (photos have no .text, only .caption)
+            let caption = ctx.message!.caption ?? "";
+            if (mentioned && ctx.me?.username) {
+                caption = stripBotMention(caption, ctx.me.username);
+            }
+            const visionEnabled = tenantConfig.telegram_vision_enabled ?? true;
+            if (visionEnabled) {
+                attachments = await this.downloadPhotoAttachment(ctx, conn, botToken!);
+            }
+            content = attachments
+                ? (caption.trim() || "[photo]")
+                : `${caption.trim() ? caption.trim() + "\n\n" : ""}[The user sent a photo — this model cannot view images]`;
+        } else {
+            // Strip bot mention from content
+            content = ctx.message!.text ?? "";
+            if (mentioned && ctx.me?.username) {
+                content = stripBotMention(content, ctx.me.username);
+            }
+
+            // Intercept bot commands that arrive via mention (e.g. "@bot /pair") — text only
+            const handled = await this.handleBotCommand(ctx, conn, content.trim());
+            if (handled) return;
+        }
 
         const inbound: InboundMessage = {
             id: randomUUID(),
@@ -226,8 +488,13 @@ export class TelegramAdapter implements ChannelAdapter {
             agentProfileId: conn.agentProfileId || undefined,
             channelType: "telegram",
             channelContactId: groupChatId,
-            contactName: (ctx.chat as any)?.title || "Group",
+            // The person actually speaking (not the group name — that's groupTitle),
+            // so the agent knows who it's replying to inside a group.
+            contactName: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ").trim()
+                || ctx.from?.username
+                || ((ctx.chat as any)?.title || "Group"),
             content,
+            attachments,
             raw: ctx.message,
             receivedAt: new Date(ctx.message!.date * 1000),
             // Group fields
@@ -246,7 +513,8 @@ export class TelegramAdapter implements ChannelAdapter {
     private async handleDmMessage(
         ctx: Context,
         conn: ChannelConnectionConfig,
-        tenantConfig: TenantConfig
+        tenantConfig: TenantConfig,
+        botToken?: string
     ): Promise<void> {
         const dmPolicy = tenantConfig.telegram_dm_policy ?? "open";
         if (dmPolicy === "disabled") return;
@@ -275,9 +543,45 @@ export class TelegramAdapter implements ChannelAdapter {
             }
         }
 
-        // Intercept bot commands in DMs too
-        const handled = await this.handleBotCommand(ctx, conn, (ctx.message!.text ?? "").trim());
-        if (handled) return;
+        // People access gate (account-wide, Telegram-ID based) — additive on top of
+        // the DM/pairing policy above. blocked = fully silent; observe = agents never
+        // reply (a one-time notice only fires on the person's first-ever contact).
+        const personResult = await this.resolveInboundPerson(ctx, conn.tenantId);
+        if (personResult) {
+            const { person, isNew } = personResult;
+            if (person.access === "blocked") return;
+            if (person.access === "observe") {
+                if (isNew) {
+                    await ctx.reply("You don't have access to chat with agents here yet — an admin needs to grant you access.").catch(() => {});
+                }
+                return;
+            }
+
+            const rawText = botToken ? (ctx.message!.caption ?? "") : (ctx.message!.text ?? "");
+            const approved = await this.gateOnApprovalForMessage(ctx, conn, person, rawText);
+            if (!approved) return;
+        }
+
+        const isPhoto = !!botToken;
+        let content: string;
+        let attachments: InboundMessage["attachments"];
+
+        if (isPhoto) {
+            const caption = (ctx.message!.caption ?? "").trim();
+            const visionEnabled = tenantConfig.telegram_vision_enabled ?? true;
+            if (visionEnabled) {
+                attachments = await this.downloadPhotoAttachment(ctx, conn, botToken!);
+            }
+            content = attachments
+                ? (caption || "[photo]")
+                : `${caption ? caption + "\n\n" : ""}[The user sent a photo — this model cannot view images]`;
+        } else {
+            // Intercept bot commands in DMs too
+            const handled = await this.handleBotCommand(ctx, conn, (ctx.message!.text ?? "").trim());
+            if (handled) return;
+
+            content = ctx.message!.text ?? "";
+        }
 
         const inbound: InboundMessage = {
             id: randomUUID(),
@@ -286,7 +590,8 @@ export class TelegramAdapter implements ChannelAdapter {
             channelType: "telegram",
             channelContactId: contactId,
             contactName,
-            content: ctx.message!.text ?? "",
+            content,
+            attachments,
             raw: ctx.message,
             receivedAt: new Date(ctx.message!.date * 1000),
             isGroup: false,
@@ -434,9 +739,9 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     async shutdown(): Promise<void> {
-        for (const [tenantId, bot] of this.activeBots.entries()) {
-            await bot.stop();
-            logger.info({ tenantId }, "Telegram bot connection stopped");
+        for (const [connectionId, entry] of this.activeBots.entries()) {
+            await entry.bot.stop();
+            logger.info({ tenantId: entry.conn.tenantId, connectionId }, "Telegram bot connection stopped");
         }
         this.activeBots.clear();
         this.tenantConfigs.clear();
@@ -447,14 +752,18 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     async sendMessage(msg: OutboundMessage): Promise<{ channelMessageId: string }> {
-        const bot = this.activeBots.get(msg.tenantId);
-        if (!bot) throw new Error("Bot not found for this tenant");
+        const entry = this.pickBotEntry(msg.tenantId, msg.agentProfileId);
+        if (!entry) throw new Error("Bot not found for this tenant");
+        const bot = entry.bot;
 
         // Convert standard Markdown to Telegram HTML for proper formatting
         let content = msg.content;
         let isHtml = false;
         if (msg.format === "markdown") {
             content = this.markdownToTelegramHtml(content);
+            isHtml = true;
+        } else if (msg.format === "html") {
+            // Caller already produced Telegram-safe HTML (e.g. progress status).
             isHtml = true;
         }
 
@@ -608,10 +917,12 @@ export class TelegramAdapter implements ChannelAdapter {
         chatId: string,
         messageId: string,
         content: string,
-        parseMode?: string
+        parseMode?: string,
+        agentProfileId?: string
     ): Promise<void> {
-        const bot = this.activeBots.get(tenantId);
-        if (!bot) return;
+        const entry = this.pickBotEntry(tenantId, agentProfileId);
+        if (!entry) return;
+        const bot = entry.bot;
 
         // If parseMode is "markdown", convert to HTML
         let text = content;
@@ -619,7 +930,7 @@ export class TelegramAdapter implements ChannelAdapter {
         if (parseMode === "markdown") {
             text = this.markdownToTelegramHtml(content);
             mode = "HTML";
-        } else if (parseMode === "HTML") {
+        } else if (parseMode === "HTML" || parseMode === "html") {
             mode = "HTML";
         }
 
@@ -646,52 +957,72 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     /**
-     * Handle webhook updates from Telegram
-     * This method is called by the webhook endpoint when an update is received
+     * Handle webhook updates from Telegram.
+     * Called by the webhook route. `connectionId` is present when the webhook
+     * URL was registered for a specific per-agent bot
+     * (`/webhooks/telegram/:tenantSlug/:connectionId`); omitted for the
+     * legacy/default tenant-wide bot URL (`/webhooks/telegram/:tenantSlug`).
      */
-    async handleWebhookUpdate(tenantId: string, update: any): Promise<void> {
-        let bot = this.activeBots.get(tenantId);
-        if (!bot) {
+    async handleWebhookUpdate(tenantId: string, update: any, connectionId?: string): Promise<void> {
+        let entry = connectionId ? this.activeBots.get(connectionId) : this.pickBotEntry(tenantId);
+        // Guard against a connectionId belonging to a different tenant (defense
+        // in depth — the route already scopes the DB lookup below by tenant).
+        if (entry && entry.conn.tenantId !== tenantId) entry = undefined;
+
+        if (!entry) {
             // Lazy-load: the bot may have been connected after the gateway booted.
-            logger.info({ tenantId }, "Telegram bot not loaded — lazy-loading from DB");
-            const [conn] = await db.select().from(channelConnections)
-                .where(and(
-                    eq(channelConnections.tenantId, tenantId),
-                    eq(channelConnections.channelType, "telegram"),
-                    eq(channelConnections.status, "active"),
-                )).limit(1);
+            logger.info({ tenantId, connectionId }, "Telegram bot not loaded — lazy-loading from DB");
+            const baseWhere = [
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                eq(channelConnections.status, "active"),
+            ];
+
+            let conn: any;
+            if (connectionId) {
+                [conn] = await db.select().from(channelConnections)
+                    .where(and(eq(channelConnections.id, connectionId), ...baseWhere)).limit(1);
+            } else {
+                const rows = await db.select().from(channelConnections).where(and(...baseWhere));
+                conn = rows.find((r) => (r.channelConfig as any)?.scope !== "agent") ?? rows[0];
+            }
+
             if (conn) {
-                bot = await this.loadBot({
-                    tenantId,
+                await this.loadBot({
+                    id: conn.id,
+                    tenantId: conn.tenantId,
+                    agentProfileId: conn.agentProfileId,
                     channelType: "telegram",
                     channelConfig: conn.channelConfig as any,
-                } as ChannelConnectionConfig) || undefined;
+                });
+                entry = this.activeBots.get(conn.id);
             }
-            if (!bot) {
-                logger.warn({ tenantId }, "Bot not found for tenant in webhook handler");
+
+            if (!entry) {
+                logger.warn({ tenantId, connectionId }, "Bot not found for tenant in webhook handler");
                 return;
             }
         }
 
         try {
             // Process the update using grammY's handleUpdate method
-            await bot.handleUpdate(update);
+            await entry.bot.handleUpdate(update);
         } catch (err) {
-            logger.error({ err, tenantId }, "Failed to handle webhook update");
+            logger.error({ err, tenantId, connectionId }, "Failed to handle webhook update");
             throw err;
         }
     }
 
     /**
-     * Get webhook info for a specific tenant's bot
-     * Useful for debugging webhook configuration
+     * Get webhook info for a specific bot connection.
+     * Useful for debugging webhook configuration.
      */
-    async getWebhookInfo(tenantId: string): Promise<any> {
-        const bot = this.activeBots.get(tenantId);
-        if (!bot) {
-            throw new Error("Bot not found for tenant");
+    async getWebhookInfo(connectionId: string): Promise<any> {
+        const entry = this.activeBots.get(connectionId);
+        if (!entry) {
+            throw new Error("Bot not found for connection");
         }
 
-        return await bot.api.getWebhookInfo();
+        return await entry.bot.api.getWebhookInfo();
     }
 }

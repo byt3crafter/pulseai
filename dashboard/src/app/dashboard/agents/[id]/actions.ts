@@ -2,12 +2,14 @@
 
 import { auth } from "../../../../auth";
 import { db } from "../../../../storage/db";
-import { agentProfiles, workspaceRevisions, tenantProviderKeys, globalSettings } from "../../../../storage/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { agentProfiles, workspaceRevisions, tenantProviderKeys, globalSettings, channelConnections, tenants } from "../../../../storage/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { readWorkspaceFile, writeWorkspaceFile } from "../../../../utils/workspace";
 import { stripReasoning } from "../../../../utils/strip-reasoning";
 import { redirect } from "next/navigation";
+import { requireTenant } from "../../../../utils/tenant-auth";
+import { encrypt, decrypt } from "../../../../utils/crypto";
 
 export async function updateWorkspaceFileAction(formData: FormData) {
     const session = await auth();
@@ -80,6 +82,160 @@ export async function updateWorkspaceFileAction(formData: FormData) {
     } catch (error) {
         console.error("Failed to update workspace file:", error);
         return { success: false, message: "Failed to save file." };
+    }
+}
+
+const MAX_AVATAR_BYTES = 500 * 1024;
+const ALLOWED_AVATAR_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+/**
+ * Validate an agent avatar value before it's persisted. Accepts either:
+ * - a data URL (data:image/<png|jpeg|webp>;base64,...) capped at ~500KB, or
+ * - a plain https:// URL (basic sanity check only — not fetched/verified).
+ * Returns the sanitized value to store, or null if invalid.
+ */
+function sanitizeAvatar(raw: string): { ok: true; value: string | null } | { ok: false; message: string } {
+    const trimmed = raw.trim();
+    if (!trimmed) return { ok: true, value: null };
+
+    if (trimmed.startsWith("data:")) {
+        const match = trimmed.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/);
+        if (!match) return { ok: false, message: "Unsupported image format." };
+        const [, mime, base64] = match;
+        if (!ALLOWED_AVATAR_MIME.has(mime.toLowerCase())) {
+            return { ok: false, message: "Avatar must be a PNG, JPEG, or WEBP image." };
+        }
+        // Rough byte-size estimate from base64 length (each 4 chars ≈ 3 bytes).
+        const approxBytes = Math.floor((base64.length * 3) / 4);
+        if (approxBytes > MAX_AVATAR_BYTES) {
+            return { ok: false, message: "Avatar image must be smaller than 500KB." };
+        }
+        return { ok: true, value: trimmed };
+    }
+
+    try {
+        const url = new URL(trimmed);
+        if (url.protocol !== "https:") {
+            return { ok: false, message: "Avatar URL must use https://." };
+        }
+        if (trimmed.length > 2048) {
+            return { ok: false, message: "Avatar URL is too long." };
+        }
+        return { ok: true, value: trimmed };
+    } catch {
+        return { ok: false, message: "Invalid avatar URL." };
+    }
+}
+
+/** Allowed reasoning-effort levels — must match the Codex app-server's accepted values. */
+const REASONING_EFFORT_LEVELS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
+
+/**
+ * Update an agent's display identity — full name, role/title subtitle,
+ * profile picture, and reasoning effort. Shown across the dashboard (agents
+ * table, agent header).
+ */
+export async function updateAgentIdentityAction(formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const agentId = formData.get("agentId") as string;
+    const name = (formData.get("name") as string || "").trim();
+    const titleRaw = (formData.get("title") as string || "").trim();
+    const avatarRaw = formData.get("avatar") as string | null;
+    const removeAvatar = formData.get("removeAvatar") === "true";
+    const reasoningEffortRaw = (formData.get("reasoningEffort") as string || "").trim().toLowerCase();
+    const progressVerbosityRaw = (formData.get("progressVerbosity") as string || "").trim().toLowerCase();
+    const PROGRESS_LEVELS = new Set(["off", "progress", "verbose"]);
+
+    if (!agentId) return { success: false, message: "Missing agent." };
+    if (!name) return { success: false, message: "Name is required." };
+    if (name.length > 255) return { success: false, message: "Name is too long." };
+    if (titleRaw.length > 160) return { success: false, message: "Title is too long." };
+    if (reasoningEffortRaw && reasoningEffortRaw !== "default" && !REASONING_EFFORT_LEVELS.has(reasoningEffortRaw)) {
+        return { success: false, message: "Invalid reasoning effort level." };
+    }
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)),
+    });
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    const update: { name: string; title: string | null; avatar?: string | null; reasoningEffort: string | null; progressVerbosity: string | null; updatedAt: Date } = {
+        name,
+        title: titleRaw || null,
+        reasoningEffort: reasoningEffortRaw && reasoningEffortRaw !== "default" ? reasoningEffortRaw : null,
+        progressVerbosity: PROGRESS_LEVELS.has(progressVerbosityRaw) && progressVerbosityRaw !== "progress" ? progressVerbosityRaw : (progressVerbosityRaw === "progress" ? "progress" : null),
+        updatedAt: new Date(),
+    };
+
+    if (removeAvatar) {
+        update.avatar = null;
+    } else if (avatarRaw && avatarRaw.trim()) {
+        const result = sanitizeAvatar(avatarRaw);
+        if (!result.ok) return { success: false, message: result.message };
+        update.avatar = result.value;
+    }
+
+    try {
+        await db.update(agentProfiles).set(update).where(eq(agentProfiles.id, agentId));
+    } catch (error) {
+        console.error("Failed to update agent identity:", error);
+        return { success: false, message: "Failed to save profile." };
+    }
+
+    // Best-effort: push the new name/title to this agent's own Telegram bot so
+    // it presents consistently in chats. (Bot API can set name + description;
+    // the bot's PROFILE PHOTO can only be set via @BotFather — not the API.)
+    await syncAgentTelegramProfile(tenantId, agentId, name, titleRaw || null);
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    revalidatePath("/dashboard/agents");
+    return { success: true, message: "Profile updated." };
+}
+
+/**
+ * Sync an agent's display identity to its dedicated Telegram bot (if connected).
+ * setMyName → bot name; setMyShortDescription → the role/title. Fully best-effort:
+ * Telegram rate-limits setMyName (~once/hour) and rejects no-op changes, so any
+ * failure is swallowed. Bot profile PHOTOS are not settable via the Bot API
+ * (BotFather /setuserpic only) — intentionally not attempted here.
+ */
+async function syncAgentTelegramProfile(
+    tenantId: string,
+    agentId: string,
+    name: string,
+    title: string | null,
+): Promise<void> {
+    try {
+        const conn = await db.query.channelConnections.findFirst({
+            where: and(
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                eq(channelConnections.agentProfileId, agentId),
+                sql`(${channelConnections.channelConfig}->>'scope') = 'agent'`,
+            ),
+        });
+        const raw = (conn?.channelConfig as any)?.botToken;
+        if (!raw) return;
+        let token: string;
+        try { token = decrypt(raw); } catch { return; }
+
+        await fetch(`https://api.telegram.org/bot${token}/setMyName`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.slice(0, 64) }),
+        }).catch(() => {});
+        if (title) {
+            await fetch(`https://api.telegram.org/bot${token}/setMyShortDescription`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ short_description: title.slice(0, 120) }),
+            }).catch(() => {});
+        }
+    } catch (err) {
+        console.error("Telegram profile sync skipped:", err);
     }
 }
 
@@ -239,8 +395,15 @@ export async function getActiveProvidersAction(): Promise<string[]> {
 
     const activeProviders = new Set<string>();
 
-    // Tier 1: Tenant-specific BYOK keys
-    const tenantKeys = await db.select({ provider: tenantProviderKeys.provider })
+    // Tier 1: Tenant-specific BYOK keys.
+    // OpenAI connected via ChatGPT OAuth only (no API key) is EXCLUDED from
+    // model selection: the OpenAI API rejects ChatGPT tokens, so its models
+    // could never run — showing them just produces broken agents.
+    const tenantKeys = await db.select({
+        provider: tenantProviderKeys.provider,
+        authMethod: tenantProviderKeys.authMethod,
+        encryptedApiKey: tenantProviderKeys.encryptedApiKey,
+    })
         .from(tenantProviderKeys)
         .where(
             and(
@@ -250,8 +413,13 @@ export async function getActiveProvidersAction(): Promise<string[]> {
         );
 
     for (const key of tenantKeys) {
+        if (key.provider === "openai" && (key.authMethod !== "api_key" || !key.encryptedApiKey)) continue;
         activeProviders.add(key.provider);
     }
+
+    // Codex runs on the host's ChatGPT subscription (keyless) — always offered.
+    // TODO: admin gate / per-tenant CODEX_HOME before multi-tenant use.
+    activeProviders.add("codex");
 
     // Tier 2: Global admin-configured keys
     const rootSettings = await db.query.globalSettings.findFirst({
@@ -462,5 +630,152 @@ export async function updateAgentEmailConfigAction(formData: FormData) {
 
     revalidatePath(`/dashboard/agents/${agentId}`);
     return { success: true, message: "Email configuration saved." };
+}
+
+/**
+ * Connect (or update) a dedicated Telegram bot for one agent. Stored as its own
+ * channel_connections row — tagged channelConfig.scope = "agent" — separate
+ * from the tenant-wide default bot managed by Settings → Telegram
+ * (saveTelegramTokenAction), so the two never collide or overwrite each other.
+ */
+export async function saveAgentTelegramBotAction(formData: FormData) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const agentId = formData.get("agentId") as string;
+    const token = (formData.get("telegramToken") as string || "").trim();
+    if (!agentId) return { success: false, message: "Missing agent." };
+    if (!token) return { success: false, message: "Bot token is required." };
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)),
+    });
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+        const data = await res.json();
+        if (!data.ok) return { success: false, message: `Telegram rejected the token: ${data.description}` };
+
+        const botUsername = data.result?.username as string | undefined;
+        const encryptedToken = encrypt(token);
+
+        const existing = await db.select().from(channelConnections)
+            .where(and(
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                eq(channelConnections.agentProfileId, agentId),
+                sql`(${channelConnections.channelConfig}->>'scope') = 'agent'`
+            )).limit(1);
+
+        let connectionId: string;
+        if (existing.length > 0) {
+            connectionId = existing[0].id;
+            await db.update(channelConnections)
+                .set({
+                    channelConfig: { botToken: encryptedToken, scope: "agent", botUsername },
+                    status: "active",
+                    agentProfileId: agentId,
+                })
+                .where(eq(channelConnections.id, connectionId));
+        } else {
+            const [inserted] = await db.insert(channelConnections).values({
+                tenantId,
+                channelType: "telegram",
+                channelConfig: { botToken: encryptedToken, scope: "agent", botUsername },
+                status: "active",
+                agentProfileId: agentId,
+            }).returning();
+            connectionId = inserted.id;
+        }
+
+        // Register the webhook for this specific connection — no gateway restart
+        // needed, the gateway lazy-loads the bot on its first inbound webhook hit.
+        const webhookBase = process.env.WEBHOOK_BASE_URL;
+        if (webhookBase) {
+            try {
+                const [t] = await db.select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+                if (t?.slug) {
+                    const webhookUrl = `${webhookBase.replace(/\/$/, "")}/webhooks/telegram/${t.slug}/${connectionId}`;
+                    const wh = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            url: webhookUrl,
+                            drop_pending_updates: false,
+                            ...(process.env.TELEGRAM_WEBHOOK_SECRET ? { secret_token: process.env.TELEGRAM_WEBHOOK_SECRET } : {}),
+                        }),
+                    });
+                    const whData = await wh.json().catch(() => ({}));
+                    if (!whData.ok) {
+                        console.error("Telegram setWebhook failed:", whData.description);
+                        revalidatePath(`/dashboard/agents/${agentId}`);
+                        return {
+                            success: true,
+                            message: `Connected to @${botUsername}, but webhook setup failed — messages may not arrive until the gateway restarts.`,
+                        };
+                    }
+                }
+            } catch (e) {
+                console.error("Telegram setWebhook error:", e);
+                revalidatePath(`/dashboard/agents/${agentId}`);
+                return { success: true, message: `Connected to @${botUsername} (webhook will activate on next gateway restart).` };
+            }
+        }
+
+        // Name the bot after the agent immediately (best-effort).
+        await syncAgentTelegramProfile(tenantId, agentId, agent.name, (agent as any).title ?? null);
+
+        revalidatePath(`/dashboard/agents/${agentId}`);
+        return { success: true, message: `Connected to @${botUsername} — it now responds as ${agent.name}.` };
+    } catch {
+        return { success: false, message: "Failed to reach Telegram. Check your connection." };
+    }
+}
+
+/** Disconnect this agent's dedicated Telegram bot (does not touch the tenant-wide default bot). */
+export async function disconnectAgentTelegramBotAction(formData: FormData) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const agentId = formData.get("agentId") as string;
+    if (!agentId) return { success: false, message: "Missing agent." };
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tenantId)),
+    });
+    if (!agent) return { success: false, message: "Agent not found." };
+
+    const existing = await db.select().from(channelConnections)
+        .where(and(
+            eq(channelConnections.tenantId, tenantId),
+            eq(channelConnections.channelType, "telegram"),
+            eq(channelConnections.agentProfileId, agentId),
+            sql`(${channelConnections.channelConfig}->>'scope') = 'agent'`
+        )).limit(1);
+
+    if (existing.length === 0) {
+        return { success: true, message: "No Telegram bot connected for this agent." };
+    }
+
+    const conn = existing[0];
+    try {
+        const cfg = conn.channelConfig as any;
+        if (cfg?.botToken) {
+            const token = decrypt(cfg.botToken);
+            await fetch(`https://api.telegram.org/bot${token}/deleteWebhook`, { method: "POST" }).catch(() => {});
+        }
+    } catch (e) {
+        console.error("Failed to delete Telegram webhook on disconnect:", e);
+    }
+
+    await db.update(channelConnections)
+        .set({ status: "disabled" })
+        .where(eq(channelConnections.id, conn.id));
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    return { success: true, message: "Telegram bot disconnected." };
 }
 

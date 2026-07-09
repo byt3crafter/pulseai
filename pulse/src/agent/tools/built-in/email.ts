@@ -9,13 +9,24 @@ import { resolveEmailConfig, sendEmail, readEmails } from "../../../channels/ema
 
 export const emailSendTool: Tool = {
     name: "email_send",
-    description: "Send an email via SMTP. Requires email to be configured for this agent or tenant.",
+    description:
+        "Send an email via SMTP. Requires email to be configured for this agent or tenant. " +
+        "If an email signature is configured, it is appended automatically after the body — " +
+        "do NOT write your own sign-off, name, or contact details at the end of the message.",
     parameters: {
         type: "object",
         properties: {
             to: {
                 type: "string",
-                description: "Recipient email address",
+                description: "Recipient email address(es). For multiple, separate with commas: \"a@x.com, b@y.com\".",
+            },
+            cc: {
+                type: "string",
+                description: "Optional CC recipient(s), comma-separated. Visible to all recipients.",
+            },
+            bcc: {
+                type: "string",
+                description: "Optional BCC recipient(s), comma-separated. Hidden from other recipients.",
             },
             subject: {
                 type: "string",
@@ -23,11 +34,11 @@ export const emailSendTool: Tool = {
             },
             body: {
                 type: "string",
-                description: "Email body text (plain text)",
+                description: "Email body text (plain text). Do not include a signature — one is appended automatically if configured.",
             },
             html: {
                 type: "string",
-                description: "Optional HTML body (if provided, sent alongside plain text)",
+                description: "Optional HTML body (if provided, sent alongside plain text). Do not include a signature — one is appended automatically if configured.",
             },
         },
         required: ["to", "subject", "body"],
@@ -49,13 +60,15 @@ export const emailSendTool: Tool = {
                 params.args.to,
                 params.args.subject,
                 params.args.body,
-                params.args.html
+                params.args.html,
+                { cc: params.args.cc, bcc: params.args.bcc }
             );
             return {
                 result: JSON.stringify({
                     success: true,
                     messageId: result.messageId,
-                    to: params.args.to,
+                    to: result.to,
+                    cc: result.cc,
                     subject: params.args.subject,
                 }),
             };

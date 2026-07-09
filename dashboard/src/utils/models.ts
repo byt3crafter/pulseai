@@ -32,6 +32,18 @@ export const PROVIDERS: ProviderInfo[] = [
         ],
     },
     {
+        id: "codex",
+        name: "Codex (ChatGPT subscription)",
+        authMethods: ["oauth"],
+        models: [
+            { id: "gpt-5.5", provider: "codex", displayName: "GPT-5.5 (Codex)", category: "flagship" },
+            { id: "gpt-5.5-pro", provider: "codex", displayName: "GPT-5.5 Pro (Codex)", category: "flagship" },
+            { id: "gpt-5.4", provider: "codex", displayName: "GPT-5.4 (Codex)", category: "flagship" },
+            { id: "gpt-5.4-codex", provider: "codex", displayName: "GPT-5.4 Codex", category: "flagship" },
+            { id: "gpt-5.4-mini", provider: "codex", displayName: "GPT-5.4 Mini (Codex)", category: "fast" },
+        ],
+    },
+    {
         id: "openai",
         name: "OpenAI",
         authMethods: ["api_key", "oauth"],

@@ -57,6 +57,8 @@ export default async function ConversationDetailPage({
                 contactName: conversation.contactName,
                 status: conversation.status,
                 createdAt: conversation.createdAt?.toISOString() ?? "",
+                updatedAt: conversation.updatedAt?.toISOString() ?? "",
+                messageCount: msgs.length,
             }}
             messages={serializedMessages}
         />

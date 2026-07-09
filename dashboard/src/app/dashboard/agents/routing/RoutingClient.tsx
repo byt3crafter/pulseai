@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { PlusIcon, InformationCircleIcon, ArrowsRightLeftIcon } from "@heroicons/react/24/outline";
+import { PageHeader, Card, CardHeader, EmptyState, Toggle } from "../../../../components/dashboard/ui";
 import {
     createRoutingRule,
     updateRoutingRule,
@@ -113,25 +115,23 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
     };
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-pulse-text">Message Routing</h1>
-                    <p className="text-sm text-pulse-muted mt-1">
-                        Route incoming messages to different agents based on rules. Rules are evaluated in priority order (lowest number first). The first matching rule wins.
-                    </p>
-                </div>
-                {!showForm && (
-                    <button
-                        onClick={() => { resetForm(); setShowForm(true); }}
-                        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                    >
-                        Add Rule
-                    </button>
-                )}
-            </div>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+            <PageHeader
+                title="Message Routing"
+                description="Route incoming messages to different agents based on rules. Rules are evaluated in priority order (lowest number first). The first matching rule wins."
+                action={
+                    !showForm && (
+                        <button
+                            onClick={() => { resetForm(); setShowForm(true); }}
+                            className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 whitespace-nowrap"
+                        >
+                            <PlusIcon className="h-4 w-4" aria-hidden="true" /> Add rule
+                        </button>
+                    )
+                }
+            />
 
+            <div className="space-y-6">
             {/* Error/success message */}
             {message && (
                 <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
@@ -141,10 +141,9 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
 
             {/* Add/Edit Form */}
             {showForm && (
-                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-4 sm:p-6">
-                    <h2 className="text-lg font-semibold text-pulse-text mb-4">
-                        {editingId ? "Edit Rule" : "New Routing Rule"}
-                    </h2>
+                <Card>
+                    <CardHeader title={editingId ? "Edit rule" : "New routing rule"} />
+                    <div className="p-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Rule Type */}
                         <div>
@@ -242,7 +241,7 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                             disabled={pending}
                             className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
-                            {pending ? "Saving..." : editingId ? "Update Rule" : "Create Rule"}
+                            {pending ? "Saving..." : editingId ? "Update rule" : "Create rule"}
                         </button>
                         <button
                             onClick={resetForm}
@@ -251,63 +250,59 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                             Cancel
                         </button>
                     </div>
-                </div>
+                    </div>
+                </Card>
             )}
 
             {/* Rules Table */}
             {rules.length === 0 && !showForm ? (
-                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-12 text-center">
-                    <p className="text-pulse-muted text-sm">No routing rules yet. Click &quot;Add Rule&quot; to create your first rule.</p>
-                </div>
+                <Card>
+                    <EmptyState
+                        icon={ArrowsRightLeftIcon}
+                        title="No routing rules yet"
+                        description={'Click "Add rule" to create your first rule.'}
+                    />
+                </Card>
             ) : rules.length > 0 ? (
-                <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden">
+                <Card>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm border-collapse">
                             <thead>
-                                <tr className="bg-pulse-panel-alt border-b border-pulse-border-subtle">
-                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Priority</th>
-                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Type</th>
-                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Match Value</th>
-                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Agent</th>
-                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Description</th>
-                                    <th className="text-left px-4 py-3 font-medium text-pulse-muted">Enabled</th>
-                                    <th className="text-right px-4 py-3 font-medium text-pulse-muted">Actions</th>
+                                <tr className="text-xs uppercase tracking-wide text-pulse-faint border-b border-pulse-border-subtle">
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Priority</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Type</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Match value</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Agent</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Description</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Enabled</th>
+                                    <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {rules.map((rule) => (
-                                    <tr key={rule.id} className="border-b border-pulse-border-subtle hover:bg-pulse-hover">
-                                        <td className="px-4 py-3 font-mono text-pulse-text-soft">{rule.priority}</td>
-                                        <td className="px-4 py-3">
+                                    <tr key={rule.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
+                                        <td className="px-4 py-3 align-top font-mono text-pulse-text-soft">{rule.priority}</td>
+                                        <td className="px-4 py-3 align-top">
                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-pulse-panel-alt text-pulse-text-soft">
                                                 {RULE_TYPE_LABELS[rule.ruleType] || rule.ruleType}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 font-mono text-xs text-pulse-muted max-w-[200px] truncate">
+                                        <td className="px-4 py-3 align-top font-mono text-xs text-pulse-muted max-w-[200px] truncate">
                                             {rule.matchValue}
                                         </td>
-                                        <td className="px-4 py-3 text-pulse-text-soft">{rule.agentName}</td>
-                                        <td className="px-4 py-3 text-pulse-muted max-w-[200px] truncate">
+                                        <td className="px-4 py-3 align-top text-pulse-text-soft">{rule.agentName}</td>
+                                        <td className="px-4 py-3 align-top text-pulse-muted max-w-[200px] truncate">
                                             {rule.description || "-"}
                                         </td>
-                                        <td className="px-4 py-3">
-                                            <button
-                                                onClick={() => handleToggle(rule.id)}
+                                        <td className="px-4 py-3 align-top">
+                                            <Toggle
+                                                checked={rule.enabled}
+                                                onChange={() => handleToggle(rule.id)}
+                                                label={rule.enabled ? "Disable rule" : "Enable rule"}
                                                 disabled={pending}
-                                                aria-pressed={rule.enabled}
-                                                aria-label={rule.enabled ? "Disable rule" : "Enable rule"}
-                                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors motion-reduce:transition-none outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-                                                    rule.enabled ? "bg-indigo-600" : "bg-pulse-border"
-                                                }`}
-                                            >
-                                                <span
-                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${
-                                                        rule.enabled ? "translate-x-4" : "translate-x-0"
-                                                    }`}
-                                                />
-                                            </button>
+                                            />
                                         </td>
-                                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                                        <td className="px-4 py-3 align-top text-right space-x-2 whitespace-nowrap">
                                             <button
                                                 onClick={() => startEdit(rule)}
                                                 className="text-indigo-500 hover:text-indigo-400 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
@@ -319,7 +314,7 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                                                     <button
                                                         onClick={() => handleDelete(rule.id)}
                                                         disabled={pending}
-                                                        className="text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                                        className="text-red-500 hover:text-red-400 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                                     >
                                                         Confirm
                                                     </button>
@@ -333,7 +328,7 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                                             ) : (
                                                 <button
                                                     onClick={() => setConfirmDelete(rule.id)}
-                                                    className="text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                                                    className="text-red-500 hover:text-red-400 text-xs font-medium cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                                                 >
                                                     Delete
                                                 </button>
@@ -344,14 +339,16 @@ export default function RoutingClient({ rules, agents }: { rules: Rule[]; agents
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </Card>
             ) : null}
 
-            {/* Info Box */}
-            <div className="bg-pulse-tint border border-pulse-border rounded-xl p-4">
-                <p className="text-sm text-pulse-text-soft">
-                    <span className="font-semibold">How routing works:</span> When a message arrives, rules are checked in priority order. The first rule that matches determines which agent handles the message. If no rule matches, the channel&apos;s default agent is used.
+            {/* Info note */}
+            <div className="flex items-start gap-2.5 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt/60 px-4 py-3">
+                <InformationCircleIcon className="w-4 h-4 text-pulse-faint flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-xs text-pulse-muted">
+                    <span className="font-medium text-pulse-text-soft">How routing works:</span> When a message arrives, rules are checked in priority order. The first rule that matches determines which agent handles the message. If no rule matches, the channel&apos;s default agent is used.
                 </p>
+            </div>
             </div>
         </div>
     );

@@ -10,6 +10,8 @@ import { encrypt, decrypt } from "../../../utils/crypto";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { getChannelSetupDefinition } from "../../../utils/channel-catalog";
+import { logAudit } from "../../../utils/audit";
+import { resetTenantWorkspace, ResetScope } from "../../../utils/tenant-reset";
 
 export async function changePasswordAction(formData: FormData) {
     const session = await auth();
@@ -54,6 +56,31 @@ export async function changePasswordAction(formData: FormData) {
     return { success: true, message: "Password updated successfully." };
 }
 
+/**
+ * Update the signed-in user's display name. This is the name the agents use to
+ * address the person (via the interlocutor identity) and what the sidebar/profile
+ * show. Read fresh from the DB elsewhere, so the change is visible immediately —
+ * no re-login needed. Scoped strictly to the session user.
+ */
+export async function updateProfileNameAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, message: "Not authenticated." };
+
+    const name = ((formData.get("name") as string) || "").trim();
+    if (name.length < 1) return { success: false, message: "Name can't be empty." };
+    if (name.length > 100) return { success: false, message: "Name is too long (max 100 characters)." };
+
+    try {
+        await db.update(users).set({ name, updatedAt: new Date() }).where(eq(users.id, session.user.id));
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard", "layout");
+        return { success: true, message: "Name updated." };
+    } catch (error) {
+        console.error("Failed to update profile name:", error);
+        return { success: false, message: "Failed to update name." };
+    }
+}
+
 export async function saveTelegramTokenAction(formData: FormData) {
     const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
@@ -74,20 +101,28 @@ export async function saveTelegramTokenAction(formData: FormData) {
             .limit(1);
         const agentProfileId = agentProfile[0]?.id ?? null;
 
+        // Scope this lookup to the tenant-wide "default" bot only — per-agent bots
+        // (connected from an agent's own Telegram tab, tagged channelConfig.scope
+        // = "agent") are separate channel_connections rows and must not be
+        // overwritten by this tenant-wide Settings action.
         const existing = await db.select().from(channelConnections)
-            .where(and(eq(channelConnections.tenantId, tenantId), eq(channelConnections.channelType, "telegram"))).limit(1);
+            .where(and(
+                eq(channelConnections.tenantId, tenantId),
+                eq(channelConnections.channelType, "telegram"),
+                sql`(${channelConnections.channelConfig}->>'scope') IS DISTINCT FROM 'agent'`
+            )).limit(1);
 
         const encryptedToken = encrypt(token);
 
         if (existing.length > 0) {
             await db.update(channelConnections)
-                .set({ channelConfig: { botToken: encryptedToken }, status: "active", agentProfileId })
+                .set({ channelConfig: { botToken: encryptedToken, scope: "default" }, status: "active", agentProfileId })
                 .where(eq(channelConnections.id, existing[0].id));
         } else {
             await db.insert(channelConnections).values({
                 tenantId,
                 channelType: "telegram",
-                channelConfig: { botToken: encryptedToken },
+                channelConfig: { botToken: encryptedToken, scope: "default" },
                 status: "active",
                 agentProfileId,
             });
@@ -417,6 +452,7 @@ export async function updateTelegramPoliciesAction(config: {
     telegram_dm_policy: string;
     telegram_group_policy: string;
     telegram_require_mention: boolean;
+    telegram_vision_enabled: boolean;
 }) {
     const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
@@ -763,6 +799,17 @@ export async function saveEmailConfigAction(formData: FormData) {
     const imapPassword = formData.get("imapPassword") as string;
     const imapTls = formData.get("imapTls") === "true";
 
+    const signatureRaw = formData.get("signature") as string | null;
+    let signature: any = undefined;
+    if (signatureRaw) {
+        try {
+            signature = JSON.parse(signatureRaw);
+        } catch {
+            // Ignore malformed signature payloads rather than failing the whole save.
+            signature = undefined;
+        }
+    }
+
     if (!smtpHost) return { success: false, message: "SMTP host is required." };
 
     try {
@@ -774,6 +821,7 @@ export async function saveEmailConfigAction(formData: FormData) {
                 tls: smtpTls,
                 fromAddress: smtpFrom,
             },
+            ...(signature ? { signature } : {}),
         };
 
         if (smtpPassword) {
@@ -1124,5 +1172,43 @@ export async function testMinimaxEmbeddingAction(groupId: string): Promise<{ suc
         return { success: false, message: `MiniMax error ${code ?? r.status}: ${j?.base_resp?.status_msg || "unexpected response"}` };
     } catch {
         return { success: false, message: "Couldn't reach MiniMax — check the network and try again." };
+    }
+}
+
+/**
+ * Danger Zone — self-service workspace reset. Only works when an admin has
+ * enabled `allow_self_reset` for this tenant (re-checked server-side, never
+ * trusted from the client). The user must type RESET to confirm. tenantId is
+ * always derived from the session. Destructive, no undo, audit-logged.
+ */
+export async function resetMyWorkspaceAction(scope: ResetScope, confirmText: string) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const tenant = await db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
+    const cfg = (tenant?.config as Record<string, any>) || {};
+    if (!cfg.allow_self_reset) {
+        return { success: false, message: "Workspace reset isn't enabled for your workspace. Contact your administrator." };
+    }
+    if ((confirmText ?? "").trim().toUpperCase() !== "RESET") {
+        return { success: false, message: "Type RESET to confirm." };
+    }
+
+    try {
+        const counts = await resetTenantWorkspace(tenantId, scope);
+        await logAudit({
+            action: "tenant.workspace_reset",
+            targetType: "tenant",
+            targetId: tenantId,
+            tenantId,
+            summary: `Self-service workspace reset (scope: ${scope})`,
+            metadata: { scope, counts, initiator: "tenant" },
+        });
+        revalidatePath("/dashboard/settings");
+        return { success: true, counts };
+    } catch (error) {
+        console.error("Self-service workspace reset failed:", error);
+        return { success: false, message: "Failed to reset workspace data." };
     }
 }

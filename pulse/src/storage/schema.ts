@@ -43,8 +43,12 @@ export const agentProfiles = pgTable("agent_profiles", {
         .references(() => tenants.id)
         .notNull(),
     name: varchar("name", { length: 255 }).notNull(), // e.g., "Sélina - COO"
+    title: varchar("title", { length: 160 }), // Role/subtitle shown under the name, e.g. "Chief Financial Officer"
+    avatar: text("avatar"), // Profile picture: data URL (data:image/...;base64,...) or an https URL
     systemPrompt: text("system_prompt"), // The specific instructions injected to the LLM
     modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),
+    reasoningEffort: varchar("reasoning_effort", { length: 12 }), // "minimal"|"low"|"medium"|"high"|"xhigh"; null/absent = provider default
+    progressVerbosity: varchar("progress_verbosity", { length: 12 }), // "off"|"progress"|"verbose"; null/absent = "progress"
     workspacePath: varchar("workspace_path", { length: 512 }),
     dockerSandboxEnabled: boolean("docker_sandbox_enabled").default(false), // WARNING: Grants raw bash execution
     selfConfigEnabled: boolean("self_config_enabled").notNull().default(false), // Allow agent to edit its own workspace files
@@ -279,6 +283,56 @@ export const customTools = pgTable(
     ]
 );
 
+// -- Server Inventory: per-tenant VPS/servers registered for agent SSH access. --
+// Safety is enforced in code (pulse/src/servers/command-policy.ts) based on
+// `safetyMode`. Access is default-deny: an empty `allowedAgentIds` means NO
+// agent may use the server — unlike custom tools, this is infra access and
+// requires explicit per-agent assignment.
+export const servers = pgTable(
+    "servers",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        name: varchar("name", { length: 120 }).notNull(),
+        host: varchar("host", { length: 255 }).notNull(),
+        port: integer("port").notNull().default(22),
+        username: varchar("username", { length: 120 }).notNull(),
+        authType: varchar("auth_type", { length: 10 }).notNull().default("key"), // 'key' | 'password'
+        encryptedSecret: text("encrypted_secret").notNull(), // AES-256-GCM: private key or password
+        environment: varchar("environment", { length: 12 }).notNull().default("dev"), // 'production' | 'staging' | 'dev'
+        safetyMode: varchar("safety_mode", { length: 10 }).notNull().default("observe"), // 'observe' | 'safe' | 'full'
+        instructions: text("instructions"), // operator guidance shown to the agent verbatim
+        allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]), // [] = no agent access (default-deny)
+        approvalMode: varchar("approval_mode", { length: 10 }).notNull().default("off"), // 'off' | 'writes' | 'all' — gates server_exec via pending_approvals
+        enabled: boolean("enabled").notNull().default(false),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [index("idx_servers_tenant").on(table.tenantId)]
+);
+
+// -- Server exec logs: every server_exec attempt (blocked or not), for audit. --
+export const serverExecLogs = pgTable(
+    "server_exec_logs",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        serverId: uuid("server_id").references(() => servers.id).notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id),
+        command: text("command").notNull(),
+        blocked: boolean("blocked").notNull().default(false),
+        blockReason: text("block_reason"),
+        exitCode: integer("exit_code"),
+        durationMs: integer("duration_ms"),
+        outputHead: text("output_head"), // first 500 chars of stdout+stderr
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_server_exec_logs_tenant").on(table.tenantId, table.createdAt),
+        index("idx_server_exec_logs_server").on(table.serverId, table.createdAt),
+    ]
+);
+
 // -- Usage tracking (Billing and credits) --
 export const usageRecords = pgTable(
     "usage_records",
@@ -321,6 +375,92 @@ export const allowlists = pgTable(
             table.contactId
         ),
     ]
+);
+
+// -- People (account-wide, Telegram-ID-based access control) --
+// One row per human the tenant has ever heard from on any channel (currently
+// Telegram). Scope is account-wide — applies to all groups/DMs, not per-channel.
+// `access` gates whether agents respond to this person at all; `allowedAgentIds`
+// (when non-empty) further restricts which agents they may address.
+// `isApprover` / `approvalMode` are enforced by the approval workflow — see
+// pulse/src/channels/approval-service.ts.
+export const people = pgTable(
+    "people",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        telegramUserId: varchar("telegram_user_id", { length: 32 }).notNull(),
+        displayName: varchar("display_name", { length: 255 }),
+        username: varchar("username", { length: 255 }),
+        access: varchar("access", { length: 12 }).notNull().default("observe"), // 'talk' | 'observe' | 'blocked'
+        isApprover: boolean("is_approver").notNull().default(false), // can approve pending_approvals via Telegram inline buttons
+        approvalMode: varchar("approval_mode", { length: 20 }).notNull().default("auto"), // 'auto' | 'requires_approval' — gates this person's messages via pending_approvals
+        allowedAgentIds: jsonb("allowed_agent_ids").notNull().default([]), // [] = may address ALL agents; else subset of agent_profiles.id
+        lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        unique("idx_unique_people_tenant_telegram").on(table.tenantId, table.telegramUserId),
+        index("idx_people_tenant").on(table.tenantId),
+    ]
+);
+
+// -- Pending approvals (Telegram inline-button approval workflow) --
+// One row per gated action awaiting a designated approver's decision:
+//   'user_request' — a message from a person whose approval_mode requires it.
+//   'command'      — a server_exec command on a server whose approval_mode requires it.
+// Every approver gets a DM card with Allow/Deny/Allow-all buttons; `approvalMessageIds`
+// tracks which Telegram message id was sent to which approver so all cards can be
+// edited to a final state once someone decides. See ../channels/approval-service.ts.
+export const pendingApprovals = pgTable(
+    "pending_approvals",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        kind: varchar("kind", { length: 20 }).notNull(), // 'user_request' | 'command'
+        status: varchar("status", { length: 12 }).notNull().default("pending"), // 'pending' | 'approved' | 'denied' | 'expired'
+        requesterTelegramId: varchar("requester_telegram_id", { length: 32 }),
+        agentProfileId: uuid("agent_profile_id").references(() => agentProfiles.id),
+        serverId: uuid("server_id").references(() => servers.id),
+        summary: text("summary").notNull(),
+        payload: jsonb("payload").notNull().default({}), // enough to resume, e.g. { command, serverName }
+        channelType: varchar("channel_type", { length: 20 }),
+        channelContactId: varchar("channel_contact_id", { length: 255 }),
+        approvalMessageIds: jsonb("approval_message_ids").notNull().default({}), // { approverTelegramId: messageId }
+        decidedBy: varchar("decided_by", { length: 32 }),
+        decidedAt: timestamp("decided_at", { withTimezone: true }),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        expiresAt: timestamp("expires_at", { withTimezone: true }),
+    },
+    (table) => [index("idx_pending_approvals_tenant_status").on(table.tenantId, table.status)]
+);
+
+// -- Approval allowances (persistent, revocable "Allow always" standing grants) --
+// Replaces the old 30-minute in-memory session bypass. When an approver taps
+// "Allow always" on a pending_approvals card, a row is inserted here and every
+// future gated request matching (tenantId, kind, subject) is auto-approved —
+// no prompt — until an admin revokes it from the dashboard. See
+// ../channels/approval-service.ts (hasStandingAllowance/grantAllowance/revokeAllowance).
+export const approvalAllowances = pgTable(
+    "approval_allowances",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        kind: varchar("kind", { length: 10 }).notNull(), // 'user' | 'server'
+        subject: varchar("subject", { length: 64 }).notNull(), // telegram user id (kind='user') or server uuid (kind='server')
+        label: varchar("label", { length: 255 }), // human-readable — person name or server name, for the dashboard
+        createdBy: varchar("created_by", { length: 32 }), // approver telegram id who granted it
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    },
+    (table) => [index("idx_approval_allowances_tenant_revoked").on(table.tenantId, table.revokedAt)]
 );
 
 // -- Skills/tools enabled per tenant --

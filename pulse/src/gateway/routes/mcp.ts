@@ -2,12 +2,43 @@ import { FastifyPluginAsync } from "fastify";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { db } from "../../storage/db.js";
-import { oauthTokens, tenants, conversations, messages } from "../../storage/schema.js";
+import { oauthTokens, tenants, conversations, messages, agentProfiles } from "../../storage/schema.js";
 import { eq, and, desc } from "drizzle-orm";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 import { InboundMessage } from "../../channels/types.js";
 import { AgentRuntime } from "../../agent/runtime.js";
+import { ToolRegistry } from "../../agent/tools/registry.js";
+import { logger } from "../../utils/logger.js";
+
+// Registry instance for agent-scoped MCP sessions (reads enablement from DB per call).
+const mcpToolRegistry = new ToolRegistry();
+
+/**
+ * Convert a tool's JSON-schema `parameters` into a Zod raw shape the MCP SDK
+ * accepts. Top-level properties only (string/number/boolean/array/object),
+ * which covers Pulse's built-in tool schemas.
+ */
+function jsonSchemaToZodShape(schema: any): Record<string, z.ZodTypeAny> {
+    const shape: Record<string, z.ZodTypeAny> = {};
+    const props = schema?.properties || {};
+    const required: string[] = Array.isArray(schema?.required) ? schema.required : [];
+    for (const [key, raw] of Object.entries<any>(props)) {
+        let t: z.ZodTypeAny;
+        switch (raw?.type) {
+            case "string": t = raw.enum ? z.enum(raw.enum as [string, ...string[]]) : z.string(); break;
+            case "number":
+            case "integer": t = z.number(); break;
+            case "boolean": t = z.boolean(); break;
+            case "array": t = z.array(z.any()); break;
+            case "object": t = z.record(z.string(), z.any()); break;
+            default: t = z.any();
+        }
+        if (raw?.description) t = t.describe(String(raw.description));
+        shape[key] = required.includes(key) ? t : t.optional();
+    }
+    return shape;
+}
 
 // Per-session transport + server instances
 const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>();
@@ -40,8 +71,12 @@ async function resolveToken(authHeader: string | undefined): Promise<{ tenantId:
 
 /**
  * Create a new McpServer instance with tools scoped to a tenant.
+ * When `agentProfileId` is provided (Codex operator mode — the codex provider
+ * appends ?agent=<id> to the mcp_servers URL), the agent's own enabled Pulse
+ * tools (workspace_update, memory_*, sandbox, custom tools, …) are also
+ * exposed, so a Codex-backed agent is an operator, not just a chat box.
  */
-function createMcpServer(tenantId: string, agentRuntime: AgentRuntime): McpServer {
+async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, agentProfileId?: string, conversationId?: string): Promise<McpServer> {
     const mcp = new McpServer(
         { name: "pulse-ai", version: "1.0.0" },
         { capabilities: { tools: {} } },
@@ -176,6 +211,50 @@ function createMcpServer(tenantId: string, agentRuntime: AgentRuntime): McpServe
         },
     );
 
+    // ── Agent-scoped tools (Codex operator mode) ────────────────────
+    if (agentProfileId) {
+        const reserved = new Set(["send_message", "list_conversations", "get_conversation"]);
+        try {
+            const agentTools = await mcpToolRegistry.getEnabledTools(tenantId, agentProfileId);
+            for (const tool of agentTools) {
+                if (reserved.has(tool.name)) continue;
+                mcp.tool(
+                    tool.name,
+                    tool.description,
+                    jsonSchemaToZodShape(tool.parameters),
+                    async (args: Record<string, any>) => {
+                        try {
+                            const result = await tool.execute({
+                                tenantId,
+                                // Real conversation when the codex provider passed one
+                                // (?conv=...) so channel-aware tools (screenshot ->
+                                // Telegram photo) can find the chat; synthetic otherwise.
+                                conversationId: conversationId || `codex-mcp-${agentProfileId}`,
+                                args: { ...args, _agentId: agentProfileId },
+                            });
+                            // Observability: agent tool results were previously invisible,
+                            // letting models claim success on silent error JSONs.
+                            logger.info(
+                                { tenantId, agentProfileId, tool: tool.name, resultHead: String(result.result).slice(0, 200) },
+                                "Agent MCP tool executed"
+                            );
+                            return { content: [{ type: "text" as const, text: result.result }] };
+                        } catch (err: any) {
+                            logger.error({ err, tool: tool.name, tenantId, agentProfileId }, "Agent MCP tool failed");
+                            return {
+                                content: [{ type: "text" as const, text: `Tool error: ${err?.message || "unknown"}` }],
+                                isError: true,
+                            };
+                        }
+                    },
+                );
+            }
+            logger.info({ tenantId, agentProfileId, toolCount: agentTools.length }, "Agent tools exposed on MCP session");
+        } catch (err) {
+            logger.error({ err, tenantId, agentProfileId }, "Failed to expose agent tools on MCP session");
+        }
+    }
+
     return mcp;
 }
 
@@ -210,12 +289,36 @@ export const mcpRoutes: FastifyPluginAsync = async (fastify) => {
             return;
         }
 
+        // Agent scoping (Codex operator mode): ?agent=<agentProfileId> exposes that
+        // agent's enabled tools on this session. Validated against the tenant.
+        let agentProfileId: string | undefined;
+        const agentParam = (request.query as Record<string, string> | undefined)?.agent;
+        if (agentParam) {
+            const profile = await db.query.agentProfiles.findFirst({
+                where: and(eq(agentProfiles.id, agentParam), eq(agentProfiles.tenantId, auth.tenantId)),
+                columns: { id: true },
+            });
+            if (profile) agentProfileId = profile.id;
+        }
+
+        // ?conv=<conversationId> — the real conversation this codex thread
+        // serves (validated against the tenant), for channel-aware tools.
+        let mcpConversationId: string | undefined;
+        const convParam = (request.query as Record<string, string> | undefined)?.conv;
+        if (convParam) {
+            const conv = await db.query.conversations.findFirst({
+                where: and(eq(conversations.id, convParam), eq(conversations.tenantId, auth.tenantId)),
+                columns: { id: true },
+            });
+            if (conv) mcpConversationId = conv.id;
+        }
+
         // New session — create transport + server, let handleRequest process initialize
         const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
         });
 
-        const mcp = createMcpServer(auth.tenantId, agentRuntime);
+        const mcp = await createMcpServer(auth.tenantId, agentRuntime, agentProfileId, mcpConversationId);
         await mcp.connect(transport);
 
         // handleRequest processes initialize and generates the session ID

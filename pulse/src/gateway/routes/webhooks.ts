@@ -6,12 +6,13 @@ import { logger } from "../../utils/logger.js";
 import { config } from "../../config.js";
 
 export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
-    // POST /webhooks/telegram/:tenantSlug
-    fastify.post("/webhooks/telegram/:tenantSlug", async (request, reply) => {
-        const { tenantSlug } = request.params as { tenantSlug: string };
+    // POST /webhooks/telegram/:tenantSlug              — legacy/default tenant-wide bot
+    // POST /webhooks/telegram/:tenantSlug/:connectionId — per-agent bot (one bot per agent)
+    const handleTelegramWebhook = async (request: any, reply: any) => {
+        const { tenantSlug, connectionId } = request.params as { tenantSlug: string; connectionId?: string };
         const update = request.body; // Telegram Update object
 
-        logger.debug({ tenantSlug, update }, "Received Telegram webhook");
+        logger.debug({ tenantSlug, connectionId, update }, "Received Telegram webhook");
 
         // Lookup tenant by slug
         const tenant = await db.query.tenants.findFirst({
@@ -40,12 +41,17 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         try {
-            await telegramAdapter.handleWebhookUpdate(tenant.id, update);
+            // connectionId scopes the lookup to a specific bot (per-agent);
+            // the tenant is always re-validated from the slug above, so a
+            // connectionId for another tenant simply won't resolve to a bot.
+            await telegramAdapter.handleWebhookUpdate(tenant.id, update, connectionId);
             return reply.code(200).send({ ok: true });
         } catch (err) {
-            logger.error({ err, tenantSlug }, "Failed to process webhook");
+            logger.error({ err, tenantSlug, connectionId }, "Failed to process webhook");
             return reply.code(500).send({ error: "Failed to process webhook" });
         }
-    });
+    };
 
+    fastify.post("/webhooks/telegram/:tenantSlug", handleTelegramWebhook);
+    fastify.post("/webhooks/telegram/:tenantSlug/:connectionId", handleTelegramWebhook);
 };

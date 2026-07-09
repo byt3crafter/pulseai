@@ -9,6 +9,7 @@ import {
     ArrowsRightLeftIcon,
     BuildingOffice2Icon,
     WrenchScrewdriverIcon,
+    ServerIcon,
     ChatBubbleLeftRightIcon,
     ServerStackIcon,
     ChartBarSquareIcon,
@@ -16,6 +17,8 @@ import {
     Cog6ToothIcon,
     ShieldCheckIcon,
     Squares2X2Icon,
+    UsersIcon,
+    UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
 interface CommandPaletteProps {
@@ -72,7 +75,9 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
             { key: "page-agents", label: "Agent Profiles", href: "/dashboard/agents", group: "Pages", icon: CpuChipIcon },
             { key: "page-routing", label: "Routing", href: "/dashboard/agents/routing", group: "Pages", icon: ArrowsRightLeftIcon },
             { key: "page-departments", label: "Departments", href: "/dashboard/departments", group: "Pages", icon: BuildingOffice2Icon },
+            { key: "page-people", label: "People", href: "/dashboard/people", group: "Pages", icon: UsersIcon },
             { key: "page-tools", label: "Custom Tools", href: "/dashboard/tools", group: "Pages", icon: WrenchScrewdriverIcon },
+            { key: "page-servers", label: "Servers", href: "/dashboard/servers", group: "Pages", icon: ServerIcon },
             { key: "page-conversations", label: "Conversations", href: "/dashboard/conversations", group: "Pages", icon: ChatBubbleLeftRightIcon },
             { key: "page-mcp", label: "MCP Servers", href: "/dashboard/mcp", group: "Pages", icon: ServerStackIcon },
         ];
@@ -82,6 +87,7 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
         if (chatgptConnect) {
             pages.push({ key: "page-chatgpt", label: "ChatGPT Connect", href: "/dashboard/chatgpt", group: "Pages", icon: SparklesIcon });
         }
+        pages.push({ key: "page-team", label: "Team", href: "/dashboard/team", group: "Pages", icon: UserGroupIcon });
         pages.push({ key: "page-settings", label: "Settings", href: "/dashboard/settings", group: "Pages", icon: Cog6ToothIcon });
 
         const settings: PaletteItem[] = SETTINGS_TABS.map((t) => ({
@@ -91,6 +97,13 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
             group: "Settings",
             icon: Cog6ToothIcon,
         }));
+        settings.push({
+            key: "settings-credentials",
+            label: "Settings — Credentials (agent API keys & secrets)",
+            href: "/dashboard/settings/credentials",
+            group: "Settings",
+            icon: Cog6ToothIcon,
+        });
 
         const admin: PaletteItem[] = isAdmin
             ? [{ key: "admin-panel", label: "Admin Panel", href: "/admin", group: "Administration", icon: ShieldCheckIcon }]

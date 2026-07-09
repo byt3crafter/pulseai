@@ -66,8 +66,8 @@ async function start() {
                 },
                 {
                     editMessageCallback: adapter.editMessage
-                        ? (tenantId, chatId, messageId, content, parseMode) =>
-                            adapter.editMessage(tenantId, chatId, messageId, content, parseMode)
+                        ? (tenantId, chatId, messageId, content, parseMode, agentProfileId) =>
+                            adapter.editMessage(tenantId, chatId, messageId, content, parseMode, agentProfileId)
                         : undefined,
                 }
             );
@@ -104,8 +104,10 @@ async function start() {
 
         // Initialize Heartbeat Scheduler
         heartbeatScheduler.setRuntime(agentRuntime);
-        heartbeatScheduler.setSendCallback(async (tenantId, channelContactId, content) => {
-            // Route heartbeat messages through Telegram if available
+        heartbeatScheduler.setSendCallback(async (tenantId, channelContactId, content, agentProfileId) => {
+            // Route heartbeat messages through Telegram if available — via the
+            // agent's OWN bot when it has one (bot-selector falls back to the
+            // tenant default otherwise).
             if (telegramAdapter) {
                 await telegramAdapter.sendMessage({
                     conversationId: "heartbeat",
@@ -114,6 +116,7 @@ async function start() {
                     channelContactId,
                     content,
                     format: "markdown",
+                    agentProfileId,
                 });
             }
         });
@@ -156,20 +159,27 @@ async function start() {
         await server.listen({ port: config.PORT, host: "0.0.0.0" });
         server.log.info(`🤖 Pulse AI Gateway is running on port ${config.PORT}`);
 
-        // In production mode with webhook URL, set webhooks for all active bots
+        // In production mode with webhook URL, set webhooks for all active bots.
+        // Each entry is keyed by channel_connections.id — a tenant may have
+        // several (one per agent) plus the legacy tenant-wide default bot.
         if (telegramAdapter && config.NODE_ENV === "production" && config.WEBHOOK_BASE_URL) {
             server.log.info("Setting up Telegram webhooks for production mode");
-            for (const [tenantId, bot] of telegramAdapter.activeBots.entries()) {
+            for (const [connectionId, { bot, conn }] of telegramAdapter.activeBots.entries()) {
                 const tenant = await db.query.tenants.findFirst({
-                    where: eq(tenants.id, tenantId),
+                    where: eq(tenants.id, conn.tenantId),
                 });
 
                 if (!tenant) {
-                    server.log.warn({ tenantId }, "Tenant not found for webhook setup");
+                    server.log.warn({ tenantId: conn.tenantId }, "Tenant not found for webhook setup");
                     continue;
                 }
 
-                const webhookUrl = `${config.WEBHOOK_BASE_URL}/webhooks/telegram/${tenant.slug}`;
+                // Default (tenant-wide) bot keeps the pre-existing URL shape for
+                // backward compat; per-agent bots get the connection-scoped URL.
+                const isDefault = (conn.channelConfig as any)?.scope !== "agent";
+                const webhookUrl = isDefault
+                    ? `${config.WEBHOOK_BASE_URL}/webhooks/telegram/${tenant.slug}`
+                    : `${config.WEBHOOK_BASE_URL}/webhooks/telegram/${tenant.slug}/${connectionId}`;
 
                 try {
                     await bot.api.setWebhook(webhookUrl, {

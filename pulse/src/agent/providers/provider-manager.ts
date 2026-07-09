@@ -1,5 +1,6 @@
-import { AnthropicProvider, ProviderResponse, StreamCallbacks } from "./anthropic.js";
+import { AnthropicProvider, ProviderResponse, StreamCallbacks, ProviderAttachment } from "./anthropic.js";
 import { OpenAIProvider } from "./openai.js";
+import { CodexAppServerProvider } from "./codex-app-server.js";
 import { providerKeyService } from "./provider-key-service.js";
 import { getModelById, getProviderByModel, getFallbackModelId, getDefaultModel } from "./model-registry.js";
 import { getModelPricing, ResolvedPricing } from "./model-pricing-service.js";
@@ -16,10 +17,15 @@ import { logger } from "../../utils/logger.js";
 export class ProviderManager {
     private anthropic = new AnthropicProvider();
     private openai = new OpenAIProvider();
+    private codex = new CodexAppServerProvider();
 
     async chat(params: {
         model: string;
         tenantId: string;
+        agentProfileId?: string;
+        conversationId?: string;
+        onProgress?: (text: string) => void;
+        progressVerbosity?: string;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tools?: Array<{
@@ -28,6 +34,10 @@ export class ProviderManager {
             input_schema: any;
         }>;
         stream?: StreamCallbacks;
+        /** Images attached to the current inbound message (e.g. a Telegram photo). */
+        attachments?: ProviderAttachment[];
+        /** Per-agent reasoning effort override (e.g. Codex/GPT-5.5). Undefined = provider default. */
+        reasoningEffort?: string;
     }): Promise<ProviderResponse & { provider: string; canonicalModel: string; wasFallback: boolean }> {
         const modelDef = getModelById(params.model);
         const providerDef = getProviderByModel(params.model);
@@ -56,6 +66,11 @@ export class ProviderManager {
             logger.debug({ provider: providerId, model: params.model }, "Attempting primary provider");
             const response = await primaryProvider.chat({
                 model: params.model,
+                tenantId: params.tenantId,
+                agentProfileId: params.agentProfileId,
+                conversationId: params.conversationId,
+                onProgress: params.onProgress,
+                progressVerbosity: params.progressVerbosity,
                 systemPrompt: params.systemPrompt,
                 messages: params.messages,
                 tenantApiKey: apiKey,
@@ -63,6 +78,8 @@ export class ProviderManager {
                 tools: params.tools,
                 stream: params.stream,
                 baseURL,
+                attachments: params.attachments,
+                reasoningEffort: params.reasoningEffort,
             });
             return {
                 ...response,
@@ -137,7 +154,7 @@ export class ProviderManager {
         }
     }
 
-    private getProviderInstance(providerId: string): AnthropicProvider | OpenAIProvider {
+    private getProviderInstance(providerId: string): AnthropicProvider | OpenAIProvider | CodexAppServerProvider {
         switch (providerId) {
             case "openai":
             case "openrouter":
@@ -145,6 +162,10 @@ export class ProviderManager {
             case "google":  // Gemini via its OpenAI-compatible endpoint
             case "groq":    // Groq (free) via its OpenAI-compatible endpoint
                 return this.openai;
+            case "codex":
+                // Runs on the host machine's ChatGPT/Codex subscription login
+                // (no API key) via a local `codex app-server` subprocess.
+                return this.codex;
             case "anthropic":
             default:
                 return this.anthropic;

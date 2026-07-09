@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAgentEmailConfigAction } from "./actions";
+import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../../components/dashboard/SignatureEditor";
 
 interface EmailConfig {
     useCustom?: boolean;
@@ -13,6 +14,8 @@ interface EmailConfig {
         encryptedPassword?: string;
         tls: boolean;
         fromAddress: string;
+        fromName?: string;
+        defaultCc?: string;
     };
     imap?: {
         host: string;
@@ -21,6 +24,7 @@ interface EmailConfig {
         encryptedPassword?: string;
         tls: boolean;
     };
+    signature?: SignatureValue;
 }
 
 interface Props {
@@ -45,6 +49,8 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
     const [smtpPassword, setSmtpPassword] = useState("");
     const [smtpTls, setSmtpTls] = useState(emailConfig.smtp?.tls ?? true);
     const [smtpFrom, setSmtpFrom] = useState(emailConfig.smtp?.fromAddress ?? "");
+    const [smtpFromName, setSmtpFromName] = useState(emailConfig.smtp?.fromName ?? "");
+    const [smtpDefaultCc, setSmtpDefaultCc] = useState(emailConfig.smtp?.defaultCc ?? "");
 
     // IMAP state
     const [imapHost, setImapHost] = useState(emailConfig.imap?.host ?? "");
@@ -56,8 +62,12 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
     const hasExistingSmtpPassword = !!emailConfig.smtp?.encryptedPassword;
     const hasExistingImapPassword = !!emailConfig.imap?.encryptedPassword;
 
+    // Signature — independent of useCustom: an agent can keep its own signature
+    // even while sending through the company mailbox.
+    const [signature, setSignature] = useState<SignatureValue>(emailConfig.signature ?? DEFAULT_SIGNATURE);
+
     function handleSave() {
-        const config: any = { useCustom };
+        const config: any = { useCustom, signature };
 
         if (useCustom) {
             config.smtp = {
@@ -66,6 +76,8 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                 username: smtpUsername,
                 tls: smtpTls,
                 fromAddress: smtpFrom,
+                fromName: smtpFromName || undefined,
+                defaultCc: smtpDefaultCc || undefined,
             };
             if (smtpPassword) {
                 config.smtp.password = smtpPassword; // Will be encrypted server-side
@@ -201,6 +213,28 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                                     className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                                 />
                             </div>
+                            <div>
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Sender Name</label>
+                                <input
+                                    type="text"
+                                    value={smtpFromName}
+                                    onChange={(e) => setSmtpFromName(e.target.value)}
+                                    placeholder="Natalie Harrington"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
+                                />
+                                <p className="text-xs text-pulse-faint mt-1">Display name recipients see. Leave blank to use the agent&apos;s name.</p>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs font-medium text-pulse-text-soft mb-1">Always CC</label>
+                                <input
+                                    type="text"
+                                    value={smtpDefaultCc}
+                                    onChange={(e) => setSmtpDefaultCc(e.target.value)}
+                                    placeholder="dovik@runstate.mu, thierry@runstate.mu"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
+                                />
+                                <p className="text-xs text-pulse-faint mt-1">Comma-separated addresses copied on every email this agent sends. Leave blank for none. The agent can also CC per-email when you ask.</p>
+                            </div>
                             <div className="flex items-end">
                                 <label className="flex items-center gap-2 text-sm text-pulse-text-soft">
                                     <input
@@ -277,6 +311,9 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                     </div>
                 </>
             )}
+
+            {/* Signature — independent of which mailbox is used above */}
+            <SignatureEditor value={signature} onChange={setSignature} />
 
             {/* Save button */}
             <div className="flex flex-wrap items-center gap-3">

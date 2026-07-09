@@ -10,6 +10,7 @@ import {
     StarIcon,
     EyeIcon,
     ChatBubbleLeftRightIcon,
+    BuildingOffice2Icon,
 } from "@heroicons/react/24/outline";
 import {
     createChannelAction,
@@ -21,7 +22,7 @@ import {
     removeChannelMemberAction,
     setMemberAgentsAction,
 } from "./actions";
-import { PageHeader, Card } from "../../../components/dashboard/ui";
+import { PageHeader, Card, EmptyState } from "../../../components/dashboard/ui";
 
 type Channel = {
     id: string; kind: string; parentId: string | null; name: string;
@@ -66,7 +67,7 @@ export default function DepartmentsClient(props: Props) {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
             <PageHeader
                 title="Departments"
                 description="Organize your company into departments and groups. Add agents (with a lead that answers & routes) and people (talk or read-only). The persona lives on each agent."
@@ -83,7 +84,13 @@ export default function DepartmentsClient(props: Props) {
 
             <div className="mt-6 space-y-6">
                 {departments.length === 0 && (
-                    <p className="text-pulse-faint text-sm text-center py-8">No departments yet. Create your first one above.</p>
+                    <Card>
+                        <EmptyState
+                            icon={BuildingOffice2Icon}
+                            title="No departments yet"
+                            description="Create your first department above to start organizing agents and people."
+                        />
+                    </Card>
                 )}
                 {departments.map((dept) => (
                     <Card key={dept.id}>

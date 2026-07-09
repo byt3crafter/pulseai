@@ -18,11 +18,18 @@ import SandboxConfigEditor from "./SandboxConfigEditor";
 import HeartbeatEditor from "./HeartbeatEditor";
 import SkillsEditor from "./SkillsEditor";
 import EmailConfigEditor from "./EmailConfigEditor";
-import { InfoTip } from "../../../../components/dashboard/ui";
+import TelegramConfigEditor from "./TelegramConfigEditor";
+import AgentIdentityEditor from "./AgentIdentityEditor";
+import { InfoTip, SelectMenu } from "../../../../components/dashboard/ui";
+import AgentAvatar from "../../../../components/dashboard/AgentAvatar";
 
 interface AgentData {
     id: string;
     name: string;
+    title: string | null;
+    avatar: string | null;
+    reasoningEffort: string | null;
+    progressVerbosity?: string | null;
     modelId: string;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
@@ -63,23 +70,51 @@ interface Props {
     activeProviders: string[];
     defaultSkills: string[];
     hasTenantEmail: boolean;
+    telegramConnected: boolean;
+    telegramBotUsername: string | null;
 }
 
-const TABS = [
-    { id: "soul", label: "Soul" },
-    { id: "identity", label: "Identity" },
-    { id: "memory", label: "Memory" },
-    { id: "heartbeat", label: "Heartbeat" },
-    { id: "tools-guidance", label: "Tools" },
-    { id: "user-prefs", label: "User" },
-    { id: "bootstrap", label: "Bootstrap" },
-    { id: "agents", label: "Agents" },
-    { id: "skills", label: "Skills" },
-    { id: "email", label: "Email" },
-    { id: "tool-policy", label: "Tool Policy" },
-    { id: "sandbox", label: "Sandbox" },
-    { id: "config", label: "Config" },
-    { id: "revisions", label: "Revisions" },
+// Grouped left section-nav (Clerk/Stripe/Linear settings pattern). Section
+// `id`s are unchanged from the old flat tab strip — only the nav presentation
+// + layout changed, so every `activeTab === "..."` content block below still
+// matches unmodified.
+const NAV_GROUPS: { label: string; items: { id: string; label: string }[] }[] = [
+    {
+        label: "General",
+        items: [{ id: "config", label: "Profile" }],
+    },
+    {
+        label: "Persona & Memory",
+        items: [
+            { id: "soul", label: "Soul" },
+            { id: "identity", label: "Identity" },
+            { id: "memory", label: "Memory" },
+            { id: "heartbeat", label: "Heartbeat" },
+            { id: "user-prefs", label: "User" },
+            { id: "bootstrap", label: "Bootstrap" },
+            { id: "agents", label: "Agents" },
+        ],
+    },
+    {
+        label: "Capabilities",
+        items: [
+            { id: "tools-guidance", label: "Tools" },
+            { id: "skills", label: "Skills" },
+            { id: "tool-policy", label: "Tool Policy" },
+            { id: "sandbox", label: "Sandbox" },
+        ],
+    },
+    {
+        label: "Channels",
+        items: [
+            { id: "email", label: "Email" },
+            { id: "telegram", label: "Telegram" },
+        ],
+    },
+    {
+        label: "History",
+        items: [{ id: "revisions", label: "Revisions" }],
+    },
 ];
 
 export default function AgentWorkspaceClient({
@@ -103,12 +138,18 @@ export default function AgentWorkspaceClient({
     activeProviders,
     defaultSkills,
     hasTenantEmail,
+    telegramConnected,
+    telegramBotUsername,
 }: Props) {
-    const [activeTab, setActiveTab] = useState("soul");
+    const [activeTab, setActiveTab] = useState("config");
     const router = useRouter();
 
+    const revisionsTotal =
+        soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount +
+        toolsGuidanceRevisionCount + userPrefsRevisionCount + bootstrapRevisionCount + agentsRevisionCount;
+
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl">
             {/* Header */}
             <div className="mb-6">
                 <Link
@@ -118,141 +159,191 @@ export default function AgentWorkspaceClient({
                     &larr; Back to Agents
                 </Link>
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-pulse-text">{agent.name}</h1>
-                        <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs font-mono text-pulse-faint">ID: {agent.id.slice(0, 8)}...</span>
-                            <span className="px-2 py-0.5 bg-pulse-tint text-pulse-accent-hi text-xs font-medium rounded-full">
-                                {getModelDisplayName(agent.modelId)}
-                            </span>
-                            {agent.dockerSandboxEnabled && (
-                                <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs font-semibold rounded-full">
-                                    Sandbox
-                                </span>
+                    <div className="flex items-center gap-4 min-w-0">
+                        <AgentAvatar name={agent.name} avatar={agent.avatar} size="lg" />
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-bold text-pulse-text truncate">{agent.name}</h1>
+                            {agent.title && (
+                                <p className="text-sm text-pulse-muted truncate">{agent.title}</p>
                             )}
+                            <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                <span className="text-xs font-mono text-pulse-faint">ID: {agent.id.slice(0, 8)}...</span>
+                                <span className="px-2 py-0.5 bg-pulse-tint text-pulse-accent-hi text-xs font-medium rounded-full">
+                                    {getModelDisplayName(agent.modelId)}
+                                </span>
+                                {agent.dockerSandboxEnabled && (
+                                    <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs font-semibold rounded-full">
+                                        Sandbox
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Tab nav */}
-            <div className="border-b border-pulse-border-subtle mb-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <nav className="flex gap-1 min-w-max">
-                    {TABS.map((t) => (
-                        <button
-                            key={t.id}
-                            onClick={() => setActiveTab(t.id)}
-                            className={`px-3.5 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-t-md ${activeTab === t.id
-                                ? "border-pulse-accent text-pulse-accent-hi"
-                                : "border-transparent text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
-                                }`}
-                        >
-                            {t.label}
-                            {t.id === "revisions" && (soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount + toolsGuidanceRevisionCount + userPrefsRevisionCount + bootstrapRevisionCount + agentsRevisionCount) > 0 && (
-                                <span className="ml-1.5 text-xs text-pulse-faint">
-                                    ({soulRevisionCount + identityRevisionCount + memoryRevisionCount + heartbeatRevisionCount + toolsGuidanceRevisionCount + userPrefsRevisionCount + bootstrapRevisionCount + agentsRevisionCount})
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </nav>
+            {/* Mobile section picker — every section stays reachable without a
+                horizontal-scroll trap; grouped to mirror the desktop rail. */}
+            <div className="md:hidden mb-6">
+                <SelectMenu
+                    id="agent-section"
+                    ariaLabel="Agent section"
+                    value={activeTab}
+                    onChange={setActiveTab}
+                    groups={NAV_GROUPS.map((group) => ({
+                        label: group.label,
+                        options: group.items.map((item) => ({
+                            value: item.id,
+                            label: item.label,
+                            badge: item.id === "revisions" && revisionsTotal > 0 ? String(revisionsTotal) : undefined,
+                        })),
+                    }))}
+                />
             </div>
 
-            {/* Tab content */}
-            {activeTab === "soul" && (
-                <FileEditor
-                    agentId={agent.id}
-                    fileName="SOUL.md"
-                    initialContent={soulContent}
-                    title="Soul"
-                    description="Define your agent's personality, behaviors, and communication style. This is the core of who your agent is."
-                />
-            )}
-            {activeTab === "identity" && (
-                <FileEditor
-                    agentId={agent.id}
-                    fileName="IDENTITY.md"
-                    initialContent={identityContent}
-                    title="Identity"
-                    description="Set your agent's name, role, and background context. This frames how the agent introduces itself."
-                />
-            )}
-            {activeTab === "memory" && (
-                <FileEditor
-                    agentId={agent.id}
-                    fileName="MEMORY.md"
-                    initialContent={memoryContent}
-                    title="Memory"
-                    description="The agent stores important facts and recalls them in future conversations."
-                    infoTip="Example: tell it your database server name once; it can recall it next week. Semantic recall needs an embedding key (Settings → Memory)."
-                />
-            )}
-            {activeTab === "heartbeat" && (
-                <div className="space-y-6">
-                    <HeartbeatEditor agentId={agent.id} initialConfig={agent.heartbeatConfig} />
-                    <FileEditor
-                        agentId={agent.id}
-                        fileName="HEARTBEAT.md"
-                        initialContent={heartbeatContent}
-                        title="Heartbeat Prompt"
-                        description="Instructions dictating how the agent should behave when triggered by the automated pacemaker scheduler."
-                    />
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+                {/* Desktop section-nav rail */}
+                <nav
+                    aria-label="Agent sections"
+                    className="hidden md:block w-56 flex-shrink-0 md:sticky md:top-6 self-start space-y-5"
+                >
+                    {NAV_GROUPS.map((group) => (
+                        <div key={group.label}>
+                            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-pulse-faint">
+                                {group.label}
+                            </p>
+                            <div className="space-y-0.5">
+                                {group.items.map((item) => {
+                                    const isActive = activeTab === item.id;
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => setActiveTab(item.id)}
+                                            aria-current={isActive ? "page" : undefined}
+                                            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm font-medium text-left transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${isActive
+                                                ? "bg-pulse-tint text-pulse-accent-hi"
+                                                : "text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
+                                                }`}
+                                        >
+                                            <span className="truncate">{item.label}</span>
+                                            {item.id === "revisions" && revisionsTotal > 0 && (
+                                                <span className="text-xs text-pulse-faint flex-shrink-0">{revisionsTotal}</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </nav>
+
+                {/* Section content */}
+                <div className="flex-1 min-w-0">
+                    {activeTab === "soul" && (
+                        <FileEditor
+                            agentId={agent.id}
+                            fileName="SOUL.md"
+                            initialContent={soulContent}
+                            title="Soul"
+                            description="Define your agent's personality, behaviors, and communication style. This is the core of who your agent is."
+                        />
+                    )}
+                    {activeTab === "identity" && (
+                        <FileEditor
+                            agentId={agent.id}
+                            fileName="IDENTITY.md"
+                            initialContent={identityContent}
+                            title="Identity"
+                            description="Set your agent's name, role, and background context. This frames how the agent introduces itself."
+                        />
+                    )}
+                    {activeTab === "memory" && (
+                        <FileEditor
+                            agentId={agent.id}
+                            fileName="MEMORY.md"
+                            initialContent={memoryContent}
+                            title="Memory"
+                            description="The agent stores important facts and recalls them in future conversations."
+                            infoTip="Example: tell it your database server name once; it can recall it next week. Semantic recall needs an embedding key (Settings → Memory)."
+                        />
+                    )}
+                    {activeTab === "heartbeat" && (
+                        <div className="space-y-6">
+                            <HeartbeatEditor agentId={agent.id} initialConfig={agent.heartbeatConfig} />
+                            <FileEditor
+                                agentId={agent.id}
+                                fileName="HEARTBEAT.md"
+                                initialContent={heartbeatContent}
+                                title="Heartbeat Prompt"
+                                description="Instructions dictating how the agent should behave when triggered by the automated pacemaker scheduler."
+                            />
+                        </div>
+                    )}
+                    {activeTab === "tools-guidance" && (
+                        <FileEditor
+                            agentId={agent.id}
+                            fileName="TOOLS.md"
+                            initialContent={toolsGuidanceContent}
+                            title="Tools Guidance"
+                            description="User-written notes on how the agent should use specific tools and integrations. This does NOT control which tools are available — use the Tool Policy tab for that."
+                        />
+                    )}
+                    {activeTab === "user-prefs" && (
+                        <FileEditor
+                            agentId={agent.id}
+                            fileName="USER.md"
+                            initialContent={userPrefsContent}
+                            title="User Preferences"
+                            description="Tell the agent about yourself — who you are, how to address you, preferred formats, language, timezone, or any other context the agent should know."
+                        />
+                    )}
+                    {activeTab === "bootstrap" && (
+                        <FileEditor
+                            agentId={agent.id}
+                            fileName="BOOTSTRAP.md"
+                            initialContent={bootstrapContent}
+                            title="Bootstrap"
+                            description="First-run onboarding script. Guides the agent through its initial 'who am I?' conversation. The agent deletes this file after onboarding is complete."
+                        />
+                    )}
+                    {activeTab === "agents" && (
+                        <FileEditor
+                            agentId={agent.id}
+                            fileName="AGENTS.md"
+                            initialContent={agentsContent}
+                            title="Agents"
+                            description="Workspace operating manual. Tells the agent how to use its files, manage memory, handle safety, and behave in different contexts."
+                        />
+                    )}
+                    {activeTab === "skills" && (
+                        <SkillsEditor agentId={agent.id} skillConfig={agent.skillConfig ?? {}} defaultSkills={defaultSkills} />
+                    )}
+                    {activeTab === "email" && (
+                        <EmailConfigEditor agentId={agent.id} emailConfig={agent.emailConfig ?? {}} hasTenantEmail={hasTenantEmail} />
+                    )}
+                    {activeTab === "telegram" && (
+                        <TelegramConfigEditor
+                            agentId={agent.id}
+                            agentName={agent.name}
+                            connected={telegramConnected}
+                            botUsername={telegramBotUsername}
+                        />
+                    )}
+                    {activeTab === "tool-policy" && (
+                        <ToolPolicyEditor agentId={agent.id} initialPolicy={agent.toolPolicy} />
+                    )}
+                    {activeTab === "sandbox" && (
+                        <SandboxConfigEditor agentId={agent.id} initialConfig={agent.sandboxConfig} />
+                    )}
+                    {activeTab === "config" && (
+                        <ConfigTab agent={agent} activeProviders={activeProviders} />
+                    )}
+                    {activeTab === "revisions" && (
+                        <RevisionsTab agentId={agent.id} />
+                    )}
                 </div>
-            )}
-            {activeTab === "tools-guidance" && (
-                <FileEditor
-                    agentId={agent.id}
-                    fileName="TOOLS.md"
-                    initialContent={toolsGuidanceContent}
-                    title="Tools Guidance"
-                    description="User-written notes on how the agent should use specific tools and integrations. This does NOT control which tools are available — use the Tool Policy tab for that."
-                />
-            )}
-            {activeTab === "user-prefs" && (
-                <FileEditor
-                    agentId={agent.id}
-                    fileName="USER.md"
-                    initialContent={userPrefsContent}
-                    title="User Preferences"
-                    description="Tell the agent about yourself — who you are, how to address you, preferred formats, language, timezone, or any other context the agent should know."
-                />
-            )}
-            {activeTab === "bootstrap" && (
-                <FileEditor
-                    agentId={agent.id}
-                    fileName="BOOTSTRAP.md"
-                    initialContent={bootstrapContent}
-                    title="Bootstrap"
-                    description="First-run onboarding script. Guides the agent through its initial 'who am I?' conversation. The agent deletes this file after onboarding is complete."
-                />
-            )}
-            {activeTab === "agents" && (
-                <FileEditor
-                    agentId={agent.id}
-                    fileName="AGENTS.md"
-                    initialContent={agentsContent}
-                    title="Agents"
-                    description="Workspace operating manual. Tells the agent how to use its files, manage memory, handle safety, and behave in different contexts."
-                />
-            )}
-            {activeTab === "skills" && (
-                <SkillsEditor agentId={agent.id} skillConfig={agent.skillConfig ?? {}} defaultSkills={defaultSkills} />
-            )}
-            {activeTab === "email" && (
-                <EmailConfigEditor agentId={agent.id} emailConfig={agent.emailConfig ?? {}} hasTenantEmail={hasTenantEmail} />
-            )}
-            {activeTab === "tool-policy" && (
-                <ToolPolicyEditor agentId={agent.id} initialPolicy={agent.toolPolicy} />
-            )}
-            {activeTab === "sandbox" && (
-                <SandboxConfigEditor agentId={agent.id} initialConfig={agent.sandboxConfig} />
-            )}
-            {activeTab === "config" && (
-                <ConfigTab agent={agent} activeProviders={activeProviders} />
-            )}
-            {activeTab === "revisions" && (
-                <RevisionsTab agentId={agent.id} />
-            )}
+            </div>
         </div>
     );
 }
@@ -392,6 +483,16 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
 
     return (
         <div className="space-y-6">
+            {/* Profile (name, title, avatar) */}
+            <AgentIdentityEditor
+                agentId={agent.id}
+                initialName={agent.name}
+                initialTitle={agent.title}
+                initialAvatar={agent.avatar}
+                initialReasoningEffort={agent.reasoningEffort}
+                initialProgressVerbosity={agent.progressVerbosity ?? null}
+            />
+
             {/* Model Selection */}
             <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
                 <div className="px-6 py-4 border-b border-pulse-border-subtle">

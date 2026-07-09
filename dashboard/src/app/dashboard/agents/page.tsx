@@ -19,6 +19,8 @@ export default async function AgentsPage() {
     let agents: {
         id: string;
         name: string;
+        title: string | null;
+        avatar: string | null;
         modelId: string | null;
         enabled: boolean;
         dockerSandboxEnabled: boolean | null;
@@ -33,6 +35,8 @@ export default async function AgentsPage() {
         agents = await db.select({
             id: agentProfiles.id,
             name: agentProfiles.name,
+            title: agentProfiles.title,
+            avatar: agentProfiles.avatar,
             modelId: agentProfiles.modelId,
             enabled: agentProfiles.enabled,
             dockerSandboxEnabled: agentProfiles.dockerSandboxEnabled,
@@ -41,13 +45,9 @@ export default async function AgentsPage() {
             .from(agentProfiles)
             .where(eq(agentProfiles.tenantId, tenantId));
 
-        const providerRows = await db.select({ provider: tenantProviderKeys.provider })
-            .from(tenantProviderKeys)
-            .where(and(
-                eq(tenantProviderKeys.tenantId, tenantId),
-                eq(tenantProviderKeys.isActive, true)
-            ));
-        connectedProviders = providerRows.map((r) => r.provider);
+        // Single source of truth (excludes OAuth-only OpenAI, includes codex).
+        const { getActiveProvidersAction } = await import("./[id]/actions");
+        connectedProviders = await getActiveProvidersAction();
 
         // Departments / groups each agent belongs to (for the "Departments" column).
         const membershipRows = await db.select({
@@ -67,12 +67,10 @@ export default async function AgentsPage() {
     }
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
-            <AgentsTableClient
-                agents={agents}
-                deptsByAgent={deptsByAgent}
-                connectedProviders={connectedProviders}
-            />
-        </div>
+        <AgentsTableClient
+            agents={agents}
+            deptsByAgent={deptsByAgent}
+            connectedProviders={connectedProviders}
+        />
     );
 }

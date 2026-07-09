@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { db } from "../../../../storage/db";
 import { routingRules, agentProfiles, tenants } from "../../../../storage/schema";
 import { eq, asc } from "drizzle-orm";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { PageHeader, Card } from "../../../../components/dashboard/ui";
 import RoutingClient from "./RoutingClient";
 
 export const dynamic = "force-dynamic";
@@ -27,14 +29,22 @@ export default async function RoutingPage() {
 
     if (!routingEnabled) {
         return (
-            <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-                <h1 className="text-2xl font-bold text-pulse-text mb-6">Message Routing</h1>
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6">
-                    <h2 className="text-lg font-semibold text-amber-400 mb-2">Feature Not Enabled</h2>
-                    <p className="text-sm text-amber-400">
-                        Multi-agent routing is not enabled for your workspace. Contact your administrator to enable this feature.
-                    </p>
-                </div>
+            <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+                <PageHeader
+                    title="Message Routing"
+                    description="Route incoming messages to different agents based on rules."
+                />
+                <Card>
+                    <div className="flex items-start gap-3 p-5">
+                        <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <div>
+                            <h2 className="text-sm font-semibold text-pulse-text">Feature not enabled</h2>
+                            <p className="text-sm text-pulse-muted mt-1">
+                                Multi-agent routing is not enabled for your workspace. Contact your administrator to enable this feature.
+                            </p>
+                        </div>
+                    </div>
+                </Card>
             </div>
         );
     }
@@ -63,16 +73,14 @@ export default async function RoutingPage() {
     });
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-            <RoutingClient
-                rules={rules.map((r) => ({
-                    ...r,
-                    agentName: r.agentName ?? "Unknown Agent",
-                    description: r.description ?? "",
-                    createdAt: r.createdAt?.toISOString() ?? "",
-                }))}
-                agents={agents.map((a) => ({ id: a.id, name: a.name }))}
-            />
-        </div>
+        <RoutingClient
+            rules={rules.map((r) => ({
+                ...r,
+                agentName: r.agentName ?? "Unknown Agent",
+                description: r.description ?? "",
+                createdAt: r.createdAt?.toISOString() ?? "",
+            }))}
+            agents={agents.map((a) => ({ id: a.id, name: a.name }))}
+        />
     );
 }

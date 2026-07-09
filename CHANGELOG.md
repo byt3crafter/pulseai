@@ -3,6 +3,33 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.5] - 2026-07-09
+
+### Bug Fixes
+- interlocutor identity overrides stale names in history
+
+## [0.14.4] - 2026-07-09
+
+### Features
+- editable display name in Profile
+
+## [0.14.3] - 2026-07-09
+
+### Features
+- workspace data reset (Danger Zone)
+
+## [0.14.2] - 2026-07-09
+
+### Bug Fixes
+- tell the agent who it's currently talking to
+- login screen never left — [hidden] overridden by display:flex (v0.1.3)
+- login guard false-flagged valid URL (v0.1.2)
+- surface wrong-gateway-URL instead of silent login failure
+
+### Chores
+- gitignore local landing-page design reference
+- v0.1.1 — correct default gateway URL + migration + login hardening
+
 ## [0.10.32] - 2026-07-07
 
 ### Features

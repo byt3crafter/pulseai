@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { TrashIcon, ServerStackIcon } from "@heroicons/react/24/outline";
 import {
     deleteMcpServerAction,
     bindAgentToMcpAction,
@@ -9,6 +10,7 @@ import {
 } from "./actions";
 import CreateMcpServerModal from "./CreateMcpServerModal";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+import { PageHeader, Card, EmptyState } from "../../../components/dashboard/ui";
 
 interface McpServer {
     id: string;
@@ -60,26 +62,21 @@ export default function McpClient({ servers, agents, bindings }: Props) {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-pulse-text tracking-tight">
-                        MCP Servers
-                    </h1>
-                    <p className="text-sm text-pulse-muted mt-1">
-                        Manage external tool servers and bind them to agents.
-                    </p>
-                </div>
-                <CreateMcpServerModal />
-            </div>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+            <PageHeader
+                title="MCP Servers"
+                description="Manage external tool servers and bind them to agents."
+                action={<CreateMcpServerModal />}
+            />
 
             {servers.length === 0 && (
-                <div className="text-center py-16 bg-pulse-panel rounded-xl border border-pulse-border-subtle">
-                    <p className="text-sm text-pulse-faint">
-                        No MCP servers configured. Add one to give your agents
-                        external tool access.
-                    </p>
-                </div>
+                <Card>
+                    <EmptyState
+                        icon={ServerStackIcon}
+                        title="No MCP servers configured"
+                        description="Add one to give your agents external tool access."
+                    />
+                </Card>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -95,38 +92,38 @@ export default function McpClient({ servers, agents, bindings }: Props) {
                     );
 
                     return (
-                        <div
-                            key={server.id}
-                            className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle overflow-hidden"
-                        >
-                            <div className="px-6 py-4 border-b border-pulse-border-subtle">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className={`w-2.5 h-2.5 rounded-full ${
-                                                server.status === "active"
-                                                    ? "bg-green-400"
-                                                    : "bg-pulse-faint"
-                                            }`}
-                                        />
-                                        <h3 className="text-sm font-semibold text-pulse-text">
+                        <Card key={server.id}>
+                            <div className="px-5 py-4 border-b border-pulse-border-subtle flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                            server.status === "active"
+                                                ? "bg-green-400"
+                                                : "bg-pulse-border-strong"
+                                        }`}
+                                        aria-hidden="true"
+                                    />
+                                    <div className="min-w-0">
+                                        <h3 className="text-sm font-semibold text-pulse-text truncate">
                                             {server.name}
                                         </h3>
+                                        <p className="text-xs text-pulse-faint font-mono truncate">
+                                            {server.url}
+                                        </p>
                                     </div>
-                                    <button
-                                        onClick={() =>
-                                            setDeleteServerId(server.id)
-                                        }
-                                        className="text-xs font-medium text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 cursor-pointer transition-colors motion-reduce:transition-none outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                    >
-                                        Delete
-                                    </button>
                                 </div>
-                                <p className="text-xs text-pulse-faint font-mono mt-1 truncate">
-                                    {server.url}
-                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setDeleteServerId(server.id)
+                                    }
+                                    aria-label={`Delete ${server.name}`}
+                                    className="p-1.5 rounded-lg text-pulse-faint hover:text-red-500 hover:bg-red-500/10 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500 flex-shrink-0"
+                                >
+                                    <TrashIcon className="w-4 h-4" aria-hidden="true" />
+                                </button>
                             </div>
-                            <div className="px-6 py-4">
+                            <div className="p-5">
                                 {/* Bound Agents */}
                                 <p className="text-xs font-medium text-pulse-muted uppercase tracking-wide mb-2">
                                     Bound Agents
@@ -187,7 +184,7 @@ export default function McpClient({ servers, agents, bindings }: Props) {
                                     </select>
                                 )}
                             </div>
-                        </div>
+                        </Card>
                     );
                 })}
             </div>

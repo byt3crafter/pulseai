@@ -78,17 +78,26 @@ export async function generateAgentConfigAction(input: { description: string }):
     if (description.length < 8) return { success: false, message: "Describe the agent in a sentence or two so I have enough to work with." };
 
     // Which providers/models are connected → constrain the model choice to something usable.
-    const keys = await db.select({ provider: tenantProviderKeys.provider }).from(tenantProviderKeys).where(eq(tenantProviderKeys.tenantId, tenantId));
-    const connected = new Set(keys.map((k) => k.provider));
-    const allowedModels = PROVIDERS.filter((p) => connected.has(p.id)).flatMap((p) => p.models.map((m) => m.id));
-    if (allowedModels.length === 0) return { success: false, message: "Connect an AI provider in Settings → AI Providers first." };
+    const keys = await db.select().from(tenantProviderKeys).where(and(eq(tenantProviderKeys.tenantId, tenantId), eq(tenantProviderKeys.isActive, true)));
 
-    // Use the first connected provider/model to run the generation.
-    const genModel = allowedModels[0];
-    const providerId = PROVIDERS.find((p) => p.models.some((m) => m.id === genModel))!.id;
-    const [key] = await db.select().from(tenantProviderKeys)
-        .where(and(eq(tenantProviderKeys.tenantId, tenantId), eq(tenantProviderKeys.provider, providerId))).limit(1);
-    if (!key) return { success: false, message: "No usable AI provider key found." };
+    // Providers whose keys can actually make API calls from here. ChatGPT-OAuth
+    // OpenAI is NOT usable (the API rejects those tokens) — it used to be picked
+    // "first" and broke generation with "Couldn't generate right now".
+    const CALLABLE = ["minimax", "groq", "google", "anthropic", "openrouter", "openai"];
+    const usable = keys.filter((k) =>
+        CALLABLE.includes(k.provider) &&
+        !(k.provider === "openai" && (k.authMethod !== "api_key" || !k.encryptedApiKey))
+    );
+    const key = CALLABLE.map((pid) => usable.find((k) => k.provider === pid)).find(Boolean);
+    if (!key) return { success: false, message: "Connect an AI provider with a working API key (e.g. MiniMax or Groq) in Settings → AI Providers first." };
+    const providerId = key.provider;
+    const genModel = PROVIDERS.find((p) => p.id === providerId)!.models[0].id;
+
+    // Models the AGENT may be assigned (includes host-level Codex, which the
+    // agent can run even though generation itself uses the keyed provider).
+    const connected = new Set(usable.map((k) => k.provider));
+    connected.add("codex");
+    const allowedModels = PROVIDERS.filter((p) => connected.has(p.id)).flatMap((p) => p.models.map((m) => m.id));
 
     const prompt = [
         `You are configuring an AI agent for a business, from this description:`,

@@ -3,9 +3,10 @@
 import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
+    updateProfileNameAction,
     saveTelegramTokenAction,
     saveProviderKeyAction,
     removeProviderKeyAction,
@@ -29,6 +30,7 @@ import {
     testVoyageEmbeddingAction,
     saveDraftChannelConfigAction,
     saveAutoMemorySettingsAction,
+    resetMyWorkspaceAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
@@ -37,7 +39,8 @@ import { generateCodeVerifier, generateCodeChallenge, generateState } from "../.
 import { buildOpenAIAuthUrl, getCallbackUrl } from "../../../utils/openai-oauth";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import TwoFactorCard from "../../../components/TwoFactorCard";
-import { PageHeader, Card, CardHeader, SettingRow, Toggle } from "../../../components/dashboard/ui";
+import { PageHeader, Card, CardHeader, EmptyState, SettingRow, Toggle } from "../../../components/dashboard/ui";
+import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../components/dashboard/SignatureEditor";
 
 const TABS = [
     { id: "account", label: "Account" },
@@ -47,6 +50,7 @@ const TABS = [
     { id: "memory", label: "Memory" },
     { id: "email", label: "Email" },
     { id: "plugins", label: "Plugins" },
+    { id: "credentials", label: "Credentials", href: "/dashboard/settings/credentials" },
     { id: "api", label: "API & Developer" },
     { id: "billing", label: "Billing" },
 ];
@@ -119,6 +123,7 @@ interface Props {
         dmPolicy: string;
         groupPolicy: string;
         requireMention: boolean;
+        visionEnabled: boolean;
     };
     autoMemoryConfig: {
         enabled: boolean;
@@ -129,8 +134,9 @@ interface Props {
     approvedGroups: AllowlistInfo[];
     plugins: PluginData[];
     savePluginCredentials: (formData: FormData) => Promise<void>;
-    emailConfig: { smtp?: any; imap?: any } | null;
+    emailConfig: { smtp?: any; imap?: any; signature?: SignatureValue } | null;
     embeddingConfigured: boolean;
+    allowSelfReset: boolean;
 }
 
 export default function SettingsClient({
@@ -141,11 +147,12 @@ export default function SettingsClient({
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
+    allowSelfReset,
 }: Props) {
     const router = useRouter();
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
             <PageHeader title="Settings" description="Manage your workspace, account, integrations, and API access." />
 
             <div className="flex flex-col md:flex-row gap-6 md:gap-8">
@@ -155,7 +162,7 @@ export default function SettingsClient({
                         {TABS.map(t => (
                             <li key={t.id} className="flex-shrink-0">
                                 <Link
-                                    href={`/dashboard/settings?tab=${t.id}`}
+                                    href={(t as any).href ?? `/dashboard/settings?tab=${t.id}`}
                                     className={`block w-full text-left whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${tab === t.id
                                         ? "bg-pulse-tint text-pulse-accent-hi"
                                         : "text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
@@ -175,7 +182,7 @@ export default function SettingsClient({
 
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
-                    {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} />}
+                    {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} allowSelfReset={allowSelfReset} />}
                     {tab === "integrations" && <IntegrationsTab telegramConnected={telegramConnected} oauthEnabled={enableThirdPartyCli} channelSetups={channelSetups} />}
                     {tab === "telegram" && (
                         <TelegramTab
@@ -199,7 +206,7 @@ export default function SettingsClient({
 
 // ─── Account Tab ────────────────────────────────────────────────────────────
 
-function AccountTab({ userEmail, userName }: { userEmail: string; userName: string }) {
+function AccountTab({ userEmail, userName, allowSelfReset }: { userEmail: string; userName: string; allowSelfReset: boolean }) {
     const [status, setStatus] = useState<{ type: "idle" | "loading" | "success" | "error"; message: string }>({ type: "idle", message: "" });
     const searchParams = useSearchParams();
     const forcePasswordChange = searchParams.get("forcePasswordChange") === "true";
@@ -233,7 +240,11 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
             <Card>
                 <CardHeader title="Profile" description="Your workspace account details." />
                 <div className="divide-y divide-pulse-border-subtle">
-                    <SettingRow title="Name" control={<span className="text-sm text-pulse-text-soft">{userName || "--"}</span>} />
+                    <SettingRow
+                        title="Name"
+                        description="How your agents address you when you talk to them."
+                        control={<ProfileNameEditor initialName={userName} />}
+                    />
                     <SettingRow title="Email" control={<span className="text-sm text-pulse-text-soft">{userEmail || "--"}</span>} />
                 </div>
             </Card>
@@ -259,6 +270,149 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
 
             {/* Security */}
             <TwoFactorCard variant="pulse" />
+
+            {/* Danger Zone — only when an admin has enabled self-service reset */}
+            {allowSelfReset && <WorkspaceResetSection />}
+        </div>
+    );
+}
+
+// ─── Editable display name ────────────────────────────────────────────────────
+
+function ProfileNameEditor({ initialName }: { initialName: string }) {
+    const router = useRouter();
+    const [name, setName] = useState(initialName);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [err, setErr] = useState<string | null>(null);
+    const dirty = name.trim() !== initialName.trim() && name.trim().length > 0;
+
+    const save = async () => {
+        if (!dirty || saving) return;
+        setSaving(true); setErr(null); setSaved(false);
+        const fd = new FormData();
+        fd.set("name", name.trim());
+        const res = await updateProfileNameAction(fd);
+        setSaving(false);
+        if (res.success) {
+            setSaved(true);
+            router.refresh(); // re-read the fresh name into the sidebar + profile
+            setTimeout(() => setSaved(false), 2500);
+        } else {
+            setErr(res.message || "Failed to update name.");
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+                <input
+                    value={name}
+                    onChange={(e) => { setName(e.target.value); setSaved(false); setErr(null); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+                    maxLength={100}
+                    placeholder="Your name"
+                    className="w-44 sm:w-52 bg-pulse-panel-alt border border-pulse-border rounded-lg text-sm text-pulse-text px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500 motion-reduce:transition-none"
+                />
+                <button
+                    onClick={save}
+                    disabled={!dirty || saving}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                >
+                    {saving ? "Saving…" : "Save"}
+                </button>
+            </div>
+            {saved && <span className="text-xs text-green-400">Saved</span>}
+            {err && <span className="text-xs text-red-400">{err}</span>}
+        </div>
+    );
+}
+
+// ─── Danger Zone: self-service workspace reset ────────────────────────────────
+
+function WorkspaceResetSection() {
+    const RESET_SCOPES: { id: "chat" | "memory" | "all"; title: string; desc: string }[] = [
+        { id: "chat", title: "Conversations & messages", desc: "All chat history. Your agents, channels, users and settings are kept." },
+        { id: "memory", title: "+ Agent memory", desc: "Also clears what your agents remember from past conversations." },
+        { id: "all", title: "+ Usage & activity logs", desc: "Also clears usage records and agent activity logs. Security audit is preserved." },
+    ];
+    const [scope, setScope] = useState<"chat" | "memory" | "all">("memory");
+    const [confirm, setConfirm] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+    const armed = confirm.trim().toUpperCase() === "RESET" && !busy;
+
+    const handleReset = async () => {
+        if (!armed) return;
+        setBusy(true);
+        setMsg(null);
+        const res = await resetMyWorkspaceAction(scope, confirm);
+        if (res.success && res.counts) {
+            const c = res.counts;
+            setMsg({
+                ok: true,
+                text: `Done — cleared ${c.conversations} conversations, ${c.messages} messages`
+                    + (scope !== "chat" ? `, ${c.memoryEntries} memories` : "")
+                    + (scope === "all" ? `, ${c.usageRecords} usage records` : "")
+                    + ".",
+            });
+            setConfirm("");
+        } else {
+            setMsg({ ok: false, text: res.message || "Failed to reset workspace." });
+        }
+        setBusy(false);
+    };
+
+    return (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/[0.03] p-5">
+            <h3 className="text-sm font-semibold text-red-400 mb-1">Danger Zone — Reset Workspace</h3>
+            <p className="text-xs text-pulse-muted mb-4">
+                Permanently delete your conversation &amp; memory data. Your agents, channels, users and
+                settings are kept. <span className="text-red-400">This cannot be undone.</span>
+            </p>
+
+            <div className="space-y-2.5 mb-4">
+                {RESET_SCOPES.map((s) => (
+                    <label key={s.id} className="flex items-start gap-3 cursor-pointer">
+                        <input
+                            type="radio"
+                            name="self-reset-scope"
+                            checked={scope === s.id}
+                            onChange={() => setScope(s.id)}
+                            className="mt-0.5 w-4 h-4 accent-red-500"
+                        />
+                        <div>
+                            <span className="text-[13px] font-medium text-pulse-text">{s.title}</span>
+                            <p className="text-[11px] text-pulse-muted">{s.desc}</p>
+                        </div>
+                    </label>
+                ))}
+            </div>
+
+            <label className="block text-[13px] font-medium text-pulse-text-soft mb-1.5">
+                Type <span className="font-mono text-pulse-text">RESET</span> to confirm
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <input
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="RESET"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="w-full max-w-[240px] bg-pulse-panel-alt border border-pulse-border rounded-md text-[13px] text-pulse-text placeholder:text-pulse-faint px-3 py-2 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                />
+                <button
+                    onClick={handleReset}
+                    disabled={!armed}
+                    className="inline-flex items-center justify-center gap-1.5 border border-red-500/40 text-red-400 hover:bg-red-500/10 text-[13px] font-medium px-3.5 py-2 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                    {busy ? "Resetting…" : "Reset workspace"}
+                </button>
+            </div>
+
+            {msg && (
+                <p className={`mt-3 text-[13px] ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>
+            )}
         </div>
     );
 }
@@ -422,7 +576,7 @@ function TelegramTab({
     approvedUsers,
     approvedGroups,
 }: {
-    config: { dmPolicy: string; groupPolicy: string; requireMention: boolean };
+    config: { dmPolicy: string; groupPolicy: string; requireMention: boolean; visionEnabled: boolean };
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -430,6 +584,7 @@ function TelegramTab({
     const [dmPolicy, setDmPolicy] = useState(config.dmPolicy);
     const [groupPolicy, setGroupPolicy] = useState(config.groupPolicy);
     const [requireMention, setRequireMention] = useState(config.requireMention);
+    const [visionEnabled, setVisionEnabled] = useState(config.visionEnabled);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [processing, setProcessing] = useState<string | null>(null);
@@ -449,6 +604,7 @@ function TelegramTab({
             telegram_dm_policy: dmPolicy,
             telegram_group_policy: groupPolicy,
             telegram_require_mention: requireMention,
+            telegram_vision_enabled: visionEnabled,
         });
         setMessage(result.success ? "Policies saved." : (result.message || "Failed to save."));
         setSaving(false);
@@ -556,6 +712,11 @@ function TelegramTab({
                         title="Require @mention in Groups"
                         description="Bot only responds when @mentioned or replied to."
                         control={<Toggle checked={requireMention} onChange={setRequireMention} label="Require @mention in groups" />}
+                    />
+                    <SettingRow
+                        title="Photo understanding (vision)"
+                        description="Let agents see photos sent on Telegram. When off, the bot still receives the message but tells the agent it can't view images."
+                        control={<Toggle checked={visionEnabled} onChange={setVisionEnabled} label="Photo understanding (vision)" />}
                     />
                 </div>
                 <div className="flex items-center gap-3 px-5 py-4 border-t border-pulse-border-subtle bg-pulse-panel-alt">
@@ -729,9 +890,10 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-pulse-tint border border-pulse-border rounded-xl p-4">
-                <p className="text-sm text-pulse-text-soft">
-                    <span className="font-semibold">Bring Your Own Key (BYOK)</span> — connect the LLM providers you want your agents to use.
+            <div className="flex items-start gap-2.5 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt/60 px-4 py-3">
+                <InformationCircleIcon className="w-4 h-4 text-pulse-faint flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-xs text-pulse-muted">
+                    <span className="font-medium text-pulse-text-soft">Bring Your Own Key (BYOK):</span> connect the LLM providers you want your agents to use.
                     Keys are encrypted at rest (AES-256-GCM). Tip: Google Gemini has a free tier to get started.
                 </p>
             </div>
@@ -742,9 +904,9 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
                     Connected {connected.length > 0 && <span className="text-pulse-faint">· {connected.length}</span>}
                 </h3>
                 {connected.length === 0 ? (
-                    <p className="text-sm text-pulse-faint bg-pulse-panel border border-dashed border-pulse-border-subtle rounded-xl p-6 text-center">
-                        No providers connected yet. Add one below to power your agents.
-                    </p>
+                    <Card>
+                        <EmptyState icon={KeyIcon} title="No providers connected yet" description="Add one below to power your agents." />
+                    </Card>
                 ) : (
                     <div className="space-y-4">{connected.map(renderCard)}</div>
                 )}
@@ -2331,9 +2493,11 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
 }
 
 /* ─── Email Tab ──────────────────────────────────────────────────── */
-function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
+function EmailTab({ config }: { config: { smtp?: any; imap?: any; signature?: SignatureValue } | null }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
+
+    const [signature, setSignature] = useState<SignatureValue>(config?.signature ?? DEFAULT_SIGNATURE);
 
     const [smtpHost, setSmtpHost] = useState(config?.smtp?.host ?? "");
     const [smtpPort, setSmtpPort] = useState(config?.smtp?.port?.toString() ?? "587");
@@ -2373,6 +2537,7 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
         fd.set("imapUsername", imapUsername);
         fd.set("imapPassword", imapPassword);
         fd.set("imapTls", imapTls.toString());
+        fd.set("signature", JSON.stringify(signature));
 
         startTransition(async () => {
             const result = await saveEmailConfigAction(fd);
@@ -2466,6 +2631,9 @@ function EmailTab({ config }: { config: { smtp?: any; imap?: any } | null }) {
                     </div>
                 </div>
             </Card>
+
+            {/* Signature — company-wide default, inherited by any agent without its own override */}
+            <SignatureEditor value={signature} onChange={setSignature} />
 
             {/* Actions */}
             <div className="flex items-center gap-3">

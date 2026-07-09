@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { PlusIcon, TrashIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, TrashIcon, PencilSquareIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 import { deleteCustomToolAction, toggleCustomToolAction } from "./actions";
-import { PageHeader, Card } from "../../../components/dashboard/ui";
+import { PageHeader, Card, EmptyState } from "../../../components/dashboard/ui";
 
 type Param = { name: string; type: string; description: string; required: boolean };
 type Agent = { id: string; name: string };
@@ -29,7 +29,7 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
             <PageHeader
                 title="Custom Tools"
                 description="Connect your own API or software. Each tool becomes an action your agents can call — define the request once, and the AI fills in the parameters. Secrets (auth headers) are encrypted at rest."
@@ -51,7 +51,13 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
 
             <div className="space-y-3">
                 {tools.length === 0 && (
-                    <p className="text-pulse-faint text-sm text-center py-10">No custom tools yet. Create one to connect your software.</p>
+                    <Card>
+                        <EmptyState
+                            icon={WrenchScrewdriverIcon}
+                            title="No custom tools yet"
+                            description="Create one to connect your own API or software — each tool becomes an action your agents can call."
+                        />
+                    </Card>
                 )}
                 {tools.map((t) => (
                     <Card key={t.id} className="p-4 flex flex-col sm:flex-row items-start justify-between gap-4">

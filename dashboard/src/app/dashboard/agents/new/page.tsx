@@ -1,7 +1,7 @@
 import { auth } from "../../../../auth";
 import { redirect } from "next/navigation";
 import { db } from "../../../../storage/db";
-import { tenantProviderKeys } from "../../../../storage/schema";
+import { getActiveProvidersAction } from "../[id]/actions";
 import { eq, and } from "drizzle-orm";
 import NewAgentClient from "./NewAgentClient";
 
@@ -17,10 +17,9 @@ export default async function NewAgentPage() {
     if (!session?.user?.tenantId) redirect("/login");
     const tenantId = session.user.tenantId;
 
-    const providerRows = await db.select({ provider: tenantProviderKeys.provider })
-        .from(tenantProviderKeys)
-        .where(and(eq(tenantProviderKeys.tenantId, tenantId), eq(tenantProviderKeys.isActive, true)));
-    const connectedProviders = providerRows.map((r) => r.provider);
+    // Single source of truth for selectable providers (excludes OAuth-only
+    // OpenAI, includes host-level codex) — same list as the edit page.
+    const connectedProviders = await getActiveProvidersAction();
 
     return <NewAgentClient connectedProviders={connectedProviders} />;
 }

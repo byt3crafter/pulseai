@@ -49,7 +49,7 @@ export const erpnextListTool: Tool = {
     },
 
     async execute({ tenantId, args }) {
-        const creds = await getErpNextCredentials(tenantId);
+        const creds = await getErpNextCredentials(tenantId, (args as any)._agentId);
         if (!creds) return { result: MISSING_CREDENTIALS_MSG };
 
         const doctype = args.doctype as string;

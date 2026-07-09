@@ -1,6 +1,7 @@
 import OpenAI from "openai";
+import { readFile } from "node:fs/promises";
 import { config } from "../../config.js";
-import { ProviderResponse, ToolCall, StreamCallbacks } from "./anthropic.js";
+import { ProviderResponse, ToolCall, StreamCallbacks, ProviderAttachment } from "./anthropic.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -156,6 +157,45 @@ function convertToResponsesAPIInput(
     return result;
 }
 
+/**
+ * Find the last message with role "user" and plain-string content (the
+ * original user turn — converted tool-result/assistant messages don't match)
+ * and turn its content into an OpenAI content-part array with the image(s)
+ * appended, standard `[{type:"text",...},{type:"image_url",...}]` format.
+ * Leaves the array untouched (returns a shallow copy) when there's nothing to do.
+ */
+async function attachImagesToOpenAIMessages(
+    messages: OpenAI.Chat.ChatCompletionMessageParam[],
+    attachments: ProviderAttachment[]
+): Promise<OpenAI.Chat.ChatCompletionMessageParam[]> {
+    const targetIdx = [...messages].map((m, i) => ({ m, i })).reverse()
+        .find(({ m }) => m.role === "user" && typeof m.content === "string")?.i;
+    if (targetIdx === undefined) return messages;
+
+    const imageParts: OpenAI.Chat.ChatCompletionContentPartImage[] = [];
+    for (const att of attachments) {
+        if (att.type !== "image") continue;
+        try {
+            const bytes = await readFile(att.path);
+            imageParts.push({
+                type: "image_url",
+                image_url: { url: `data:${att.mime || "image/jpeg"};base64,${bytes.toString("base64")}` },
+            });
+        } catch (err) {
+            logger.warn({ err, path: att.path }, "Failed to read image attachment for OpenAI; skipping");
+        }
+    }
+    if (imageParts.length === 0) return messages;
+
+    const result = [...messages];
+    const original = result[targetIdx] as OpenAI.Chat.ChatCompletionUserMessageParam;
+    result[targetIdx] = {
+        ...original,
+        content: [{ type: "text", text: (original.content as string) ?? "" }, ...imageParts],
+    };
+    return result;
+}
+
 export class OpenAIProvider {
     readonly name = "openai";
 
@@ -169,6 +209,10 @@ export class OpenAIProvider {
 
     async chat(params: {
         model: string;
+        tenantId?: string;
+        agentProfileId?: string;
+        conversationId?: string;
+        onProgress?: (text: string) => void;
         systemPrompt: string;
         messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
         tenantApiKey?: string;
@@ -180,6 +224,10 @@ export class OpenAIProvider {
         }>;
         stream?: StreamCallbacks;
         baseURL?: string;
+        /** Images attached to the current turn (e.g. a Telegram photo). */
+        attachments?: ProviderAttachment[];
+        /** Not used by the OpenAI provider today — accepted for cross-provider type compatibility. */
+        reasoningEffort?: string;
     }): Promise<ProviderResponse> {
         // OAuth tokens use ChatGPT backend Codex Responses API;
         // standard API keys use Chat Completions
@@ -190,7 +238,8 @@ export class OpenAIProvider {
     }
 
     /**
-     * Standard Chat Completions path — for API keys (sk-...)
+     * Standard Chat Completions path — for API keys (sk-...). Also used for
+     * OpenAI-compatible providers (MiniMax, OpenRouter, Google, Groq) via baseURL.
      */
     private async chatViaCompletions(params: {
         model: string;
@@ -205,6 +254,7 @@ export class OpenAIProvider {
         }>;
         stream?: StreamCallbacks;
         baseURL?: string;
+        attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
         const client = this.getClient(params.tenantApiKey, params.baseURL);
 
@@ -218,10 +268,13 @@ export class OpenAIProvider {
         }));
 
         // Convert Anthropic-format content blocks to OpenAI format
-        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        const convertedMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
             { role: "system", content: params.systemPrompt },
             ...convertToOpenAIMessages(params.messages),
         ];
+        const messages = params.attachments?.length
+            ? await attachImagesToOpenAIMessages(convertedMessages, params.attachments)
+            : convertedMessages;
 
         logger.debug(
             { model: params.model, api: "chat.completions", messageCount: messages.length },
@@ -376,6 +429,7 @@ export class OpenAIProvider {
             input_schema: any;
         }>;
         stream?: StreamCallbacks;
+        attachments?: ProviderAttachment[];
     }): Promise<ProviderResponse> {
         const token = params.tenantApiKey;
         if (!token) {
@@ -387,6 +441,21 @@ export class OpenAIProvider {
 
         // Convert Anthropic-format content blocks to Responses API format
         const input = convertToResponsesAPIInput(params.messages);
+
+        // This path (ChatGPT-backend OAuth) doesn't implement image input — be
+        // honest with the model instead of silently dropping the photo.
+        if (params.attachments?.length) {
+            const note = params.attachments
+                .map((a) => `[The user sent a photo: ${a.path} — this model cannot view images]`)
+                .join("\n");
+            const lastUserIdx = [...input].reverse().findIndex((it) => it.role === "user");
+            if (lastUserIdx !== -1) {
+                const idx = input.length - 1 - lastUserIdx;
+                input[idx] = { ...input[idx], content: `${input[idx].content}\n\n${note}` };
+            } else {
+                input.push({ role: "user", content: note });
+            }
+        }
 
         // Build tools in Responses API format
         const tools = params.tools?.map((tool) => ({

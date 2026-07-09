@@ -1,8 +1,11 @@
 {
   "name": "pulse-desktop",
-  "version": "0.1.0",
-  "description": "Pulse — branded desktop client for your AI agent workforce",
-  "author": { "name": "Runstate Ltd", "email": "support@runstate.mu" },
+  "version": "0.1.3",
+  "description": "Pulse \u2014 branded desktop client for your AI agent workforce",
+  "author": {
+    "name": "Runstate Ltd",
+    "email": "support@runstate.mu"
+  },
   "homepage": "https://pulse.runstate.mu",
   "main": "main.js",
   "scripts": {
@@ -18,13 +21,29 @@
   "build": {
     "appId": "mu.runstate.pulse",
     "productName": "Pulse",
-    "files": ["main.js", "preload.js", "renderer/**/*"],
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Office",
       "maintainer": "Runstate Ltd <support@runstate.mu>"
     },
-    "win": { "target": ["nsis"] },
-    "mac": { "target": ["dmg"], "category": "public.app-category.business" }
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.business"
+    }
   }
 }

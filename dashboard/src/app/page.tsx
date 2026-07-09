@@ -1,220 +1,533 @@
-import Link from "next/link";
+import { Sora, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import styles from "./landing.module.css";
+import LandingNav from "./LandingNav";
+import LandingFaq from "./LandingFaq";
+import PulseLogo from "./PulseLogo";
 
-const CONTACT = "mailto:hello@runstate.mu?subject=Pulse%20Agentic%20—%20Enterprise%20enquiry";
+const sora = Sora({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-sora" });
+const instrumentSans = Instrument_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-instrument" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono" });
+
+const CONTACT = "mailto:hello@runstate.mu?subject=Pulse%20AI%20%E2%80%94%20Book%20a%20Demo";
+
+type SystemTile = { key: string; name: string; kind: string; bg: string; radius: string; label: string; font: number; mono?: boolean };
+
+const SYSTEMS: SystemTile[] = [
+    { key: "erpnext", name: "ERPNext", kind: "ERP", bg: "#1667D9", radius: "8px", label: "E", font: 14 },
+    { key: "quickbooks", name: "QuickBooks", kind: "Accounting", bg: "#2CA01C", radius: "50%", label: "qb", font: 11 },
+    { key: "xero", name: "Xero", kind: "Accounting", bg: "#13B5EA", radius: "50%", label: "xero", font: 10 },
+    { key: "pastel", name: "Pastel", kind: "Accounting", bg: "#7C3AED", radius: "8px", label: "P", font: 14 },
+];
+
+const INTEGRATIONS: SystemTile[] = [
+    ...SYSTEMS,
+    { key: "sheets", name: "Sheets", kind: "Data", bg: "#0F9D58", radius: "8px", label: "⊞", font: 16 },
+    { key: "api", name: "REST APIs", kind: "Custom tools", bg: "#334155", radius: "8px", label: "api", font: 12, mono: true },
+];
+
+const AGENTS = [
+    { key: "finance", name: "Finance Agent", role: "Accounting & Reporting", bg: "linear-gradient(135deg, #F97316, #FBBF24)", label: "$" },
+    { key: "sales", name: "Sales Agent", role: "Leads & Orders", bg: "linear-gradient(135deg, #8B5CF6, #E879F9)", label: "↗" },
+    { key: "stock", name: "Stock Agent", role: "Inventory & Alerts", bg: "linear-gradient(135deg, #2563EB, #38BDF8)", label: "◆" },
+    { key: "hr", name: "HR Agent", role: "People & Culture", bg: "linear-gradient(135deg, #10B981, #34D399)", label: "●●" },
+];
+
+const HERO_CHANNELS = [
+    { name: "Telegram", color: "#38BDF8" },
+    { name: "WhatsApp", color: "#34D399" },
+    { name: "Slack", color: "#E879F9" },
+    { name: "Discord", color: "#818CF8" },
+    { name: "Web Chat", color: "#FB923C" },
+];
+
+const ALL_CHANNELS = [...HERO_CHANNELS, { name: "Email", color: "#FBBF24" }];
+
+const FEATURES = [
+    { color: "#A78BFA", title: "Multi-Channel", body: "Meet your team where they already are." },
+    { color: "#FB923C", title: "Secure & Private", body: "Enterprise-grade security with tenant isolation." },
+    { color: "#E879F9", title: "Smart Automations", body: "Schedules, reports, reminders and workflows." },
+    { color: "#38BDF8", title: "Powered by Your Data", body: "Real-time insights from your business systems." },
+    { color: "#34D399", title: "Built for Business", body: "Not just answers. Actions that drive results." },
+];
+
+const STATS = [
+    { value: "24/7", color: "#FB923C", label: "Always-on business monitoring" },
+    { value: "12+", color: "#A78BFA", label: "Systems & channels connected" },
+    { value: "6", color: "#E879F9", label: "Specialist departments of agents" },
+    { value: "100%", color: "#34D399", label: "Of agent actions logged & audited" },
+];
+
+const DEPARTMENTS = [
+    {
+        key: "finance",
+        icon: "$",
+        iconBg: "linear-gradient(135deg, #F97316, #FBBF24)",
+        title: "Autonomous finance ops",
+        body: "Monitors cashflow, unpaid invoices, supplier bills, margins and anomalies across your accounting systems.",
+        prompt: `"Which suppliers are we late paying?"`,
+    },
+    {
+        key: "customer",
+        icon: "↗",
+        iconBg: "linear-gradient(135deg, #8B5CF6, #E879F9)",
+        title: "Customer intelligence",
+        body: "Summarizes every customer's open invoices, orders, complaints, support history and risk level.",
+        prompt: `"Give me a risk summary for ABC Traders."`,
+    },
+    {
+        key: "procurement",
+        icon: "◆",
+        iconBg: "linear-gradient(135deg, #2563EB, #38BDF8)",
+        title: "Procurement & inventory",
+        body: "Detects low stock, supplier delays, over-ordering and dead stock — and recommends purchase actions.",
+        prompt: `"What should we reorder this week?"`,
+    },
+    {
+        key: "reconciliation",
+        icon: "≡",
+        iconBg: "linear-gradient(135deg, #10B981, #34D399)",
+        title: "Cross-system reconciliation",
+        body: "Compares ERPNext vs QuickBooks vs bank and payment records — and flags mismatches automatically.",
+        prompt: `"Any mismatches between ERP and the bank?"`,
+    },
+    {
+        key: "workflow",
+        icon: "⚡",
+        iconBg: "linear-gradient(135deg, #E879F9, #C084FC)",
+        title: "Workflow automation",
+        body: "Invoice overdue by 7 days? Notify sales, draft the reminder, update the CRM, escalate if unpaid.",
+        prompt: "when: invoice.overdue > 7d → escalate",
+    },
+    {
+        key: "executive",
+        icon: "◎",
+        iconBg: "linear-gradient(135deg, #F97316, #8B5CF6)",
+        title: "Executive command center",
+        body: "One question pulls from sales, finance, stock, HR, support and operations — in seconds.",
+        prompt: `"What is happening in the business today?"`,
+        exec: true,
+    },
+];
+
+const SECURITY_ITEMS = [
+    { strong: "Tenant isolation", rest: "— your data and agents never mix with anyone else's." },
+    { strong: "Per-agent permissions", rest: "— each agent gets only the tools and data its role needs." },
+    { strong: "SSO, two-factor & role-based access", rest: "for every human user." },
+    { strong: "Full audit trails", rest: "— who did what, which tools were used, what data changed." },
+    { strong: "Sovereign deployment", rest: "— run on your own infrastructure; data never leaves it." },
+];
+
+const AUDIT_ROWS: { time: string; actor: string; actorClass: string; msg: string; status: string; statusClass: string }[] = [
+    { time: "09:31", actor: "finance-agent", actorClass: styles.actorFinance, msg: "read Invoices · ERPNext", status: "allowed", statusClass: styles.statusAllowed },
+    { time: "09:32", actor: "finance-agent", actorClass: styles.actorFinance, msg: "drafted payment reminder", status: "allowed", statusClass: styles.statusAllowed },
+    { time: "09:32", actor: "sales-agent", actorClass: styles.actorSales, msg: "updated CRM · ABC Traders", status: "allowed", statusClass: styles.statusAllowed },
+    { time: "09:33", actor: "sales-agent", actorClass: styles.actorSales, msg: "attempted export Payroll data", status: "blocked", statusClass: styles.statusBlocked },
+    { time: "09:34", actor: "finance-agent", actorClass: styles.actorFinance, msg: "escalated to K. Modise", status: "human", statusClass: styles.statusHuman },
+    { time: "09:35", actor: "stock-agent", actorClass: styles.actorStock, msg: "scheduled reorder report", status: "allowed", statusClass: styles.statusAllowed },
+];
+
+const FAQS = [
+    {
+        q: "What systems does Pulse AI connect to?",
+        a: "ERPNext, QuickBooks, Xero, Pastel, Google Sheets and any system with a REST API. If your team runs it, an agent can be given controlled access to it as a tool.",
+    },
+    {
+        q: "Can I control what each agent can access?",
+        a: "Yes. Each agent has its own tools, memory and permissions, set by your admins. A sales agent never sees payroll; a finance agent never touches HR records unless you allow it.",
+    },
+    {
+        q: "Where is our data hosted?",
+        a: "On a dedicated deployment — including your own infrastructure for enterprise plans. Tenant isolation means your data and agents never mix with anyone else's.",
+    },
+    {
+        q: "How do our staff actually use it?",
+        a: "From wherever they already work: WhatsApp, Telegram, Slack, Discord, email, or your own branded web app. No new tool to learn.",
+    },
+    {
+        q: "What happens when an agent is unsure?",
+        a: "It escalates to a human. Agents run scheduled checks and act within their permissions — anything ambiguous, risky, or above threshold is routed to the right person for approval.",
+    },
+];
 
 export default function LandingPage() {
-  return (
-    <div className="min-h-screen bg-[#09090b] text-white antialiased selection:bg-violet-500/30">
-      {/* Nav */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-[#09090b]/70 border-b border-white/[0.06]">
-        <nav className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center">
-              <BoltIcon className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-[15px] font-semibold tracking-tight">Pulse</span>
-            <span className="text-[11px] text-white/40 border border-white/10 px-2 py-0.5 rounded-full">by Runstate</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <a href="#story" className="text-[13px] text-white/60 hover:text-white transition-colors hidden sm:inline">How it works</a>
-            <Link href="/login" className="text-[13px] text-white/70 hover:text-white transition-colors">Sign in</Link>
-            <a href={CONTACT} className="text-[13px] font-medium bg-white text-black hover:bg-white/90 px-4 py-1.5 rounded-lg transition-colors">Contact us</a>
-          </div>
-        </nav>
-      </header>
+    return (
+        <div className={`${styles.page} ${sora.variable} ${instrumentSans.variable} ${jetbrainsMono.variable}`} style={{ fontFamily: "var(--font-instrument), sans-serif" }}>
+            <LandingNav />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-violet-600/20 blur-[140px]" />
-        <div className="relative max-w-4xl mx-auto px-6 pt-28 pb-24 text-center">
-          <div className="inline-flex items-center gap-2 text-[12px] font-medium text-violet-300 bg-violet-500/10 border border-violet-500/20 px-3 py-1 rounded-full mb-8">
-            <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" /> Agentic AI — for individuals, teams &amp; enterprises
-          </div>
-          <h1 className="text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
-            Your own
-            <br />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-300 to-violet-500">AI workforce</span>.
-          </h1>
-          <p className="mt-7 text-lg text-white/55 max-w-2xl mx-auto leading-relaxed">
-            Pulse Agentic turns AI into an organized team that works for you — whether you are one person
-            drowning in busywork, a growing business, or an enterprise. Managers and specialists that talk
-            to each other, use your own tools, and act on your behalf, in your own private app.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
-            <a href={CONTACT} className="inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-medium px-6 py-3 rounded-xl transition-colors">
-              Contact us <ArrowIcon className="w-4 h-4" />
-            </a>
-            <Link href="/login" className="inline-flex items-center justify-center gap-2 text-white/80 hover:text-white font-medium px-6 py-3 rounded-xl border border-white/10 hover:border-white/25 transition-colors">
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </section>
+            <main>
+                {/* ── Hero ─────────────────────────────────────────────────────── */}
+                <section className={styles.hero}>
+                    <div className={styles.heroInner}>
+                        <div className={styles.heroGrid}>
+                            {/* Copy */}
+                            <div>
+                                <h1 className={styles.heroHeadline}>
+                                    Your AI workforce. Connected to your <span className={styles.heroHeadlineAccent}>business.</span>
+                                </h1>
+                                <p className={styles.heroSub}>
+                                    Pulse AI connects your team, tools, and data with intelligent agents that answer questions, automate workflows, and drive real business results.
+                                </p>
+                                <div className={styles.heroCtas}>
+                                    <a href={CONTACT} className={styles.btnPrimary}>
+                                        Book a Demo <span aria-hidden="true">→</span>
+                                    </a>
+                                    <a href="#use-cases" className={styles.btnSecondary}>
+                                        See How It Works
+                                        <span className={styles.playIcon} aria-hidden="true">
+                                            ▶
+                                        </span>
+                                    </a>
+                                </div>
+                                <div className={styles.channelChips}>
+                                    {HERO_CHANNELS.map((c) => (
+                                        <span key={c.name} className={styles.chip}>
+                                            <span className={styles.chipDot} style={{ background: c.color }} aria-hidden="true" />
+                                            {c.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
 
-      {/* Who it's for — scales from one person to an enterprise */}
-      <section className="max-w-5xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">One platform. Any size.</h2>
-          <p className="mt-4 text-white/55">Start solo, grow into a team, scale to an enterprise — the same agents grow with you.</p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          <Segment
-            tag="Individuals"
-            title="Your personal team"
-            body="Hand off the busywork — email, research, scheduling, admin. A team of agents that works while you focus on what matters."
-          />
-          <Segment
-            tag="Small & medium business"
-            title="Run it with agents"
-            body="Sales, support, and operations handled by agents connected to your tools — the output of a bigger team, without the headcount."
-            featured
-          />
-          <Segment
-            tag="Enterprise"
-            title="Private & sovereign"
-            body="A dedicated deployment on your own infrastructure, your data never leaving it, with SSO, two-factor, role-based access, and audit logs."
-          />
-        </div>
-      </section>
+                            {/* Visual — desktop */}
+                            <div className={styles.heroVisual} aria-hidden="true">
+                                <svg viewBox="0 0 800 700" className={styles.connLines} preserveAspectRatio="none">
+                                    <defs>
+                                        <linearGradient id="flowPO" x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0" stopColor="#8B5CF6" />
+                                            <stop offset="1" stopColor="#F97316" />
+                                        </linearGradient>
+                                        <linearGradient id="flowOP" x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0" stopColor="#F97316" />
+                                            <stop offset="1" stopColor="#FB923C" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path className={styles.dashPath} d="M 170 128 C 300 128, 280 480, 372 512" stroke="url(#flowPO)" style={{ animationDuration: "1.6s", opacity: 0.8 }} />
+                                    <path className={styles.dashPath} d="M 170 206 C 290 210, 270 500, 370 530" stroke="url(#flowPO)" style={{ animationDuration: "1.9s", opacity: 0.8 }} />
+                                    <path className={styles.dashPath} d="M 170 284 C 280 292, 280 520, 368 548" stroke="url(#flowPO)" style={{ animationDuration: "1.5s", opacity: 0.8 }} />
+                                    <path className={styles.dashPath} d="M 170 362 C 270 370, 290 545, 366 566" stroke="url(#flowPO)" style={{ animationDuration: "2.1s", opacity: 0.8 }} />
+                                    <path className={styles.dashPath} d="M 452 512 C 540 470, 520 148, 612 138" stroke="url(#flowOP)" style={{ animationDuration: "1.7s", opacity: 0.85 }} />
+                                    <path className={styles.dashPath} d="M 454 528 C 550 500, 530 240, 612 228" stroke="url(#flowOP)" style={{ animationDuration: "2s", opacity: 0.85 }} />
+                                    <path className={styles.dashPath} d="M 454 546 C 555 530, 540 330, 612 318" stroke="url(#flowOP)" style={{ animationDuration: "1.55s", opacity: 0.85 }} />
+                                    <path className={styles.dashPath} d="M 452 562 C 545 555, 545 415, 612 408" stroke="url(#flowOP)" style={{ animationDuration: "1.85s", opacity: 0.85 }} />
+                                    <path className={styles.dashPath} d="M 400 368 C 400 420, 404 440, 408 470" stroke="#A78BFA" style={{ animationDuration: "1.4s", opacity: 0.6 }} />
+                                </svg>
 
-      {/* Story */}
-      <section id="story" className="max-w-5xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-        <div className="max-w-2xl">
-          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">Not a chatbot. A company of agents.</h2>
-          <p className="mt-5 text-white/55 leading-relaxed">
-            Most AI stops at answering questions. Pulse goes further. You design an org chart of agents —
-            Sales, Support, Operations — each with its own role. Your people talk to a department; its lead
-            agent answers, or routes the work to the right specialist, who gets it done using the tools you
-            connect. It is the difference between an assistant and a team.
-          </p>
-        </div>
+                                <div className={styles.systemsCol}>
+                                    <div className={styles.colLabel} style={{ color: "#C084FC" }}>
+                                        Connect your systems
+                                    </div>
+                                    {SYSTEMS.map((s) => (
+                                        <div key={s.key} className={styles.sysCard}>
+                                            <span className={styles.sysBadge} style={{ background: s.bg, borderRadius: s.radius, fontSize: s.font }}>
+                                                {s.label}
+                                            </span>
+                                            <span className={styles.sysName}>{s.name}</span>
+                                            <span className={styles.sysDot} />
+                                        </div>
+                                    ))}
+                                    <div className={styles.andMore}>… and more</div>
+                                </div>
 
-        {/* Minimal org visual */}
-        <div className="mt-12 grid gap-4">
-          <OrgNode label="Your workspace" tone="lead" className="mx-auto" />
-          <div className="flex justify-center"><span className="w-px h-6 bg-white/10" /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { dept: "Sales", lead: "Lead agent", roles: ["Quotes", "Pipeline", "EU team"] },
-              { dept: "Support", lead: "Lead agent", roles: ["Tickets", "Troubleshooting"] },
-              { dept: "Operations", lead: "Lead agent", roles: ["Reports", "Deployments"] },
-            ].map((d) => (
-              <div key={d.dept} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-                <div className="text-[13px] font-semibold">{d.dept}</div>
-                <div className="text-[11px] text-violet-300/80 mt-0.5">{d.lead} · answers & routes</div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {d.roles.map((r) => (
-                    <span key={r} className="text-[11px] text-white/60 border border-white/10 rounded-md px-2 py-0.5">{r}</span>
-                  ))}
+                                <div className={styles.dashboardMock}>
+                                    <div className={styles.mockRail}>
+                                        <span className={styles.mockRailLogo}>
+                                            <PulseLogo size={28} showText={false} />
+                                        </span>
+                                        <span className={styles.mockRailDotActive} />
+                                        <span className={styles.mockRailDot} />
+                                        <span className={styles.mockRailDot} />
+                                        <span className={styles.mockRailDot} />
+                                    </div>
+                                    <div className={styles.mockBody}>
+                                        <div className={styles.mockHeader}>
+                                            <span className={styles.mockAvatar}>$</span>
+                                            <div>
+                                                <div className={styles.mockAgentName}>Finance Agent</div>
+                                                <div className={styles.mockOnline}>
+                                                    <span className={styles.mockOnlineDot} />
+                                                    Online
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={styles.mockBubbleRow}>
+                                            <div className={styles.mockBubbleUser}>Show me unpaid invoices over Rs 50,000.</div>
+                                        </div>
+                                        <div className={styles.mockBubbleAgent}>
+                                            Found <strong>24 unpaid invoices</strong> totaling <strong className={styles.mockAmount}>Rs 1,248,000</strong>.
+                                            <div className={styles.mockTable}>
+                                                <div className={styles.mockTableHead}>
+                                                    <span>Customer</span>
+                                                    <span className={styles.mockRight}>Amount</span>
+                                                    <span className={styles.mockRight}>Due</span>
+                                                </div>
+                                                <div className={styles.mockTableRow}>
+                                                    <span>ABC Traders</span>
+                                                    <span className={styles.mockRight}>Rs 320,000</span>
+                                                    <span className={styles.mockDue}>May 28</span>
+                                                </div>
+                                                <div className={styles.mockTableRow}>
+                                                    <span>Global Supplies</span>
+                                                    <span className={styles.mockRight}>Rs 285,000</span>
+                                                    <span className={styles.mockDue}>May 30</span>
+                                                </div>
+                                                <div className={styles.mockTableRow}>
+                                                    <span>Prime Solutions</span>
+                                                    <span className={styles.mockRight}>Rs 215,000</span>
+                                                    <span className={styles.mockDueOk}>Jun 02</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={styles.pulseCube}>
+                                    <div className={styles.cubeRing} />
+                                    <div className={styles.cubeRingDelay} />
+                                    <div className={styles.cubeInner}>
+                                        <span className={styles.cubeBar} style={{ background: "#C084FC", animation: "eq1 1.1s ease-in-out infinite" }} />
+                                        <span className={styles.cubeBar} style={{ background: "#FB923C", animation: "eq2 1.1s ease-in-out infinite" }} />
+                                        <span className={styles.cubeBar} style={{ background: "#E879F9", animation: "eq3 1.1s ease-in-out infinite" }} />
+                                        <span className={styles.cubeBar} style={{ background: "#FB923C", animation: "eq1 1.3s ease-in-out infinite" }} />
+                                        <span className={styles.cubeBar} style={{ background: "#C084FC", animation: "eq2 1.2s ease-in-out infinite" }} />
+                                    </div>
+                                    <div className={styles.cubePlatform} />
+                                </div>
+
+                                <div className={styles.agentsCol}>
+                                    <div className={styles.colLabel} style={{ color: "#FB923C" }}>
+                                        AI Agents
+                                    </div>
+                                    {AGENTS.map((a) => (
+                                        <div key={a.key} className={styles.agentCard}>
+                                            <span className={styles.agentBadge} style={{ background: a.bg }}>
+                                                {a.label}
+                                            </span>
+                                            <span>
+                                                <span className={styles.agentName}>{a.name}</span>
+                                                <span className={styles.agentRole}>{a.role}</span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                    <div className={styles.andMore}>… and more</div>
+                                </div>
+                            </div>
+
+                            {/* Visual — mobile (simplified: systems → core → agents) */}
+                            <div className={styles.heroVisualMobile} aria-hidden="true">
+                                <div className={styles.mobileFlowRow}>
+                                    {SYSTEMS.map((s) => (
+                                        <span key={s.key} className={styles.mobileChip}>
+                                            <span className={styles.sysBadge} style={{ background: s.bg, borderRadius: s.radius, fontSize: s.font, width: 22, height: 22 }}>
+                                                {s.label}
+                                            </span>
+                                            {s.name}
+                                        </span>
+                                    ))}
+                                </div>
+                                <div className={styles.mobileArrow}>↓</div>
+                                <div className={styles.mobileCubeWrap}>
+                                    <div className={styles.mobileCube}>
+                                        <div className={styles.cubeRing} />
+                                        <div className={styles.cubeInner}>
+                                            <span className={styles.cubeBar} style={{ background: "#C084FC", animation: "eq1 1.1s ease-in-out infinite" }} />
+                                            <span className={styles.cubeBar} style={{ background: "#FB923C", animation: "eq2 1.1s ease-in-out infinite" }} />
+                                            <span className={styles.cubeBar} style={{ background: "#E879F9", animation: "eq3 1.1s ease-in-out infinite" }} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.mobileArrow}>↓</div>
+                                <div className={styles.mobileFlowRow}>
+                                    {AGENTS.map((a) => (
+                                        <span key={a.key} className={styles.mobileAgentChip}>
+                                            <span className={styles.agentBadge} style={{ background: a.bg, width: 22, height: 22, fontSize: 11 }}>
+                                                {a.label}
+                                            </span>
+                                            {a.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Feature strip */}
+                    <div className={styles.featureStrip}>
+                        {FEATURES.map((f) => (
+                            <div key={f.title} className={styles.featureItem}>
+                                <span className={styles.featureDot} style={{ background: f.color }} aria-hidden="true" />
+                                <span>
+                                    <span className={styles.featureTitle}>{f.title}</span>
+                                    <span className={styles.featureBody}>{f.body}</span>
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                {/* ── Stats ────────────────────────────────────────────────────── */}
+                <div className={styles.stats}>
+                    {STATS.map((s) => (
+                        <div key={s.label} className={styles.statCell}>
+                            <div className={styles.statNum} style={{ color: s.color }}>
+                                {s.value}
+                            </div>
+                            <div className={styles.statLabel}>{s.label}</div>
+                        </div>
+                    ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Capabilities */}
-      <section className="max-w-5xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-        <div className="grid md:grid-cols-3 gap-6">
-          <Capability
-            icon={<UsersIcon className="w-5 h-5" />}
-            title="An org, not an assistant"
-            body="Departments, ranks, and a manager that routes work to the right specialist. Agents delegate to each other and hand off across teams — like a real workforce."
-          />
-          <Capability
-            icon={<PlugIcon className="w-5 h-5" />}
-            title="Connected to your world"
-            body="Plug in your APIs, software, and data. Your own systems become actions your agents can take — pull analytics, process orders, resolve tickets, run operations."
-          />
-          <Capability
-            icon={<ShieldIcon className="w-5 h-5" />}
-            title="Private by design"
-            body="Your own branded desktop and mobile app instead of public chat tools. Your data on your own infrastructure, with SSO, two-factor, role-based access, and full audit logs."
-          />
-        </div>
-      </section>
+                {/* ── Department agents / use cases ───────────────────────────── */}
+                <section className={styles.section} id="use-cases">
+                    <div className={styles.sectionInner}>
+                        <div>
+                            <div className={styles.eyebrow}>Department agents</div>
+                            <h2 className={styles.sectionTitle}>Every department. One controlled system.</h2>
+                            <p className={styles.sectionLead}>Each agent has its own tools, memory, and permissions — and escalates to a human when it matters.</p>
+                        </div>
+                        <div className={styles.useCasesGrid}>
+                            {DEPARTMENTS.map((d) => (
+                                <div key={d.key} className={d.exec ? styles.useCaseCardExec : styles.useCaseCard}>
+                                    <span className={styles.useCaseIcon} style={{ background: d.iconBg }} aria-hidden="true">
+                                        {d.icon}
+                                    </span>
+                                    <h3 className={styles.useCaseTitle}>{d.title}</h3>
+                                    <p className={styles.useCaseBody}>{d.body}</p>
+                                    <div className={d.exec ? styles.useCasePromptExec : styles.useCasePrompt}>{d.prompt}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
 
-      {/* How it works */}
-      <section className="max-w-5xl mx-auto px-6 py-20 border-t border-white/[0.06]">
-        <h2 className="text-2xl font-semibold tracking-tight mb-10">Three steps to a working team</h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          {[
-            { n: "01", t: "Design your org", d: "Create departments and agents. Give each a role, a persona, and a lead that fields requests." },
-            { n: "02", t: "Connect your tools", d: "Add your APIs and systems as actions. Your agents work inside your real software, not a sandbox." },
-            { n: "03", t: "Hand it to your team", d: "Your people work with the agents from your own private app — desktop and mobile." },
-          ].map((s) => (
-            <div key={s.n}>
-              <div className="text-[13px] font-mono text-violet-400/70">{s.n}</div>
-              <h3 className="mt-2 text-[15px] font-semibold">{s.t}</h3>
-              <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">{s.d}</p>
+                {/* ── Integrations ─────────────────────────────────────────────── */}
+                <section className={`${styles.section} ${styles.sectionAlt}`} id="integrations">
+                    <div className={styles.sectionInner}>
+                        <div>
+                            <div className={styles.eyebrow}>Integrations</div>
+                            <h2 className={styles.sectionTitle}>Connects to the systems you already run.</h2>
+                        </div>
+                        <div className={styles.integrationsGrid}>
+                            {INTEGRATIONS.map((i) => (
+                                <div key={i.key} className={styles.integrationTile}>
+                                    <span
+                                        className={styles.integrationBadge}
+                                        style={{ background: i.bg, borderRadius: i.radius, fontSize: i.font, fontFamily: i.mono ? "var(--font-mono), monospace" : undefined }}
+                                    >
+                                        {i.label}
+                                    </span>
+                                    <span className={styles.integrationName}>{i.name}</span>
+                                    <span className={styles.integrationKind}>{i.kind}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className={styles.channelRow}>
+                            <span className={styles.channelRowLabel}>Your team talks to Pulse from</span>
+                            {ALL_CHANNELS.map((c) => (
+                                <span key={c.name} className={styles.pillChip}>
+                                    <span className={styles.chipDot} style={{ background: c.color }} aria-hidden="true" />
+                                    {c.name}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── Security ──────────────────────────────────────────────────── */}
+                <section className={styles.section} id="security">
+                    <div className={styles.sectionInner}>
+                        <div className={styles.securityGrid}>
+                            <div>
+                                <div className={styles.eyebrow}>Security & compliance</div>
+                                <h2 className={styles.sectionTitle}>Controlled. Isolated. Audited.</h2>
+                                <p className={styles.sectionLead}>Admins decide exactly what each agent can see and do. Every action leaves a trail.</p>
+                                <div className={styles.checklist}>
+                                    {SECURITY_ITEMS.map((item) => (
+                                        <div key={item.strong} className={styles.checkItem}>
+                                            <span className={styles.checkIcon} aria-hidden="true">
+                                                ✓
+                                            </span>
+                                            <span className={styles.checkText}>
+                                                <strong>{item.strong}</strong> {item.rest}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className={styles.auditPanel}>
+                                <div className={styles.auditHeader}>
+                                    <span className={styles.auditTitle}>Audit trail</span>
+                                    <span className={styles.liveBadge}>
+                                        <span className={styles.liveDot} aria-hidden="true" />
+                                        Live
+                                    </span>
+                                </div>
+                                <div className={styles.auditBody}>
+                                    {AUDIT_ROWS.map((row, idx) => (
+                                        <div key={idx} className={styles.auditRow}>
+                                            <span className={styles.auditTime}>{row.time}</span>
+                                            <span className={styles.auditMsg}>
+                                                <span className={row.actorClass}>{row.actor}</span> {row.msg}
+                                            </span>
+                                            <span className={row.statusClass}>{row.status}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* ── FAQ ───────────────────────────────────────────────────────── */}
+                <section className={`${styles.section} ${styles.sectionAlt}`} id="faq">
+                    <div className={styles.sectionInner}>
+                        <div className={styles.faqGrid}>
+                            <div>
+                                <div className={styles.eyebrow}>FAQ</div>
+                                <h2 className={styles.sectionTitle}>Questions, answered.</h2>
+                                <p className={styles.sectionLead}>
+                                    Something else on your mind?{" "}
+                                    <a href={CONTACT} style={{ color: "#A78BFA" }}>
+                                        Talk to us
+                                    </a>
+                                    .
+                                </p>
+                            </div>
+                            <LandingFaq faqs={FAQS} />
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            {/* ── Closing CTA + footer ─────────────────────────────────────────── */}
+            <div className={styles.closing}>
+                <div className={styles.closingInner}>
+                    <h2 className={styles.closingTitle}>
+                        Turn your software stack into an <span className={styles.heroHeadlineAccent}>AI-operated command center.</span>
+                    </h2>
+                    <p className={styles.closingLead}>Tell us about your business and we&rsquo;ll design the right team of agents for it.</p>
+                    <div className={styles.closingCtas}>
+                        <a href={CONTACT} className={styles.btnPrimary}>
+                            Book a Demo <span aria-hidden="true">→</span>
+                        </a>
+                        <a href={CONTACT} className={styles.btnSecondary}>
+                            Contact us
+                        </a>
+                    </div>
+                </div>
+
+                <footer className={styles.footer}>
+                    <div className={styles.footerLogo}>
+                        <PulseLogo size={30} textSize={18} />
+                        <span>by Runstate</span>
+                    </div>
+                    <div className={styles.footerLinks}>
+                        <a href={CONTACT}>Contact</a>
+                        <a href="/login">Sign in</a>
+                        <a href="#">Privacy</a>
+                    </div>
+                    <div>© 2026 Runstate Ltd</div>
+                </footer>
             </div>
-          ))}
         </div>
-      </section>
-
-      {/* Closing CTA */}
-      <section className="max-w-5xl mx-auto px-6 pb-24">
-        <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] p-12 text-center">
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 -bottom-32 h-64 bg-violet-600/15 blur-[100px]" />
-          <h2 className="relative text-3xl md:text-4xl font-semibold tracking-tight">Put an agentic workforce to work.</h2>
-          <p className="relative mt-4 text-white/55 max-w-xl mx-auto">
-            Tell us about your business and we will design the right team of agents for it.
-          </p>
-          <a href={CONTACT} className="relative mt-8 inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-medium px-7 py-3 rounded-xl transition-colors">
-            Contact us <ArrowIcon className="w-4 h-4" />
-          </a>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-white/[0.06]">
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-white/40">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center"><BoltIcon className="w-3 h-3 text-white" /></div>
-            Pulse · by Runstate
-          </div>
-          <div className="flex items-center gap-5">
-            <a href={CONTACT} className="hover:text-white/70 transition-colors">Contact</a>
-            <Link href="/login" className="hover:text-white/70 transition-colors">Sign in</Link>
-            <span>© {new Date().getFullYear()} Runstate Ltd</span>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
+    );
 }
-
-function Segment({ tag, title, body, featured }: { tag: string; title: string; body: string; featured?: boolean }) {
-  return (
-    <div className={`rounded-xl border p-6 transition-colors ${featured ? "border-violet-500/30 bg-violet-500/[0.06]" : "border-white/[0.08] bg-white/[0.02] hover:border-white/15"}`}>
-      <div className={`text-[11px] font-semibold uppercase tracking-wider ${featured ? "text-violet-300" : "text-white/40"}`}>{tag}</div>
-      <h3 className="mt-3 text-[16px] font-semibold">{title}</h3>
-      <p className="mt-2 text-[13px] text-white/50 leading-relaxed">{body}</p>
-    </div>
-  );
-}
-
-function Capability({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
-  return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 hover:border-white/15 transition-colors">
-      <div className="w-10 h-10 rounded-lg bg-violet-500/10 text-violet-300 flex items-center justify-center">{icon}</div>
-      <h3 className="mt-4 text-[15px] font-semibold">{title}</h3>
-      <p className="mt-2 text-[13px] text-white/50 leading-relaxed">{body}</p>
-    </div>
-  );
-}
-
-function OrgNode({ label, tone, className = "" }: { label: string; tone?: "lead"; className?: string }) {
-  return (
-    <div className={`inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-[13px] font-semibold ${tone === "lead" ? "border-violet-500/30 bg-violet-500/10 text-violet-100" : "border-white/10 bg-white/[0.02]"} ${className}`}>
-      {label}
-    </div>
-  );
-}
-
-/* --- icons --- */
-function BoltIcon(p: any) { return (<svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" {...p}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>); }
-function ArrowIcon(p: any) { return (<svg fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" {...p}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>); }
-function UsersIcon(p: any) { return (<svg fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" {...p}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>); }
-function PlugIcon(p: any) { return (<svg fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" {...p}><path strokeLinecap="round" strokeLinejoin="round" d="M15 6.75V3.75m-6 3V3.75M8.25 6.75h7.5a1.5 1.5 0 011.5 1.5v2.25a5.25 5.25 0 01-5.25 5.25A5.25 5.25 0 016.75 10.5V8.25a1.5 1.5 0 011.5-1.5zM12 15.75V21" /></svg>); }
-function ShieldIcon(p: any) { return (<svg fill="none" viewBox="0 0 24 24" strokeWidth={1.6} stroke="currentColor" {...p}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>); }
