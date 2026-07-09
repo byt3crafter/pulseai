@@ -440,6 +440,29 @@ export const pendingApprovals = pgTable(
     (table) => [index("idx_pending_approvals_tenant_status").on(table.tenantId, table.status)]
 );
 
+// -- Approval allowances (persistent, revocable "Allow always" standing grants) --
+// Replaces the old 30-minute in-memory session bypass. When an approver taps
+// "Allow always" on a pending_approvals card, a row is inserted here and every
+// future gated request matching (tenantId, kind, subject) is auto-approved —
+// no prompt — until an admin revokes it from the dashboard. See
+// ../channels/approval-service.ts (hasStandingAllowance/grantAllowance/revokeAllowance).
+export const approvalAllowances = pgTable(
+    "approval_allowances",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id)
+            .notNull(),
+        kind: varchar("kind", { length: 10 }).notNull(), // 'user' | 'server'
+        subject: varchar("subject", { length: 64 }).notNull(), // telegram user id (kind='user') or server uuid (kind='server')
+        label: varchar("label", { length: 255 }), // human-readable — person name or server name, for the dashboard
+        createdBy: varchar("created_by", { length: 32 }), // approver telegram id who granted it
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    },
+    (table) => [index("idx_approval_allowances_tenant_revoked").on(table.tenantId, table.revokedAt)]
+);
+
 // -- Skills/tools enabled per tenant --
 export const tenantSkills = pgTable(
     "tenant_skills",

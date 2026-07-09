@@ -1,8 +1,8 @@
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import { db } from "../../../storage/db";
-import { people, agentProfiles, tenants } from "../../../storage/schema";
-import { eq, desc } from "drizzle-orm";
+import { people, agentProfiles, tenants, approvalAllowances } from "../../../storage/schema";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import PeopleClient from "./PeopleClient";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +17,15 @@ export default async function PeoplePage() {
     if (!session?.user?.tenantId) redirect("/login");
     const tenantId = session.user.tenantId;
 
-    const [rows, agents, tenant] = await Promise.all([
+    const [rows, agents, tenant, allowanceRows] = await Promise.all([
         db.select().from(people).where(eq(people.tenantId, tenantId)).orderBy(desc(people.lastSeenAt)),
         db.select({ id: agentProfiles.id, name: agentProfiles.name }).from(agentProfiles).where(eq(agentProfiles.tenantId, tenantId)),
         db.query.tenants.findFirst({ where: eq(tenants.id, tenantId), columns: { config: true } }),
+        db
+            .select()
+            .from(approvalAllowances)
+            .where(and(eq(approvalAllowances.tenantId, tenantId), isNull(approvalAllowances.revokedAt)))
+            .orderBy(desc(approvalAllowances.createdAt)),
     ]);
 
     const defaultAccessRaw = (tenant?.config as any)?.default_person_access;
@@ -38,5 +43,20 @@ export default async function PeoplePage() {
         lastSeenAt: r.lastSeenAt ? r.lastSeenAt.toISOString() : null,
     }));
 
-    return <PeopleClient people={peopleRows} agents={agents} defaultAccess={defaultAccess} />;
+    const allowances = allowanceRows.map((r) => ({
+        id: r.id,
+        kind: (r.kind === "server" ? "server" : "user") as "user" | "server",
+        subject: r.subject,
+        label: r.label,
+        createdAt: r.createdAt ? r.createdAt.toISOString() : null,
+    }));
+
+    return (
+        <PeopleClient
+            people={peopleRows}
+            agents={agents}
+            defaultAccess={defaultAccess}
+            allowances={allowances}
+        />
+    );
 }

@@ -2,8 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { TrashIcon, UsersIcon } from "@heroicons/react/24/outline";
-import { PageHeader, Card, CardHeader, Toggle, SettingRow, SettingHint } from "../../../components/dashboard/ui";
+import { TrashIcon, UsersIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { PageHeader, Card, CardHeader, Toggle, SettingHint } from "../../../components/dashboard/ui";
 import AgentAvatar from "../../../components/dashboard/AgentAvatar";
 import {
     updateDefaultPersonAccessAction,
@@ -11,6 +11,7 @@ import {
     updatePersonApproverAction,
     updatePersonApprovalModeAction,
     updatePersonAllowedAgentsAction,
+    revokeApprovalAllowanceAction,
     deletePersonAction,
 } from "./actions";
 
@@ -32,6 +33,14 @@ interface PersonRow {
 interface Agent {
     id: string;
     name: string;
+}
+
+interface AllowanceRow {
+    id: string;
+    kind: "user" | "server";
+    subject: string;
+    label: string | null;
+    createdAt: string | null;
 }
 
 const ACCESS_OPTIONS: { value: Access; label: string; on: string; off: string }[] = [
@@ -144,10 +153,12 @@ export default function PeopleClient({
     people,
     agents,
     defaultAccess,
+    allowances,
 }: {
     people: PersonRow[];
     agents: Agent[];
     defaultAccess: Access;
+    allowances: AllowanceRow[];
 }) {
     const router = useRouter();
     const [, startTransition] = useTransition();
@@ -213,6 +224,14 @@ export default function PeopleClient({
         const fd = new FormData();
         fd.set("personId", person.id);
         runAction(person.id, deletePersonAction, fd);
+    }
+
+    function handleRevokeAllowance(allowance: AllowanceRow) {
+        const label = allowance.label || allowance.subject;
+        if (!confirm(`Revoke the standing "Allow always" approval for "${label}"? Future requests will need approval again.`)) return;
+        const fd = new FormData();
+        fd.set("allowanceId", allowance.id);
+        runAction(allowance.id, revokeApprovalAllowanceAction, fd);
     }
 
     return (
@@ -362,6 +381,71 @@ export default function PeopleClient({
                 "Requires approval" holds a person's messages until a designated approver taps Allow/Deny on a Telegram DM card —
                 mark someone as an "Approver" above so they receive those cards.
             </SettingHint>
+
+            <Card className="mt-6">
+                <CardHeader
+                    title="Standing approvals"
+                    description={'People or servers a Telegram approver has tapped "Allow always" for — every future gated request is auto-approved with no prompt until revoked here.'}
+                />
+
+                {allowances.length === 0 ? (
+                    <div className="py-16 text-center flex flex-col items-center justify-center">
+                        <ShieldCheckIcon className="w-10 h-10 text-pulse-faint mb-3" aria-hidden="true" />
+                        <p className="text-sm text-pulse-muted">No standing approvals — every gated request is asked each time.</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm border-collapse">
+                            <thead>
+                                <tr className="text-xs uppercase tracking-wide text-pulse-faint border-b border-pulse-border-subtle">
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Type</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Granted to</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Granted</th>
+                                    <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {allowances.map((allowance) => {
+                                    const busy = !!busyRows[allowance.id];
+                                    const label = allowance.label || allowance.subject;
+                                    return (
+                                        <tr key={allowance.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
+                                            <td className="px-4 py-3 align-top">
+                                                <span
+                                                    className={`inline-flex items-center text-xs font-medium rounded-full px-2.5 py-1 border ${
+                                                        allowance.kind === "user"
+                                                            ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
+                                                            : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+                                                    }`}
+                                                >
+                                                    {allowance.kind === "user" ? "Person" : "Server"}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 align-top">
+                                                <p className="font-medium text-pulse-text truncate">{label}</p>
+                                                <p className="text-[11px] font-mono text-pulse-faint">{allowance.subject}</p>
+                                            </td>
+                                            <td className="px-4 py-3 align-top text-pulse-muted text-xs whitespace-nowrap">
+                                                {formatRelativeTime(allowance.createdAt)}
+                                            </td>
+                                            <td className="px-4 py-3 align-top text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRevokeAllowance(allowance)}
+                                                    disabled={busy}
+                                                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-pulse-border text-pulse-muted hover:border-red-400/60 hover:text-red-500 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    Revoke
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </Card>
         </div>
     );
 }

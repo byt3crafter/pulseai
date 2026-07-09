@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { people, tenants, agentProfiles } from "../../../storage/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { people, tenants, agentProfiles, approvalAllowances } from "../../../storage/schema";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
 
@@ -154,6 +154,38 @@ export async function updatePersonAllowedAgentsAction(formData: FormData): Promi
     } catch (error) {
         console.error("Failed to update person's allowed agents:", error);
         return { success: false, message: "Could not update allowed agents." };
+    }
+}
+
+// Standing approvals ("Allow always") — granted from a Telegram approval
+// card (pulse/src/channels/approval-service.ts). This is the dashboard's
+// revoke path: it lasts until an admin explicitly revokes it here.
+export async function revokeApprovalAllowanceAction(formData: FormData): Promise<Result> {
+    const check = await requireTenant();
+    if (!check.authorized) return { success: false, message: check.message };
+    const tenantId = check.tenantId;
+
+    const allowanceId = (formData.get("allowanceId") as string) || "";
+    if (!allowanceId) return { success: false, message: "Missing allowance." };
+
+    try {
+        const res = await db
+            .update(approvalAllowances)
+            .set({ revokedAt: new Date() })
+            .where(
+                and(
+                    eq(approvalAllowances.id, allowanceId),
+                    eq(approvalAllowances.tenantId, tenantId),
+                    isNull(approvalAllowances.revokedAt)
+                )
+            )
+            .returning({ id: approvalAllowances.id });
+        if (res.length === 0) return { success: false, message: "Not found." };
+        revalidatePath(PATH);
+        return { success: true, message: "Standing approval revoked." };
+    } catch (error) {
+        console.error("Failed to revoke standing approval:", error);
+        return { success: false, message: "Could not revoke this standing approval." };
     }
 }
 

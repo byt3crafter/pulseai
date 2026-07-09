@@ -18,7 +18,7 @@ import { decrypt } from "../utils/crypto.js";
 import { logger } from "../utils/logger.js";
 import { checkCommandPolicy, isReadOnlyCommand, SafetyMode } from "./command-policy.js";
 import { sshExec } from "./ssh-exec.js";
-import { createApproval, awaitDecision, hasSessionAllowance } from "../channels/approval-service.js";
+import { createApproval, awaitDecision, hasStandingAllowance } from "../channels/approval-service.js";
 
 const DEFAULT_TIMEOUT_SECONDS = 30;
 const MAX_TIMEOUT_SECONDS = 120;
@@ -175,13 +175,20 @@ function buildServerExecTool(tenantId: string, agentProfileId: string): Tool {
 
             // Approval gate (stage 2 of People access control): 'off' never asks,
             // 'writes' asks for anything not classified read-only, 'all' asks
-            // for every command. Session allowances ("Allow all") bypass this
-            // for the rest of the process lifetime, scoped per-server.
+            // for every command. A standing allowance ("Allow always", granted
+            // from a previous approval card) bypasses this permanently, scoped
+            // per-server, until an admin revokes it from the dashboard.
             let approvalNote = "";
             const approvalMode = server.approvalMode || "off";
             if (approvalMode !== "off") {
                 const needsApproval = approvalMode === "all" || !isReadOnlyCommand(command);
-                if (needsApproval && !hasSessionAllowance(effectiveTenantId, "command", server.id)) {
+                let hasAllowance = false;
+                try {
+                    hasAllowance = await hasStandingAllowance(effectiveTenantId, "server", server.id);
+                } catch (err) {
+                    logger.error({ err, serverId: server.id }, "Standing allowance lookup failed for server_exec — failing closed (will require approval)");
+                }
+                if (needsApproval && !hasAllowance) {
                     let agentName = "An agent";
                     try {
                         const profile = await db.query.agentProfiles.findFirst({
