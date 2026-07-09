@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.7] - 2026-07-09
+
+### Bug Fixes
+- uniform skill-row color; muted bg = inherited, not enabled
+
 ## [0.14.6] - 2026-07-09
 
 ### Features
