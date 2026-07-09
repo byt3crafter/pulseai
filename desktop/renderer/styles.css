@@ -1,3 +1,6 @@
+/* The hidden attribute must win over .login-wrap/.app-wrap display:flex,
+   otherwise toggling el.hidden does nothing and the login screen never leaves. */
+[hidden]{display:none !important}
 :root{
   --bg:#0a0a0b; --panel:#0c0c0e; --panel2:#101012; --hover:#141417;
   --border:#242429; --text:#ededed; --muted:#8a8a90; --faint:#5a5a61;
