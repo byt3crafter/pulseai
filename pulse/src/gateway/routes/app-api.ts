@@ -34,7 +34,8 @@ function getAuth(request: FastifyRequest): AppTokenPayload | null {
 }
 
 export const appApiRoutes: FastifyPluginAsync = async (fastify) => {
-    // CORS for packaged desktop/mobile clients
+    // CORS for packaged desktop/mobile clients (cross-origin fetch from the
+    // Electron/mobile app). The hook stamps headers on real responses.
     fastify.addHook("onRequest", async (request, reply) => {
         reply.header("Access-Control-Allow-Origin", "*");
         reply.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -42,6 +43,16 @@ export const appApiRoutes: FastifyPluginAsync = async (fastify) => {
         if (request.method === "OPTIONS") {
             reply.code(204).send();
         }
+    });
+
+    // Preflight: without an explicit OPTIONS route, cross-origin preflight
+    // requests hit Fastify's 404 BEFORE the hook runs → no CORS headers → the
+    // browser/Electron blocks the real request ("nothing happens" on login).
+    // This wildcard OPTIONS route makes preflight match so the hook answers it.
+    fastify.route({
+        method: "OPTIONS",
+        url: "/api/app/*",
+        handler: async (_request, reply) => reply.code(204).send(),
     });
 
     // ── Login ──
