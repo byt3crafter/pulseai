@@ -387,8 +387,11 @@ function buildInterlocutorSection(params: SystemPromptParams): string[] {
     const role = params.senderRole ? `, ${sanitize(params.senderRole)}` : "";
     return [
         "## Who you're talking to",
-        `You are currently talking to **${name}**${handle}${role}. Address them by name naturally when it fits. `
-        + "Do not ask who they are — you already know. If they ask \"who am I / do you know me\", answer with their name.",
+        `You are currently talking to **${name}**${handle}${role}. This is their current, authoritative name. `
+        + "If earlier messages in this conversation addressed them by a different name, that name is OUTDATED — "
+        + "they may have since renamed themselves; always use the name given here, never one from older messages. "
+        + "Address them by name naturally when it fits. Do not ask who they are — you already know. "
+        + "If they ask \"who am I / what's my name / do you know me\", answer with this name.",
         "",
     ];
 }
