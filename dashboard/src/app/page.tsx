@@ -10,19 +10,27 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"
 
 const CONTACT = "mailto:hello@runstate.mu?subject=Pulse%20AI%20%E2%80%94%20Book%20a%20Demo";
 
-type SystemTile = { key: string; name: string; kind: string; bg: string; radius: string; label: string; font: number; mono?: boolean };
+type SystemTile = { key: string; name: string; kind: string; bg: string; radius: string; label: string; font: number; mono?: boolean; status?: "live" | "request" };
 
+// Hero visual — a representative mix (decorative "connect your systems").
 const SYSTEMS: SystemTile[] = [
-    { key: "erpnext", name: "ERPNext", kind: "ERP", bg: "#1667D9", radius: "8px", label: "E", font: 14 },
-    { key: "quickbooks", name: "QuickBooks", kind: "Accounting", bg: "#2CA01C", radius: "50%", label: "qb", font: 11 },
-    { key: "xero", name: "Xero", kind: "Accounting", bg: "#13B5EA", radius: "50%", label: "xero", font: 10 },
-    { key: "pastel", name: "Pastel", kind: "Accounting", bg: "#7C3AED", radius: "8px", label: "P", font: 14 },
+    { key: "erpnext", name: "ERPNext", kind: "ERP", bg: "#1667D9", radius: "8px", label: "E", font: 14, status: "live" },
+    { key: "email", name: "Email", kind: "SMTP / IMAP", bg: "#F59E0B", radius: "8px", label: "@", font: 15, status: "live" },
+    { key: "quickbooks", name: "QuickBooks", kind: "Accounting", bg: "#2CA01C", radius: "50%", label: "qb", font: 11, status: "request" },
+    { key: "api", name: "REST APIs", kind: "Custom tools", bg: "#334155", radius: "8px", label: "api", font: 12, mono: true, status: "live" },
 ];
 
+// Full integrations grid — "Live" = built in today; "On request" = we build the
+// connector for your business (any REST API), so nothing overclaims.
 const INTEGRATIONS: SystemTile[] = [
-    ...SYSTEMS,
-    { key: "sheets", name: "Sheets", kind: "Data", bg: "#0F9D58", radius: "8px", label: "⊞", font: 16 },
-    { key: "api", name: "REST APIs", kind: "Custom tools", bg: "#334155", radius: "8px", label: "api", font: 12, mono: true },
+    { key: "erpnext", name: "ERPNext", kind: "ERP", bg: "#1667D9", radius: "8px", label: "E", font: 14, status: "live" },
+    { key: "email", name: "Email", kind: "SMTP / IMAP", bg: "#F59E0B", radius: "8px", label: "@", font: 15, status: "live" },
+    { key: "api", name: "REST APIs", kind: "Custom tools", bg: "#334155", radius: "8px", label: "api", font: 12, mono: true, status: "live" },
+    { key: "mcp", name: "MCP Servers", kind: "Tool protocol", bg: "#6366F1", radius: "8px", label: "mcp", font: 11, mono: true, status: "live" },
+    { key: "quickbooks", name: "QuickBooks", kind: "Accounting", bg: "#2CA01C", radius: "50%", label: "qb", font: 11, status: "request" },
+    { key: "xero", name: "Xero", kind: "Accounting", bg: "#13B5EA", radius: "50%", label: "xero", font: 10, status: "request" },
+    { key: "pastel", name: "Sage Pastel", kind: "Accounting", bg: "#7C3AED", radius: "8px", label: "P", font: 14, status: "request" },
+    { key: "sheets", name: "Google Sheets", kind: "Data", bg: "#0F9D58", radius: "8px", label: "⊞", font: 16, status: "request" },
 ];
 
 const AGENTS = [
@@ -129,7 +137,7 @@ const AUDIT_ROWS: { time: string; actor: string; actorClass: string; msg: string
 const FAQS = [
     {
         q: "What systems does Pulse AI connect to?",
-        a: "ERPNext, QuickBooks, Xero, Pastel, Google Sheets and any system with a REST API. If your team runs it, an agent can be given controlled access to it as a tool.",
+        a: "ERPNext and email are built in today, plus any system with a REST API. Accounting suites like QuickBooks, Xero and Sage Pastel, Google Sheets, or whatever your business runs — we connect on request. If your team uses it, an agent can be given controlled, permission-checked access to it as a tool.",
     },
     {
         q: "Can I control what each agent can access?",
@@ -405,6 +413,7 @@ export default function LandingPage() {
                         <div>
                             <div className={styles.eyebrow}>Integrations</div>
                             <h2 className={styles.sectionTitle}>Connects to the systems you already run.</h2>
+                            <p className={styles.sectionLead}>ERPNext, email and any REST API work today. Accounting suites like QuickBooks, Xero and Sage Pastel — or whatever your business runs — we connect for you on request.</p>
                         </div>
                         <div className={styles.integrationsGrid}>
                             {INTEGRATIONS.map((i) => (
@@ -417,6 +426,24 @@ export default function LandingPage() {
                                     </span>
                                     <span className={styles.integrationName}>{i.name}</span>
                                     <span className={styles.integrationKind}>{i.kind}</span>
+                                    {i.status && (
+                                        <span
+                                            style={{
+                                                display: "inline-block",
+                                                marginTop: 8,
+                                                fontSize: 9.5,
+                                                fontWeight: 700,
+                                                letterSpacing: "0.07em",
+                                                textTransform: "uppercase",
+                                                padding: "3px 8px",
+                                                borderRadius: 20,
+                                                color: i.status === "live" ? "#4ade80" : "#a5b0bd",
+                                                background: i.status === "live" ? "rgba(74,222,128,0.13)" : "rgba(165,176,189,0.12)",
+                                            }}
+                                        >
+                                            {i.status === "live" ? "Live" : "On request"}
+                                        </span>
+                                    )}
                                 </div>
                             ))}
                         </div>
