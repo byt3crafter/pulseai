@@ -56,10 +56,20 @@ async function doLogin() {
     $("signin").disabled = true; $("signin").textContent = "Signing in…";
     try {
         const res = await api("/api/app/login", { method: "POST", auth: false, body: { email, password, totp: totp || undefined } });
+        // A wrong Gateway URL (e.g. the bare domain) hits the dashboard and
+        // redirects to its login page — surface that instead of failing silently.
+        if (res.redirected || /\/login(\?|$)/.test(res.url)) {
+            $("adv").hidden = false;
+            return showLoginErr("Wrong Gateway URL — it must end in /api/gateway. Fix it in Server settings.");
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             if (data.error === "2fa_required") { $("totpRow").hidden = false; $("totp").focus(); return showLoginErr("Enter your authentication code."); }
             return showLoginErr(data.error || "Sign in failed.");
+        }
+        if (!data.token) {
+            $("adv").hidden = false;
+            return showLoginErr("Unexpected response — check the Gateway URL (should end in /api/gateway).");
         }
         state.token = data.token; state.user = data.user;
         localStorage.setItem("pulse.token", state.token);
