@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.9] - 2026-07-09
+
+### Bug Fixes
+- honest integrations — Live vs On request
+
+### Chores
+- harden db-backup + nightly cron installer
+
 ## [0.14.8] - 2026-07-09
 
 ### Bug Fixes
