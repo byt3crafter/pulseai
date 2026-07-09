@@ -57,8 +57,11 @@ async function doLogin() {
     try {
         const res = await api("/api/app/login", { method: "POST", auth: false, body: { email, password, totp: totp || undefined } });
         // A wrong Gateway URL (e.g. the bare domain) hits the dashboard and
-        // redirects to its login page — surface that instead of failing silently.
-        if (res.redirected || /\/login(\?|$)/.test(res.url)) {
+        // 307-redirects to its login PAGE — fetch follows it, so res.redirected
+        // is the reliable signal (the real /api/app/login endpoint never
+        // redirects). NB: don't test res.url for "/login" — the API path itself
+        // ends in /login and that false-flagged valid logins.
+        if (res.redirected) {
             $("adv").hidden = false;
             return showLoginErr("Wrong Gateway URL — it must end in /api/gateway. Fix it in Server settings.");
         }
