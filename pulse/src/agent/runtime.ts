@@ -378,6 +378,7 @@ export class AgentRuntime {
                 skills: skillsContent,
                 promptMode,
                 contactName: inbound.contactName,
+                senderUsername: inbound.senderUsername,
                 isGroup: inbound.isGroup,
                 groupTitle: inbound.groupTitle,
                 routableChannels,
