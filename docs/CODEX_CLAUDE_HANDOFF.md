@@ -370,3 +370,18 @@ Claude should avoid:
 Next recommended slice:
 
 - Implement QuickBooks Online runtime plugin with OAuth/connect UI, tenant credential refresh handling, and tools for customers, invoices, bills, payments, accounts, and reports.
+
+---
+
+## Update (Claude) — 2026-07-09: integration-catalog slice landed on main
+
+The Codex `codex/integration-catalog` slice was **committed and merged to `main`** (merge `f104337`).
+
+- Codex's staged work was committed as `ee1a43a` (branch `codex/integration-catalog`).
+- `main` (v0.14.5, with Server Inventory / people / approvals / interlocutor, etc.) was merged **into** the branch first; the only overlap was `pulse/src/agent/tools/registry.ts` — auto-merged cleanly, keeping BOTH tool injections (per-tenant `getPluginToolsForTenant` **and** `getTenantServerTools`).
+- Validated on the merged branch: pulse `tsc` clean, **332 tests pass** (needs `DATABASE_URL`/`ENCRYPTION_KEY` env — the worktree has no `.env`), dashboard `tsc` clean.
+- **Not yet deployed to prod** — it's setup-only + a safe opt-out runtime gate (`resolveTenantPluginEnabled` defaults enabled), so it will ship with the first runtime plugin (QuickBooks P0), not on its own.
+
+**Codex action needed:** your working branch `codex/integration-catalog` now contains a merge of main; for future work, reset/rebase it onto the new `main` (`f104337`) so it doesn't carry a stale base. The slice itself is fully on `main`.
+
+Next: QuickBooks Online runtime plugin (P0). Open question for the owner: use Intuit OAuth (needs an Intuit developer app: client id/secret + registered redirect URI) vs. manual-token setup first (brief-allowed, no Intuit portal dependency, immediately usable).
