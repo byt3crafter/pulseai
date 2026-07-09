@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.5] - 2026-07-09
+
+### Bug Fixes
+- interlocutor identity overrides stale names in history
+
 ## [0.14.4] - 2026-07-09
 
 ### Features
