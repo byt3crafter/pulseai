@@ -4,6 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import TenantSettingsClient from "./TenantSettingsClient";
+import TenantDangerZone from "./TenantDangerZone";
 import { ui, PageHeader, Panel, Badge } from "../../../../components/admin/ui";
 
 export default async function TenantDetailPage({
@@ -107,6 +108,9 @@ export default async function TenantDetailPage({
                     Manage Approvals & Allowlists &rarr;
                 </Link>
             </div>
+
+            {/* Danger Zone */}
+            <TenantDangerZone tenantId={tenantId} tenantName={tenant.name} />
         </div>
     );
 }

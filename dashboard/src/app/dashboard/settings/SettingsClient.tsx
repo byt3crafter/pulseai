@@ -29,6 +29,7 @@ import {
     testVoyageEmbeddingAction,
     saveDraftChannelConfigAction,
     saveAutoMemorySettingsAction,
+    resetMyWorkspaceAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import { PROVIDERS } from "../../../utils/models";
@@ -134,6 +135,7 @@ interface Props {
     savePluginCredentials: (formData: FormData) => Promise<void>;
     emailConfig: { smtp?: any; imap?: any; signature?: SignatureValue } | null;
     embeddingConfigured: boolean;
+    allowSelfReset: boolean;
 }
 
 export default function SettingsClient({
@@ -144,6 +146,7 @@ export default function SettingsClient({
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
+    allowSelfReset,
 }: Props) {
     const router = useRouter();
 
@@ -178,7 +181,7 @@ export default function SettingsClient({
 
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
-                    {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} />}
+                    {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} allowSelfReset={allowSelfReset} />}
                     {tab === "integrations" && <IntegrationsTab telegramConnected={telegramConnected} oauthEnabled={enableThirdPartyCli} channelSetups={channelSetups} />}
                     {tab === "telegram" && (
                         <TelegramTab
@@ -202,7 +205,7 @@ export default function SettingsClient({
 
 // ─── Account Tab ────────────────────────────────────────────────────────────
 
-function AccountTab({ userEmail, userName }: { userEmail: string; userName: string }) {
+function AccountTab({ userEmail, userName, allowSelfReset }: { userEmail: string; userName: string; allowSelfReset: boolean }) {
     const [status, setStatus] = useState<{ type: "idle" | "loading" | "success" | "error"; message: string }>({ type: "idle", message: "" });
     const searchParams = useSearchParams();
     const forcePasswordChange = searchParams.get("forcePasswordChange") === "true";
@@ -262,6 +265,98 @@ function AccountTab({ userEmail, userName }: { userEmail: string; userName: stri
 
             {/* Security */}
             <TwoFactorCard variant="pulse" />
+
+            {/* Danger Zone — only when an admin has enabled self-service reset */}
+            {allowSelfReset && <WorkspaceResetSection />}
+        </div>
+    );
+}
+
+// ─── Danger Zone: self-service workspace reset ────────────────────────────────
+
+function WorkspaceResetSection() {
+    const RESET_SCOPES: { id: "chat" | "memory" | "all"; title: string; desc: string }[] = [
+        { id: "chat", title: "Conversations & messages", desc: "All chat history. Your agents, channels, users and settings are kept." },
+        { id: "memory", title: "+ Agent memory", desc: "Also clears what your agents remember from past conversations." },
+        { id: "all", title: "+ Usage & activity logs", desc: "Also clears usage records and agent activity logs. Security audit is preserved." },
+    ];
+    const [scope, setScope] = useState<"chat" | "memory" | "all">("memory");
+    const [confirm, setConfirm] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+    const armed = confirm.trim().toUpperCase() === "RESET" && !busy;
+
+    const handleReset = async () => {
+        if (!armed) return;
+        setBusy(true);
+        setMsg(null);
+        const res = await resetMyWorkspaceAction(scope, confirm);
+        if (res.success && res.counts) {
+            const c = res.counts;
+            setMsg({
+                ok: true,
+                text: `Done — cleared ${c.conversations} conversations, ${c.messages} messages`
+                    + (scope !== "chat" ? `, ${c.memoryEntries} memories` : "")
+                    + (scope === "all" ? `, ${c.usageRecords} usage records` : "")
+                    + ".",
+            });
+            setConfirm("");
+        } else {
+            setMsg({ ok: false, text: res.message || "Failed to reset workspace." });
+        }
+        setBusy(false);
+    };
+
+    return (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/[0.03] p-5">
+            <h3 className="text-sm font-semibold text-red-400 mb-1">Danger Zone — Reset Workspace</h3>
+            <p className="text-xs text-pulse-muted mb-4">
+                Permanently delete your conversation &amp; memory data. Your agents, channels, users and
+                settings are kept. <span className="text-red-400">This cannot be undone.</span>
+            </p>
+
+            <div className="space-y-2.5 mb-4">
+                {RESET_SCOPES.map((s) => (
+                    <label key={s.id} className="flex items-start gap-3 cursor-pointer">
+                        <input
+                            type="radio"
+                            name="self-reset-scope"
+                            checked={scope === s.id}
+                            onChange={() => setScope(s.id)}
+                            className="mt-0.5 w-4 h-4 accent-red-500"
+                        />
+                        <div>
+                            <span className="text-[13px] font-medium text-pulse-text">{s.title}</span>
+                            <p className="text-[11px] text-pulse-muted">{s.desc}</p>
+                        </div>
+                    </label>
+                ))}
+            </div>
+
+            <label className="block text-[13px] font-medium text-pulse-text-soft mb-1.5">
+                Type <span className="font-mono text-pulse-text">RESET</span> to confirm
+            </label>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <input
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="RESET"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="w-full max-w-[240px] bg-pulse-panel-alt border border-pulse-border rounded-md text-[13px] text-pulse-text placeholder:text-pulse-faint px-3 py-2 outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                />
+                <button
+                    onClick={handleReset}
+                    disabled={!armed}
+                    className="inline-flex items-center justify-center gap-1.5 border border-red-500/40 text-red-400 hover:bg-red-500/10 text-[13px] font-medium px-3.5 py-2 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                    {busy ? "Resetting…" : "Reset workspace"}
+                </button>
+            </div>
+
+            {msg && (
+                <p className={`mt-3 text-[13px] ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>
+            )}
         </div>
     );
 }
