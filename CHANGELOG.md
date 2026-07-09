@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.3] - 2026-07-09
+
+### Features
+- workspace data reset (Danger Zone)
+
 ## [0.14.2] - 2026-07-09
 
 ### Bug Fixes
