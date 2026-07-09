@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CpuChipIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { PageHeader, Card, Toggle } from "../../../components/dashboard/ui";
+import { PageHeader, Card, EmptyState, Toggle } from "../../../components/dashboard/ui";
 import AgentAvatar from "../../../components/dashboard/AgentAvatar";
 import { getLiveModelsAction, toggleAgentEnabledAction } from "./actions";
 import { updateAgentModelAction, deleteAgentAction } from "./[id]/actions";
@@ -134,17 +134,17 @@ export default function AgentsTableClient({
     }
 
     return (
-        <div>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
             <PageHeader
                 title="Agent Profiles"
                 description="Manage your AI workforce — models, departments, and status."
                 action={
                     <Link
                         href="/dashboard/agents/new"
-                        className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 self-start sm:self-auto"
+                        className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 whitespace-nowrap self-start sm:self-auto"
                     >
                         <PlusIcon className="w-4 h-4" aria-hidden="true" />
-                        Create Agent
+                        Create agent
                     </Link>
                 }
             />
@@ -162,20 +162,22 @@ export default function AgentsTableClient({
             )}
 
             {agents.length === 0 ? (
-                <div className="py-16 text-center bg-pulse-panel rounded-xl border border-dashed border-pulse-border flex flex-col items-center justify-center">
-                    <CpuChipIcon className="w-12 h-12 text-pulse-faint mb-4" aria-hidden="true" />
-                    <h3 className="text-lg font-medium text-pulse-text mb-1">No Agent Profiles Found</h3>
-                    <p className="text-sm text-pulse-muted max-w-sm mx-auto mb-5">
-                        Create your first AI persona to start tailoring system prompts and connecting specialized tools.
-                    </p>
-                    <Link
-                        href="/dashboard/agents/new"
-                        className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                    >
-                        <PlusIcon className="w-4 h-4" aria-hidden="true" />
-                        Create Agent
-                    </Link>
-                </div>
+                <Card>
+                    <EmptyState
+                        icon={CpuChipIcon}
+                        title="No agent profiles yet"
+                        description="Create your first AI persona to start tailoring system prompts and connecting specialized tools."
+                        action={
+                            <Link
+                                href="/dashboard/agents/new"
+                                className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                            >
+                                <PlusIcon className="w-4 h-4" aria-hidden="true" />
+                                Create agent
+                            </Link>
+                        }
+                    />
+                </Card>
             ) : (
                 <Card>
                     <div className="overflow-x-auto">

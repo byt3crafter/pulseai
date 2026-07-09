@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ServerIcon, PlusIcon, TrashIcon, PencilSquareIcon, LockClosedIcon, ShieldCheckIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
-import { PageHeader, Card, Toggle } from "../../../components/dashboard/ui";
+import { PageHeader, Card, EmptyState, Toggle } from "../../../components/dashboard/ui";
 import { deleteServerAction, toggleServerEnabledAction } from "./actions";
 
 interface ServerRow {
@@ -85,19 +85,21 @@ export default function ServersTableClient({ servers }: { servers: ServerRow[] }
             )}
 
             {servers.length === 0 ? (
-                <div className="py-16 text-center bg-pulse-panel rounded-xl border border-dashed border-pulse-border flex flex-col items-center justify-center">
-                    <ServerIcon className="w-12 h-12 text-pulse-faint mb-4" aria-hidden="true" />
-                    <h3 className="text-lg font-medium text-pulse-text mb-1">No servers yet</h3>
-                    <p className="text-sm text-pulse-muted max-w-sm mx-auto mb-5">
-                        Register a VPS or server so your agents can run guarded diagnostics and operations over SSH.
-                    </p>
-                    <Link
-                        href="/dashboard/servers/new"
-                        className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors motion-reduce:transition-none text-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
-                    >
-                        <PlusIcon className="w-4 h-4" aria-hidden="true" /> Add server
-                    </Link>
-                </div>
+                <Card>
+                    <EmptyState
+                        icon={ServerIcon}
+                        title="No servers yet"
+                        description="Register a VPS or server so your agents can run guarded diagnostics and operations over SSH."
+                        action={
+                            <Link
+                                href="/dashboard/servers/new"
+                                className="inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                            >
+                                <PlusIcon className="w-4 h-4" aria-hidden="true" /> Add server
+                            </Link>
+                        }
+                    />
+                </Card>
             ) : (
                 <Card>
                     <div className="overflow-x-auto">

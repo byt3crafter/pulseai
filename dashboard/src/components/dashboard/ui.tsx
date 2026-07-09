@@ -1,6 +1,16 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+    useEffect,
+    useId,
+    useMemo,
+    useRef,
+    useState,
+    type ForwardRefExoticComponent,
+    type ReactNode,
+    type RefAttributes,
+    type SVGProps,
+} from "react";
 import { CheckIcon, ChevronUpDownIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
 
 /**
@@ -74,6 +84,50 @@ export function CardHeader({
                 {description && <p className="text-xs text-pulse-muted mt-0.5">{description}</p>}
             </div>
             {action && <div className="flex-shrink-0">{action}</div>}
+        </div>
+    );
+}
+
+/** Shape shared by every @heroicons/react/24/outline icon component. */
+type HeroIcon = ForwardRefExoticComponent<
+    Omit<SVGProps<SVGSVGElement>, "ref"> & {
+        title?: string;
+        titleId?: string;
+    } & RefAttributes<SVGSVGElement>
+>;
+
+/**
+ * Standard "nothing here yet" state — muted icon, one-line title + hint,
+ * optional CTA. Render it inside a `Card` (it supplies its own vertical
+ * rhythm, not a border) so every empty list/table in the dashboard — Routing,
+ * Custom Tools, MCP Servers, People, Agents, Departments, Conversations —
+ * reads as the same component instead of a bespoke bordered box or bare
+ * paragraph.
+ *
+ * @example
+ * <Card>
+ *   {items.length === 0 ? (
+ *     <EmptyState icon={InboxIcon} title="No items yet" description="…" />
+ *   ) : ( ...table... )}
+ * </Card>
+ */
+export function EmptyState({
+    icon: Icon,
+    title,
+    description,
+    action,
+}: {
+    icon: HeroIcon;
+    title: string;
+    description?: ReactNode;
+    action?: ReactNode;
+}) {
+    return (
+        <div className="flex flex-col items-center justify-center text-center px-6 py-16">
+            <Icon className="w-10 h-10 text-pulse-faint mb-3" aria-hidden="true" />
+            <p className="text-sm font-medium text-pulse-text">{title}</p>
+            {description && <p className="text-sm text-pulse-muted mt-1 max-w-sm">{description}</p>}
+            {action && <div className="mt-4">{action}</div>}
         </div>
     );
 }

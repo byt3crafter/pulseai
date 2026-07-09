@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
     saveTelegramTokenAction,
@@ -37,7 +37,7 @@ import { generateCodeVerifier, generateCodeChallenge, generateState } from "../.
 import { buildOpenAIAuthUrl, getCallbackUrl } from "../../../utils/openai-oauth";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import TwoFactorCard from "../../../components/TwoFactorCard";
-import { PageHeader, Card, CardHeader, SettingRow, Toggle } from "../../../components/dashboard/ui";
+import { PageHeader, Card, CardHeader, EmptyState, SettingRow, Toggle } from "../../../components/dashboard/ui";
 import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../components/dashboard/SignatureEditor";
 
 const TABS = [
@@ -148,7 +148,7 @@ export default function SettingsClient({
     const router = useRouter();
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
             <PageHeader title="Settings" description="Manage your workspace, account, integrations, and API access." />
 
             <div className="flex flex-col md:flex-row gap-6 md:gap-8">
@@ -739,9 +739,10 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-pulse-tint border border-pulse-border rounded-xl p-4">
-                <p className="text-sm text-pulse-text-soft">
-                    <span className="font-semibold">Bring Your Own Key (BYOK)</span> — connect the LLM providers you want your agents to use.
+            <div className="flex items-start gap-2.5 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt/60 px-4 py-3">
+                <InformationCircleIcon className="w-4 h-4 text-pulse-faint flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-xs text-pulse-muted">
+                    <span className="font-medium text-pulse-text-soft">Bring Your Own Key (BYOK):</span> connect the LLM providers you want your agents to use.
                     Keys are encrypted at rest (AES-256-GCM). Tip: Google Gemini has a free tier to get started.
                 </p>
             </div>
@@ -752,9 +753,9 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyInfo[] }) {
                     Connected {connected.length > 0 && <span className="text-pulse-faint">· {connected.length}</span>}
                 </h3>
                 {connected.length === 0 ? (
-                    <p className="text-sm text-pulse-faint bg-pulse-panel border border-dashed border-pulse-border-subtle rounded-xl p-6 text-center">
-                        No providers connected yet. Add one below to power your agents.
-                    </p>
+                    <Card>
+                        <EmptyState icon={KeyIcon} title="No providers connected yet" description="Add one below to power your agents." />
+                    </Card>
                 ) : (
                     <div className="space-y-4">{connected.map(renderCard)}</div>
                 )}

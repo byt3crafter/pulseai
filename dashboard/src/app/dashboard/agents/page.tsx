@@ -67,12 +67,10 @@ export default async function AgentsPage() {
     }
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
-            <AgentsTableClient
-                agents={agents}
-                deptsByAgent={deptsByAgent}
-                connectedProviders={connectedProviders}
-            />
-        </div>
+        <AgentsTableClient
+            agents={agents}
+            deptsByAgent={deptsByAgent}
+            connectedProviders={connectedProviders}
+        />
     );
 }
