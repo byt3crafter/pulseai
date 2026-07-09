@@ -56,6 +56,31 @@ export async function changePasswordAction(formData: FormData) {
     return { success: true, message: "Password updated successfully." };
 }
 
+/**
+ * Update the signed-in user's display name. This is the name the agents use to
+ * address the person (via the interlocutor identity) and what the sidebar/profile
+ * show. Read fresh from the DB elsewhere, so the change is visible immediately —
+ * no re-login needed. Scoped strictly to the session user.
+ */
+export async function updateProfileNameAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, message: "Not authenticated." };
+
+    const name = ((formData.get("name") as string) || "").trim();
+    if (name.length < 1) return { success: false, message: "Name can't be empty." };
+    if (name.length > 100) return { success: false, message: "Name is too long (max 100 characters)." };
+
+    try {
+        await db.update(users).set({ name, updatedAt: new Date() }).where(eq(users.id, session.user.id));
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard", "layout");
+        return { success: true, message: "Name updated." };
+    } catch (error) {
+        console.error("Failed to update profile name:", error);
+        return { success: false, message: "Failed to update name." };
+    }
+}
+
 export async function saveTelegramTokenAction(formData: FormData) {
     const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
