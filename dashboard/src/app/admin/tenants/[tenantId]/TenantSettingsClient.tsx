@@ -27,6 +27,7 @@ export default function TenantSettingsClient({
     const [heartbeatInterval, setHeartbeatInterval] = useState((config.heartbeat_default_interval || 3600).toString());
     const [routingEnabled, setRoutingEnabled] = useState(config.multi_agent_routing_enabled ?? false);
     const [chatgptConnect, setChatgptConnect] = useState(config.chatgptConnectEnabled ?? false);
+    const [selfReset, setSelfReset] = useState(config.allow_self_reset ?? false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export default function TenantSettingsClient({
             heartbeat_default_interval: parseInt(heartbeatInterval, 10) || 3600,
             multi_agent_routing_enabled: routingEnabled,
             chatgptConnectEnabled: chatgptConnect,
+            allow_self_reset: selfReset,
         });
 
         if (result.success) {
@@ -142,6 +144,24 @@ export default function TenantSettingsClient({
                     <div>
                         <span className="text-[13px] font-medium text-pulse-text">Enable ChatGPT Connect</span>
                         <p className="text-[11px] text-pulse-muted">Shows the &quot;Connect ChatGPT&quot; option in this customer&apos;s dashboard</p>
+                    </div>
+                </label>
+            </Panel>
+
+            {/* Self-service reset */}
+            <Panel bodyClassName="p-6">
+                <h2 className="text-[15px] font-semibold text-pulse-text mb-1">Self-Service Workspace Reset</h2>
+                <p className="text-[13px] text-pulse-muted mb-4">Let this customer reset their own conversation &amp; memory data from their dashboard (Settings &rarr; Account &rarr; Danger Zone). Off by default. You can always reset on their behalf from the Danger Zone below.</p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={selfReset}
+                        onChange={(e) => setSelfReset(e.target.checked)}
+                        className="w-4 h-4 text-pulse-accent border-pulse-border rounded focus:ring-pulse-accent"
+                    />
+                    <div>
+                        <span className="text-[13px] font-medium text-pulse-text">Allow tenant to reset their own workspace</span>
+                        <p className="text-[11px] text-pulse-muted">Surfaces a guarded &quot;Reset workspace&quot; control in the customer&apos;s own settings</p>
                     </div>
                 </label>
             </Panel>

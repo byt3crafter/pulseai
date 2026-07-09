@@ -250,6 +250,7 @@ export default async function SettingsPage({
             savePluginCredentials={savePluginCredentials}
             emailConfig={emailChannel ? (emailChannel.channelConfig as any) : null}
             embeddingConfigured={embeddingStatus.configured}
+            allowSelfReset={tenantConfig.allow_self_reset ?? false}
         />
     );
 }
