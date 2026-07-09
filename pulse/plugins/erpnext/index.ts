@@ -11,6 +11,7 @@
 
 import { definePlugin } from "../../src/plugins/sdk/index.js";
 import { PromptContext } from "../../src/plugins/sdk/types.js";
+import { isPluginEnabledForTenant } from "../../src/plugins/tenant-access.js";
 import { getErpNextCredentials } from "./client.js";
 import {
     erpnextListTool,
@@ -109,6 +110,9 @@ export default definePlugin({
 
     hooks: {
         "before-prompt-build": async (ctx: PromptContext): Promise<PromptContext | null> => {
+            const enabled = await isPluginEnabledForTenant("erpnext", ctx.tenantId);
+            if (!enabled) return null;
+
             // Only inject context if tenant has ERPNext credentials configured
             const creds = await getErpNextCredentials(ctx.tenantId);
             if (!creds) return null; // no change

@@ -1,12 +1,16 @@
 import { db } from "../../../../storage/db";
 import { installedPlugins, tenantPluginConfigs, credentials } from "../../../../storage/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "../../../../auth";
 import { redirect } from "next/navigation";
 import { createCipheriv, randomBytes } from "crypto";
 import TenantPluginsClient from "./TenantPluginsClient";
 import { requireTenant } from "../../../../utils/tenant-auth";
+import { BUSINESS_INTEGRATION_CATALOG, type BusinessCredentialField } from "../../../../utils/business-integrations";
+
+type RuntimeStatus = "available" | "missing" | "admin_disabled" | "pending_approval";
+type PluginConfigRecord = Record<string, unknown>;
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +33,51 @@ function encrypt(plaintext: string): string {
     return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`;
 }
 
+function configRecord(value: unknown): PluginConfigRecord {
+    return value && typeof value === "object" && !Array.isArray(value) ? value as PluginConfigRecord : {};
+}
+
+function configString(config: PluginConfigRecord, key: string): string {
+    const value = config[key];
+    return typeof value === "string" ? value : "";
+}
+
+function configNumber(config: PluginConfigRecord, key: string): number {
+    const value = config[key];
+    return typeof value === "number" ? value : 0;
+}
+
+function configStringArray(config: PluginConfigRecord, key: string): string[] {
+    const value = config[key];
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function configCredentialSchema(config: PluginConfigRecord): BusinessCredentialField[] {
+    const value = config.credentialSchema;
+    if (!Array.isArray(value)) return [];
+
+    return value.flatMap((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+        const record = item as Record<string, unknown>;
+        const name = typeof record.name === "string" ? record.name : "";
+        const label = typeof record.label === "string" ? record.label : "";
+        const type = record.type;
+        if (!name || !label || (type !== "url" && type !== "text" && type !== "secret")) return [];
+
+        return [{
+            name,
+            label,
+            type,
+            placeholder: typeof record.placeholder === "string" ? record.placeholder : undefined,
+            required: typeof record.required === "boolean" ? record.required : undefined,
+            helpText: typeof record.helpText === "string" ? record.helpText : undefined,
+        }];
+    });
+}
+
 async function savePluginCredentials(formData: FormData) {
     "use server";
-    const tenantCheck = await requireTenant();
+    const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return;
     const tenantId = tenantCheck.tenantId;
 
@@ -76,6 +122,41 @@ async function savePluginCredentials(formData: FormData) {
     revalidatePath("/dashboard/settings/plugins");
 }
 
+async function toggleTenantPluginEnabled(formData: FormData) {
+    "use server";
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return;
+    const tenantId = tenantCheck.tenantId;
+
+    const pluginId = formData.get("pluginId") as string;
+    const currentlyEnabled = formData.get("enabled") === "true";
+
+    if (!pluginId) return;
+
+    const plugin = await db.query.installedPlugins.findFirst({
+        where: eq(installedPlugins.id, pluginId),
+        columns: { id: true },
+    });
+    if (!plugin) return;
+
+    await db
+        .insert(tenantPluginConfigs)
+        .values({
+            tenantId,
+            pluginId,
+            enabled: !currentlyEnabled,
+            config: {},
+        })
+        .onConflictDoUpdate({
+            target: [tenantPluginConfigs.tenantId, tenantPluginConfigs.pluginId],
+            set: {
+                enabled: !currentlyEnabled,
+            },
+        });
+
+    revalidatePath("/dashboard/settings/plugins");
+}
+
 export default async function TenantPluginsPage() {
     const isNextBuild = process.env.npm_lifecycle_event === "build" || process.env.NEXT_PHASE === "phase-production-build";
     if (isNextBuild) return <div>Building Component</div>;
@@ -83,14 +164,16 @@ export default async function TenantPluginsPage() {
     const session = await auth();
     if (!session?.user) return redirect("/auth/login");
 
-    const tenantId = (session.user as any).tenantId;
+    const tenantId = (session.user as { tenantId?: string | null }).tenantId;
     if (!tenantId) return <div className="p-4 sm:p-6 lg:p-8 text-pulse-muted">No tenant associated with this account.</div>;
 
-    // Get globally-enabled plugins
+    // Get globally-known plugins. Tenants can only activate plugins that are
+    // globally enabled and approved, but disabled/pending plugins still show
+    // honestly in the setup catalog.
     const allPlugins = await db.query.installedPlugins.findMany({
-        where: eq(installedPlugins.enabled, true),
         orderBy: [desc(installedPlugins.installedAt)],
     });
+    const pluginByName = new Map(allPlugins.map((p) => [p.name, p]));
 
     // Get tenant-specific overrides
     const tenantConfigs = await db.query.tenantPluginConfigs.findMany({
@@ -105,40 +188,92 @@ export default async function TenantPluginsPage() {
     });
     const credentialNames = new Set(existingCreds.map((c) => c.name));
 
-    // Build plugin data for client
-    const enabledPlugins = allPlugins
-        .filter((p) => {
-            const override = configMap.get(p.id);
-            return override ? override.enabled : true;
-        })
-        .map((p) => {
-            const cfg = (p.config as Record<string, any>) || {};
-            const credSchema = cfg.credentialSchema || [];
-            const configuredCreds = credSchema.map((field: any) => ({
-                ...field,
-                configured: credentialNames.has(field.name?.toUpperCase?.() || field.name),
-            }));
+    const catalogPluginNames = new Set(BUSINESS_INTEGRATION_CATALOG.map((entry) => entry.pluginName));
+    const catalogEntries = BUSINESS_INTEGRATION_CATALOG.map((entry) => {
+        const plugin = pluginByName.get(entry.pluginName);
+        const cfg = configRecord(plugin?.config);
+        const pluginSchema = configCredentialSchema(cfg);
+        const credSchema = pluginSchema.length > 0 ? pluginSchema : entry.credentialSchema;
+        const tenantOverride = plugin ? configMap.get(plugin.id) : undefined;
+        const tenantEnabled = plugin ? (tenantOverride ? tenantOverride.enabled !== false : true) : false;
+        const globallyEnabled = plugin ? plugin.enabled !== false : false;
+        const approved = plugin ? !!plugin.approvedHash && plugin.approvedHash === plugin.manifestHash : false;
+        const runtimeStatus: RuntimeStatus =
+            !plugin ? "missing" :
+            !globallyEnabled ? "admin_disabled" :
+            !approved ? "pending_approval" :
+            "available";
+
+        return {
+            id: entry.id,
+            pluginId: plugin?.id ?? null,
+            pluginName: entry.pluginName,
+            name: entry.name,
+            version: plugin?.version ?? null,
+            category: entry.category,
+            runtimeStatus,
+            tenantEnabled,
+            canToggle: runtimeStatus === "available",
+            setupNotes: entry.setupNotes,
+            config: {
+                description: configString(cfg, "description") || entry.description,
+                author: configString(cfg, "author"),
+                toolCount: configNumber(cfg, "toolCount"),
+                hookNames: configStringArray(cfg, "hookNames"),
+                routeCount: configNumber(cfg, "routeCount"),
+                credentialSchema: credSchema.map((field) => ({
+                    ...field,
+                    configured: credentialNames.has(field.name?.toUpperCase?.() || field.name),
+                })),
+            },
+        };
+    });
+
+    const otherPluginEntries = allPlugins
+        .filter((plugin) => !catalogPluginNames.has(plugin.name))
+        .map((plugin) => {
+            const cfg = configRecord(plugin.config);
+            const credSchema = configCredentialSchema(cfg);
+            const tenantOverride = configMap.get(plugin.id);
+            const tenantEnabled = tenantOverride ? tenantOverride.enabled !== false : true;
+            const globallyEnabled = plugin.enabled !== false;
+            const approved = !!plugin.approvedHash && plugin.approvedHash === plugin.manifestHash;
+            const runtimeStatus: RuntimeStatus =
+                !globallyEnabled ? "admin_disabled" :
+                !approved ? "pending_approval" :
+                "available";
 
             return {
-                id: p.id,
-                name: p.name,
-                version: p.version,
+                id: plugin.name,
+                pluginId: plugin.id,
+                pluginName: plugin.name,
+                name: plugin.name,
+                version: plugin.version,
+                category: "API" as const,
+                runtimeStatus,
+                tenantEnabled,
+                canToggle: runtimeStatus === "available",
+                setupNotes: "Runtime is available when this plugin is globally enabled and approved.",
                 config: {
-                    description: cfg.description || "",
-                    author: cfg.author || "",
-                    toolCount: cfg.toolCount || 0,
-                    hookNames: cfg.hookNames || [],
-                    routeCount: cfg.routeCount || 0,
-                    credentialSchema: configuredCreds,
+                    description: configString(cfg, "description"),
+                    author: configString(cfg, "author"),
+                    toolCount: configNumber(cfg, "toolCount"),
+                    hookNames: configStringArray(cfg, "hookNames"),
+                    routeCount: configNumber(cfg, "routeCount"),
+                    credentialSchema: credSchema.map((field) => ({
+                        ...field,
+                        configured: credentialNames.has(field.name?.toUpperCase?.() || field.name),
+                    })),
                 },
             };
         });
 
     return (
         <TenantPluginsClient
-            plugins={enabledPlugins}
+            integrations={[...catalogEntries, ...otherPluginEntries]}
             tenantId={tenantId}
             savePluginCredentials={savePluginCredentials}
+            toggleTenantPluginEnabled={toggleTenantPluginEnabled}
         />
     );
 }

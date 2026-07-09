@@ -4,6 +4,8 @@ Last updated: 2026-07-07
 
 This document is the shared coordination log for the Hermes Agent and OpenClaw parity work. Claude should read this file before changing related code, and Codex should update it after each implementation slice.
 
+Claude should also read `docs/CLAUDE_PORTING_BRIEF_HERMES_OPENCLAW.md` before porting any Hermes Agent or OpenClaw-inspired capability. It contains the local reference repo paths, pinned commits, priority order, and Pulse-specific porting rules.
+
 ## Current Request
 
 The user asked to implement the missing pieces from fresh Hermes Agent and OpenClaw comparisons, with these hard constraints:
@@ -63,6 +65,27 @@ When implementing parity work:
    - what Claude should avoid duplicating.
 
 ## Work Log
+
+### 2026-07-07 - Codex - Claim: Business Integration Catalog
+
+Codex is working in isolated worktree `/home/d0v1k/Projects/pulse-codex` on branch `codex/integration-catalog`.
+
+Planned slice:
+
+- Add a Pulse-native business integration catalog instead of hardcoding or copy-pasting OpenClaw/Hermes code.
+- Make ERPNext first-class in the catalog using the existing `pulse/plugins/erpnext` plugin.
+- Add QuickBooks, Xero, Pastel, and Generic REST as setup-visible catalog entries, with runtime marked unavailable until plugins/adapters exist.
+- Add tenant enable/disable/setup UI so every integration can be controlled from dashboard.
+- Preserve encrypted credential storage and tenant isolation.
+
+Files Codex expects to touch:
+
+- `dashboard/src/app/dashboard/settings/plugins/page.tsx`
+- `dashboard/src/app/dashboard/settings/plugins/TenantPluginsClient.tsx`
+- new dashboard utility/catalog files as needed
+- docs/checklist/plan updates
+
+Claude should avoid editing these files until this claim is resolved, or coordinate here first.
 
 ### 2026-07-07 - Codex
 
@@ -202,6 +225,8 @@ Tests and checks run:
 
 - `cd dashboard && npm run build`
   - Passed.
+- `cd dashboard && npx eslint src/app/dashboard/settings/plugins/page.tsx src/app/dashboard/settings/plugins/TenantPluginsClient.tsx src/utils/business-integrations.ts`
+  - Passed.
 - `cd pulse && npm test -- src/__tests__/channel-bootstrap.test.ts src/__tests__/channel-registry.test.ts`
   - Passed: 5 tests.
 - `cd pulse && npm run build`
@@ -286,3 +311,62 @@ Claude should avoid:
 Question for Claude:
 
 - Please review `pulse/src/agent/runtime.ts` around the post-response hook and confirm whether the project wants a later tenant-selectable cheap extraction model or should keep using the active agent model for billing simplicity.
+
+### 2026-07-07 - Codex - Business Integration Catalog Foundation
+
+Implemented in isolated worktree `/home/d0v1k/Projects/pulse-codex` on branch `codex/integration-catalog`.
+
+This slice does not port OpenClaw/Hermes source code. It uses their extensibility pattern as a reference and implements a Pulse-native catalog on top of the existing plugin system.
+
+Files added:
+
+- `dashboard/src/utils/business-integrations.ts`
+- `docs/superpowers/plans/2026-07-07-business-integration-catalog.md`
+- `pulse/src/__tests__/plugin-tenant-access.test.ts`
+- `pulse/src/plugins/tenant-access.ts`
+
+Files modified:
+
+- `dashboard/src/app/dashboard/settings/plugins/page.tsx`
+- `dashboard/src/app/dashboard/settings/plugins/TenantPluginsClient.tsx`
+- `docs/CODEX_CLAUDE_HANDOFF.md`
+- `docs/HERMES_OPENCLAW_PARITY_CHECKLIST.md`
+- `pulse/plugins/erpnext/index.ts`
+- `pulse/src/agent/tools/registry.ts`
+- `pulse/src/plugins/manager.ts`
+
+Tests and checks run:
+
+- `cd pulse && DATABASE_URL=postgres://user:pass@localhost:5432/pulse_test ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 npm test -- src/__tests__/plugin-tenant-access.test.ts src/__tests__/plugin-loading.test.ts`
+  - Passed: 9 tests.
+- `cd pulse && npm run build`
+  - Passed.
+- `cd dashboard && npm run build`
+  - Passed.
+
+What changed:
+
+- Added `BUSINESS_INTEGRATION_CATALOG` with ERPNext, QuickBooks Online, Xero, Sage Pastel, and Generic REST API.
+- Settings > Plugins now presents this as Business Integrations with runtime status, setup notes, credential forms, and tenant enable/disable controls.
+- ERPNext maps to the existing real `erpnext` plugin.
+- QuickBooks, Xero, Pastel, and Generic REST can have credentials saved now but are clearly marked setup-only until runtime plugins are implemented.
+- Plugin tools are now filtered per tenant through `pluginManager.getPluginToolsForTenant(tenantId)`.
+- ERPNext prompt context is also gated by tenant plugin enablement.
+- Tenant disablement is now real runtime behavior, not only dashboard filtering.
+
+Known limitations:
+
+- QuickBooks, Xero, Pastel, and Generic REST runtime tools are not implemented in this slice.
+- QuickBooks/Xero OAuth connect flows are not implemented yet; the catalog allows manual credential storage only.
+- Plugin routes are still globally registered for active plugins; this slice gates tools and ERPNext prompt context per tenant, but route handlers should also enforce tenant/plugin access before accepting tenant-scoped webhook actions.
+- Existing dashboard lint debt remains outside this slice; dashboard production build passes.
+
+Claude should avoid:
+
+- Replacing this with copied OpenClaw/Hermes code.
+- Adding QuickBooks credentials as environment variables only; runtime work must use tenant-scoped encrypted credentials and UI.
+- Treating setup-only integrations as live runtime support before plugins exist.
+
+Next recommended slice:
+
+- Implement QuickBooks Online runtime plugin with OAuth/connect UI, tenant credential refresh handling, and tools for customers, invoices, bills, payments, accounts, and reports.
