@@ -112,8 +112,14 @@ export interface SystemPromptParams {
     /** PromptMode — "full" for main agents, "minimal" for subagents */
     promptMode?: PromptMode;
 
-    /** Contact name of the user (for group context) */
+    /** Display name of the person currently messaging the agent. */
     contactName?: string;
+
+    /** @username / handle of the current sender, if any. */
+    senderUsername?: string;
+
+    /** Role/title of the current sender (from People/Team), if known. */
+    senderRole?: string;
 
     /** Whether this is a group chat */
     isGroup?: boolean;
@@ -374,6 +380,19 @@ function buildUserPreferencesSection(content: string): string[] {
     ];
 }
 
+function buildInterlocutorSection(params: SystemPromptParams): string[] {
+    const name = params.contactName && sanitize(params.contactName).trim();
+    if (!name) return [];
+    const handle = params.senderUsername ? ` (@${sanitize(params.senderUsername)})` : "";
+    const role = params.senderRole ? `, ${sanitize(params.senderRole)}` : "";
+    return [
+        "## Who you're talking to",
+        `You are currently talking to **${name}**${handle}${role}. Address them by name naturally when it fits. `
+        + "Do not ask who they are — you already know. If they ask \"who am I / do you know me\", answer with their name.",
+        "",
+    ];
+}
+
 function buildGroupContextSection(params: SystemPromptParams): string[] {
     if (!params.isGroup) return [];
 
@@ -436,6 +455,10 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
 
     // 3. Current Date & Time — prominent, human-readable (not buried in runtime)
     lines.push(...buildCurrentDateTimeSection());
+
+    // 3.5. Who the agent is currently talking to (by name) — so it never has to
+    // ask and can address the person naturally.
+    lines.push(...buildInterlocutorSection(params));
 
     // 4. Operational Directives — HIGHEST PRIORITY, overrides personality
     lines.push(...buildOperationalDirectives());

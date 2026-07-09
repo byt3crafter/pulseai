@@ -97,6 +97,14 @@ export const appApiRoutes: FastifyPluginAsync = async (fastify) => {
         return auth;
     };
 
+    // Resolve the signed-in user's display name so the agent knows who it's
+    // talking to (never the hardcoded "App User"). Cheap single-row lookup.
+    const senderNameFor = async (userId: string): Promise<string | undefined> => {
+        const [u] = await db.select({ name: users.name, email: users.email })
+            .from(users).where(eq(users.id, userId)).limit(1);
+        return u?.name?.trim() || u?.email?.split("@")[0] || undefined;
+    };
+
     // List the tenant's agents ("employees")
     fastify.get("/api/app/agents", async (request, reply) => {
         const auth = await requireApp(request, reply); if (!auth) return;
@@ -136,7 +144,7 @@ export const appApiRoutes: FastifyPluginAsync = async (fastify) => {
             agentProfileId: agentProfileId || undefined,
             channelType: CHANNEL as any,
             channelContactId: contactFor(auth.sub),
-            contactName: "App User",
+            contactName: (await senderNameFor(auth.sub)) || "App User",
             content: content.trim(),
             receivedAt: new Date().toISOString(),
         };
@@ -215,7 +223,7 @@ export const appApiRoutes: FastifyPluginAsync = async (fastify) => {
             channelType: "channel" as const,
             channelContactId: channelContactFor(ctx.channel.id),
             channelId: ctx.channel.id,
-            contactName: "App User",
+            contactName: (await senderNameFor(auth.sub)) || "App User",
             senderUserId: auth.sub,
             content: content.trim(),
             receivedAt: new Date().toISOString(),

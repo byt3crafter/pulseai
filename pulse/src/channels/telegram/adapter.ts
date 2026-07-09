@@ -488,7 +488,11 @@ export class TelegramAdapter implements ChannelAdapter {
             agentProfileId: conn.agentProfileId || undefined,
             channelType: "telegram",
             channelContactId: groupChatId,
-            contactName: (ctx.chat as any)?.title || "Group",
+            // The person actually speaking (not the group name — that's groupTitle),
+            // so the agent knows who it's replying to inside a group.
+            contactName: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ").trim()
+                || ctx.from?.username
+                || ((ctx.chat as any)?.title || "Group"),
             content,
             attachments,
             raw: ctx.message,
