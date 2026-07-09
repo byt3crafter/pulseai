@@ -16,6 +16,7 @@ import {
     ServerIcon,
     SparklesIcon,
     UsersIcon,
+    UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
 
@@ -61,7 +62,10 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     },
     {
         label: "Account",
-        items: [{ href: "/dashboard/settings", label: "Settings", icon: Cog6ToothIcon }],
+        items: [
+            { href: "/dashboard/team", label: "Team", icon: UserGroupIcon },
+            { href: "/dashboard/settings", label: "Settings", icon: Cog6ToothIcon },
+        ],
     },
 ];
 
