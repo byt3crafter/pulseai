@@ -55,22 +55,6 @@ export const BUSINESS_INTEGRATION_CATALOG: BusinessIntegrationDefinition[] = [
         ],
     },
     {
-        id: "quickbooks",
-        name: "QuickBooks Online",
-        pluginName: "quickbooks",
-        category: "Accounting",
-        runtime: "planned",
-        description: "QuickBooks customers, invoices, bills, payments, and accounting reports.",
-        setupNotes: "Credential setup is available now; runtime tools require the QuickBooks plugin/OAuth slice.",
-        credentialSchema: [
-            { name: "QUICKBOOKS_CLIENT_ID", label: "Client ID", type: "text", required: true },
-            { name: "QUICKBOOKS_CLIENT_SECRET", label: "Client Secret", type: "secret", required: true },
-            { name: "QUICKBOOKS_REALM_ID", label: "Company Realm ID", type: "text", required: true },
-            { name: "QUICKBOOKS_REFRESH_TOKEN", label: "Refresh Token", type: "secret", required: false, helpText: "Temporary manual setup until OAuth connect is implemented." },
-            { name: "QUICKBOOKS_ENVIRONMENT", label: "Environment", type: "text", placeholder: "sandbox or production", required: true },
-        ],
-    },
-    {
         id: "xero",
         name: "Xero",
         pluginName: "xero",
