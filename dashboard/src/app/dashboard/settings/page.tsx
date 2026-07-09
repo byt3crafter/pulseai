@@ -1,6 +1,6 @@
 import { auth } from "../../../auth";
 import { db } from "../../../storage/db";
-import { tenants, tenantBalances, channelConnections, oauthClients, tenantProviderKeys, pairingCodes, allowlists, apiTokens, installedPlugins, tenantPluginConfigs, credentials } from "../../../storage/schema";
+import { tenants, tenantBalances, channelConnections, oauthClients, tenantProviderKeys, pairingCodes, allowlists, apiTokens, installedPlugins, tenantPluginConfigs, credentials, users } from "../../../storage/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
@@ -44,6 +44,13 @@ export default async function SettingsPage({
         ? await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1)
         : [];
     const tenantConfig = (tenantRow[0]?.config as Record<string, any>) || {};
+
+    // Read the display name fresh from the DB (not the JWT), so an edit is
+    // reflected immediately without requiring a re-login.
+    const userRow = session?.user?.id
+        ? await db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, session.user.id)).limit(1)
+        : [];
+    const freshUserName = userRow[0]?.name ?? session?.user?.name ?? "";
 
     // Fetch pending pairing codes
     const pendingPairings = tenantId
@@ -209,7 +216,7 @@ export default async function SettingsPage({
                 lastUsedAt: t.lastUsedAt?.toISOString() ?? null,
             }))}
             userEmail={session?.user?.email ?? ""}
-            userName={session?.user?.name ?? ""}
+            userName={freshUserName}
             enableThirdPartyCli={tenantConfig.enable_third_party_cli ?? false}
             apiBaseUrl={process.env.WEBHOOK_BASE_URL || `http://localhost:${process.env.PORT || 3000}`}
             providerKeys={providerKeys.map(k => ({

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
+    updateProfileNameAction,
     saveTelegramTokenAction,
     saveProviderKeyAction,
     removeProviderKeyAction,
@@ -239,7 +240,11 @@ function AccountTab({ userEmail, userName, allowSelfReset }: { userEmail: string
             <Card>
                 <CardHeader title="Profile" description="Your workspace account details." />
                 <div className="divide-y divide-pulse-border-subtle">
-                    <SettingRow title="Name" control={<span className="text-sm text-pulse-text-soft">{userName || "--"}</span>} />
+                    <SettingRow
+                        title="Name"
+                        description="How your agents address you when you talk to them."
+                        control={<ProfileNameEditor initialName={userName} />}
+                    />
                     <SettingRow title="Email" control={<span className="text-sm text-pulse-text-soft">{userEmail || "--"}</span>} />
                 </div>
             </Card>
@@ -268,6 +273,57 @@ function AccountTab({ userEmail, userName, allowSelfReset }: { userEmail: string
 
             {/* Danger Zone — only when an admin has enabled self-service reset */}
             {allowSelfReset && <WorkspaceResetSection />}
+        </div>
+    );
+}
+
+// ─── Editable display name ────────────────────────────────────────────────────
+
+function ProfileNameEditor({ initialName }: { initialName: string }) {
+    const router = useRouter();
+    const [name, setName] = useState(initialName);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [err, setErr] = useState<string | null>(null);
+    const dirty = name.trim() !== initialName.trim() && name.trim().length > 0;
+
+    const save = async () => {
+        if (!dirty || saving) return;
+        setSaving(true); setErr(null); setSaved(false);
+        const fd = new FormData();
+        fd.set("name", name.trim());
+        const res = await updateProfileNameAction(fd);
+        setSaving(false);
+        if (res.success) {
+            setSaved(true);
+            router.refresh(); // re-read the fresh name into the sidebar + profile
+            setTimeout(() => setSaved(false), 2500);
+        } else {
+            setErr(res.message || "Failed to update name.");
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+                <input
+                    value={name}
+                    onChange={(e) => { setName(e.target.value); setSaved(false); setErr(null); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+                    maxLength={100}
+                    placeholder="Your name"
+                    className="w-44 sm:w-52 bg-pulse-panel-alt border border-pulse-border rounded-lg text-sm text-pulse-text px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500 motion-reduce:transition-none"
+                />
+                <button
+                    onClick={save}
+                    disabled={!dirty || saving}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                >
+                    {saving ? "Saving…" : "Save"}
+                </button>
+            </div>
+            {saved && <span className="text-xs text-green-400">Saved</span>}
+            {err && <span className="text-xs text-red-400">{err}</span>}
         </div>
     );
 }
