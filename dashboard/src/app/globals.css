@@ -24,7 +24,7 @@ body {
   --pulse-panel:         #FFFFFF;
   --pulse-panel-alt:     #F1F3F6;
   --pulse-hover:         #EDEFF3;
-  --pulse-tint:          #EEF0FE;
+  --pulse-tint:          #EEF1FC;
   --pulse-border:        #E2E6EB;
   --pulse-border-subtle: #ECEEF2;
   --pulse-border-strong: #CFD5DD;
@@ -32,8 +32,8 @@ body {
   --pulse-text-soft:     #3A424C;
   --pulse-muted:         #5F6570;
   --pulse-faint:         #929AA4;
-  --pulse-accent:        #4F46E5;
-  --pulse-accent-hi:     #4338CA;
+  --pulse-accent:        #6470E6;
+  --pulse-accent-hi:     #4F5AD6;
   --pulse-profit:        #0F8A4F;
   --pulse-loss:          #CC2F26;
   --pulse-info:          #1A73E8;
@@ -44,7 +44,7 @@ body {
   --pulse-panel:         #131316;
   --pulse-panel-alt:     #17171B;
   --pulse-hover:         #1C1C21;
-  --pulse-tint:          #1E1A33;
+  --pulse-tint:          #1B1E33;
   --pulse-border:        #26262B;
   --pulse-border-subtle: #1F1F24;
   --pulse-border-strong: #34343B;
@@ -52,8 +52,8 @@ body {
   --pulse-text-soft:     #C3C3C9;
   --pulse-muted:         #9A9AA5;
   --pulse-faint:         #66666F;
-  --pulse-accent:        #7C6DF2;
-  --pulse-accent-hi:     #A79BF7;
+  --pulse-accent:        #8E96F2;
+  --pulse-accent-hi:     #B4BAF8;
   --pulse-profit:        #3FB950;
   --pulse-loss:          #F0503C;
   --pulse-info:          #4F9DF7;
@@ -61,6 +61,13 @@ body {
 }
 
 @theme inline {
+  /* Softer, less-violet accent — overrides Tailwind's indigo scale globally so
+     every bg-indigo-600 button/toggle/ring across the dashboard calms down in
+     one place (the landing page uses its own brand violet, unaffected). */
+  --color-indigo-400: #9AA4F5;
+  --color-indigo-500: #7E8AF0;
+  --color-indigo-600: #6470E6;
+  --color-indigo-700: #4F5AD6;
   --color-pulse-bg:            var(--pulse-bg);
   --color-pulse-panel:         var(--pulse-panel);
   --color-pulse-panel-alt:     var(--pulse-panel-alt);
