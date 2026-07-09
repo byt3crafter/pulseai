@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { getEmbeddingStatusAction } from "./actions";
+import { getCredentials, getTenantAgents, addCredential } from "./credentials/actions";
 import { CHANNEL_SETUP_CATALOG } from "../../../utils/channel-catalog";
 import SettingsClient from "./SettingsClient";
 
@@ -51,6 +52,11 @@ export default async function SettingsPage({
         ? await db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, session.user.id)).limit(1)
         : [];
     const freshUserName = userRow[0]?.name ?? session?.user?.name ?? "";
+
+    // Credentials tab data (folded into the settings shell for a uniform layout).
+    const [storedCredentials, credentialAgents] = tenantId
+        ? await Promise.all([getCredentials(tenantId), getTenantAgents(tenantId)])
+        : [[], []];
 
     // Fetch pending pairing codes
     const pendingPairings = tenantId
@@ -258,6 +264,16 @@ export default async function SettingsPage({
             emailConfig={emailChannel ? (emailChannel.channelConfig as any) : null}
             embeddingConfigured={embeddingStatus.configured}
             allowSelfReset={tenantConfig.allow_self_reset ?? false}
+            credentials={storedCredentials.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                credentialType: c.credentialType,
+                description: c.description ?? null,
+                agentId: c.agentId ?? null,
+                updatedAt: c.updatedAt ? new Date(c.updatedAt).toISOString() : null,
+            }))}
+            credentialAgents={credentialAgents.map((a: any) => ({ id: a.id, name: a.name }))}
+            addCredential={addCredential}
         />
     );
 }
