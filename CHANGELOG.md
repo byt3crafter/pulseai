@@ -3,6 +3,18 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.6] - 2026-07-09
+
+### Features
+- business integration catalog + per-tenant plugin gating
+
+### Documentation
+- record integration-catalog slice landed on main
+
+### Chores
+- remove all setup-only stubs, keep ERPNext
+- remove QuickBooks stub from catalog
+
 ## [0.14.5] - 2026-07-09
 
 ### Bug Fixes
