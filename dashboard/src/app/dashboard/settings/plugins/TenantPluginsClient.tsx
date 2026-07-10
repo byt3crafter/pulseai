@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SVGProps } from "react";
+import { getOneDriveConnectUrlAction } from "./onedrive-actions";
 
 interface CredentialField {
     name: string;
@@ -60,6 +61,28 @@ export default function TenantPluginsClient({
         });
     };
 
+    const [connecting, setConnecting] = useState(false);
+    const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null);
+
+    useEffect(() => {
+        const p = new URLSearchParams(window.location.search);
+        const s = p.get("onedrive");
+        if (s === "connected") setBanner({ ok: true, text: "OneDrive connected — your agents can now use it." });
+        else if (s === "error") setBanner({ ok: false, text: `OneDrive connection failed: ${p.get("reason") || "unknown error"}` });
+    }, []);
+
+    const connectOneDrive = async () => {
+        setConnecting(true);
+        setBanner(null);
+        const r = await getOneDriveConnectUrlAction();
+        if (r.success && r.url) {
+            window.location.href = r.url; // hand off to Microsoft login
+        } else {
+            setConnecting(false);
+            setBanner({ ok: false, text: r.message || "Could not start the OneDrive connection." });
+        }
+    };
+
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
@@ -72,6 +95,12 @@ export default function TenantPluginsClient({
                 </div>
                 <p className="text-pulse-muted">Enable, disable, and set up business systems for this workspace.</p>
             </div>
+
+            {banner && (
+                <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${banner.ok ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
+                    {banner.text}
+                </div>
+            )}
 
             {integrations.length === 0 ? (
                 <div className="bg-pulse-panel rounded-xl shadow-sm border border-pulse-border-subtle p-12 text-center">
@@ -154,6 +183,15 @@ export default function TenantPluginsClient({
                                         </div>
 
                                         <div className="ml-4 flex items-center gap-2">
+                                            {integration.pluginName === "onedrive" && (
+                                                <button
+                                                    onClick={connectOneDrive}
+                                                    disabled={connecting}
+                                                    className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50"
+                                                >
+                                                    {connecting ? "Connecting…" : "Connect OneDrive"}
+                                                </button>
+                                            )}
                                             {integration.canToggle && integration.pluginId && (
                                                 <form action={toggleTenantPluginEnabled}>
                                                     <input type="hidden" name="pluginId" value={integration.pluginId} />

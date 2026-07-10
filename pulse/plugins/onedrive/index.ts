@@ -16,6 +16,7 @@ import { definePlugin } from "../../src/plugins/sdk/index.js";
 import { PromptContext } from "../../src/plugins/sdk/types.js";
 import { isPluginEnabledForTenant } from "../../src/plugins/tenant-access.js";
 import { getOneDriveCredentials } from "./client.js";
+import { handleOneDriveCallback } from "./oauth.js";
 import {
     onedriveListTool,
     onedriveSearchTool,
@@ -123,6 +124,12 @@ export default definePlugin({
     },
 
     routes: [
+        {
+            // One-click Connect: Microsoft redirects here with ?code&state.
+            method: "GET",
+            path: "/oauth/callback",
+            handler: handleOneDriveCallback,
+        },
         {
             method: "GET",
             path: "/status",
