@@ -42,6 +42,7 @@ import TwoFactorCard from "../../../components/TwoFactorCard";
 import { PageHeader, Card, CardHeader, EmptyState, SettingRow, Toggle } from "../../../components/dashboard/ui";
 import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../components/dashboard/SignatureEditor";
 import DeleteCredentialButton from "./credentials/DeleteCredentialButton";
+import { getOneDriveConnectUrlAction } from "./plugins/onedrive-actions";
 
 interface CredentialInfo {
     id: string;
@@ -2475,6 +2476,27 @@ function FormInput({ label, name, type, placeholder, mono }: { label: string; na
 function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[]; savePluginCredentials: (formData: FormData) => Promise<void> }) {
     const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(new Set());
     const [saving, startTransition] = useTransition();
+    const [odConnecting, setOdConnecting] = useState(false);
+    const [odBanner, setOdBanner] = useState<{ ok: boolean; text: string } | null>(null);
+
+    useEffect(() => {
+        const p = new URLSearchParams(window.location.search);
+        const s = p.get("onedrive");
+        if (s === "connected") setOdBanner({ ok: true, text: "OneDrive connected — your agents can now use it." });
+        else if (s === "error") setOdBanner({ ok: false, text: `OneDrive connection failed: ${p.get("reason") || "unknown error"}` });
+    }, []);
+
+    const connectOneDrive = async () => {
+        setOdConnecting(true);
+        setOdBanner(null);
+        const r = await getOneDriveConnectUrlAction();
+        if (r.success && r.url) {
+            window.location.href = r.url; // hand off to Microsoft login
+        } else {
+            setOdConnecting(false);
+            setOdBanner({ ok: false, text: r.message || "Could not start the OneDrive connection." });
+        }
+    };
 
     const toggleExpand = (pluginId: string) => {
         setExpandedPlugins((prev) => {
@@ -2489,6 +2511,12 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
         <div>
             <h2 className="text-lg font-semibold text-pulse-text mb-1">Plugins</h2>
             <p className="text-sm text-pulse-muted mb-6">Configure credentials for each plugin to activate integrations.</p>
+
+            {odBanner && (
+                <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${odBanner.ok ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
+                    {odBanner.text}
+                </div>
+            )}
 
             {plugins.length === 0 ? (
                 <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl p-12 text-center">
@@ -2545,14 +2573,25 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
                                             </div>
                                         </div>
 
-                                        {hasCredentials && (
-                                            <button
-                                                onClick={() => toggleExpand(plugin.id)}
-                                                className="ml-4 px-3 py-1.5 text-sm font-medium text-indigo-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                            >
-                                                {isExpanded ? "Close" : "Configure"}
-                                            </button>
-                                        )}
+                                        <div className="ml-4 flex items-center gap-2">
+                                            {plugin.name === "onedrive" && (
+                                                <button
+                                                    onClick={connectOneDrive}
+                                                    disabled={odConnecting}
+                                                    className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                >
+                                                    {odConnecting ? "Connecting…" : "Connect OneDrive"}
+                                                </button>
+                                            )}
+                                            {hasCredentials && (
+                                                <button
+                                                    onClick={() => toggleExpand(plugin.id)}
+                                                    className="px-3 py-1.5 text-sm font-medium text-indigo-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                >
+                                                    {isExpanded ? "Close" : "Configure"}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
