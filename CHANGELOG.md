@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.12] - 2026-07-10
+
+### Bug Fixes
+- put Connect button on the Plugins tab (where users are)
+
 ## [0.14.11] - 2026-07-10
 
 ### Features
