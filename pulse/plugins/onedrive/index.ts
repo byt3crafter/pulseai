@@ -86,9 +86,9 @@ export default definePlugin({
             name: "MS_REFRESH_TOKEN",
             label: "Refresh Token",
             type: "secret",
-            placeholder: "OAuth refresh token",
-            required: true,
-            helpText: "OAuth refresh token with Files.ReadWrite + offline_access. (One-click Connect coming soon.)",
+            placeholder: "Set automatically by Connect",
+            required: false,
+            helpText: "Filled automatically when you click “Connect OneDrive”. (You can also paste an OAuth refresh token with Files.ReadWrite + offline_access manually.)",
         },
         {
             name: "MS_TENANT_ID",
