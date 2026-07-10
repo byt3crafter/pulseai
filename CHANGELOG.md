@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.11] - 2026-07-10
+
+### Features
+- one-click OAuth Connect flow
+
 ## [0.14.10] - 2026-07-10
 
 ### Features
