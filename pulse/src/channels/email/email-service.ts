@@ -343,6 +343,78 @@ export async function readEmails(
     return emails.reverse(); // Most recent first
 }
 
+export interface UnreadEmail {
+    uid: number;
+    from: string;
+    fromName: string;
+    subject: string;
+    date: string;
+    body: string;
+}
+
+/**
+ * Fetch UNSEEN inbox messages with their plain-text body — the intake path for
+ * an agent that must read and reply to customer emails. Optionally marks the
+ * fetched messages \Seen so a subsequent poll won't re-surface them (the caller
+ * passes markSeen=true only once it has safely handled/queued them).
+ */
+export async function readUnreadEmails(
+    config: ImapConfig,
+    opts: { count?: number; markSeen?: boolean } = {}
+): Promise<UnreadEmail[]> {
+    const count = Math.min(opts.count ?? 10, 25);
+    const client = new ImapFlow({
+        host: config.host,
+        port: config.port,
+        secure: config.tls,
+        auth: { user: config.username, pass: config.password },
+        logger: false,
+    });
+
+    const out: UnreadEmail[] = [];
+    try {
+        await client.connect();
+        const lock = await client.getMailboxLock("INBOX");
+        try {
+            // IMAP SEARCH for unseen; take the most recent `count`.
+            const uids = (await client.search({ seen: false }, { uid: true })) || [];
+            const pick = uids.slice(-count);
+            for (const uid of pick) {
+                const msg = await client.fetchOne(String(uid), { envelope: true, source: true }, { uid: true });
+                if (!msg || !msg.envelope) continue;
+                const env = msg.envelope;
+                let body = "";
+                try {
+                    // Lazy import keeps mailparser out of the hot path for send-only tenants.
+                    const { simpleParser } = await import("mailparser");
+                    const parsed = await simpleParser(msg.source as Buffer);
+                    body = (parsed.text || parsed.html || "").toString();
+                } catch (err) {
+                    logger.warn({ err, uid }, "Failed to parse email body");
+                }
+                out.push({
+                    uid: Number(uid),
+                    from: env.from?.[0]?.address || "unknown",
+                    fromName: env.from?.[0]?.name || env.from?.[0]?.address || "unknown",
+                    subject: env.subject || "(no subject)",
+                    date: env.date?.toISOString() || "",
+                    body: body.trim().slice(0, 8000),
+                });
+            }
+            if (opts.markSeen && pick.length) {
+                await client.messageFlagsAdd(pick, ["\\Seen"], { uid: true }).catch(() => {});
+            }
+        } finally {
+            lock.release();
+        }
+        await client.logout();
+    } catch (err) {
+        await client.logout().catch(() => {});
+        throw err;
+    }
+    return out.reverse(); // most recent first
+}
+
 /**
  * Test SMTP and/or IMAP connection.
  */
