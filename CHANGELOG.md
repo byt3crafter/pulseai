@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.13] - 2026-07-12
+
+### Features
+- support file attachments in email_send
+
 ## [0.14.12] - 2026-07-10
 
 ### Bug Fixes
