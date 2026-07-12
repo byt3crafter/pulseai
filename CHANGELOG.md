@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.27] - 2026-07-12
+
+### Bug Fixes
+- deliver approval cards via the triggering agent's own bot
+
 ## [0.14.26] - 2026-07-12
 
 ### Bug Fixes
