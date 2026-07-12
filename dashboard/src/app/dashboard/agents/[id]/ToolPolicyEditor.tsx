@@ -7,6 +7,8 @@ import { updateToolPolicyAction } from "./actions";
 interface ToolPolicy {
     allow?: string[];
     deny?: string[];
+    ask?: string[];
+    alwaysAllow?: string[];
 }
 
 export default function ToolPolicyEditor({
@@ -19,6 +21,7 @@ export default function ToolPolicyEditor({
     const policy = initialPolicy as ToolPolicy || {};
     const [allowStr, setAllowStr] = useState((policy.allow || []).join(", "));
     const [denyStr, setDenyStr] = useState((policy.deny || []).join(", "));
+    const [askStr, setAskStr] = useState((policy.ask || []).join(", "));
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
         type: "idle",
         message: "",
@@ -31,6 +34,7 @@ export default function ToolPolicyEditor({
         fd.set("agentId", agentId);
         fd.set("allow", allowStr);
         fd.set("deny", denyStr);
+        fd.set("ask", askStr);
 
         const result = await updateToolPolicyAction(fd);
         setStatus({
@@ -44,7 +48,8 @@ export default function ToolPolicyEditor({
 
     const isDirty =
         allowStr !== (policy.allow || []).join(", ") ||
-        denyStr !== (policy.deny || []).join(", ");
+        denyStr !== (policy.deny || []).join(", ") ||
+        askStr !== (policy.ask || []).join(", ");
 
     return (
         <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
@@ -80,6 +85,24 @@ export default function ToolPolicyEditor({
                         className="w-full px-4 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
                     />
                     <p className="text-xs text-pulse-faint mt-1">Leave empty to permit all tools not denied. Otherwise, only tools matching these patterns are permitted.</p>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-pulse-text-soft mb-1">
+                        Ask First — Require Approval
+                    </label>
+                    <input
+                        type="text"
+                        value={askStr}
+                        onChange={(e) => setAskStr(e.target.value)}
+                        placeholder="e.g. email_send, server_exec, erpnext_*"
+                        className="w-full px-4 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-pulse-text bg-pulse-panel placeholder:text-pulse-faint"
+                    />
+                    <p className="text-xs text-pulse-faint mt-1">
+                        Before running a tool matching these patterns, the agent pauses and asks a designated approver to
+                        Allow / Deny / Allow-always (in their Telegram DM). Set approvers &amp; view standing allowances under{" "}
+                        <a href="/dashboard/people" className="text-pulse-accent hover:underline">People</a>.
+                    </p>
                 </div>
 
                 <div className="pt-2 flex items-center gap-3">

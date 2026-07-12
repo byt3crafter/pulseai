@@ -33,12 +33,12 @@ import { getPerson, toPerson } from "./people-service.js";
 import { channelAdapters } from "../queue/worker.js";
 import type { TelegramAdapter } from "./telegram/adapter.js";
 
-export type ApprovalKind = "user_request" | "command";
+export type ApprovalKind = "user_request" | "command" | "tool_call";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ApprovalDecisionAction = "allow" | "deny" | "allowall";
 
 /** Standing-allowance kind — distinct from ApprovalKind's naming (user_request/command). */
-export type AllowanceKind = "user" | "server";
+export type AllowanceKind = "user" | "server" | "tool";
 
 export const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
 
@@ -378,6 +378,13 @@ async function grantAllowanceForApproval(
     row: typeof pendingApprovals.$inferSelect,
     createdBy: string
 ): Promise<void> {
+    if (row.kind === "tool_call") {
+        const toolName = (row.payload as any)?.toolName;
+        if (!toolName || typeof toolName !== "string") return;
+        await grantAllowance(row.tenantId, "tool", toolName, toolName, createdBy);
+        return;
+    }
+
     if (row.kind === "command") {
         if (!row.serverId) return;
         let label = row.serverId;

@@ -33,6 +33,7 @@ export class CronScheduler {
                 deliverDueCommitments().catch((err) => logger.error({ err }, "commitment delivery tick failed"));
             }, COMMITMENT_TICK_MS);
         }
+
     }
 
     /**

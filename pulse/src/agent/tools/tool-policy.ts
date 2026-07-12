@@ -6,6 +6,21 @@
 export interface ToolPolicy {
     allow?: string[];
     deny?: string[];
+    /** Tools that require human approval before running (hard gate). Glob patterns allowed. */
+    ask?: string[];
+    /** Tools an operator chose "allow always" for — exempt from the ask gate going forward. */
+    alwaysAllow?: string[];
+}
+
+/**
+ * Whether a tool call must be approved by a human before it runs.
+ * Gated when it matches an `ask` pattern and is not in `alwaysAllow`.
+ * (deny is handled separately by filterTools — a denied tool never reaches here.)
+ */
+export function isToolGated(policy: ToolPolicy | null | undefined, toolName: string): boolean {
+    if (!policy?.ask?.length) return false;
+    if (policy.alwaysAllow?.some((p) => matchesPattern(toolName, p))) return false;
+    return policy.ask.some((p) => matchesPattern(toolName, p));
 }
 
 function matchesPattern(name: string, pattern: string): boolean {

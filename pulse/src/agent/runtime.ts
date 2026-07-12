@@ -14,6 +14,8 @@ import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
+import { ToolPolicy, isToolGated } from "./tools/tool-policy.js";
+import { createApproval, awaitDecision, hasStandingAllowance } from "../channels/approval-service.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
 import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader.js";
 import { db } from "../storage/db.js";
@@ -283,6 +285,8 @@ export class AgentRuntime {
             // Per-agent reasoning effort override (Codex/GPT-5.5 etc.). Undefined
             // means "let the provider use its own default" — never send a bogus value.
             let activeReasoningEffort: string | undefined = undefined;
+            // Per-agent Tool Policy — used to gate "ask" tools behind human approval.
+            let agentToolPolicy: ToolPolicy | null = null;
             // Determine prompt mode — delegated calls use minimal mode
             const promptMode: PromptMode = inbound.channelType === "heartbeat" ? "minimal" : "full";
 
@@ -298,6 +302,7 @@ export class AgentRuntime {
                 }
 
                 if (profile) {
+                    agentToolPolicy = (profile.toolPolicy as ToolPolicy) || null;
                     // Use per-agent model if set
                     if (profile.modelId) {
                         activeModelId = profile.modelId;
@@ -661,6 +666,50 @@ export class AgentRuntime {
                                 tool_use_id: toolCall.id,
                                 content: formatSearchResult(matches, total, query),
                             };
+                        }
+
+                        // Hard approval gate: if this tool is marked "ask" for the agent,
+                        // block until a designated approver decides (unless a standing
+                        // allowance already covers it). Reuses the People approval workflow
+                        // (Telegram Allow/Deny/Allow-always cards + persistent allowances).
+                        if (isToolGated(agentToolPolicy, toolCall.name)) {
+                            let allowed = false;
+                            try {
+                                allowed = await hasStandingAllowance(inbound.tenantId, "tool", toolCall.name);
+                            } catch (err) {
+                                tenantLog.error({ err, toolName: toolCall.name }, "Tool allowance lookup failed — failing closed");
+                            }
+                            if (!allowed) {
+                                const summary = `🔐 ${activeAgentName} wants to use the "${toolCall.name}" tool. Allow it?`;
+                                let outcome: { status: string; approverLabel?: string };
+                                try {
+                                    const { id: approvalId } = await createApproval({
+                                        tenantId: inbound.tenantId,
+                                        kind: "tool_call",
+                                        summary,
+                                        agentProfileId: resolvedAgentProfileId ?? null,
+                                        payload: { toolName: toolCall.name, args: toolCall.input },
+                                        channelType: inbound.channelType,
+                                        channelContactId: inbound.channelContactId,
+                                        timeoutMs: 5 * 60 * 1000, // 5 min for a human to tap approve
+                                    });
+                                    outcome = await awaitDecision(approvalId, 5 * 60 * 1000);
+                                } catch (err) {
+                                    tenantLog.error({ err, toolName: toolCall.name }, "Approval workflow failed — failing closed");
+                                    outcome = { status: "expired" };
+                                }
+                                if (outcome.status !== "approved") {
+                                    const reason = outcome.status === "denied"
+                                        ? `The operator denied permission${outcome.approverLabel ? ` (${outcome.approverLabel})` : ""} to use ${toolCall.name}.`
+                                        : `Approval to use ${toolCall.name} timed out.`;
+                                    return {
+                                        type: "tool_result" as const,
+                                        tool_use_id: toolCall.id,
+                                        content: `${reason} Tell the user you couldn't complete that action and do NOT retry the tool.`,
+                                    };
+                                }
+                                // approved → fall through and execute normally
+                            }
                         }
 
                         const tool = enabledTools.find(t => t.name === toolCall.name);
