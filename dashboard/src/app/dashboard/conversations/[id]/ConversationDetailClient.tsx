@@ -8,6 +8,7 @@ import {
     GlobeAltIcon,
 } from "@heroicons/react/24/outline";
 import AgentAvatar from "../../../../components/dashboard/AgentAvatar";
+import Markdown from "../../../../components/dashboard/Markdown";
 import { relativeTime, secondaryChannelLabel } from "../utils";
 
 interface Message {
@@ -49,34 +50,9 @@ function channelMeta(channelType: string) {
     );
 }
 
-function roleStyling(role: string) {
-    switch (role) {
-        case "user":
-            return "bg-indigo-600 text-white ml-12 text-right";
-        case "assistant":
-            return "bg-pulse-panel-alt border border-pulse-border-subtle text-pulse-text mr-12";
-        case "tool":
-            return "bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono text-xs mr-12";
-        case "system":
-            return "bg-pulse-panel-alt border border-pulse-border-subtle text-pulse-muted italic text-center mx-16 text-xs";
-        default:
-            return "bg-pulse-panel-alt text-pulse-text-soft mr-12";
-    }
-}
-
-function roleLabel(role: string) {
-    switch (role) {
-        case "user":
-            return "User";
-        case "assistant":
-            return "Assistant";
-        case "tool":
-            return "Tool";
-        case "system":
-            return "System";
-        default:
-            return role;
-    }
+function ts(iso: string) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export default function ConversationDetailClient({
@@ -134,28 +110,50 @@ export default function ConversationDetailClient({
                 </div>
             </div>
 
-            {/* Message Thread */}
-            <div className="space-y-3">
-                {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`rounded-xl px-5 py-3 ${roleStyling(msg.role)}`}
-                    >
-                        <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-                                {roleLabel(msg.role)}
-                            </span>
-                            <span className="text-xs opacity-70">
-                                {msg.createdAt
-                                    ? new Date(msg.createdAt).toLocaleString()
-                                    : ""}
-                            </span>
+            {/* Message Thread — ChatGPT/Claude style: centered column, compact
+                right-aligned user bubbles, no-bubble assistant markdown. */}
+            <div className="mx-auto max-w-3xl space-y-6">
+                {messages.map((msg) => {
+                    // User → compact bubble, right-aligned.
+                    if (msg.role === "user") {
+                        return (
+                            <div key={msg.id} className="group flex flex-col items-end">
+                                <div className="max-w-[80%] rounded-2xl rounded-br-md bg-pulse-panel-alt border border-pulse-border-subtle px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text whitespace-pre-wrap break-words">
+                                    {msg.content}
+                                </div>
+                                <div className="mt-1 text-[11px] text-pulse-faint opacity-0 group-hover:opacity-100 transition-opacity motion-reduce:transition-none">
+                                    {ts(msg.createdAt)}
+                                </div>
+                            </div>
+                        );
+                    }
+                    // Tool → collapsed, out of the way.
+                    if (msg.role === "tool") {
+                        return (
+                            <details key={msg.id} className="group text-xs">
+                                <summary className="cursor-pointer select-none text-pulse-faint hover:text-pulse-muted">Tool call</summary>
+                                <pre className="mt-1.5 bg-pulse-panel-alt border border-pulse-border-subtle rounded-lg p-3 overflow-x-auto font-mono text-[12px] text-pulse-muted whitespace-pre-wrap break-words">{msg.content}</pre>
+                            </details>
+                        );
+                    }
+                    // System → subtle centered note.
+                    if (msg.role === "system") {
+                        return (
+                            <div key={msg.id} className="text-center text-xs italic text-pulse-faint px-8">
+                                {msg.content}
+                            </div>
+                        );
+                    }
+                    // Assistant (and anything else) → no bubble, rendered markdown.
+                    return (
+                        <div key={msg.id} className="group">
+                            <Markdown>{msg.content}</Markdown>
+                            <div className="mt-1.5 text-[11px] text-pulse-faint opacity-0 group-hover:opacity-100 transition-opacity motion-reduce:transition-none">
+                                {ts(msg.createdAt)}
+                            </div>
                         </div>
-                        <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                            {msg.content}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {messages.length === 0 && (
                     <div className="text-center py-12 text-sm text-pulse-faint">
                         No messages in this conversation yet.
