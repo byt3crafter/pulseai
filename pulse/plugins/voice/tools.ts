@@ -10,8 +10,12 @@ import { join } from "node:path";
 import { Tool } from "../../src/agent/tools/tool.interface.js";
 import { config } from "../../src/config.js";
 import { providerKeyService } from "../../src/agent/providers/provider-key-service.js";
+import { credentialVault } from "../../src/agent/tools/credential-vault.js";
 import { sendFileToConversation } from "../../src/utils/channel-delivery.js";
 import { logger } from "../../src/utils/logger.js";
+
+// Default ElevenLabs voice ("Rachel") when none is configured.
+const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
 
 const TIMEOUT_MS = 60_000;
 const TTS_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]);
@@ -85,30 +89,56 @@ export const textToSpeechTool: Tool = {
         type: "object",
         properties: {
             text: { type: "string", description: "The text to speak (max ~4000 characters)." },
-            voice: { type: "string", description: "Voice: alloy (default), echo, fable, onyx, nova, shimmer." },
+            provider: { type: "string", description: "'elevenlabs' (premium, if configured) or 'openai'. Defaults to ElevenLabs when its key is set, else OpenAI." },
+            voice: { type: "string", description: "OpenAI voice: alloy (default), echo, fable, onyx, nova, shimmer." },
+            voice_id: { type: "string", description: "ElevenLabs voice ID (overrides the configured default)." },
         },
         required: ["text"],
     },
     async execute({ tenantId, conversationId, args }) {
-        const key = await openaiKey(tenantId);
-        if (!key) return { result: NO_KEY };
         const text = String(args.text || "").trim();
         if (!text) return { result: "Provide text to speak." };
         if (text.length > 4096) return { result: "Text too long for one clip (max 4096 characters)." };
-        const voice = TTS_VOICES.has(String(args.voice)) ? String(args.voice) : "alloy";
+
+        const env = await credentialVault.getEnvVars(tenantId, (args as any)._agentId);
+        const elKey = env["ELEVENLABS_API_KEY"];
+        const provider = (String(args.provider || "").toLowerCase()
+            || (env["TTS_PROVIDER"] || "").toLowerCase()
+            || (elKey ? "elevenlabs" : "openai"));
 
         try {
-            const res = await fetch("https://api.openai.com/v1/audio/speech", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ model: "tts-1", voice, input: text, response_format: "mp3" }),
-                signal: AbortSignal.timeout(TIMEOUT_MS),
-            });
-            if (!res.ok) {
-                const j: any = await res.json().catch(() => ({}));
-                return { result: `Speech generation failed (${res.status}): ${j?.error?.message || res.statusText}` };
+            let buf: Buffer;
+            if (provider === "elevenlabs") {
+                if (!elKey) return { result: "ElevenLabs isn't configured — add an ELEVENLABS_API_KEY credential, or use provider 'openai'." };
+                const voiceId = String(args.voice_id || env["ELEVENLABS_VOICE_ID"] || DEFAULT_ELEVENLABS_VOICE);
+                const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
+                    method: "POST",
+                    headers: { "xi-api-key": elKey, "Content-Type": "application/json", Accept: "audio/mpeg" },
+                    body: JSON.stringify({ text, model_id: env["ELEVENLABS_MODEL"] || "eleven_multilingual_v2" }),
+                    signal: AbortSignal.timeout(TIMEOUT_MS),
+                });
+                if (!res.ok) {
+                    const t = await res.text().catch(() => "");
+                    return { result: `ElevenLabs speech failed (${res.status}): ${t.slice(0, 200) || res.statusText}` };
+                }
+                buf = Buffer.from(await res.arrayBuffer());
+            } else {
+                const key = await openaiKey(tenantId);
+                if (!key) return { result: NO_KEY };
+                const voice = TTS_VOICES.has(String(args.voice)) ? String(args.voice) : "alloy";
+                const res = await fetch("https://api.openai.com/v1/audio/speech", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ model: "tts-1", voice, input: text, response_format: "mp3" }),
+                    signal: AbortSignal.timeout(TIMEOUT_MS),
+                });
+                if (!res.ok) {
+                    const j: any = await res.json().catch(() => ({}));
+                    return { result: `Speech generation failed (${res.status}): ${j?.error?.message || res.statusText}` };
+                }
+                buf = Buffer.from(await res.arrayBuffer());
             }
-            const buf = Buffer.from(await res.arrayBuffer());
+
             const agentId = (args._agentId as string) || conversationId || "agent";
             const dir = join(config.WORKSPACE_BASE_DIR, tenantId, agentId, "audio");
             await mkdir(dir, { recursive: true });
@@ -119,7 +149,7 @@ export const textToSpeechTool: Tool = {
             return {
                 result: JSON.stringify({
                     bytes: buf.length,
-                    voice,
+                    provider,
                     delivered: delivery.delivered,
                     note: delivery.delivered
                         ? "voice message sent to the user's chat — tell them it's in this chat, don't paste the file path"
