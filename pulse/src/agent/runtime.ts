@@ -57,6 +57,13 @@ export function buildApprovalSummary(agentName: string, toolName: string, input:
         lines.push(`Subject: ${clip(a.subject || "(none)", 200)}`, `—`, clip(a.body || a.text || "(empty body)", 1400));
         return lines.join("\n");
     }
+    if (toolName === "email_reply") {
+        return [
+            `🔐 ${agentName} wants to REPLY to an email (thread #${a.uid ?? "?"}) — approve?`,
+            `—`,
+            clip(a.body || "(empty reply)", 1400),
+        ].join("\n");
+    }
     const keys = Object.keys(a).filter((k) => k !== "_agentId");
     const preview = keys.slice(0, 6).map((k) => `${k}: ${clip(a[k], 160)}`).join("\n");
     return `🔐 ${agentName} wants to use the "${toolName}" tool — approve?${preview ? `\n${preview}` : ""}`;

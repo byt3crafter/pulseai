@@ -190,7 +190,7 @@ export async function sendEmail(
     subject: string,
     body: string,
     html?: string,
-    opts?: { cc?: string | string[]; bcc?: string | string[]; attachments?: EmailAttachment[] }
+    opts?: { cc?: string | string[]; bcc?: string | string[]; attachments?: EmailAttachment[]; inReplyTo?: string; references?: string }
 ): Promise<{ messageId: string; to: string[]; cc: string[] }> {
     // TLS mode is determined by PORT, not a flag: 465 = implicit TLS (secure),
     // 587/25 = plaintext connect then STARTTLS upgrade. Using secure:true on
@@ -278,6 +278,8 @@ export async function sendEmail(
         text: finalText,
         html: finalHtml || undefined,
         attachments,
+        inReplyTo: opts?.inReplyTo,
+        references: opts?.references,
     });
 
     return { messageId: info.messageId, to: toList, cc: ccList };
@@ -413,6 +415,144 @@ export async function readUnreadEmails(
         throw err;
     }
     return out.reverse(); // most recent first
+}
+
+/** Open an IMAP connection + lock a mailbox, run `fn`, then always clean up. */
+async function withMailbox<T>(config: ImapConfig, folder: string, fn: (client: ImapFlow) => Promise<T>): Promise<T> {
+    const client = new ImapFlow({
+        host: config.host,
+        port: config.port,
+        secure: config.tls,
+        auth: { user: config.username, pass: config.password },
+        logger: false,
+    });
+    await client.connect();
+    try {
+        const lock = await client.getMailboxLock(folder);
+        try {
+            return await fn(client);
+        } finally {
+            lock.release();
+        }
+    } finally {
+        await client.logout().catch(() => {});
+    }
+}
+
+export interface EmailSearchCriteria {
+    from?: string;
+    subject?: string;
+    unreadOnly?: boolean;
+    sinceDays?: number;
+    folder?: string;
+    count?: number;
+}
+
+/** Search a folder by simple criteria; returns matching envelopes (no body). */
+export async function searchEmails(config: ImapConfig, c: EmailSearchCriteria) {
+    const folder = c.folder || "INBOX";
+    const count = Math.min(c.count ?? 20, 50);
+    return withMailbox(config, folder, async (client) => {
+        const query: any = {};
+        if (c.from) query.from = c.from;
+        if (c.subject) query.subject = c.subject;
+        if (c.unreadOnly) query.seen = false;
+        if (c.sinceDays && c.sinceDays > 0) query.since = new Date(Date.now() - c.sinceDays * 86400_000);
+        const uids: number[] = (await client.search(Object.keys(query).length ? query : { all: true }, { uid: true })) || [];
+        const pick = uids.slice(-count);
+        const out: Array<{ uid: number; from: string; subject: string; date: string; seen: boolean }> = [];
+        for (const uid of pick) {
+            const msg = await client.fetchOne(String(uid), { envelope: true, flags: true }, { uid: true });
+            if (!msg || !msg.envelope) continue;
+            out.push({
+                uid: Number(uid),
+                from: msg.envelope.from?.[0]?.address || "unknown",
+                subject: msg.envelope.subject || "(no subject)",
+                date: msg.envelope.date?.toISOString() || "",
+                seen: msg.flags?.has("\\Seen") ?? false,
+            });
+        }
+        return out.reverse();
+    });
+}
+
+export interface ReplyContext {
+    messageId: string;
+    references: string;
+    from: string;
+    subject: string;
+    body: string;
+    date: string;
+}
+
+/** Fetch the headers/body needed to compose a threaded reply to one message. */
+export async function getReplyContext(config: ImapConfig, uid: number, folder = "INBOX"): Promise<ReplyContext | null> {
+    return withMailbox(config, folder, async (client) => {
+        const msg = await client.fetchOne(String(uid), { envelope: true, source: true }, { uid: true });
+        if (!msg || !msg.envelope) return null;
+        const env = msg.envelope;
+        let body = "";
+        try {
+            const { simpleParser } = await import("mailparser");
+            const parsed = await simpleParser(msg.source as Buffer);
+            body = (parsed.text || parsed.html || "").toString();
+        } catch { /* body is best-effort */ }
+        const messageId = env.messageId || "";
+        return {
+            messageId,
+            references: messageId, // thread by referencing the message we're replying to
+            from: env.from?.[0]?.address || "",
+            subject: env.subject || "",
+            body: body.trim().slice(0, 6000),
+            date: env.date?.toISOString() || "",
+        };
+    });
+}
+
+/** Add/remove a flag (\Seen, \Flagged) on a message. */
+export async function setMessageFlag(config: ImapConfig, uid: number, flag: string, add: boolean, folder = "INBOX"): Promise<boolean> {
+    return withMailbox(config, folder, async (client) => {
+        const fn = add ? client.messageFlagsAdd.bind(client) : client.messageFlagsRemove.bind(client);
+        return (await fn([uid], [flag], { uid: true })) as boolean;
+    });
+}
+
+/** Move a message to another folder. */
+export async function moveMessage(config: ImapConfig, uid: number, toFolder: string, fromFolder = "INBOX"): Promise<boolean> {
+    return withMailbox(config, fromFolder, async (client) => {
+        await client.messageMove([uid], toFolder, { uid: true });
+        return true;
+    });
+}
+
+/** Delete a message (move to Trash if present, else flag \Deleted + expunge). */
+export async function deleteMessage(config: ImapConfig, uid: number, folder = "INBOX"): Promise<boolean> {
+    return withMailbox(config, folder, async (client) => {
+        try {
+            await client.messageMove([uid], "Trash", { uid: true });
+        } catch {
+            await client.messageFlagsAdd([uid], ["\\Deleted"], { uid: true });
+        }
+        return true;
+    });
+}
+
+/** List folder/mailbox paths. */
+export async function listFolders(config: ImapConfig): Promise<string[]> {
+    const client = new ImapFlow({
+        host: config.host,
+        port: config.port,
+        secure: config.tls,
+        auth: { user: config.username, pass: config.password },
+        logger: false,
+    });
+    await client.connect();
+    try {
+        const list = await client.list();
+        return list.map((f) => f.path);
+    } finally {
+        await client.logout().catch(() => {});
+    }
 }
 
 /**

@@ -5,7 +5,10 @@
  */
 
 import { Tool } from "../tool.interface.js";
-import { resolveEmailConfig, sendEmail, readEmails, readUnreadEmails } from "../../../channels/email/email-service.js";
+import {
+    resolveEmailConfig, sendEmail, readEmails, readUnreadEmails,
+    searchEmails, getReplyContext, setMessageFlag, moveMessage, deleteMessage, listFolders,
+} from "../../../channels/email/email-service.js";
 
 export const emailSendTool: Tool = {
     name: "email_send",
@@ -163,6 +166,186 @@ export const emailFetchUnreadTool: Tool = {
             return { result: JSON.stringify({ count: emails.length, emails }) };
         } catch (err: any) {
             return { result: `Error fetching unread emails: ${err.message}` };
+        }
+    },
+};
+
+export const emailReplyTool: Tool = {
+    name: "email_reply",
+    description:
+        "Reply to a specific inbox email, keeping the same email thread (the recipient sees it as a reply, not a new message). " +
+        "Give the uid of the email to reply to (from email_fetch_unread/email_list/email_search) and your reply body. " +
+        "Subject and recipient are taken from the original automatically.",
+    parameters: {
+        type: "object",
+        properties: {
+            uid: { type: "number", description: "UID of the email being replied to." },
+            body: { type: "string", description: "Your reply text." },
+            folder: { type: "string", description: "Folder the original is in (default INBOX)." },
+            quote_original: { type: "boolean", description: "Append the quoted original below your reply (default true)." },
+        },
+        required: ["uid", "body"],
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap || !config?.smtp) return { result: "Error: Email (IMAP+SMTP) not fully configured." };
+
+        try {
+            const ctx = await getReplyContext(config.imap, Number(params.args.uid), params.args.folder || "INBOX");
+            if (!ctx) return { result: `Error: Could not find email uid ${params.args.uid}.` };
+            const subject = /^re:/i.test(ctx.subject) ? ctx.subject : `Re: ${ctx.subject}`;
+            let body = String(params.args.body || "");
+            if (params.args.quote_original !== false && ctx.body) {
+                const quoted = ctx.body.split("\n").map((l) => `> ${l}`).join("\n");
+                body = `${body}\n\nOn ${ctx.date}, ${ctx.from} wrote:\n${quoted}`;
+            }
+            const res = await sendEmail(config.smtp, ctx.from, subject, body, undefined, {
+                inReplyTo: ctx.messageId || undefined,
+                references: ctx.references || undefined,
+            });
+            return { result: JSON.stringify({ replied: true, to: res.to, subject, messageId: res.messageId }) };
+        } catch (err: any) {
+            return { result: `Error sending reply: ${err.message}` };
+        }
+    },
+};
+
+export const emailSearchTool: Tool = {
+    name: "email_search",
+    description: "Search a mailbox by sender, subject, unread status, or recency. Returns matching envelopes (uid/from/subject/date/seen).",
+    parameters: {
+        type: "object",
+        properties: {
+            from: { type: "string", description: "Match sender address/substring." },
+            subject: { type: "string", description: "Match subject substring." },
+            unread_only: { type: "boolean", description: "Only unread messages." },
+            since_days: { type: "number", description: "Only messages from the last N days." },
+            folder: { type: "string", description: "Folder to search (default INBOX)." },
+            count: { type: "number", description: "Max results (default 20, max 50)." },
+        },
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
+        try {
+            const rows = await searchEmails(config.imap, {
+                from: params.args.from,
+                subject: params.args.subject,
+                unreadOnly: params.args.unread_only === true,
+                sinceDays: params.args.since_days,
+                folder: params.args.folder,
+                count: params.args.count,
+            });
+            return { result: JSON.stringify({ count: rows.length, messages: rows }) };
+        } catch (err: any) {
+            return { result: `Error searching email: ${err.message}` };
+        }
+    },
+};
+
+export const emailFlagTool: Tool = {
+    name: "email_flag",
+    description: "Mark an email read/unread or flagged/unflagged by uid.",
+    parameters: {
+        type: "object",
+        properties: {
+            uid: { type: "number", description: "UID of the message." },
+            action: { type: "string", description: "One of: read, unread, flag, unflag." },
+            folder: { type: "string", description: "Folder (default INBOX)." },
+        },
+        required: ["uid", "action"],
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
+        const map: Record<string, { flag: string; add: boolean }> = {
+            read: { flag: "\\Seen", add: true },
+            unread: { flag: "\\Seen", add: false },
+            flag: { flag: "\\Flagged", add: true },
+            unflag: { flag: "\\Flagged", add: false },
+        };
+        const op = map[String(params.args.action)];
+        if (!op) return { result: "Error: action must be read, unread, flag, or unflag." };
+        try {
+            await setMessageFlag(config.imap, Number(params.args.uid), op.flag, op.add, params.args.folder || "INBOX");
+            return { result: JSON.stringify({ ok: true, uid: params.args.uid, action: params.args.action }) };
+        } catch (err: any) {
+            return { result: `Error updating flag: ${err.message}` };
+        }
+    },
+};
+
+export const emailMoveTool: Tool = {
+    name: "email_move",
+    description: "Move an email to another folder (e.g. to file it under a project or archive).",
+    parameters: {
+        type: "object",
+        properties: {
+            uid: { type: "number", description: "UID of the message." },
+            to_folder: { type: "string", description: "Destination folder path (see email_folders)." },
+            from_folder: { type: "string", description: "Source folder (default INBOX)." },
+        },
+        required: ["uid", "to_folder"],
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
+        try {
+            await moveMessage(config.imap, Number(params.args.uid), String(params.args.to_folder), params.args.from_folder || "INBOX");
+            return { result: JSON.stringify({ moved: true, uid: params.args.uid, to: params.args.to_folder }) };
+        } catch (err: any) {
+            return { result: `Error moving email: ${err.message}` };
+        }
+    },
+};
+
+export const emailDeleteTool: Tool = {
+    name: "email_delete",
+    description: "Delete an email (moves it to Trash where available). Destructive — usually gate this behind approval.",
+    parameters: {
+        type: "object",
+        properties: {
+            uid: { type: "number", description: "UID of the message." },
+            folder: { type: "string", description: "Folder (default INBOX)." },
+        },
+        required: ["uid"],
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
+        try {
+            await deleteMessage(config.imap, Number(params.args.uid), params.args.folder || "INBOX");
+            return { result: JSON.stringify({ deleted: true, uid: params.args.uid }) };
+        } catch (err: any) {
+            return { result: `Error deleting email: ${err.message}` };
+        }
+    },
+};
+
+export const emailFoldersTool: Tool = {
+    name: "email_folders",
+    description: "List the mailbox folders available (INBOX, Sent, Trash, and any custom folders).",
+    parameters: { type: "object", properties: {} },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
+        try {
+            const folders = await listFolders(config.imap);
+            return { result: JSON.stringify({ folders }) };
+        } catch (err: any) {
+            return { result: `Error listing folders: ${err.message}` };
         }
     },
 };
