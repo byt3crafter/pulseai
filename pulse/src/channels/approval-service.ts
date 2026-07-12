@@ -198,9 +198,9 @@ export async function listApprovers(tenantId: string) {
     return rows.map(toPerson);
 }
 
-function getTenantBot(tenantId: string) {
+function getTenantBot(tenantId: string, agentProfileId?: string | null) {
     const adapter = channelAdapters.get("telegram") as TelegramAdapter | undefined;
-    return adapter?.getTenantBot(tenantId);
+    return adapter?.getTenantBot(tenantId, agentProfileId);
 }
 
 function buildApprovalKeyboard(approvalId: string): InlineKeyboard {
@@ -215,8 +215,10 @@ function cardText(summary: string): string {
     return `${summary}\n\n⏱ Expires in 2 minutes if nobody responds.`;
 }
 
-async function postApprovalCard(tenantId: string, telegramUserId: string, summary: string, approvalId: string): Promise<string | null> {
-    const bot = getTenantBot(tenantId);
+async function postApprovalCard(tenantId: string, telegramUserId: string, summary: string, approvalId: string, agentProfileId?: string | null): Promise<string | null> {
+    // Deliver via the SAME agent's bot when known, so the card appears in the DM
+    // the user already associates with that agent (a tenant may run several bots).
+    const bot = getTenantBot(tenantId, agentProfileId);
     if (!bot) {
         logger.warn({ tenantId, approvalId }, "No Telegram bot available to deliver an approval card");
         return null;
@@ -232,8 +234,8 @@ async function postApprovalCard(tenantId: string, telegramUserId: string, summar
     }
 }
 
-async function editApprovalCard(tenantId: string, telegramUserId: string, messageId: string, finalText: string): Promise<void> {
-    const bot = getTenantBot(tenantId);
+async function editApprovalCard(tenantId: string, telegramUserId: string, messageId: string, finalText: string, agentProfileId?: string | null): Promise<void> {
+    const bot = getTenantBot(tenantId, agentProfileId);
     if (!bot) return;
     try {
         await bot.api.editMessageText(telegramUserId, parseInt(messageId, 10), finalText);
@@ -255,7 +257,7 @@ async function editAllCards(row: typeof pendingApprovals.$inferSelect, status: A
     const suffix = finalStatusLabel(status, approverLabel);
     await Promise.all(
         Object.entries(messageIds).map(([telegramUserId, messageId]) =>
-            editApprovalCard(row.tenantId, telegramUserId, messageId, `${row.summary}\n\n${suffix}`)
+            editApprovalCard(row.tenantId, telegramUserId, messageId, `${row.summary}\n\n${suffix}`, row.agentProfileId)
         )
     );
 }
@@ -296,7 +298,7 @@ export async function createApproval(input: CreateApprovalInput): Promise<{ id: 
 
     const messageIds: Record<string, string> = {};
     for (const approver of approvers) {
-        const messageId = await postApprovalCard(input.tenantId, approver.telegramUserId, input.summary, id);
+        const messageId = await postApprovalCard(input.tenantId, approver.telegramUserId, input.summary, id, input.agentProfileId);
         if (messageId) messageIds[approver.telegramUserId] = messageId;
     }
 
