@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.18] - 2026-07-12
+
+### Features
+- add ElevenLabs as a TTS provider
+
 ## [0.14.17] - 2026-07-12
 
 ### Features
