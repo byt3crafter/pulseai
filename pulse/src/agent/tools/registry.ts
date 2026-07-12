@@ -122,20 +122,24 @@ export class ToolRegistry {
                     const client = await getMcpClient(binding.serverId, binding.url, (binding.authHeaders as Record<string, string>) || {});
                     if (client) {
                         const mcpTools = await getMcpTools(binding.serverId, client);
+                        for (const t of mcpTools) t.source = "mcp";
                         tools.push(...mcpTools);
                     }
                 }
 
                 // 3. Inject tenant-enabled plugin-contributed tools
                 const pluginTools = await pluginManager.getPluginToolsForTenant(tenantId);
+                for (const t of pluginTools) t.source = "plugin";
                 tools.push(...pluginTools);
 
                 // 3.5 Inject per-tenant custom tools (customer's own API/software), scoped to this agent
                 const customToolList = await getTenantCustomTools(tenantId, agentProfileId);
+                for (const t of customToolList) t.source = "custom";
                 tools.push(...customToolList);
 
                 // 3.6 Inject Server Inventory SSH tools, scoped to servers this agent is explicitly allowed on
                 const serverToolList = await getTenantServerTools(tenantId, agentProfileId);
+                for (const t of serverToolList) t.source = "server";
                 tools.push(...serverToolList);
 
                 // 4. Apply tool policy filtering

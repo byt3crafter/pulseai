@@ -540,6 +540,38 @@ export async function saveCommitmentsSettingsAction(config: {
     }
 }
 
+export async function saveToolSearchSettingsAction(config: {
+    mode: "off" | "auto" | "on";
+    threshold: number;
+    maxResults: number;
+}) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const modes = ["off", "auto", "on"] as const;
+    const mode = modes.includes(config.mode) ? config.mode : "auto";
+    const threshold = Math.max(1, Math.min(100, Math.floor(Number(config.threshold) || 12)));
+    const maxResults = Math.max(1, Math.min(25, Math.floor(Number(config.maxResults) || 6)));
+
+    try {
+        await db.execute(
+            sql`UPDATE tenants
+                SET config = config || ${JSON.stringify({
+                    toolSearch: { mode, threshold, maxResults },
+                })}::jsonb,
+                updated_at = now()
+                WHERE id = ${tenantId}::uuid`
+        );
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Tool Search settings saved." };
+    } catch (error) {
+        console.error("Failed to update tool search settings:", error);
+        return { success: false, message: "Failed to save Tool Search settings." };
+    }
+}
+
 export async function approvePairingAction(code: string) {
     const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
