@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.15] - 2026-07-12
+
+### Features
+- ChatGPT/Claude-style conversation view + markdown
+
 ## [0.14.14] - 2026-07-12
 
 ### Features
