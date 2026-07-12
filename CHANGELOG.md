@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.23] - 2026-07-12
+
+### Features
+- hard human-in-the-loop gate for tool calls
+
 ## [0.14.22] - 2026-07-12
 
 ### Features
