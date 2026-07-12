@@ -50,24 +50,39 @@ export async function sendFileToConversation(
 
         const bytes = await readFile(filePath);
         const ext = (filePath.split(".").pop() || "").toLowerCase();
-        const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg"
-            : ext === "webp" ? "image/webp"
-            : ext === "gif" ? "image/gif"
-            : "image/png";
+
+        const AUDIO_MIME: Record<string, string> = {
+            mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", ogg: "audio/ogg", oga: "audio/ogg",
+        };
+
         const form = new FormData();
         form.append("chat_id", conversation.channelContactId);
-        form.append("caption", caption.slice(0, 1024));
-        // sendDocument, not sendPhoto: Telegram recompresses photos to lossy
-        // JPEG (~1280px), which wrecks text in screenshots. Documents are
-        // delivered as the original PNG and still render an inline preview.
-        form.append("document", new Blob([new Uint8Array(bytes)], { type: mime }), basename(filePath));
+        if (caption) form.append("caption", caption.slice(0, 1024));
 
-        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+        let method: string;
+        if (AUDIO_MIME[ext]) {
+            // Audio → play inline in Telegram (sendVoice for ogg/opus, sendAudio otherwise).
+            method = ext === "ogg" || ext === "oga" ? "sendVoice" : "sendAudio";
+            const field = method === "sendVoice" ? "voice" : "audio";
+            form.append(field, new Blob([new Uint8Array(bytes)], { type: AUDIO_MIME[ext] }), basename(filePath));
+        } else {
+            // Image → sendDocument, not sendPhoto: Telegram recompresses photos to
+            // lossy JPEG (~1280px), wrecking text in screenshots. Documents keep the
+            // original and still render an inline preview.
+            const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg"
+                : ext === "webp" ? "image/webp"
+                : ext === "gif" ? "image/gif"
+                : "image/png";
+            method = "sendDocument";
+            form.append("document", new Blob([new Uint8Array(bytes)], { type: mime }), basename(filePath));
+        }
+
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
             method: "POST",
             body: form,
         });
         if (!res.ok) {
-            logger.warn({ tenantId, status: res.status }, "Screenshot Telegram delivery failed");
+            logger.warn({ tenantId, status: res.status, method }, "Telegram file delivery failed");
             return { delivered: false };
         }
         return { delivered: true, channel: "telegram" };
