@@ -12,7 +12,7 @@
 import { definePlugin } from "../../src/plugins/sdk/index.js";
 import { PromptContext } from "../../src/plugins/sdk/types.js";
 import { isPluginEnabledForTenant } from "../../src/plugins/tenant-access.js";
-import { getErpNextCredentials } from "./client.js";
+import { getErpNextCredentials, getErpNextAllowedMethods } from "./client.js";
 import {
     erpnextListTool,
     erpnextGetTool,
@@ -117,9 +117,23 @@ export default definePlugin({
             const creds = await getErpNextCredentials(ctx.tenantId);
             if (!creds) return null; // no change
 
+            let ctxText = ERPNEXT_PROMPT_CONTEXT;
+
+            // Surface any custom methods this instance has enabled, so the agent
+            // knows they exist and how to use them (e.g. a guest invoice link).
+            const extra = await getErpNextAllowedMethods(ctx.tenantId, ctx.agentProfileId);
+            if (extra.length) {
+                ctxText +=
+                    `\n### Custom methods enabled on this instance\n` +
+                    `Call these with \`erpnext_method\` (method + args):\n` +
+                    extra.map((m) => `- \`${m}\``).join("\n") +
+                    `\n\n**Direct / guest links:** if a method returns a public link to a document (e.g. an invoice URL), it needs a logged-in API session to *generate* — which you have — but the recipient needs **nothing** to open it. Call the method, then send the customer the returned URL. ` +
+                    `Example: \`erpnext_method\` with args like {"invoice_name":"ACC-SINV-2026-00042"}.\n`;
+            }
+
             return {
                 ...ctx,
-                systemPrompt: ctx.systemPrompt + ERPNEXT_PROMPT_CONTEXT,
+                systemPrompt: ctx.systemPrompt + ctxText,
             };
         },
     },

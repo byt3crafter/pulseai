@@ -51,6 +51,19 @@ export async function getErpNextCredentials(tenantId: string, agentId?: string):
     };
 }
 
+/**
+ * Extra whitelisted server methods this tenant has declared as safe for agents
+ * (e.g. a custom addon method that returns a public/guest document link).
+ * Set as the credential ERPNEXT_ALLOWED_METHODS — comma- or newline-separated
+ * fully-qualified method names. Nothing is hardcoded; each instance opts in.
+ */
+export async function getErpNextAllowedMethods(tenantId: string, agentId?: string): Promise<string[]> {
+    const envVars = await credentialVault.getEnvVars(tenantId, agentId);
+    const raw = envVars["ERPNEXT_ALLOWED_METHODS"];
+    if (!raw) return [];
+    return raw.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+}
+
 export const MISSING_CREDENTIALS_MSG =
     `ERPNext is not configured for this tenant. Please add the following credentials via Dashboard > Settings > API Credentials:\n` +
     `- ERPNEXT_URL (e.g. https://mysite.erpnext.com)\n` +

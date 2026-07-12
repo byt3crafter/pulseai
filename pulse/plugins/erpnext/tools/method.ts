@@ -1,5 +1,5 @@
 import { Tool } from "../../../src/agent/tools/tool.interface.js";
-import { getErpNextCredentials, erpNextRequest, MISSING_CREDENTIALS_MSG } from "../client.js";
+import { getErpNextCredentials, getErpNextAllowedMethods, erpNextRequest, MISSING_CREDENTIALS_MSG } from "../client.js";
 
 /**
  * Allowlisted server methods that are safe for agent use.
@@ -30,8 +30,9 @@ export const erpnextMethodTool: Tool = {
     name: "erpnext_method",
     description:
         "Call a whitelisted ERPNext server method. Use this for operations like submitting documents, " +
-        "cancelling documents, getting account balances, stock balances, and creating linked documents. " +
-        "Allowed methods: " + Array.from(ALLOWED_METHODS).join(", "),
+        "cancelling documents, getting account balances, stock balances, creating linked documents, and " +
+        "any custom methods this instance has enabled (e.g. generating a public/guest link to an invoice). " +
+        "Standard allowed methods: " + Array.from(ALLOWED_METHODS).join(", "),
     parameters: {
         type: "object",
         properties: {
@@ -57,11 +58,16 @@ export const erpnextMethodTool: Tool = {
         const method = toolArgs.method as string;
         const methodArgs = (toolArgs.args as Record<string, any>) || {};
 
-        if (!ALLOWED_METHODS.has(method)) {
+        // Built-in safe methods + any custom methods this tenant has opted into.
+        const extra = await getErpNextAllowedMethods(tenantId, (toolArgs as any)._agentId);
+        const allowed = new Set([...ALLOWED_METHODS, ...extra]);
+
+        if (!allowed.has(method)) {
             return {
                 result:
                     `Method "${method}" is not in the allowlist. Allowed methods:\n` +
-                    Array.from(ALLOWED_METHODS).map((m) => `- ${m}`).join("\n"),
+                    Array.from(allowed).map((m) => `- ${m}`).join("\n") +
+                    `\n\nTo enable a custom method, add it to the ERPNEXT_ALLOWED_METHODS credential.`,
             };
         }
 
