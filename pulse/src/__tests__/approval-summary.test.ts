@@ -3,7 +3,7 @@
  * For email it must surface the real draft (to/subject/body).
  */
 import { describe, it, expect } from "vitest";
-import { buildApprovalSummary } from "../agent/runtime.js";
+import { buildApprovalSummary } from "../agent/tools/approval-gate.js";
 
 describe("buildApprovalSummary", () => {
     it("renders an email draft with to/subject/body", () => {

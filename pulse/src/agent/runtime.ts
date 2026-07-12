@@ -14,8 +14,8 @@ import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
-import { ToolPolicy, isToolGated } from "./tools/tool-policy.js";
-import { createApproval, awaitDecision, hasStandingAllowance } from "../channels/approval-service.js";
+import { ToolPolicy } from "./tools/tool-policy.js";
+import { ensureToolApproved } from "./tools/approval-gate.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
 import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader.js";
 import { db } from "../storage/db.js";
@@ -35,39 +35,6 @@ import {
 import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
-
-/**
- * Human-readable summary shown on an approval card when a tool is gated. For
- * email it renders the actual draft (to/subject/body) so the approver reviews
- * real content, not just a tool name; other tools get a compact arg preview.
- */
-export function buildApprovalSummary(agentName: string, toolName: string, input: any): string {
-    const a = (input || {}) as Record<string, any>;
-    const clip = (s: any, n: number) => {
-        const str = typeof s === "string" ? s : JSON.stringify(s ?? "");
-        return str.length > n ? str.slice(0, n) + "…" : str;
-    };
-    if (toolName === "email_send") {
-        const to = Array.isArray(a.to) ? a.to.join(", ") : (a.to || "?");
-        const lines = [
-            `🔐 ${agentName} wants to SEND an email — approve?`,
-            `To: ${clip(to, 200)}`,
-        ];
-        if (a.cc) lines.push(`Cc: ${clip(Array.isArray(a.cc) ? a.cc.join(", ") : a.cc, 200)}`);
-        lines.push(`Subject: ${clip(a.subject || "(none)", 200)}`, `—`, clip(a.body || a.text || "(empty body)", 1400));
-        return lines.join("\n");
-    }
-    if (toolName === "email_reply") {
-        return [
-            `🔐 ${agentName} wants to REPLY to an email (thread #${a.uid ?? "?"}) — approve?`,
-            `—`,
-            clip(a.body || "(empty reply)", 1400),
-        ].join("\n");
-    }
-    const keys = Object.keys(a).filter((k) => k !== "_agentId");
-    const preview = keys.slice(0, 6).map((k) => `${k}: ${clip(a[k], 160)}`).join("\n");
-    return `🔐 ${agentName} wants to use the "${toolName}" tool — approve?${preview ? `\n${preview}` : ""}`;
-}
 
 interface AutoMemoryConfig {
     enabled: boolean;
@@ -701,48 +668,24 @@ export class AgentRuntime {
                             };
                         }
 
-                        // Hard approval gate: if this tool is marked "ask" for the agent,
-                        // block until a designated approver decides (unless a standing
-                        // allowance already covers it). Reuses the People approval workflow
-                        // (Telegram Allow/Deny/Allow-always cards + persistent allowances).
-                        if (isToolGated(agentToolPolicy, toolCall.name)) {
-                            let allowed = false;
-                            try {
-                                allowed = await hasStandingAllowance(inbound.tenantId, "tool", toolCall.name);
-                            } catch (err) {
-                                tenantLog.error({ err, toolName: toolCall.name }, "Tool allowance lookup failed — failing closed");
-                            }
-                            if (!allowed) {
-                                const summary = buildApprovalSummary(activeAgentName, toolCall.name, toolCall.input);
-                                let outcome: { status: string; approverLabel?: string };
-                                try {
-                                    const { id: approvalId } = await createApproval({
-                                        tenantId: inbound.tenantId,
-                                        kind: "tool_call",
-                                        summary,
-                                        agentProfileId: resolvedAgentProfileId ?? null,
-                                        payload: { toolName: toolCall.name, args: toolCall.input },
-                                        channelType: inbound.channelType,
-                                        channelContactId: inbound.channelContactId,
-                                        timeoutMs: 5 * 60 * 1000, // 5 min for a human to tap approve
-                                    });
-                                    outcome = await awaitDecision(approvalId, 5 * 60 * 1000);
-                                } catch (err) {
-                                    tenantLog.error({ err, toolName: toolCall.name }, "Approval workflow failed — failing closed");
-                                    outcome = { status: "expired" };
-                                }
-                                if (outcome.status !== "approved") {
-                                    const reason = outcome.status === "denied"
-                                        ? `The operator denied permission${outcome.approverLabel ? ` (${outcome.approverLabel})` : ""} to use ${toolCall.name}.`
-                                        : `Approval to use ${toolCall.name} timed out.`;
-                                    return {
-                                        type: "tool_result" as const,
-                                        tool_use_id: toolCall.id,
-                                        content: `${reason} Tell the user you couldn't complete that action and do NOT retry the tool.`,
-                                    };
-                                }
-                                // approved → fall through and execute normally
-                            }
+                        // Hard approval gate (shared with the Codex MCP path): if this
+                        // tool is marked "ask", block until an approver decides.
+                        const gate = await ensureToolApproved({
+                            tenantId: inbound.tenantId,
+                            agentProfileId: resolvedAgentProfileId ?? null,
+                            toolName: toolCall.name,
+                            args: (toolCall.input as Record<string, any>) || {},
+                            channelType: inbound.channelType,
+                            channelContactId: inbound.channelContactId,
+                            policy: agentToolPolicy,
+                            agentName: activeAgentName,
+                        });
+                        if (!gate.ok) {
+                            return {
+                                type: "tool_result" as const,
+                                tool_use_id: toolCall.id,
+                                content: gate.message,
+                            };
                         }
 
                         const tool = enabledTools.find(t => t.name === toolCall.name);

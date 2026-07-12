@@ -9,6 +9,7 @@ import { z } from "zod";
 import { InboundMessage } from "../../channels/types.js";
 import { AgentRuntime } from "../../agent/runtime.js";
 import { ToolRegistry } from "../../agent/tools/registry.js";
+import { ensureToolApproved } from "../../agent/tools/approval-gate.js";
 import { logger } from "../../utils/logger.js";
 
 // Registry instance for agent-scoped MCP sessions (reads enablement from DB per call).
@@ -224,6 +225,17 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
                     jsonSchemaToZodShape(tool.parameters),
                     async (args: Record<string, any>) => {
                         try {
+                            // Hard approval gate (same as the native runtime path): a tool
+                            // marked "ask" in the agent's Tool Policy must be approved first.
+                            const gate = await ensureToolApproved({
+                                tenantId,
+                                agentProfileId,
+                                toolName: tool.name,
+                                args,
+                            });
+                            if (!gate.ok) {
+                                return { content: [{ type: "text" as const, text: gate.message }], isError: true };
+                            }
                             const result = await tool.execute({
                                 tenantId,
                                 // Real conversation when the codex provider passed one
