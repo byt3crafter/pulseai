@@ -6,11 +6,15 @@
 import { Cron } from "croner";
 import { getEnabledJobs } from "./job-store.js";
 import { executeJob } from "./job-runner.js";
+import { deliverDueCommitments } from "../commitments/commitment-delivery.js";
 import { logger } from "../utils/logger.js";
+
+const COMMITMENT_TICK_MS = 5 * 60 * 1000; // check for due commitments every 5 min
 
 export class CronScheduler {
     private jobs: Map<string, Cron> = new Map();
     private timers: Map<string, NodeJS.Timeout> = new Map();
+    private commitmentTimer: NodeJS.Timeout | null = null;
 
     /**
      * Initialize the scheduler by loading all enabled jobs from DB.
@@ -21,6 +25,13 @@ export class CronScheduler {
 
         for (const job of enabledJobs) {
             this.addJob(job);
+        }
+
+        // Global tick: deliver due commitments (per each tenant's deliveryMode).
+        if (!this.commitmentTimer) {
+            this.commitmentTimer = setInterval(() => {
+                deliverDueCommitments().catch((err) => logger.error({ err }, "commitment delivery tick failed"));
+            }, COMMITMENT_TICK_MS);
         }
     }
 
@@ -100,6 +111,10 @@ export class CronScheduler {
      * Stop all jobs.
      */
     shutdown(): void {
+        if (this.commitmentTimer) {
+            clearInterval(this.commitmentTimer);
+            this.commitmentTimer = null;
+        }
         for (const [, cron] of this.jobs) {
             cron.stop();
         }
