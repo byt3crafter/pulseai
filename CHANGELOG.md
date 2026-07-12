@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.24] - 2026-07-12
+
+### Features
+- unread-with-body intake + draft preview on approval cards
+
 ## [0.14.23] - 2026-07-12
 
 ### Features
