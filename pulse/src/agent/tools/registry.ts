@@ -10,7 +10,10 @@ import { memoryStoreTool, memorySearchTool, memoryForgetTool } from "./built-in/
 import { scheduleJobTool, scheduleOnceTool, listJobsTool, cancelJobTool } from "./built-in/schedule.js";
 import { delegateToAgentTool } from "./built-in/delegate.js";
 import { listAgentsTool } from "./built-in/agent-mgmt.js";
-import { emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool } from "./built-in/email.js";
+import {
+    emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool,
+    emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
+} from "./built-in/email.js";
 import { db } from "../../storage/db.js";
 import { tenantSkills, mcpServers, agentProfileMcpBindings, agentProfiles } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
@@ -55,6 +58,12 @@ export class ToolRegistry {
         this.builtInTools.set("email_read", emailReadTool);
         this.builtInTools.set("email_list", emailListTool);
         this.builtInTools.set("email_fetch_unread", emailFetchUnreadTool);
+        this.builtInTools.set("email_reply", emailReplyTool);
+        this.builtInTools.set("email_search", emailSearchTool);
+        this.builtInTools.set("email_flag", emailFlagTool);
+        this.builtInTools.set("email_move", emailMoveTool);
+        this.builtInTools.set("email_delete", emailDeleteTool);
+        this.builtInTools.set("email_folders", emailFoldersTool);
 
         logger.info(
             { toolCount: this.builtInTools.size, tools: Array.from(this.builtInTools.keys()) },
