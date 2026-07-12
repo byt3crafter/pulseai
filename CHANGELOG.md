@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.22] - 2026-07-12
+
+### Features
+- Standing Orders — per-agent operating programs
+
 ## [0.14.21] - 2026-07-12
 
 ### Features
