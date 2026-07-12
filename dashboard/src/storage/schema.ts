@@ -730,6 +730,33 @@ export const commitments = pgTable(
     ]
 );
 
+// Standing Orders: per-agent "operating programs" (scope/trigger/steps/approval/
+// escalation/boundaries), injected into the agent's system prompt so it runs the
+// routine autonomously and escalates exceptions. All fields are user-authored.
+export const standingOrders = pgTable(
+    "standing_orders",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id, { onDelete: "cascade" }).notNull(),
+        name: varchar("name", { length: 255 }).notNull(),
+        enabled: boolean("enabled").notNull().default(true),
+        scope: text("scope"),
+        trigger: text("trigger_text"),
+        steps: text("steps"),
+        approvalGates: text("approval_gates"),
+        escalation: text("escalation"),
+        boundaries: text("boundaries"),
+        sortOrder: integer("sort_order").notNull().default(0),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_standing_orders_agent").on(table.agentId),
+        index("idx_standing_orders_tenant").on(table.tenantId),
+    ]
+);
+
 export const jobRuns = pgTable(
     "job_runs",
     {
