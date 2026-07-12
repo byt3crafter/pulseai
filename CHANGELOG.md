@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.20] - 2026-07-12
+
+### Features
+- due-delivery job + tenant settings UI for delivery mode
+
 ## [0.14.19] - 2026-07-12
 
 ### Features
