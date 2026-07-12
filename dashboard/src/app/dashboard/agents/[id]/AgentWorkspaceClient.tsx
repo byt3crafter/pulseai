@@ -16,6 +16,7 @@ import { PROVIDERS, getModelDisplayName, getProviderName } from "../../../../uti
 import ToolPolicyEditor from "./ToolPolicyEditor";
 import SandboxConfigEditor from "./SandboxConfigEditor";
 import HeartbeatEditor from "./HeartbeatEditor";
+import StandingOrdersEditor from "./StandingOrdersEditor";
 import SkillsEditor from "./SkillsEditor";
 import EmailConfigEditor from "./EmailConfigEditor";
 import TelegramConfigEditor from "./TelegramConfigEditor";
@@ -102,6 +103,12 @@ const NAV_GROUPS: { label: string; items: { id: string; label: string }[] }[] = 
             { id: "skills", label: "Skills" },
             { id: "tool-policy", label: "Tool Policy" },
             { id: "sandbox", label: "Sandbox" },
+        ],
+    },
+    {
+        label: "Automation",
+        items: [
+            { id: "standing-orders", label: "Standing Orders" },
         ],
     },
     {
@@ -279,6 +286,9 @@ export default function AgentWorkspaceClient({
                                 description="Instructions dictating how the agent should behave when triggered by the automated pacemaker scheduler."
                             />
                         </div>
+                    )}
+                    {activeTab === "standing-orders" && (
+                        <StandingOrdersEditor agentId={agent.id} />
                     )}
                     {activeTab === "tools-guidance" && (
                         <FileEditor

@@ -13,6 +13,7 @@ import { getChannelLeadContext } from "../gateway/channel-service.js";
 import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
+import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
 import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader.js";
 import { db } from "../storage/db.js";
@@ -449,6 +450,18 @@ export class AgentRuntime {
                     "To read or list email, use `email_read` / `email_list`. " +
                     "NEVER operate a webmail site (SOGo, Gmail, Outlook) through the browser tools to send or read mail — " +
                     "that is slow, error-prone, and will time out. The email tools talk to your mailbox directly over SMTP/IMAP.";
+            }
+
+            // 3.887 Inject the agent's standing orders (per-agent operating programs).
+            // These run the routine autonomously and escalate exceptions.
+            if (resolvedAgentProfileId) {
+                try {
+                    const orders = await getActiveStandingOrders(inbound.tenantId, resolvedAgentProfileId);
+                    const section = formatStandingOrdersForPrompt(orders);
+                    if (section) activeSystemPrompt += section;
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to inject standing orders (non-fatal)");
+                }
             }
 
             // 3.89 Run before-prompt-build plugin hooks (plugins can append/modify)
