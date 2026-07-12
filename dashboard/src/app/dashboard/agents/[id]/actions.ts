@@ -441,6 +441,7 @@ export async function updateToolPolicyAction(formData: FormData) {
     const agentId = formData.get("agentId") as string;
     const allowStr = formData.get("allow") as string;
     const denyStr = formData.get("deny") as string;
+    const askStr = formData.get("ask") as string;
 
     if (!agentId) {
         return { success: false, message: "Missing required fields." };
@@ -462,9 +463,13 @@ export async function updateToolPolicyAction(formData: FormData) {
         return str.split(",").map((s) => s.trim()).filter(Boolean);
     };
 
+    // Preserve alwaysAllow (granted by "allow always" approvals) across policy edits.
+    const existing = (agent.toolPolicy as any) || {};
     const toolPolicy = {
         allow: parseList(allowStr || ""),
         deny: parseList(denyStr || ""),
+        ask: parseList(askStr || ""),
+        alwaysAllow: Array.isArray(existing.alwaysAllow) ? existing.alwaysAllow : [],
     };
 
     await db.update(agentProfiles)
