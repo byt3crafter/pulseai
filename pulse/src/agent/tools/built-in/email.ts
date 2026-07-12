@@ -10,9 +10,11 @@ import { resolveEmailConfig, sendEmail, readEmails } from "../../../channels/ema
 export const emailSendTool: Tool = {
     name: "email_send",
     description:
-        "Send an email via SMTP. Requires email to be configured for this agent or tenant. " +
-        "If an email signature is configured, it is appended automatically after the body — " +
-        "do NOT write your own sign-off, name, or contact details at the end of the message.",
+        "Send an email via SMTP, optionally with file attachments. Requires email to be configured " +
+        "for this agent or tenant. If an email signature is configured, it is appended automatically " +
+        "after the body — do NOT write your own sign-off, name, or contact details at the end. " +
+        "To attach a file, add it to `attachments` with a filename and its content (plain text, or " +
+        "base64 with encoding:\"base64\" for PDFs/images/spreadsheets you already have as base64).",
     parameters: {
         type: "object",
         properties: {
@@ -40,6 +42,20 @@ export const emailSendTool: Tool = {
                 type: "string",
                 description: "Optional HTML body (if provided, sent alongside plain text). Do not include a signature — one is appended automatically if configured.",
             },
+            attachments: {
+                type: "array",
+                description: "Optional file attachments.",
+                items: {
+                    type: "object",
+                    properties: {
+                        filename: { type: "string", description: "File name incl. extension, e.g. 'quote-1042.csv' or 'report.pdf'." },
+                        content: { type: "string", description: "The file's content — plain text, or base64 when encoding is 'base64'." },
+                        encoding: { type: "string", description: "'utf8' (default, for text/CSV/HTML) or 'base64' (for binary files like PDF/images)." },
+                        contentType: { type: "string", description: "Optional MIME type, e.g. 'text/csv', 'application/pdf'." },
+                    },
+                    required: ["filename", "content"],
+                },
+            },
         },
         required: ["to", "subject", "body"],
     },
@@ -61,7 +77,7 @@ export const emailSendTool: Tool = {
                 params.args.subject,
                 params.args.body,
                 params.args.html,
-                { cc: params.args.cc, bcc: params.args.bcc }
+                { cc: params.args.cc, bcc: params.args.bcc, attachments: params.args.attachments }
             );
             return {
                 result: JSON.stringify({

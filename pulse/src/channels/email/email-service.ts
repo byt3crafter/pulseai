@@ -173,13 +173,24 @@ function normalizeRecipients(v: string | string[] | undefined | null): string[] 
     return arr.map((s) => s.trim()).filter(Boolean);
 }
 
+/** A file attachment supplied by a caller (agent-generated content). */
+export interface EmailAttachment {
+    filename: string;
+    content: string; // text, or base64 when encoding === "base64"
+    encoding?: "base64" | "utf8";
+    contentType?: string;
+}
+
+// Guard against a runaway/abusive attachment. ~15 MB of decoded content total.
+const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+
 export async function sendEmail(
     config: SmtpConfig,
     to: string | string[],
     subject: string,
     body: string,
     html?: string,
-    opts?: { cc?: string | string[]; bcc?: string | string[] }
+    opts?: { cc?: string | string[]; bcc?: string | string[]; attachments?: EmailAttachment[] }
 ): Promise<{ messageId: string; to: string[]; cc: string[] }> {
     // TLS mode is determined by PORT, not a flag: 465 = implicit TLS (secure),
     // 587/25 = plaintext connect then STARTTLS upgrade. Using secure:true on
@@ -199,7 +210,7 @@ export async function sendEmail(
 
     let finalHtml = html;
     let finalText = body;
-    let attachments: Array<{ filename: string; content: Buffer; cid: string; contentType?: string }> | undefined;
+    let attachments: Array<{ filename: string; content: Buffer | string; cid?: string; contentType?: string }> | undefined;
 
     if (config.signature?.enabled) {
         try {
@@ -230,6 +241,21 @@ export async function sendEmail(
             finalText = body;
             attachments = undefined;
         }
+    }
+
+    // Caller-supplied attachments (e.g. a report the agent generated). Merged
+    // with any signature-logo attachment above.
+    if (opts?.attachments?.length) {
+        let total = 0;
+        const files = opts.attachments.map((a) => {
+            const buf = a.encoding === "base64" ? Buffer.from(a.content, "base64") : Buffer.from(a.content, "utf8");
+            total += buf.length;
+            return { filename: a.filename, content: buf, contentType: a.contentType };
+        });
+        if (total > MAX_ATTACHMENT_BYTES) {
+            throw new Error(`Attachments too large (${(total / 1048576).toFixed(1)} MB). Limit is 15 MB total.`);
+        }
+        attachments = [...(attachments || []), ...files];
     }
 
     const toList = normalizeRecipients(to);
