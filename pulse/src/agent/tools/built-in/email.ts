@@ -5,7 +5,7 @@
  */
 
 import { Tool } from "../tool.interface.js";
-import { resolveEmailConfig, sendEmail, readEmails } from "../../../channels/email/email-service.js";
+import { resolveEmailConfig, sendEmail, readEmails, readUnreadEmails } from "../../../channels/email/email-service.js";
 
 export const emailSendTool: Tool = {
     name: "email_send",
@@ -129,6 +129,40 @@ export const emailReadTool: Tool = {
             };
         } catch (err: any) {
             return { result: `Error reading emails: ${err.message}` };
+        }
+    },
+};
+
+export const emailFetchUnreadTool: Tool = {
+    name: "email_fetch_unread",
+    description:
+        "Fetch UNREAD inbox emails WITH their full body text — use this to read new customer replies you need to act on. " +
+        "By default it marks the fetched emails as read so you won't process the same one twice, so only call it when you intend " +
+        "to handle everything it returns in this turn. Returns each email's from, subject, date and body.",
+    parameters: {
+        type: "object",
+        properties: {
+            count: { type: "number", description: "Max unread emails to fetch (default 10, max 25)." },
+            mark_read: { type: "boolean", description: "Mark the fetched emails as read (default true). Set false to peek without consuming." },
+        },
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available for email config resolution." };
+
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap) {
+            return { result: "Error: No email (IMAP) configuration found. Configure email in the dashboard settings." };
+        }
+
+        try {
+            const emails = await readUnreadEmails(config.imap, {
+                count: params.args.count,
+                markSeen: params.args.mark_read !== false,
+            });
+            return { result: JSON.stringify({ count: emails.length, emails }) };
+        } catch (err: any) {
+            return { result: `Error fetching unread emails: ${err.message}` };
         }
     },
 };

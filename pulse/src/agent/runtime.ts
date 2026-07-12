@@ -36,6 +36,32 @@ import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
 
+/**
+ * Human-readable summary shown on an approval card when a tool is gated. For
+ * email it renders the actual draft (to/subject/body) so the approver reviews
+ * real content, not just a tool name; other tools get a compact arg preview.
+ */
+export function buildApprovalSummary(agentName: string, toolName: string, input: any): string {
+    const a = (input || {}) as Record<string, any>;
+    const clip = (s: any, n: number) => {
+        const str = typeof s === "string" ? s : JSON.stringify(s ?? "");
+        return str.length > n ? str.slice(0, n) + "…" : str;
+    };
+    if (toolName === "email_send") {
+        const to = Array.isArray(a.to) ? a.to.join(", ") : (a.to || "?");
+        const lines = [
+            `🔐 ${agentName} wants to SEND an email — approve?`,
+            `To: ${clip(to, 200)}`,
+        ];
+        if (a.cc) lines.push(`Cc: ${clip(Array.isArray(a.cc) ? a.cc.join(", ") : a.cc, 200)}`);
+        lines.push(`Subject: ${clip(a.subject || "(none)", 200)}`, `—`, clip(a.body || a.text || "(empty body)", 1400));
+        return lines.join("\n");
+    }
+    const keys = Object.keys(a).filter((k) => k !== "_agentId");
+    const preview = keys.slice(0, 6).map((k) => `${k}: ${clip(a[k], 160)}`).join("\n");
+    return `🔐 ${agentName} wants to use the "${toolName}" tool — approve?${preview ? `\n${preview}` : ""}`;
+}
+
 interface AutoMemoryConfig {
     enabled: boolean;
     maxMemories: number;
@@ -680,7 +706,7 @@ export class AgentRuntime {
                                 tenantLog.error({ err, toolName: toolCall.name }, "Tool allowance lookup failed — failing closed");
                             }
                             if (!allowed) {
-                                const summary = `🔐 ${activeAgentName} wants to use the "${toolCall.name}" tool. Allow it?`;
+                                const summary = buildApprovalSummary(activeAgentName, toolCall.name, toolCall.input);
                                 let outcome: { status: string; approverLabel?: string };
                                 try {
                                     const { id: approvalId } = await createApproval({
