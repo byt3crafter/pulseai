@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.26] - 2026-07-12
+
+### Bug Fixes
+- enforce the tool approval gate on the Codex MCP path too
+
 ## [0.14.25] - 2026-07-12
 
 ### Features
