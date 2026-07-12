@@ -19,6 +19,13 @@ export interface Tool {
     };
 
     /**
+     * Where the tool comes from. Used by Tool Search (progressive disclosure):
+     * "builtin" (and undefined) tools are always sent to the model; extension
+     * tools (plugin/mcp/custom/server) can be deferred behind `tool_search`.
+     */
+    source?: "builtin" | "plugin" | "mcp" | "custom" | "server";
+
+    /**
      * Execute the tool with given parameters
      *
      * @param params.tenantId - The tenant making the request

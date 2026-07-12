@@ -31,6 +31,7 @@ import {
     saveDraftChannelConfigAction,
     saveAutoMemorySettingsAction,
     saveCommitmentsSettingsAction,
+    saveToolSearchSettingsAction,
     resetMyWorkspaceAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
@@ -147,6 +148,11 @@ interface Props {
         maxPerDay: number;
         ownerContact: string;
     };
+    toolSearchConfig: {
+        mode: "off" | "auto" | "on";
+        threshold: number;
+        maxResults: number;
+    };
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -164,7 +170,7 @@ export default function SettingsClient({
     tab, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, autoMemoryConfig, commitmentsConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -219,7 +225,7 @@ export default function SettingsClient({
                     {tab === "email" && <EmailTab config={emailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
-                    {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} />}
+                    {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} toolSearchConfig={toolSearchConfig} />}
                     {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
                     {tab === "billing" && <BillingTab credits={credits} />}
@@ -2597,11 +2603,42 @@ function FormInput({ label, name, type, placeholder, mono }: { label: string; na
 
 // ─── Plugins Tab ─────────────────────────────────────────────────────────────
 
-function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[]; savePluginCredentials: (formData: FormData) => Promise<void> }) {
+function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig }: {
+    plugins: PluginData[];
+    savePluginCredentials: (formData: FormData) => Promise<void>;
+    toolSearchConfig: { mode: "off" | "auto" | "on"; threshold: number; maxResults: number };
+}) {
+    const router = useRouter();
     const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(new Set());
     const [saving, startTransition] = useTransition();
     const [odConnecting, setOdConnecting] = useState(false);
     const [odBanner, setOdBanner] = useState<{ ok: boolean; text: string } | null>(null);
+
+    // Tool Search (progressive tool disclosure)
+    const [tsMode, setTsMode] = useState<"off" | "auto" | "on">(toolSearchConfig.mode);
+    const [tsThreshold, setTsThreshold] = useState(toolSearchConfig.threshold.toString());
+    const [tsMax, setTsMax] = useState(toolSearchConfig.maxResults.toString());
+    const [tsStatus, setTsStatus] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+    const [savingTs, startSavingTs] = useTransition();
+
+    const handleSaveToolSearch = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        startSavingTs(async () => {
+            const res = await saveToolSearchSettingsAction({
+                mode: tsMode,
+                threshold: Number(tsThreshold),
+                maxResults: Number(tsMax),
+            });
+            setTsStatus({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) router.refresh();
+        });
+    };
+
+    const TS_MODES: { id: "off" | "auto" | "on"; title: string; desc: string }[] = [
+        { id: "auto", title: "Automatic (recommended)", desc: "Load all tools upfront normally, but switch to search once an agent has more than the threshold of extension tools." },
+        { id: "on", title: "Always on", desc: "Always hide extension tools behind search. Best when agents have many integrations." },
+        { id: "off", title: "Off", desc: "Always send every tool's full schema to the model. Simplest, but slower and less accurate with many tools." },
+    ];
 
     useEffect(() => {
         const p = new URLSearchParams(window.location.search);
@@ -2635,6 +2672,88 @@ function PluginsTab({ plugins, savePluginCredentials }: { plugins: PluginData[];
         <div>
             <h2 className="text-lg font-semibold text-pulse-text mb-1">Plugins</h2>
             <p className="text-sm text-pulse-muted mb-6">Configure credentials for each plugin to activate integrations.</p>
+
+            <Card>
+                <CardHeader
+                    title="Tool Search"
+                    description="When agents have many tools, sending every tool to the model on each turn is slow and hurts accuracy. Tool Search lets the agent look up the tools it needs on demand instead."
+                />
+                <div className="px-5 py-5">
+                    <form onSubmit={handleSaveToolSearch} className="space-y-5 max-w-xl">
+                        <fieldset className="space-y-2">
+                            <legend className="block text-sm font-medium text-pulse-text-soft mb-1">Mode</legend>
+                            {TS_MODES.map((m) => (
+                                <label
+                                    key={m.id}
+                                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${tsMode === m.id ? "border-indigo-500 bg-pulse-tint" : "border-pulse-border hover:bg-pulse-hover"}`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="ts-mode"
+                                        value={m.id}
+                                        checked={tsMode === m.id}
+                                        onChange={() => setTsMode(m.id)}
+                                        className="mt-1 h-4 w-4 border-pulse-border text-indigo-600 focus:ring-indigo-600"
+                                    />
+                                    <span>
+                                        <span className="block text-sm font-semibold text-pulse-text">{m.title}</span>
+                                        <span className="block text-xs text-pulse-muted mt-1">{m.desc}</span>
+                                    </span>
+                                </label>
+                            ))}
+                        </fieldset>
+
+                        {tsMode === "auto" && (
+                            <div className="max-w-xs">
+                                <label htmlFor="ts-threshold" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Switch to search above</label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        id="ts-threshold"
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        value={tsThreshold}
+                                        onChange={(e) => setTsThreshold(e.target.value)}
+                                        className="w-24 px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
+                                    />
+                                    <span className="text-sm text-pulse-muted">extension tools</span>
+                                </div>
+                                <p className="text-xs text-pulse-faint mt-1">Counts plugin, MCP, custom and server tools — not the core built-ins.</p>
+                            </div>
+                        )}
+
+                        {tsMode !== "off" && (
+                            <div className="max-w-xs">
+                                <label htmlFor="ts-max" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Results per search</label>
+                                <input
+                                    id="ts-max"
+                                    type="number"
+                                    min="1"
+                                    max="25"
+                                    value={tsMax}
+                                    onChange={(e) => setTsMax(e.target.value)}
+                                    className="w-24 px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
+                                />
+                                <p className="text-xs text-pulse-faint mt-1">How many matching tools a single search returns to the agent.</p>
+                            </div>
+                        )}
+
+                        {tsStatus.type !== "idle" && (
+                            <p className={`text-sm ${tsStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>{tsStatus.message}</p>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={savingTs}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                        >
+                            {savingTs ? "Saving..." : "Save Tool Search"}
+                        </button>
+                    </form>
+                </div>
+            </Card>
+
+            <div className="h-6" />
 
             {odBanner && (
                 <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${odBanner.ok ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>

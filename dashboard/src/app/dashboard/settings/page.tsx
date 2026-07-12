@@ -250,6 +250,13 @@ export default async function SettingsPage({
                 maxPerDay: Math.max(0, Math.min(20, Math.floor(Number(tenantConfig.commitments?.maxPerDay ?? 3)))),
                 ownerContact: typeof tenantConfig.commitments?.ownerContact === "string" ? tenantConfig.commitments.ownerContact : "",
             }}
+            toolSearchConfig={{
+                mode: (["off", "auto", "on"].includes(tenantConfig.toolSearch?.mode)
+                    ? tenantConfig.toolSearch.mode
+                    : "auto") as "off" | "auto" | "on",
+                threshold: Math.max(1, Math.min(100, Math.floor(Number(tenantConfig.toolSearch?.threshold ?? 12)))),
+                maxResults: Math.max(1, Math.min(25, Math.floor(Number(tenantConfig.toolSearch?.maxResults ?? 6)))),
+            }}
             pendingPairings={pendingPairings.map(p => ({
                 id: p.id,
                 code: p.code,

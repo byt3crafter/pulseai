@@ -20,6 +20,15 @@ import { messages, conversations, usageRecords, tenantBalances, ledgerTransactio
 import { eq, desc, and, sql } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
 import { sanitizeToolSchema } from "./tools/schema-sanitizer.js";
+import {
+    parseToolSearchConfig,
+    isDeferrable,
+    shouldUseToolSearch,
+    toolSearchDefinition,
+    rankDeferredTools,
+    formatSearchResult,
+    TOOL_SEARCH_NAME,
+} from "./tools/tool-search.js";
 import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
@@ -235,8 +244,32 @@ export class AgentRuntime {
                 input_schema: sanitizeToolSchema(t.name, structuredClone(t.parameters)),
             }));
 
+            // 3.7 Tool Search (progressive disclosure): when enabled and there are
+            // enough extension tools, send only core tool schemas + a `tool_search`
+            // meta-tool up front. Extension tools (plugins/MCP/custom/server) are
+            // revealed on demand when the agent searches. Per-tenant, backward-compatible.
+            const toolSearchCfg = parseToolSearchConfig(tenantSettings?.config);
+            const deferrableTools = enabledTools.filter(isDeferrable);
+            const toolSearchActive = shouldUseToolSearch(toolSearchCfg, deferrableTools.length);
+            const defByName = new Map(toolDefinitions.map((d) => [d.name, d]));
+            const deferredNames = new Set(deferrableTools.map((t) => t.name));
+            const revealedNames = new Set<string>();
+            const buildActiveDefs = () => {
+                if (!toolSearchActive) return toolDefinitions;
+                const core = toolDefinitions.filter((d) => !deferredNames.has(d.name));
+                const revealed = Array.from(revealedNames)
+                    .map((n) => defByName.get(n))
+                    .filter((d): d is (typeof toolDefinitions)[number] => Boolean(d));
+                return [...core, toolSearchDefinition(), ...revealed];
+            };
+            let activeToolDefinitions = buildActiveDefs();
+
             tenantLog.debug(
-                { toolCount: enabledTools.length, tools: enabledTools.map((t) => t.name) },
+                {
+                    toolCount: enabledTools.length,
+                    tools: enabledTools.map((t) => t.name),
+                    toolSearch: toolSearchActive ? { mode: toolSearchCfg.mode, deferred: deferrableTools.length } : "off",
+                },
                 "Loaded enabled tools for tenant"
             );
 
@@ -572,7 +605,7 @@ export class AgentRuntime {
                 progressVerbosity: activeProgressVerbosity,
                 systemPrompt: activeSystemPrompt,
                 messages: llmMessages,
-                tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+                tools: activeToolDefinitions.length > 0 ? activeToolDefinitions : undefined,
                 stream: streamCallbacks,
                 attachments: inbound.attachments,
                 reasoningEffort: activeReasoningEffort,
@@ -580,7 +613,9 @@ export class AgentRuntime {
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
             let toolUseCount = 0;
-            const maxToolIterations = delegationActive ? 10 : 5; // Higher limit when delegation is active
+            // Higher limit when delegation is active; +2 when Tool Search is on so
+            // the search step(s) don't eat into the real tool-use budget.
+            const maxToolIterations = (delegationActive ? 10 : 5) + (toolSearchActive ? 2 : 0);
             let totalInputTokens = llmResponse.usage.inputTokens;
             let totalOutputTokens = llmResponse.usage.outputTokens;
 
@@ -596,6 +631,24 @@ export class AgentRuntime {
                 const toolResults = await Promise.all(
                     currentToolCalls.map(async (toolCall: ToolCall) => {
                         tenantLog.debug({ toolCall }, "Executing tool");
+
+                        // Tool Search meta-tool: reveal matching deferred tools so the
+                        // model can call them on the next turn. Handled inline (it's not
+                        // a registered tool — it manipulates which schemas are exposed).
+                        if (toolSearchActive && toolCall.name === TOOL_SEARCH_NAME) {
+                            const query = String((toolCall.input as any)?.query ?? "");
+                            const { matches, total } = rankDeferredTools(deferrableTools, query, toolSearchCfg.maxResults);
+                            for (const m of matches) revealedNames.add(m.name);
+                            tenantLog.debug(
+                                { query, revealed: matches.map((m) => m.name) },
+                                "tool_search revealed tools"
+                            );
+                            return {
+                                type: "tool_result" as const,
+                                tool_use_id: toolCall.id,
+                                content: formatSearchResult(matches, total, query),
+                            };
+                        }
 
                         const tool = enabledTools.find(t => t.name === toolCall.name);
                         let result: { result: string; metadata?: any };
@@ -650,6 +703,10 @@ export class AgentRuntime {
                     content: toolResults,
                 };
 
+                // Rebuild active tool schemas — a tool_search this round may have
+                // revealed new tools that must be callable on the next turn.
+                if (toolSearchActive) activeToolDefinitions = buildActiveDefs();
+
                 // Call LLM with tool results — same model + tenant routing
                 llmResponse = await this.providerManager.chat({
                     agentProfileId: resolvedAgentProfileId ?? undefined,
@@ -662,7 +719,7 @@ export class AgentRuntime {
                         assistantMessage as any,
                         toolResultMessage as any,
                     ],
-                    tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+                    tools: activeToolDefinitions.length > 0 ? activeToolDefinitions : undefined,
                     attachments: inbound.attachments,
                     reasoningEffort: activeReasoningEffort,
                 });
