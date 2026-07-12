@@ -705,6 +705,31 @@ export const scheduledJobs = pgTable(
     ]
 );
 
+// Commitments: agent follow-up check-ins. Delivery when due is governed by a
+// per-tenant setting (tenants.config.commitments.deliveryMode).
+export const commitments = pgTable(
+    "commitments",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id),
+        conversationId: uuid("conversation_id"),
+        channelType: varchar("channel_type", { length: 30 }),
+        channelContactId: varchar("channel_contact_id", { length: 255 }),
+        summary: text("summary").notNull(),
+        dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+        status: varchar("status", { length: 20 }).notNull().default("pending"), // pending|delivered|done|dismissed|expired
+        deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+        metadata: jsonb("metadata").notNull().default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_commitments_due").on(table.status, table.dueAt),
+        index("idx_commitments_tenant").on(table.tenantId),
+    ]
+);
+
 export const jobRuns = pgTable(
     "job_runs",
     {
