@@ -16,6 +16,11 @@ export function setJobRunnerDeps(runtime: AgentRuntime, sendCallback: Function) 
     sendCallbackRef = sendCallback;
 }
 
+/** The injected agent runtime (used by other background jobs, e.g. commitments). */
+export function getJobRunnerRuntime(): AgentRuntime | null {
+    return runtimeRef;
+}
+
 export async function executeJob(job: any): Promise<void> {
     const jobLog = logger.child({ jobId: job.id, agentId: job.agentId, tenantId: job.tenantId });
 

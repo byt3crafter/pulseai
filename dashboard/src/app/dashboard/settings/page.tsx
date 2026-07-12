@@ -242,6 +242,14 @@ export default async function SettingsPage({
                 enabled: tenantConfig.auto_memory?.enabled !== false,
                 maxMemories: Math.max(0, Math.min(5, Math.floor(Number(tenantConfig.auto_memory?.maxMemories ?? 3)))),
             }}
+            commitmentsConfig={{
+                enabled: tenantConfig.commitments?.enabled === true,
+                deliveryMode: (["channel", "owner", "internal"].includes(tenantConfig.commitments?.deliveryMode)
+                    ? tenantConfig.commitments.deliveryMode
+                    : "internal") as "channel" | "owner" | "internal",
+                maxPerDay: Math.max(0, Math.min(20, Math.floor(Number(tenantConfig.commitments?.maxPerDay ?? 3)))),
+                ownerContact: typeof tenantConfig.commitments?.ownerContact === "string" ? tenantConfig.commitments.ownerContact : "",
+            }}
             pendingPairings={pendingPairings.map(p => ({
                 id: p.id,
                 code: p.code,

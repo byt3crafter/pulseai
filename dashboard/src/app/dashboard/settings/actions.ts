@@ -502,6 +502,44 @@ export async function saveAutoMemorySettingsAction(config: {
     }
 }
 
+export async function saveCommitmentsSettingsAction(config: {
+    enabled: boolean;
+    deliveryMode: "channel" | "owner" | "internal";
+    maxPerDay: number;
+    ownerContact: string;
+}) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const modes = ["channel", "owner", "internal"] as const;
+    const deliveryMode = modes.includes(config.deliveryMode) ? config.deliveryMode : "internal";
+    const maxPerDay = Math.max(0, Math.min(20, Math.floor(Number(config.maxPerDay) || 0)));
+    const ownerContact = (config.ownerContact || "").trim();
+
+    try {
+        await db.execute(
+            sql`UPDATE tenants
+                SET config = config || ${JSON.stringify({
+                    commitments: {
+                        enabled: config.enabled,
+                        deliveryMode,
+                        maxPerDay,
+                        ownerContact: ownerContact || undefined,
+                    },
+                })}::jsonb,
+                updated_at = now()
+                WHERE id = ${tenantId}::uuid`
+        );
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Follow-up commitment settings saved." };
+    } catch (error) {
+        console.error("Failed to update commitment settings:", error);
+        return { success: false, message: "Failed to save commitment settings." };
+    }
+}
+
 export async function approvePairingAction(code: string) {
     const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };

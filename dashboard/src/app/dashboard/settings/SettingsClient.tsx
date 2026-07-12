@@ -30,6 +30,7 @@ import {
     testVoyageEmbeddingAction,
     saveDraftChannelConfigAction,
     saveAutoMemorySettingsAction,
+    saveCommitmentsSettingsAction,
     resetMyWorkspaceAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
@@ -140,6 +141,12 @@ interface Props {
         enabled: boolean;
         maxMemories: number;
     };
+    commitmentsConfig: {
+        enabled: boolean;
+        deliveryMode: "channel" | "owner" | "internal";
+        maxPerDay: number;
+        ownerContact: string;
+    };
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -157,7 +164,7 @@ export default function SettingsClient({
     tab, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, autoMemoryConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, commitmentsConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -211,7 +218,7 @@ export default function SettingsClient({
                     )}
                     {tab === "email" && <EmailTab config={emailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
-                    {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} />}
+                    {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} />}
                     {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
@@ -1463,9 +1470,11 @@ type VoyageModel = "voyage-3-large" | "voyage-3-lite";
 function MemoryTab({
     embeddingConfigured,
     autoMemoryConfig,
+    commitmentsConfig,
 }: {
     embeddingConfigured: boolean;
     autoMemoryConfig: { enabled: boolean; maxMemories: number };
+    commitmentsConfig: { enabled: boolean; deliveryMode: "channel" | "owner" | "internal"; maxPerDay: number; ownerContact: string };
 }) {
     const router = useRouter();
 
@@ -1497,6 +1506,15 @@ function MemoryTab({
     const [removing, startRemoving] = useTransition();
     const [switching, startSwitching] = useTransition();
     const [savingAutoMemory, startSavingAutoMemory] = useTransition();
+
+    // Follow-up commitments
+    const [commitEnabled, setCommitEnabled] = useState(commitmentsConfig.enabled);
+    const [commitMode, setCommitMode] = useState<"channel" | "owner" | "internal">(commitmentsConfig.deliveryMode);
+    const [commitMax, setCommitMax] = useState(commitmentsConfig.maxPerDay.toString());
+    const [commitOwner, setCommitOwner] = useState(commitmentsConfig.ownerContact);
+    const [commitStatus, setCommitStatus] = useState<{ type: "idle" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+    const [savingCommit, startSavingCommit] = useTransition();
+
     const busy = testing || saving || removing || switching;
 
     const refreshConfig = async () => {
@@ -1636,8 +1654,114 @@ function MemoryTab({
         });
     };
 
+    const handleSaveCommitments = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        startSavingCommit(async () => {
+            const res = await saveCommitmentsSettingsAction({
+                enabled: commitEnabled,
+                deliveryMode: commitMode,
+                maxPerDay: Number(commitMax),
+                ownerContact: commitOwner,
+            });
+            setCommitStatus({ type: res.success ? "success" : "error", message: res.message });
+            if (res.success) router.refresh();
+        });
+    };
+
+    const COMMIT_MODES: { id: "channel" | "owner" | "internal"; title: string; desc: string }[] = [
+        { id: "channel", title: "Message the customer", desc: "When a follow-up is due, the agent writes a natural check-in and sends it to the original chat (Telegram)." },
+        { id: "owner", title: "Remind me (the owner)", desc: "Send a plain reminder to your own contact so a human does the follow-up. Nothing is sent to the customer." },
+        { id: "internal", title: "Track only (no messages)", desc: "Commitments are recorded and agents can review them, but nothing is ever sent automatically." },
+    ];
+
     return (
         <div className="space-y-6">
+            <Card>
+                <CardHeader title="Follow-up commitments" description="When an agent promises to get back to someone, it records a commitment. Choose what happens when one comes due." />
+                <div className="px-5 py-5">
+                    <form onSubmit={handleSaveCommitments} className="space-y-5 max-w-xl">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={commitEnabled}
+                                onChange={(e) => setCommitEnabled(e.target.checked)}
+                                className="mt-1 h-4 w-4 rounded border-pulse-border text-indigo-600 focus:ring-indigo-600 focus:ring-offset-2 focus:ring-offset-pulse-panel"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-pulse-text">Act on due commitments automatically</span>
+                                <span className="block text-xs text-pulse-muted mt-1">
+                                    When off, agents can still record and review commitments, but nothing is delivered when they come due.
+                                </span>
+                            </span>
+                        </label>
+
+                        <fieldset className="space-y-2" disabled={!commitEnabled}>
+                            <legend className="block text-sm font-medium text-pulse-text-soft mb-1">When a commitment is due</legend>
+                            {COMMIT_MODES.map((m) => (
+                                <label
+                                    key={m.id}
+                                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${commitMode === m.id ? "border-indigo-500 bg-pulse-tint" : "border-pulse-border hover:bg-pulse-hover"} ${!commitEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="commit-mode"
+                                        value={m.id}
+                                        checked={commitMode === m.id}
+                                        onChange={() => setCommitMode(m.id)}
+                                        className="mt-1 h-4 w-4 border-pulse-border text-indigo-600 focus:ring-indigo-600"
+                                    />
+                                    <span>
+                                        <span className="block text-sm font-semibold text-pulse-text">{m.title}</span>
+                                        <span className="block text-xs text-pulse-muted mt-1">{m.desc}</span>
+                                    </span>
+                                </label>
+                            ))}
+                        </fieldset>
+
+                        {commitMode === "owner" && commitEnabled && (
+                            <div className="max-w-md">
+                                <label htmlFor="commit-owner" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Your Telegram chat ID</label>
+                                <input
+                                    id="commit-owner"
+                                    type="text"
+                                    value={commitOwner}
+                                    onChange={(e) => setCommitOwner(e.target.value)}
+                                    placeholder="e.g. 123456789"
+                                    className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
+                                />
+                                <p className="text-xs text-pulse-faint mt-1">Reminders are sent here. Message your bot and it will report your chat ID, or find it in the pairing list.</p>
+                            </div>
+                        )}
+
+                        <div className="max-w-xs">
+                            <label htmlFor="commit-max" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Max follow-ups per check</label>
+                            <input
+                                id="commit-max"
+                                type="number"
+                                min="0"
+                                max="20"
+                                value={commitMax}
+                                onChange={(e) => setCommitMax(e.target.value)}
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
+                            />
+                            <p className="text-xs text-pulse-faint mt-1">A safety cap so a backlog can&apos;t flood a chat. Checks run every few minutes.</p>
+                        </div>
+
+                        {commitStatus.type !== "idle" && (
+                            <p className={`text-sm ${commitStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>{commitStatus.message}</p>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={savingCommit}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                        >
+                            {savingCommit ? "Saving..." : "Save commitment settings"}
+                        </button>
+                    </form>
+                </div>
+            </Card>
+
             <Card>
                 <CardHeader title="Automatic Memory" description="Extract durable facts after each completed turn and save them without relying on the chat model to call a tool." />
                 <div className="px-5 py-5">
