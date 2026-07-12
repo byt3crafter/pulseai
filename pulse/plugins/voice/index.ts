@@ -17,11 +17,29 @@ export default definePlugin({
     author: "Runstate",
 
     permissions: {
-        network: ["api.openai.com", "api.telegram.org"],
+        network: ["api.openai.com", "api.elevenlabs.io", "api.telegram.org"],
     },
 
-    // No credentials of its own — uses the tenant's OpenAI provider key.
-    credentialSchema: [],
+    // Transcription + OpenAI TTS use the tenant's OpenAI provider key. For
+    // premium ElevenLabs voices, add an ElevenLabs key (optional).
+    credentialSchema: [
+        {
+            name: "ELEVENLABS_API_KEY",
+            label: "ElevenLabs API Key (optional)",
+            type: "secret",
+            placeholder: "sk_...",
+            required: false,
+            helpText: "For premium ElevenLabs voices. Leave blank to use OpenAI TTS (your OpenAI key). When set, ElevenLabs becomes the default voice.",
+        },
+        {
+            name: "ELEVENLABS_VOICE_ID",
+            label: "ElevenLabs Voice ID (optional)",
+            type: "text",
+            placeholder: "21m00Tcm4TlvDq8ikWAM",
+            required: false,
+            helpText: "The ElevenLabs voice to use. Defaults to a standard voice if blank.",
+        },
+    ],
 
     tools: [voiceTranscribeTool, textToSpeechTool],
 
