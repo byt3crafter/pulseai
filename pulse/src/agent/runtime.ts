@@ -291,8 +291,14 @@ export class AgentRuntime {
             const promptMode: PromptMode = inbound.channelType === "heartbeat" ? "minimal" : "full";
 
             if (resolvedAgentProfileId) {
+                // Scope by tenant: resolvedAgentProfileId can originate from a
+                // caller-supplied value (e.g. /api/app/chat body), so an id from
+                // another tenant must never load that tenant's profile/persona.
                 const profile = await db.query.agentProfiles.findFirst({
-                    where: eq(agentProfiles.id, resolvedAgentProfileId)
+                    where: and(
+                        eq(agentProfiles.id, resolvedAgentProfileId),
+                        eq(agentProfiles.tenantId, inbound.tenantId)
+                    )
                 });
 
                 // Disabled agents are paused — they don't respond or route.

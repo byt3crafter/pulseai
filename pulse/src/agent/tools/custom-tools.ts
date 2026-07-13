@@ -12,6 +12,10 @@ import { customTools } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
 import { decrypt } from "../../utils/crypto.js";
 import { logger } from "../../utils/logger.js";
+import { assertSafeUrl, safeFetch } from "../../utils/ssrf.js";
+
+// Re-exported for the playwright plugin, which imports assertSafeUrl from here.
+export { assertSafeUrl } from "../../utils/ssrf.js";
 
 const MAX_RESPONSE_CHARS = 20_000;
 
@@ -25,38 +29,6 @@ export interface CustomToolRow {
     bodyTemplate: string | null;
     paramSchema: any;
     timeoutMs: number;
-}
-
-/** Block requests to loopback / private / link-local / cloud-metadata hosts (SSRF guard). */
-export function assertSafeUrl(raw: string): URL {
-    let u: URL;
-    try {
-        u = new URL(raw);
-    } catch {
-        throw new Error("Invalid URL");
-    }
-    if (u.protocol !== "http:" && u.protocol !== "https:") {
-        throw new Error("Only http(s) URLs are allowed");
-    }
-    const host = u.hostname.toLowerCase();
-    const blocked =
-        host === "localhost" ||
-        host === "0.0.0.0" ||
-        host === "::1" ||
-        host.endsWith(".localhost") ||
-        host.endsWith(".internal") ||
-        host === "metadata.google.internal" ||
-        host === "169.254.169.254" ||
-        /^127\./.test(host) ||
-        /^10\./.test(host) ||
-        /^192\.168\./.test(host) ||
-        /^169\.254\./.test(host) ||
-        /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
-        /^fe80:/i.test(host) ||
-        /^fc00:/i.test(host) ||
-        /^fd/i.test(host);
-    if (blocked) throw new Error("Requests to internal/private hosts are not allowed");
-    return u;
 }
 
 /** Replace {param} placeholders; `encode` for URL path segments. */
@@ -127,7 +99,8 @@ export function createCustomTool(row: CustomToolRow): Tool {
                 const timer = setTimeout(() => controller.abort(), Math.min(row.timeoutMs || 15000, 30000));
                 let res: Response;
                 try {
-                    res = await fetch(url.toString(), { method, headers, body, signal: controller.signal });
+                    // safeFetch re-checks the resolved IP and every redirect hop.
+                    res = await safeFetch(url.toString(), { method, headers, body, signal: controller.signal });
                 } finally {
                     clearTimeout(timer);
                 }

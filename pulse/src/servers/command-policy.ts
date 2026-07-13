@@ -24,8 +24,21 @@ export interface PolicyResult {
 
 // ─── Observe mode ───────────────────────────────────────────────────────────
 
-/** Shell metacharacters that would let a command chain, redirect, or substitute. */
-const SHELL_METACHAR_RE = /[;&|<>`]|\$\(/;
+/**
+ * Shell metacharacters that would let a command chain, redirect, or substitute.
+ * Newline and carriage return are included: `command.split(/\s+/)` collapses
+ * them, so without this a payload like `df\nrm -rf /` would pass the token
+ * check and then run both lines in the remote shell.
+ */
+const SHELL_METACHAR_RE = /[;&|<>`\n\r]|\$\(/;
+
+/**
+ * `find` primaries that execute commands, delete files, or write to disk.
+ * `find` is otherwise a read-only diagnostic, but `-exec`/`-delete`/etc. turn
+ * it into arbitrary command execution (e.g. `find / -exec rm -rf {} +`), so an
+ * observe-mode `find` carrying any of these is rejected.
+ */
+const FIND_ACTION_RE = /(^|\s)-(exec|execdir|ok|okdir|delete|fprint|fprintf|fprint0|fls)\b/;
 
 /** Binaries allowed in observe mode with no special-casing — read-only diagnostics. */
 const OBSERVE_ALLOWLIST = new Set([
@@ -70,11 +83,24 @@ function checkObserve(command: string): PolicyResult {
         return { allowed: true };
     }
 
-    if (bin === "curl") {
-        if (/(^|\s)(-o\b|-O\b|--output\b|-T\b|--upload-file\b|-d\b|--data\b|-X\s*POST|-X\s*PUT|-X\s*DELETE)/i.test(command)) {
+    if (bin === "find") {
+        if (FIND_ACTION_RE.test(command)) {
             return {
                 allowed: false,
-                reason: "Observe mode only allows read-only curl requests — no writing files, uploads, or POST/PUT/DELETE.",
+                reason: "Observe mode allows 'find' for searching only — action primaries (-exec, -delete, -ok, -fprint, …) are blocked.",
+            };
+        }
+        return { allowed: true };
+    }
+
+    if (bin === "curl") {
+        // -F/--form and --upload-file imply a POST/upload; -d/--data* send a body;
+        // -o/-O/-T/-X write files or use write verbs. Any of these makes curl a
+        // write/exfiltration tool, not a read-only fetch.
+        if (/(^|\s)(-o\b|-O\b|--output\b|-T\b|--upload-file\b|-d\b|--data\b|--data-\S+|-F\b|--form\b|-X\s*(POST|PUT|DELETE|PATCH)|--request\s*(POST|PUT|DELETE|PATCH)|--post\S*)/i.test(command)) {
+            return {
+                allowed: false,
+                reason: "Observe mode only allows read-only fetches — no writing files, uploads, form posts, or POST/PUT/DELETE.",
             };
         }
         return { allowed: true };
@@ -100,17 +126,23 @@ interface BlockRule {
  * command string, so chaining (; && |) does not hide a destructive segment.
  */
 const SAFE_BLOCKLIST: BlockRule[] = [
-    // Recursive/forced delete of the root filesystem (matches -rf and -fr — the
-    // flag token just needs to contain the required letter, in either order).
-    { pattern: /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?(-[a-zA-Z]*r[a-zA-Z]*\s+)?\/(\s|$)/, reason: "Recursive/forced delete of the root filesystem (rm -rf /)." },
+    // Recursive delete of the root filesystem, including the `//` and `/*`
+    // variants that defeated the previous `\/(\s|$)` anchor. Any flag(s) may
+    // precede or sit between the recursive flag and the target; the target is
+    // one-or-more slashes optionally followed by `*` or end/space.
+    { pattern: /\brm\s+(?:-\S+\s+)*-\S*r\S*\s+(?:-\S+\s+)*\/+(\*|\s|$)/i, reason: "Recursive delete of the root filesystem (rm -rf /, //, /*)." },
+    // Recursive delete of a top-level system directory ITSELF (e.g. rm -rf /etc,
+    // /usr). Deeper paths (/home/app/cache, /var/tmp/x) are allowed — safe mode
+    // guards against wiping a whole system tree, not every nested delete.
+    { pattern: /\brm\s+(?:-\S+\s+)*-\S*r\S*\s+(?:-\S+\s+)*\/(etc|usr|var|bin|sbin|lib|lib64|boot|root|home|sys|proc|dev|opt|run|srv|mnt|lost\+found)\/?(\s|$)/i, reason: "Recursive delete of a system directory is blocked in safe mode." },
     // Recursive/forced delete of the home directory (unqualified).
-    { pattern: /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*f[a-zA-Z]*\s+)?~\/?(\s|$)/, reason: "Recursive/forced delete of the home directory." },
+    { pattern: /\brm\s+(?:-\S+\s+)*-\S*r\S*\s+(?:-\S+\s+)*~\/?(\s|$)/i, reason: "Recursive/forced delete of the home directory." },
     // Recursive delete with a bare wildcard (unqualified target).
-    { pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f?[a-zA-Z]*\s+\*(\s|$)/, reason: "Recursive delete with a wildcard target (unqualified)." },
+    { pattern: /\brm\s+(?:-\S+\s+)*-\S*r\S*\s+(?:-\S+\s+)*\*(\s|$)/i, reason: "Recursive delete with a wildcard target (unqualified)." },
     // rm -rf with no target at all.
-    { pattern: /\brm\s+-[a-zA-Z]*r[a-zA-Z]*f?[a-zA-Z]*\s*$/, reason: "Recursive delete with no target (unqualified)." },
-    // Recursive delete of current directory.
-    { pattern: /\brm\s+-[a-zA-Z]*rf?[a-zA-Z]*\s+\.\s*$/, reason: "Recursive delete of the current directory (unqualified)." },
+    { pattern: /\brm\s+(?:-\S+\s+)*-\S*r\S*\s*$/i, reason: "Recursive delete with no target (unqualified)." },
+    // Recursive delete of current or parent directory.
+    { pattern: /\brm\s+(?:-\S+\s+)*-\S*r\S*\s+(?:-\S+\s+)*\.\.?(\s|$)/i, reason: "Recursive delete of the current/parent directory (unqualified)." },
     // Filesystem creation — destroys existing data on the target device.
     { pattern: /\bmkfs(\.\w+)?\s/, reason: "Filesystem creation (mkfs) destroys data on the target device." },
     // Raw disk overwrite.

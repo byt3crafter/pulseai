@@ -126,7 +126,13 @@ export class ToolRegistry {
                 })
                     .from(agentProfileMcpBindings)
                     .innerJoin(mcpServers, eq(agentProfileMcpBindings.mcpServerId, mcpServers.id))
-                    .where(eq(agentProfileMcpBindings.agentProfileId, agentProfileId));
+                    // Defense in depth: only load servers owned by this tenant, so a
+                    // stale/forged binding to another tenant's server can't use its
+                    // URL + credentials.
+                    .where(and(
+                        eq(agentProfileMcpBindings.agentProfileId, agentProfileId),
+                        eq(mcpServers.tenantId, tenantId)
+                    ));
 
                 for (const binding of bindings) {
                     const client = await getMcpClient(binding.serverId, binding.url, (binding.authHeaders as Record<string, string>) || {});

@@ -5,9 +5,29 @@ import { db } from "../../../storage/db";
 import {
     mcpServers,
     agentProfileMcpBindings,
+    agentProfiles,
 } from "../../../storage/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+/**
+ * Confirm both the agent profile and the MCP server belong to the caller's
+ * tenant. Without this, a tenant could bind its own agent to ANOTHER tenant's
+ * MCP server (by id) and have its agent connect using that tenant's credentials.
+ */
+async function assertOwned(tenantId: string, agentProfileId: string, mcpServerId: string): Promise<boolean> {
+    const [agent, server] = await Promise.all([
+        db.query.agentProfiles.findFirst({
+            where: and(eq(agentProfiles.id, agentProfileId), eq(agentProfiles.tenantId, tenantId)),
+            columns: { id: true },
+        }),
+        db.query.mcpServers.findFirst({
+            where: and(eq(mcpServers.id, mcpServerId), eq(mcpServers.tenantId, tenantId)),
+            columns: { id: true },
+        }),
+    ]);
+    return !!agent && !!server;
+}
 
 export async function createMcpServerAction(formData: FormData) {
     const session = await auth();
@@ -136,6 +156,10 @@ export async function bindAgentToMcpAction(
         return { success: false, message: "Unauthorized." };
     }
 
+    if (!(await assertOwned(session.user.tenantId, agentProfileId, mcpServerId))) {
+        return { success: false, message: "Agent or server not found." };
+    }
+
     try {
         await db.insert(agentProfileMcpBindings).values({
             agentProfileId,
@@ -156,6 +180,10 @@ export async function unbindAgentFromMcpAction(
     const session = await auth();
     if (!session?.user?.tenantId) {
         return { success: false, message: "Unauthorized." };
+    }
+
+    if (!(await assertOwned(session.user.tenantId, agentProfileId, mcpServerId))) {
+        return { success: false, message: "Agent or server not found." };
     }
 
     try {

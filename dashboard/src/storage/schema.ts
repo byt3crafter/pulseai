@@ -18,8 +18,8 @@ import { sql } from "drizzle-orm";
 export const globalSettings = pgTable("global_settings", {
     id: varchar("id", { length: 50 }).primaryKey().default("root"), // Singleton pattern, always 'root'
     config: jsonb("config").notNull().default({}),
-    anthropicApiKeyHash: varchar("anthropic_api_key_hash", { length: 255 }),
-    openaiApiKeyHash: varchar("openai_api_key_hash", { length: 255 }),
+    anthropicApiKeyHash: text("anthropic_api_key_hash"),
+    openaiApiKeyHash: text("openai_api_key_hash"),
     gatewayConfig: jsonb("gateway_config").default({}),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
