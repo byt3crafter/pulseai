@@ -40,16 +40,24 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(500).send({ error: "Internal server error" });
         }
 
-        try {
-            // connectionId scopes the lookup to a specific bot (per-agent);
-            // the tenant is always re-validated from the slug above, so a
-            // connectionId for another tenant simply won't resolve to a bot.
-            await telegramAdapter.handleWebhookUpdate(tenant.id, update, connectionId);
-            return reply.code(200).send({ ok: true });
-        } catch (err) {
-            logger.error({ err, tenantSlug, connectionId }, "Failed to process webhook");
-            return reply.code(500).send({ error: "Failed to process webhook" });
-        }
+        // Acknowledge immediately, then process asynchronously.
+        //
+        // Processing can legitimately take a long time — e.g. a message from a
+        // user in "requires approval" mode waits for a human to tap Allow. If we
+        // held the HTTP response open for that, Telegram would time out and
+        // REDELIVER the update, posting duplicate approval cards and re-running
+        // side effects. Returning 200 now decouples the ack from the work.
+        //
+        // We also never return 5xx for an internal processing error: that would
+        // make Telegram retry and duplicate the message. Errors are logged; true
+        // redelivery is deduped at the queue by a stable per-message id.
+        const tenantId = tenant.id;
+        // connectionId scopes the lookup to a specific bot (per-agent); the tenant
+        // is always re-validated from the slug above.
+        void Promise.resolve()
+            .then(() => telegramAdapter.handleWebhookUpdate(tenantId, update, connectionId))
+            .catch((err: unknown) => logger.error({ err, tenantSlug, connectionId }, "Failed to process webhook update"));
+        return reply.code(200).send({ ok: true });
     };
 
     fastify.post("/webhooks/telegram/:tenantSlug", handleTelegramWebhook);

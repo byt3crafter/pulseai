@@ -9,6 +9,18 @@ import {
 } from "../../../storage/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { encrypt } from "../../../utils/crypto";
+
+/**
+ * MCP auth headers hold bearer tokens / API keys for the external server, so
+ * they must not sit in the DB as plaintext. We wrap the AES-GCM ciphertext in
+ * the existing jsonb column as `{ __enc: "<ciphertext>" }` (no migration); the
+ * runtime reader decrypts it and tolerates legacy plaintext rows.
+ */
+function packAuthHeaders(raw: string): Record<string, string> {
+    if (!raw) return {};
+    return { __enc: encrypt(raw) };
+}
 
 /**
  * Confirm both the agent profile and the MCP server belong to the caller's
@@ -43,10 +55,9 @@ export async function createMcpServerAction(formData: FormData) {
         return { success: false, message: "Name and URL are required." };
     }
 
-    let authHeaders = {};
     if (authHeadersStr) {
         try {
-            authHeaders = JSON.parse(authHeadersStr);
+            JSON.parse(authHeadersStr);
         } catch {
             return { success: false, message: "Auth headers must be valid JSON." };
         }
@@ -57,7 +68,7 @@ export async function createMcpServerAction(formData: FormData) {
             tenantId: session.user.tenantId,
             name,
             url,
-            authHeaders,
+            authHeaders: packAuthHeaders(authHeadersStr),
             status: "active",
         });
 
@@ -84,10 +95,9 @@ export async function updateMcpServerAction(formData: FormData) {
         return { success: false, message: "Missing required fields." };
     }
 
-    let authHeaders = {};
     if (authHeadersStr) {
         try {
-            authHeaders = JSON.parse(authHeadersStr);
+            JSON.parse(authHeadersStr);
         } catch {
             return { success: false, message: "Auth headers must be valid JSON." };
         }
@@ -108,7 +118,7 @@ export async function updateMcpServerAction(formData: FormData) {
     try {
         await db
             .update(mcpServers)
-            .set({ name, url, authHeaders })
+            .set({ name, url, authHeaders: packAuthHeaders(authHeadersStr) })
             .where(eq(mcpServers.id, serverId));
 
         revalidatePath("/dashboard/mcp");

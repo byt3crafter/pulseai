@@ -23,12 +23,19 @@ export function isToolGated(policy: ToolPolicy | null | undefined, toolName: str
     return policy.ask.some((p) => matchesPattern(toolName, p));
 }
 
+/**
+ * Glob match with `*` as a wildcard for any run of characters, anywhere in the
+ * pattern. Previously only `*`, a trailing `*`, or an exact string worked, so a
+ * pattern like `*_send` or `mcp_*_delete` silently matched nothing — a security
+ * footgun where an operator believed a tool was gated/denied and it wasn't.
+ * Now every `*` position works as expected.
+ */
 function matchesPattern(name: string, pattern: string): boolean {
     if (pattern === "*") return true;
-    if (pattern.endsWith("*")) {
-        return name.startsWith(pattern.slice(0, -1));
-    }
-    return name === pattern;
+    if (!pattern.includes("*")) return name === pattern;
+    // Escape regex metacharacters, then turn each `*` into `.*`.
+    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+    return new RegExp(`^${escaped}$`).test(name);
 }
 
 /**

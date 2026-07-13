@@ -381,6 +381,7 @@ export async function readUnreadEmails(
             // IMAP SEARCH for unseen; take the most recent `count`.
             const uids = (await client.search({ seen: false }, { uid: true })) || [];
             const pick = uids.slice(-count);
+            const returnedUids: number[] = [];
             for (const uid of pick) {
                 const msg = await client.fetchOne(String(uid), { envelope: true, source: true }, { uid: true });
                 if (!msg || !msg.envelope) continue;
@@ -402,9 +403,13 @@ export async function readUnreadEmails(
                     date: env.date?.toISOString() || "",
                     body: body.trim().slice(0, 8000),
                 });
+                returnedUids.push(Number(uid));
             }
-            if (opts.markSeen && pick.length) {
-                await client.messageFlagsAdd(pick, ["\\Seen"], { uid: true }).catch(() => {});
+            // Only mark messages we actually returned. A message that failed to
+            // fetch/parse (skipped above) must stay unread so it re-surfaces —
+            // otherwise it's silently lost.
+            if (opts.markSeen && returnedUids.length) {
+                await client.messageFlagsAdd(returnedUids, ["\\Seen"], { uid: true }).catch(() => {});
             }
         } finally {
             lock.release();
@@ -525,13 +530,16 @@ export async function moveMessage(config: ImapConfig, uid: number, toFolder: str
     });
 }
 
-/** Delete a message (move to Trash if present, else flag \Deleted + expunge). */
+/** Delete a message (move to Trash if present, else \Deleted + expunge). */
 export async function deleteMessage(config: ImapConfig, uid: number, folder = "INBOX"): Promise<boolean> {
     return withMailbox(config, folder, async (client) => {
         try {
             await client.messageMove([uid], "Trash", { uid: true });
         } catch {
-            await client.messageFlagsAdd([uid], ["\\Deleted"], { uid: true });
+            // No Trash folder: messageDelete sets \Deleted AND expunges, so the
+            // message is actually removed rather than just flagged (a bare
+            // flagsAdd left it in place while we reported success).
+            await client.messageDelete([uid], { uid: true });
         }
         return true;
     });

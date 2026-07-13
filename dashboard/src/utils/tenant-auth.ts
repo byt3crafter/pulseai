@@ -39,15 +39,20 @@ async function resolveTenantUser(): Promise<{ tenantId: string; accessRole: stri
 
     try {
         const cookieStore = await cookies();
-        const tokenCookie =
-            cookieStore.get("authjs.session-token")?.value ||
-            cookieStore.get("__Secure-authjs.session-token")?.value;
+        // Auth.js derives the decryption key from (secret, salt) where salt is the
+        // cookie NAME. In prod over HTTPS the cookie is the __Secure- variant, so
+        // pair each cookie with its matching salt.
+        const secureCookie = cookieStore.get("__Secure-authjs.session-token")?.value;
+        const plainCookie = cookieStore.get("authjs.session-token")?.value;
+        const tokenCookie = secureCookie || plainCookie;
+        const salt = secureCookie ? "__Secure-authjs.session-token" : "authjs.session-token";
         if (!tokenCookie) return null;
 
-        const secret = process.env.ENCRYPTION_KEY;
+        // Must match the signing secret used in auth.config.ts.
+        const secret = process.env.NEXTAUTH_SECRET || process.env.ENCRYPTION_KEY;
         if (!secret) return null;
 
-        const decoded = await decode({ token: tokenCookie, secret, salt: "authjs.session-token" });
+        const decoded = await decode({ token: tokenCookie, secret, salt });
         if (decoded && (decoded.role === "TENANT" || decoded.role === "ADMIN") && decoded.tenantId) {
             return {
                 tenantId: decoded.tenantId as string,

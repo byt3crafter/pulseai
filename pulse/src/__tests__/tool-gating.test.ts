@@ -33,4 +33,15 @@ describe("isToolGated", () => {
         expect(isToolAllowed(policy, "email_send")).toBe(false);
         expect(isToolGated(policy, "email_send")).toBe(true);
     });
+
+    it("supports wildcards anywhere in the pattern (leading/mid, not just trailing)", () => {
+        // Previously these silently matched nothing — a false-security footgun.
+        expect(isToolGated({ ask: ["*_send"] }, "email_send")).toBe(true);
+        expect(isToolGated({ ask: ["*_send"] }, "whatsapp_send")).toBe(true);
+        expect(isToolGated({ ask: ["mcp_*_delete"] }, "mcp_srv_delete")).toBe(true);
+        expect(isToolAllowed({ deny: ["*_send"] }, "email_send")).toBe(false);
+        // Non-matches still don't match.
+        expect(isToolGated({ ask: ["*_send"] }, "email_read")).toBe(false);
+        expect(isToolAllowed({ deny: ["mcp_*_delete"] }, "mcp_srv_list")).toBe(true);
+    });
 });

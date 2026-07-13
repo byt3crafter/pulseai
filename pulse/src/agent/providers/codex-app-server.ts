@@ -458,6 +458,7 @@ interface PoolEntry {
     tokenExpiresAt: number;
     lastUsed: number;
     queue: Promise<unknown>; // serializes turns within THIS conversation
+    busyCount: number; // in-flight turns; eviction must not kill a busy entry
 }
 const pool = new Map<string, PoolEntry>();
 let oneshotCounter = 0;
@@ -481,7 +482,7 @@ function getPoolEntry(key: string): PoolEntry {
     let e = pool.get(key);
     if (!e) {
         evictPool();
-        e = { client: null, clientInit: null, tokenExpiresAt: Infinity, lastUsed: Date.now(), queue: Promise.resolve() };
+        e = { client: null, clientInit: null, tokenExpiresAt: Infinity, lastUsed: Date.now(), queue: Promise.resolve(), busyCount: 0 };
         pool.set(key, e);
     }
     return e;
@@ -522,14 +523,27 @@ async function ensureClient(entry: PoolEntry, codexBin: string): Promise<CodexRp
 /** Cap the number of concurrent codex processes; close the least-recently-used. */
 function evictPool(): void {
     if (pool.size < POOL_MAX) return;
+    // Prefer the least-recently-used IDLE entry — never evict one with a turn in
+    // flight (that would kill a running conversation mid-turn). Only if every
+    // entry is busy do we fall back to the oldest, and log it.
     let oldestKey: string | null = null;
     let oldest = Infinity;
+    let oldestBusyKey: string | null = null;
+    let oldestBusy = Infinity;
     for (const [key, entry] of pool) {
+        if (entry.busyCount > 0) {
+            if (entry.lastUsed < oldestBusy) { oldestBusy = entry.lastUsed; oldestBusyKey = key; }
+            continue;
+        }
         if (entry.lastUsed < oldest) { oldest = entry.lastUsed; oldestKey = key; }
     }
-    if (oldestKey) {
-        pool.get(oldestKey)?.client?.close();
-        pool.delete(oldestKey);
+    const evictKey = oldestKey ?? oldestBusyKey;
+    if (!oldestKey && oldestBusyKey) {
+        logger.warn({ component: "codex-app-server", poolSize: pool.size }, "codex pool full and every entry busy — evicting a busy conversation");
+    }
+    if (evictKey) {
+        pool.get(evictKey)?.client?.close();
+        pool.delete(evictKey);
     }
 }
 
@@ -610,8 +624,10 @@ export class CodexAppServerProvider {
             }
             throw err;
         });
+        entry.busyCount++;
         const result = entry.queue.then(run, run);
         entry.queue = result.catch(() => {});
+        result.finally(() => { entry.busyCount--; }).catch(() => {});
         // Ephemeral (no conversationId) entries are throwaway — close + drop after use.
         if (!params.conversationId) {
             entry.queue.finally(() => {
@@ -771,7 +787,13 @@ export class CodexAppServerProvider {
                 const interruptTurn = (reason: string) => {
                     cleanup();
                     client.request("turn/interrupt", { threadId, turnId }, 3000).catch(() => {
-                        shutdownCodexAppServer();
+                        // Recycle ONLY this conversation's wedged subprocess — never
+                        // shutdownCodexAppServer(), which would tear down every other
+                        // tenant's in-flight turn. Next call for this conversation
+                        // respawns its client (same as the overall-timeout path).
+                        try { client.close(); } catch { /* already dead */ }
+                        entry.client = null;
+                        entry.threadId = undefined;
                     });
                     reject(new Error(reason));
                 };

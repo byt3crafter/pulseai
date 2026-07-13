@@ -26,6 +26,25 @@ import { pluginManager } from "../../plugins/manager.js";
 import { getTenantCustomTools } from "./custom-tools.js";
 import { getTenantServerTools } from "../../servers/tools.js";
 import { routeToChannelTool } from "./built-in/route-to-channel.js";
+import { decrypt } from "../../utils/crypto.js";
+
+/**
+ * MCP auth headers are stored encrypted-at-rest wrapped as `{ __enc: <cipher> }`.
+ * Decrypt to the real header map, tolerating legacy plaintext rows written
+ * before encryption was added.
+ */
+function decodeMcpAuthHeaders(stored: unknown): Record<string, string> {
+    const obj = (stored as Record<string, any>) || {};
+    if (typeof obj.__enc === "string") {
+        try {
+            return JSON.parse(decrypt(obj.__enc));
+        } catch (err) {
+            logger.error({ err }, "Failed to decrypt MCP auth headers");
+            return {};
+        }
+    }
+    return obj as Record<string, string>;
+}
 
 /**
  * Tool Registry - Manages available tools and their execution
@@ -135,7 +154,7 @@ export class ToolRegistry {
                     ));
 
                 for (const binding of bindings) {
-                    const client = await getMcpClient(binding.serverId, binding.url, (binding.authHeaders as Record<string, string>) || {});
+                    const client = await getMcpClient(binding.serverId, binding.url, decodeMcpAuthHeaders(binding.authHeaders));
                     if (client) {
                         const mcpTools = await getMcpTools(binding.serverId, client);
                         for (const t of mcpTools) t.source = "mcp";
