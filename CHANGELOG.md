@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.29] - 2026-07-13
+
+### Bug Fixes
+- alert approvers when a queued approval expires (no silent drop)
+
 ## [0.14.28] - 2026-07-13
 
 ### Bug Fixes
