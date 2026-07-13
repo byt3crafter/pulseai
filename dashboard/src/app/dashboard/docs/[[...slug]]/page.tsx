@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ALL_DOCS, DOCS_NAV, docHref, findDoc, segmentsToSlug } from "../nav";
 import DocsMarkdown from "../DocsMarkdown";
+import { PageHeader, Card } from "../../../../components/dashboard/ui";
 import { slugifyHeading } from "../slugify";
 
 /**
@@ -70,24 +71,26 @@ export default async function DocPage({ params }: { params: Promise<{ slug?: str
     const section = DOCS_NAV.find((s) => s.pages.some((p) => p.slug === key));
 
     return (
-        <div className="flex gap-10">
-            <article className="min-w-0 flex-1 pb-16">
+        <div className="flex gap-8">
+            <article className="min-w-0 flex-1">
                 {section && (
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-pulse-accent">
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-pulse-accent">
                         {section.title}
                     </p>
                 )}
-                <h1 className="text-3xl font-semibold tracking-tight text-pulse-text">{doc.title}</h1>
-                <p className="mt-2 text-base text-pulse-muted">{doc.description}</p>
-                <hr className="my-8 border-pulse-border" />
+                <PageHeader title={doc.title} description={doc.description} />
 
-                <DocsMarkdown>{markdown}</DocsMarkdown>
+                <Card>
+                    <div className="px-6 py-6 sm:px-8 sm:py-7">
+                        <DocsMarkdown>{markdown}</DocsMarkdown>
+                    </div>
+                </Card>
 
-                <nav className="mt-16 flex items-stretch gap-4 border-t border-pulse-border pt-6">
+                <nav className="mt-6 flex items-stretch gap-4">
                     {prev ? (
                         <Link
                             href={docHref(prev.slug)}
-                            className="flex-1 rounded-lg border border-pulse-border p-4 transition-colors hover:bg-pulse-hover"
+                            className="flex-1 rounded-xl border border-pulse-border-subtle bg-pulse-panel p-4 transition-colors hover:bg-pulse-hover"
                         >
                             <span className="block text-xs text-pulse-faint">Previous</span>
                             <span className="mt-0.5 block text-sm font-medium text-pulse-text">{prev.title}</span>
@@ -98,7 +101,7 @@ export default async function DocPage({ params }: { params: Promise<{ slug?: str
                     {next ? (
                         <Link
                             href={docHref(next.slug)}
-                            className="flex-1 rounded-lg border border-pulse-border p-4 text-right transition-colors hover:bg-pulse-hover"
+                            className="flex-1 rounded-xl border border-pulse-border-subtle bg-pulse-panel p-4 text-right transition-colors hover:bg-pulse-hover"
                         >
                             <span className="block text-xs text-pulse-faint">Next</span>
                             <span className="mt-0.5 block text-sm font-medium text-pulse-text">{next.title}</span>
@@ -110,7 +113,7 @@ export default async function DocPage({ params }: { params: Promise<{ slug?: str
             </article>
 
             {toc.length > 1 && (
-                <aside className="sticky top-6 hidden h-fit w-56 shrink-0 xl:block">
+                <aside className="sticky top-2 hidden h-fit w-52 shrink-0 xl:block">
                     <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">
                         On this page
                     </p>

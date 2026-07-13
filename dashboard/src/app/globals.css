@@ -114,8 +114,16 @@ body {
 .md th, .md td { border: 1px solid var(--pulse-border-subtle); padding: 0.35rem 0.55rem; text-align: left; }
 .md img { max-width: 100%; border-radius: 8px; }
 
-/* ── Documentation prose (/docs) ─────────────────────────────────────────── */
-.docs-md { color: var(--pulse-text); font-size: 15.5px; line-height: 1.75; }
+/* ── Documentation (/dashboard/docs) ─────────────────────────────────────── */
+/* Thin, themed scrollbar on the docs section rail — the default one is a slab. */
+.docs-rail { scrollbar-width: thin; scrollbar-color: var(--pulse-border-strong) transparent; }
+.docs-rail::-webkit-scrollbar { width: 6px; }
+.docs-rail::-webkit-scrollbar-track { background: transparent; }
+.docs-rail::-webkit-scrollbar-thumb { background: var(--pulse-border); border-radius: 3px; }
+.docs-rail:hover::-webkit-scrollbar-thumb { background: var(--pulse-border-strong); }
+
+/* Prose. Capped measure — full-bleed lines are unreadable on a wide screen. */
+.docs-md { color: var(--pulse-text); font-size: 15px; line-height: 1.75; max-width: 74ch; }
 .docs-md > :first-child { margin-top: 0; }
 .docs-md p { margin: 0 0 1.1rem; color: var(--pulse-soft); }
 .docs-md h2 {
@@ -136,11 +144,12 @@ body {
 .docs-md a:hover { border-bottom-color: var(--pulse-accent); }
 .docs-md strong { font-weight: 640; color: var(--pulse-text); }
 .docs-md em { font-style: italic; }
-/* Blockquote = the callout/"note" box. */
+/* Blockquote = the callout/"note" box. Sits on the card, so it uses the
+   panel-alt surface rather than a saturated block of accent colour. */
 .docs-md blockquote {
-  margin: 1.4rem 0; padding: 0.9rem 1.1rem; border-radius: 10px;
+  margin: 1.4rem 0; padding: 0.85rem 1.1rem; border-radius: 10px;
   border: 1px solid var(--pulse-border-subtle); border-left: 3px solid var(--pulse-accent);
-  background: var(--pulse-tint); color: var(--pulse-soft);
+  background: var(--pulse-panel-alt); color: var(--pulse-soft); font-size: 14.5px;
 }
 .docs-md blockquote > :last-child { margin-bottom: 0; }
 .docs-md hr { border: 0; border-top: 1px solid var(--pulse-border-subtle); margin: 2.5rem 0; }

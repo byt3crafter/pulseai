@@ -14,7 +14,7 @@ export default function DocsSidebar() {
         <nav className="flex flex-col gap-7">
             {DOCS_NAV.map((section) => (
                 <div key={section.title}>
-                    <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">
+                    <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-pulse-faint">
                         {section.title}
                     </p>
                     <ul className="flex flex-col gap-0.5">
@@ -26,10 +26,10 @@ export default function DocsSidebar() {
                                     <Link
                                         href={href}
                                         onClick={() => setOpen(false)}
-                                        className={`block rounded-md px-3 py-1.5 text-sm transition-colors ${
+                                        className={`block rounded-lg px-3 py-1.5 text-[13.5px] transition-colors motion-reduce:transition-none ${
                                             active
-                                                ? "bg-pulse-tint font-medium text-pulse-accent"
-                                                : "text-pulse-soft hover:bg-pulse-hover hover:text-pulse-text"
+                                                ? "bg-pulse-tint font-medium text-pulse-accent-hi"
+                                                : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                                         }`}
                                     >
                                         {page.title}
@@ -71,8 +71,7 @@ export default function DocsSidebar() {
             )}
 
             {/* Desktop rail */}
-            <aside className="sticky top-6 hidden h-[calc(100vh-4rem)] w-56 shrink-0 overflow-y-auto pr-4 lg:block">
-                <p className="mb-5 text-sm font-semibold text-pulse-text">Documentation</p>
+            <aside className="docs-rail sticky top-2 hidden h-[calc(100vh-6rem)] w-52 shrink-0 overflow-y-auto pr-2 lg:block">
                 {nav}
             </aside>
         </>
