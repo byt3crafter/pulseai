@@ -12,11 +12,16 @@ import { eq } from "drizzle-orm";
 import { db } from "../../storage/db.js";
 import { agentProfiles } from "../../storage/schema.js";
 import { ToolPolicy, isToolGated } from "./tool-policy.js";
-import { createApproval, awaitDecision, hasStandingAllowance } from "../../channels/approval-service.js";
+import { createApproval, hasStandingAllowance } from "../../channels/approval-service.js";
 import { logger } from "../../utils/logger.js";
 
-/** Minutes an approver has to decide before the gated call is treated as denied. */
-const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
+/**
+ * How long a queued approval stays actionable. Non-blocking: the agent's turn
+ * ends immediately, the operator can tap Allow anytime within this window, and
+ * the action runs then (out-of-band). Generous because approvals often come from
+ * a background check when nobody's watching the screen.
+ */
+const APPROVAL_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 /**
  * Human-readable summary shown on an approval card. For email it renders the
@@ -63,9 +68,11 @@ export interface GateInput {
 export type GateResult = { ok: true } | { ok: false; message: string };
 
 /**
- * Returns {ok:true} to proceed, or {ok:false, message} if the caller must NOT
- * run the tool (denied / timed out / not gated-but-failed-closed). Blocks while
- * awaiting a human decision for a gated tool.
+ * Returns {ok:true} to run the tool now, or {ok:false, message} if it must NOT
+ * run now. NON-BLOCKING: a gated tool is queued for approval and this returns
+ * immediately with a "queued" message — the agent's turn ends, and the action
+ * runs out-of-band when an approver taps Allow (see decide() → runApprovedToolCall).
+ * A standing allowance short-circuits to {ok:true} so it runs inline.
  */
 export async function ensureToolApproved(input: GateInput): Promise<GateResult> {
     let policy = input.policy ?? null;
@@ -89,9 +96,8 @@ export async function ensureToolApproved(input: GateInput): Promise<GateResult> 
         logger.error({ err, tool: input.toolName }, "Tool allowance lookup failed — failing closed");
     }
 
-    let outcome: { status: string; approverLabel?: string };
     try {
-        const { id } = await createApproval({
+        await createApproval({
             tenantId: input.tenantId,
             kind: "tool_call",
             summary: buildApprovalSummary(agentName || "An agent", input.toolName, input.args),
@@ -99,17 +105,17 @@ export async function ensureToolApproved(input: GateInput): Promise<GateResult> 
             payload: { toolName: input.toolName, args: input.args },
             channelType: input.channelType ?? undefined,
             channelContactId: input.channelContactId ?? undefined,
-            timeoutMs: APPROVAL_TIMEOUT_MS,
+            timeoutMs: APPROVAL_TTL_MS,
         });
-        outcome = await awaitDecision(id, APPROVAL_TIMEOUT_MS);
     } catch (err) {
-        logger.error({ err, tool: input.toolName }, "Approval workflow failed — failing closed");
-        outcome = { status: "expired" };
+        logger.error({ err, tool: input.toolName }, "Failed to queue approval — failing closed");
+        return { ok: false, message: `Couldn't queue "${input.toolName}" for approval. Tell the user you couldn't complete that action and do NOT retry.` };
     }
 
-    if (outcome.status === "approved") return { ok: true };
-    const reason = outcome.status === "denied"
-        ? `The operator denied permission${outcome.approverLabel ? ` (${outcome.approverLabel})` : ""} to use ${input.toolName}.`
-        : `Approval to use ${input.toolName} timed out.`;
-    return { ok: false, message: `${reason} Tell the user you couldn't complete that action and do NOT retry the tool.` };
+    return {
+        ok: false,
+        message:
+            `⏳ "${input.toolName}" has been sent to an approver for sign-off and will run automatically once they approve. ` +
+            `Tell the user you've prepared it and it's awaiting approval — do NOT retry the tool or attempt a workaround.`,
+    };
 }

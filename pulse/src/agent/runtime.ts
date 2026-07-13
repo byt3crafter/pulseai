@@ -1001,4 +1001,28 @@ export class AgentRuntime {
             }).catch((e) => tenantLog.error({ e }, "Failed to send fallback error message"));
         }
     }
+
+    /**
+     * Run a single tool out-of-band after a human approved a gated call. Loads the
+     * agent's current toolset, finds the tool, executes it. Used by the approval
+     * flow so a queued action runs whenever the operator taps Allow (even later).
+     */
+    async executeApprovedTool(params: {
+        tenantId: string;
+        agentId: string | null;
+        toolName: string;
+        args: Record<string, any>;
+    }): Promise<string> {
+        const tools = await this.toolRegistry.getEnabledTools(params.tenantId, params.agentId ?? undefined);
+        const tool = tools.find((t) => t.name === params.toolName);
+        if (!tool) throw new Error(`Tool '${params.toolName}' is no longer available for this agent`);
+        const args: Record<string, any> = { ...params.args };
+        if (params.agentId) args._agentId = params.agentId;
+        const out = await tool.execute({
+            tenantId: params.tenantId,
+            conversationId: randomUUID(),
+            args,
+        });
+        return out.result;
+    }
 }

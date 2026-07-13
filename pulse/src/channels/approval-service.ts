@@ -32,6 +32,7 @@ import { logger } from "../utils/logger.js";
 import { getPerson, toPerson } from "./people-service.js";
 import { channelAdapters } from "../queue/worker.js";
 import type { TelegramAdapter } from "./telegram/adapter.js";
+import { getJobRunnerRuntime } from "../cron/job-runner.js";
 
 export type ApprovalKind = "user_request" | "command" | "tool_call";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
@@ -368,7 +369,64 @@ export async function decide(approvalId: string, action: ApprovalDecisionAction,
         await grantAllowanceForApproval(row, approverTelegramId);
     }
 
+    // Non-blocking tool_call approvals: the agent's turn already ended, so run
+    // the approved tool now (out-of-band) and reflect the outcome on the card.
+    if (status === "approved" && row.kind === "tool_call") {
+        void runApprovedToolCall(row, approverLabel);
+    }
+
     return { ok: true, approverLabel };
+}
+
+/**
+ * Execute a just-approved tool_call out-of-band and append the outcome to the
+ * approver's card. Fire-and-forget from decide().
+ */
+async function runApprovedToolCall(row: typeof pendingApprovals.$inferSelect, approverLabel: string): Promise<void> {
+    const payload = (row.payload as any) || {};
+    const toolName: string | undefined = payload.toolName;
+    const runtime = getJobRunnerRuntime();
+    if (!toolName || !runtime) {
+        logger.warn({ approvalId: row.id, toolName }, "Approved tool_call could not run (no runtime/tool)");
+        return;
+    }
+    let suffix: string;
+    try {
+        await runtime.executeApprovedTool({
+            tenantId: row.tenantId,
+            agentId: row.agentProfileId ?? null,
+            toolName,
+            args: payload.args || {},
+        });
+        suffix = `✅ Approved by ${approverLabel} — done.`;
+    } catch (err: any) {
+        logger.error({ err, approvalId: row.id, toolName }, "Approved tool_call failed to execute");
+        suffix = `✅ Approved by ${approverLabel}, but the action failed to run: ${err?.message || "unknown error"}.`;
+    }
+    // Re-edit the card to show the execution outcome.
+    const messageIds = (row.approvalMessageIds as Record<string, string>) || {};
+    await Promise.all(
+        Object.entries(messageIds).map(([telegramUserId, messageId]) =>
+            editApprovalCard(row.tenantId, telegramUserId, messageId, `${row.summary}\n\n${suffix}`, row.agentProfileId)
+        )
+    );
+}
+
+/** Finalize any pending approvals whose TTL has elapsed (the non-blocking sweep). */
+export async function expirePendingApprovals(): Promise<number> {
+    const stale = await db.query.pendingApprovals.findMany({
+        where: and(eq(pendingApprovals.status, "pending")),
+        columns: { id: true, expiresAt: true },
+    });
+    const now = Date.now();
+    let count = 0;
+    for (const row of stale) {
+        if (row.expiresAt && new Date(row.expiresAt).getTime() < now) {
+            const applied = await finalizeApproval(row.id, "expired", null).catch(() => false);
+            if (applied) count++;
+        }
+    }
+    return count;
 }
 
 /**
