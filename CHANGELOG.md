@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.28] - 2026-07-13
+
+### Bug Fixes
+- make tool-call approvals non-blocking (queue + run on approve)
+
 ## [0.14.27] - 2026-07-12
 
 ### Bug Fixes
