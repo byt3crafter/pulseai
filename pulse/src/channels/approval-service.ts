@@ -27,7 +27,7 @@ import { randomUUID } from "node:crypto";
 import { InlineKeyboard } from "grammy";
 import { db } from "../storage/db.js";
 import { pendingApprovals, people, servers, approvalAllowances } from "../storage/schema.js";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, lt } from "drizzle-orm";
 import { logger } from "../utils/logger.js";
 import { getPerson, toPerson } from "./people-service.js";
 import { channelAdapters } from "../queue/worker.js";
@@ -415,18 +415,33 @@ async function runApprovedToolCall(row: typeof pendingApprovals.$inferSelect, ap
 /** Finalize any pending approvals whose TTL has elapsed (the non-blocking sweep). */
 export async function expirePendingApprovals(): Promise<number> {
     const stale = await db.query.pendingApprovals.findMany({
-        where: and(eq(pendingApprovals.status, "pending")),
-        columns: { id: true, expiresAt: true },
+        where: and(eq(pendingApprovals.status, "pending"), lt(pendingApprovals.expiresAt, new Date())),
     });
-    const now = Date.now();
     let count = 0;
     for (const row of stale) {
-        if (row.expiresAt && new Date(row.expiresAt).getTime() < now) {
-            const applied = await finalizeApproval(row.id, "expired", null).catch(() => false);
-            if (applied) count++;
+        const applied = await finalizeApproval(row.id, "expired", null).catch(() => false);
+        if (!applied) continue; // a tap beat the sweep — don't alert
+        count++;
+        // Don't let an unapproved action vanish silently: push a fresh alert (a new
+        // message, so it actually notifies) to the approvers with the drafted content.
+        if (row.kind === "tool_call") {
+            await notifyApproversExpired(row).catch((err) =>
+                logger.warn({ err, approvalId: row.id }, "Failed to alert approvers about an expired approval")
+            );
         }
     }
     return count;
+}
+
+/** Send a fresh "expired — not sent, handle manually" alert to every approver. */
+async function notifyApproversExpired(row: typeof pendingApprovals.$inferSelect): Promise<void> {
+    const bot = getTenantBot(row.tenantId, row.agentProfileId);
+    if (!bot) return;
+    const approvers = await listApprovers(row.tenantId);
+    const text = `⏱ No response in time — this was NOT sent and still needs you to handle it manually:\n\n${row.summary}`;
+    await Promise.all(
+        approvers.map((a) => bot.api.sendMessage(a.telegramUserId, text).catch(() => {}))
+    );
 }
 
 /**
