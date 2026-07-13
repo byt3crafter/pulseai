@@ -7,14 +7,17 @@ import { Cron } from "croner";
 import { getEnabledJobs } from "./job-store.js";
 import { executeJob } from "./job-runner.js";
 import { deliverDueCommitments } from "../commitments/commitment-delivery.js";
+import { expirePendingApprovals } from "../channels/approval-service.js";
 import { logger } from "../utils/logger.js";
 
 const COMMITMENT_TICK_MS = 5 * 60 * 1000; // check for due commitments every 5 min
+const APPROVAL_SWEEP_MS = 60 * 1000; // expire stale queued approvals every 60s
 
 export class CronScheduler {
     private jobs: Map<string, Cron> = new Map();
     private timers: Map<string, NodeJS.Timeout> = new Map();
     private commitmentTimer: NodeJS.Timeout | null = null;
+    private approvalSweepTimer: NodeJS.Timeout | null = null;
 
     /**
      * Initialize the scheduler by loading all enabled jobs from DB.
@@ -34,6 +37,12 @@ export class CronScheduler {
             }, COMMITMENT_TICK_MS);
         }
 
+        // Global tick: expire queued tool approvals past their TTL.
+        if (!this.approvalSweepTimer) {
+            this.approvalSweepTimer = setInterval(() => {
+                expirePendingApprovals().catch((err) => logger.error({ err }, "approval sweep failed"));
+            }, APPROVAL_SWEEP_MS);
+        }
     }
 
     /**
@@ -115,6 +124,10 @@ export class CronScheduler {
         if (this.commitmentTimer) {
             clearInterval(this.commitmentTimer);
             this.commitmentTimer = null;
+        }
+        if (this.approvalSweepTimer) {
+            clearInterval(this.approvalSweepTimer);
+            this.approvalSweepTimer = null;
         }
         for (const [, cron] of this.jobs) {
             cron.stop();
