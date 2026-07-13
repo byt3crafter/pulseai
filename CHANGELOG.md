@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.31] - 2026-07-13
+
+### Refactoring
+- move docs into the customer dashboard, rewrite for customers
+
 ## [0.14.30] - 2026-07-13
 
 ### Features
