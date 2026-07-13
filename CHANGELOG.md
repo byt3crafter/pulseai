@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.30] - 2026-07-13
+
+### Features
+- in-app documentation site at /docs
+
 ## [0.14.29] - 2026-07-13
 
 ### Bug Fixes
