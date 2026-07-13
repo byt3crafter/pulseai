@@ -71,7 +71,8 @@ export default function DocsSidebar() {
             )}
 
             {/* Desktop rail */}
-            <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto py-8 pr-4 lg:block">
+            <aside className="sticky top-6 hidden h-[calc(100vh-4rem)] w-56 shrink-0 overflow-y-auto pr-4 lg:block">
+                <p className="mb-5 text-sm font-semibold text-pulse-text">Documentation</p>
                 {nav}
             </aside>
         </>

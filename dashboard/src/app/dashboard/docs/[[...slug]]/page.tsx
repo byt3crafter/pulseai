@@ -8,11 +8,12 @@ import DocsMarkdown from "../DocsMarkdown";
 import { slugifyHeading } from "../slugify";
 
 /**
- * Docs pages are pure content — prerendered at build time so the running
- * container never touches the filesystem (the standalone output does not ship
- * `src/content`).
+ * These pages live inside the dashboard (auth-gated), whose layout is
+ * force-dynamic — so they can't be prerendered. The markdown is therefore read
+ * at request time, and `next.config.ts` traces `src/content/docs` into the
+ * standalone output so those files exist in the container.
  */
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const CONTENT_DIR = path.join(process.cwd(), "src", "content", "docs");
 
@@ -23,12 +24,6 @@ function readDoc(slug: string): string | null {
     } catch {
         return null;
     }
-}
-
-export function generateStaticParams() {
-    return ALL_DOCS.map((page) => ({
-        slug: page.slug ? page.slug.split("--") : [],
-    }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
@@ -76,7 +71,7 @@ export default async function DocPage({ params }: { params: Promise<{ slug?: str
 
     return (
         <div className="flex gap-10">
-            <article className="min-w-0 flex-1 pb-20">
+            <article className="min-w-0 flex-1 pb-16">
                 {section && (
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-pulse-accent">
                         {section.title}
@@ -115,7 +110,7 @@ export default async function DocPage({ params }: { params: Promise<{ slug?: str
             </article>
 
             {toc.length > 1 && (
-                <aside className="sticky top-24 hidden h-fit w-56 shrink-0 xl:block">
+                <aside className="sticky top-6 hidden h-fit w-56 shrink-0 xl:block">
                     <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">
                         On this page
                     </p>

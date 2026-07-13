@@ -1,53 +1,47 @@
-"Tools" are the functions an agent can actually call. This page covers the built-in catalog, the (important, easy-to-miss) difference between a tool being *registered* in code and being *enabled* for a tenant, and Tool Search — the mechanism that keeps large tool lists from bloating every prompt.
+"Tools" are the actions your agent can take beyond writing a reply — sending an email, checking the time, searching its memory, running a scheduled task. This page covers the built-in catalog, and clears up two dashboard controls that are easy to mistake for on/off switches.
 
-## The built-in tool catalog
-
-`pulse/src/agent/tools/registry.ts` registers this fixed set of built-in tools in code:
+## The built-in catalog
 
 | Group | Tools |
 |---|---|
 | Utility | `get_current_time`, `calculator` |
-| Execution | `exec`, `process`, `python_execute` |
-| Sandbox | `sandbox` / enhanced sandbox tool (injected only if Docker sandbox or the enhanced sandbox mode is on for the agent) |
-| Scripts | `script_save`, `script_load`, `script_list` |
+| Command execution | `exec`, `process`, `python_execute` |
+| Sandbox | An isolated code-execution environment — only appears if Sandbox is turned on for this agent |
+| Saved scripts | `script_save`, `script_load`, `script_list` |
 | Memory | `memory_store`, `memory_search`, `memory_forget` |
 | Scheduling | `schedule_job`, `schedule_once`, `list_jobs`, `cancel_job` |
 | Multi-agent | `delegate_to_agent`, `list_agents`, `route_to_channel` |
 | Credentials | `credential_list` |
 | Email | `email_send`, `email_read`, `email_list`, `email_fetch_unread`, `email_reply`, `email_search`, `email_flag`, `email_move`, `email_delete`, `email_folders` |
-| Self-config | `workspace_update` (only injected if the agent's **Self-config** flag is on) |
+| Self-editing | `workspace_update` — only appears if **Agent Self-Config** is on (see [Profile, Soul & Identity](/dashboard/docs/agents/profile)) |
 
-Beyond this fixed list, an agent can also pick up **extension tools**: MCP server tools, [plugin](/docs/tools--plugins)-contributed tools, [custom HTTP tools](/docs/tools--custom), and [server SSH tools](/docs/tools--servers). These are loaded per-agent based on their own bindings/assignments, not through the mechanism below.
+An agent can also pick up **connected tools** beyond this list: MCP servers, [plugins](/dashboard/docs/tools/plugins), [custom HTTP tools](/dashboard/docs/tools/custom), and [server access](/dashboard/docs/tools/servers) you've attached to it directly.
 
-## Registered vs. enabled — the tenant_skills gate
+> Built-in tool availability is provisioned for your workspace — it isn't something you switch on yourself, and there's no self-serve toggle for the tools in the table above. If an agent seems to be missing a tool you expect it to have, ask your Pulse administrator or contact support.
 
-This is the single most important thing to understand about built-in tools: **being in the registry above does not mean an agent can use it.** Every tenant has a `tenant_skills` table (`tenantId`, `skillName`, `enabled`), and `ToolRegistry.getEnabledTools()` only loads a built-in tool into an agent's toolset if there is a matching, enabled row for that exact tool name.
+## Two tabs that don't do what their names suggest
 
-> **`tenant_skills` is not seeded automatically.** Creating a new tenant (`createTenantAction` in `dashboard/src/app/admin/tenants/actions.ts`) does not insert any `tenant_skills` rows. There is no dashboard UI to bulk-toggle it either. In practice, rows get created by hand-written SQL migrations that target tenants already using a related tool — see `scripts/migrations/0026_email_tools_skills.sql`, which back-fills `email_reply`, `email_search`, `email_flag`, `email_move`, `email_delete`, `email_folders`, and `email_fetch_unread` for any tenant that already had `email_send` enabled.
->
-> The practical consequence: **when a new built-in tool ships, it is invisible to every existing tenant until someone inserts a `tenant_skills` row for it.** If an agent can't see a tool you know exists in code, check `tenant_skills` before assuming a bug.
+Both of these live on the agent editor and are easy to mistake for access controls. Neither one is.
 
-## "Skills" in the dashboard is a different thing
+> **The "Tools Guidance" tab is a notes file, not a switch.** It's where you write operating notes for a tool the agent already has — hostnames, device nicknames, house rules. Writing "the agent may use `email_send`" there does nothing on its own; it does not grant, remove, or change access to any tool.
 
-The **Skills** section on an agent (Capabilities → Skills) does *not* control the gate above. It toggles `agentProfiles.skillConfig.enabledBuiltIn` / `disabledBuiltIn` against a fixed list — `memory`, `scheduling`, `workspace`, `delegation`, `scripts`, `python`, `formatting`, `skill-creator`, `email` — plus any custom skills you write yourself. These are **usage-guidance documents** (`pulse/src/agent/skills/*.skill.md`) injected into the system prompt to teach the model *how* to use tools it already has; they don't grant or revoke tool access. An agent can have a skill's guidance turned off while the underlying tool (gated by `tenant_skills`) is still callable, and vice versa.
+> **The "Skills" tab toggles instructions, not tools.** Each skill — Memory, Scheduling, Workspace, Delegation, Scripts, Python, Formatting, Skill Creator, Email, plus any custom ones you write — is a short usage-guidance document that teaches the agent *how* to use tools it already has. Turning a skill off removes that guidance from the agent's instructions; it does not take the underlying tool away. Turning a skill on does not give the agent a tool it didn't already have. Access to a tool and guidance on how to use it are controlled separately.
 
-## Tool Search — progressive disclosure
+If you want to actually restrict what an agent can call, use [Tool Policy](/dashboard/docs/agents/tool-policy).
 
-Once an agent accumulates enough MCP servers, plugins, custom tools, and server bindings, sending every tool's full schema on every turn bloats the prompt and hurts tool selection. Tool Search (`pulse/src/agent/tools/tool-search.ts`) solves this by hiding "deferrable" tools behind a meta-tool the model can call to search for what it needs.
+## Tool Search
 
-A tool is deferrable if its `source` is `"plugin"`, `"mcp"`, `"custom"`, or `"server"` — built-in tools and workspace/sandbox tools are never deferred.
+Once an agent has picked up enough connected tools — several MCP servers, plugins, custom tools, servers — sending the full detail of every single one on every message slows the agent down and can make it pick the wrong tool. Tool Search hides the less-common ones behind a quick internal lookup: the agent describes what it needs in plain language, and only the closest matches come back with full detail.
 
 | Mode | Behavior |
 |---|---|
-| `off` | Every tool's full schema is always sent. Simplest, but slower and less accurate once an agent has many integrations. |
-| `auto` (default) | All tools are sent normally until the deferrable count exceeds a threshold (default 12), then Tool Search kicks in. |
-| `on` | Deferrable tools are always hidden behind search, regardless of count. |
+| Off | Every connected tool's full detail is always sent. Simplest, but slower and less accurate once an agent has many integrations. |
+| Automatic (default) | Tools are sent normally until the number of connected tools passes a threshold, then Tool Search kicks in. |
+| On | Connected tools are always behind search, regardless of count. |
 
-When active, the model gets the core (non-deferrable) tool schemas plus one `tool_search` tool. Calling `tool_search` with a plain-language query (e.g. *"upload a file to OneDrive"*) ranks deferred tools by keyword overlap in name and description (name matches score 3x higher than description matches) and returns up to `maxResults` (default 6) matching tool definitions, which the model can then call directly for the rest of that conversation.
-
-This is configured per-tenant, not per-agent, under **Settings → Plugins**: mode, the auto-mode threshold, and max results per search.
+This is set for your whole workspace, not per agent, under **Settings → Plugins**: the mode, the automatic threshold, and how many results a search returns.
 
 ## Related
 
-- [Tool Policy](/docs/agents--tool-policy) — allow/deny/ask rules layered on top of whichever tools actually get loaded.
-- [Custom Tools](/docs/tools--custom), [MCP servers](/docs/tools--mcp), [Servers (SSH)](/docs/tools--servers), [Plugins](/docs/tools--plugins) — the extension tool sources.
+- [Tool Policy](/dashboard/docs/agents/tool-policy) — allow, deny, and approval rules layered on top of whichever tools an agent actually has.
+- [Custom Tools](/dashboard/docs/tools/custom), [MCP servers](/dashboard/docs/tools/mcp), [Servers (SSH)](/dashboard/docs/tools/servers), [Plugins](/dashboard/docs/tools/plugins) — how to connect more tools.

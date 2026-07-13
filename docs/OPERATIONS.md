@@ -12,7 +12,7 @@ These come straight from the Zod schema in `pulse/src/config.ts`. The gateway re
 | `NODE_ENV` | No | `development` \| `production` \| `test`. Default `development`. |
 | `PORT` | No | HTTP port the gateway listens on. Default `3000` (the Docker image overrides this to `8080`). |
 | `LOG_LEVEL` | No | `fatal`\|`error`\|`warn`\|`info`\|`debug`\|`trace`\|`silent`. Default `info`. |
-| `ANTHROPIC_API_KEY` | No (but needed for agents to think) | Anthropic API key. See [AI providers](/docs/setup/providers) — tenants can also bring their own key. |
+| `ANTHROPIC_API_KEY` | No (but needed for agents to think) | Anthropic API key. See [AI providers](/dashboard/docs/setup/providers) — tenants can also bring their own key. |
 | `OPENAI_API_KEY` | No | OpenAI API key, same pattern as above. |
 | `WEBHOOK_BASE_URL` | No | The gateway's own public base URL (e.g. `https://your-domain.example`), used to register Telegram webhooks. Without it, Telegram channels can't receive inbound messages in production. |
 | `DASHBOARD_URL` | No | The dashboard's origin, so the gateway's OAuth callback proxy knows where to forward. Default `http://localhost:3001`. |
@@ -133,4 +133,4 @@ Once you can log in as the platform ADMIN, go to **Admin → Tenants → New Ten
 - best-effort sends an invite email with a 7-day password-reset link — this depends on SMTP being configured under **Admin → Settings → Email**; if SMTP isn't set up yet, the email send fails silently (logged, not surfaced) and creation still succeeds,
 - and returns the temporary password directly in the action's response so you can hand it to the customer yourself if the invite email never arrives.
 
-Every tenant-create/delete/suspend action is written to the platform audit log — see [Security](/docs/security).
+Every tenant-create/delete/suspend action is written to the platform audit log — see [Security](/dashboard/docs/security).

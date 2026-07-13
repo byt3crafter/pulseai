@@ -30,7 +30,6 @@ export default function LandingNav() {
                             {l.label}
                         </a>
                     ))}
-                    <Link href="/docs">Docs</Link>
                     <Link href="/login" className={styles.navSignIn}>
                         Sign in
                     </Link>
@@ -67,9 +66,6 @@ export default function LandingNav() {
                             {l.label}
                         </a>
                     ))}
-                    <Link href="/docs" className={styles.navMobileLink} onClick={() => setOpen(false)}>
-                        Docs
-                    </Link>
                     <Link href="/login" className={styles.navMobileLink} onClick={() => setOpen(false)}>
                         Sign in
                     </Link>

@@ -1,46 +1,40 @@
-A schedule sends a message to an agent automatically — on a cron expression, at a fixed interval, or once at a specific time — the same way a person's message would trigger a reply. Use it for inbox checks, recurring reports, or reminders the agent should act on without anyone asking.
+A schedule sends a message to an agent automatically — on a repeating pattern, at a fixed interval, or once at a specific date and time — the same way a person's message would trigger a reply. Use it for inbox checks, recurring reports, or reminders the agent should act on without anyone asking.
 
 ## Creating a schedule
 
-There are two ways, and they behave differently in an important way (see the gotcha below):
+There are two ways to set one up:
 
-**The agent creates it for itself.** Give an agent the `schedule_job` / `schedule_once` / `list_jobs` / `cancel_job` tools, and it can set up its own recurring or one-time jobs when you ask it to in conversation — e.g. "check the shared inbox every weekday at 8am."
+**Ask the agent to create it for itself.** If an agent has scheduling enabled, you can just tell it in conversation — "check the shared inbox every weekday at 8am" — and it sets up the recurring or one-time job on its own.
 
-**You create it from the dashboard**, at `/dashboard/agents/<agent-id>/schedules`. The form lets you set:
+**Create it yourself from the agent's Schedules page.** Open the agent, then add `/schedules` to the end of that page's address in your browser (this page isn't listed among the agent's tabs yet, so the direct address is the way in for now). The form lets you set:
 
-- **Name** — a label.
+- **Name** — a label for the schedule.
 - **Schedule Type** — Cron Expression, Interval, or One-time.
-- **Cron Expression** — e.g. `0 8 * * 1-5` (weekdays at 8am).
-- **Interval (seconds)** — minimum 300 (5 minutes).
-- **Run At** — an ISO datetime, for one-time jobs.
-- **Timezone** — a fixed dropdown of common zones (UTC, Africa/Johannesburg, a handful of US/Europe/Asia/Australia zones); it's not free text.
-- **Message / Instruction** — the exact text sent to the agent as a user message every time the job fires.
+- **Cron Expression** — a repeating pattern, e.g. `0 8 * * 1-5` for weekdays at 8am.
+- **Interval (seconds)** — a fixed gap between runs, minimum 300 (5 minutes).
+- **Run At** — a specific date and time, for one-time jobs.
+- **Timezone** — chosen from a fixed list of common zones.
+- **Message / Instruction** — the exact text sent to the agent, as if it were a message from a person, every time the job fires.
 
-> **This page exists but isn't linked anywhere.** It's a real, working page — creating, enabling, disabling and deleting schedules all work — but it isn't one of the tabs in the agent workspace's left nav (Standing Orders and Heartbeat are tabs there; Schedules is not). The only way to reach it is to type the URL directly: `/dashboard/agents/<id>/schedules`.
+### Useful cron expressions
 
-## What happens when a job fires
+| Expression | Meaning |
+|---|---|
+| `0 8 * * 1-5` | 8am, Monday through Friday |
+| `0 9 * * *` | 9am every day |
+| `*/15 8-17 * * 1-5` | Every 15 minutes, 8am–5pm, weekdays |
+| `0 18 * * 5` | 6pm every Friday |
+| `0 0 1 * *` | Midnight on the first of each month |
 
-`pulse/src/cron/job-runner.ts` builds a synthetic inbound message (channel type `heartbeat`, your configured `message` as the content) and runs it through the same agent runtime as a real conversation. The response is captured and saved to a `job_runs` row (status, result text, error) — but **nothing forwards that response anywhere by default.** Unlike Heartbeat, a schedule has no "target channel" setting. If you want the output to actually go somewhere, the instruction itself needs to tell the agent to use a tool that sends it (email, Telegram, a channel post) — otherwise the agent's answer is generated and then simply discarded into a log row nobody's shown.
+## What happens when a schedule fires
 
-The run history is recorded in the database, but the current schedules page doesn't render it (the code that would fetch it, `getJobRunHistory`, is imported and never called) — so today there's no dashboard view of whether a job's last run actually succeeded, beyond the "Last Run" timestamp and Enabled/Disabled badge in the table.
+The agent receives the instruction text as an ordinary message and responds the same way it would to a person. That response is recorded, but nothing forwards it anywhere on its own — a schedule has no built-in delivery target. If you want the result to actually reach someone, write the instruction so it tells the agent to use one of its own tools to deliver it, for example: "check the shared inbox and email me a summary" or "post the totals to the Sales group." Otherwise the agent's answer is generated and simply logged, with nobody shown it.
 
-Every job also gets a **webhook token**, shown truncated in its row. `POST /webhooks/cron/<token>` fires that job immediately from any external system, independent of its schedule — useful for "run this when our nightly export finishes," triggered by whatever produces that file.
+Each schedule also gets its own trigger address, shown (in part) on its row in the table. Sending a request to that address from another system runs the job immediately, separately from its normal timing — useful for "run this as soon as our nightly export finishes."
 
-## Honest gotcha: dashboard changes don't reach the live scheduler without a restart
-
-The gateway loads all enabled jobs into an in-memory scheduler once, at boot (`CronScheduler.init()` in `pulse/src/cron/scheduler.ts`). After that, the only way a job gets added to (or removed from) the live scheduler is a direct call to `cronScheduler.addJob()` / `.removeJob()`.
-
-- The **agent's own tools** (`schedule_job`, `schedule_once`, `cancel_job`) call `cronScheduler.addJob()` / `.removeJob()` immediately after writing to the database — so a job the agent creates for itself goes live right away, and canceling it through the agent stops it right away too.
-- The **dashboard's Create/Toggle/Delete Schedule actions** only write to the database. They never call `addJob`, `removeJob`, or `reload()`.
-
-The practical consequences:
-
-- A schedule you create from the dashboard sits in the database but **will not fire** until the gateway process next restarts and reloads jobs from the DB.
-- If a job is already running live (because the agent created it, or because the gateway has restarted since you created it from the dashboard), clicking **Disable** or **Delete** in the dashboard updates the database row but **does not stop the in-memory timer** — it keeps firing on its old schedule until the process restarts. The dashboard will show it as disabled or gone while it's actually still running.
-
-There is no manual "reload scheduler" button anywhere in the product. If a dashboard-created schedule seems to be doing nothing, or a disabled one keeps firing, a gateway restart is the only fix today.
+> **A schedule you create, enable, or disable in the dashboard does not take effect immediately.** It is picked up the next time the platform restarts. If you need a schedule to start or stop running right now, contact your Pulse administrator rather than assuming the dashboard's Enabled/Disabled state reflects what's actually running — a schedule you just disabled may keep firing until the next restart, and one you just created won't start until then either. A schedule an agent sets up for itself, in conversation, does take effect immediately — this delay only applies to schedules created or changed from the dashboard.
 
 ## Related
 
-- [Standing Orders](/docs/automation/standing-orders) — for "what does checking mean and where's the line," pair a schedule's timer with a standing order's rules.
-- [Heartbeat](/docs/automation/heartbeat) — a simpler, single always-on self-check per agent, with an explicit target channel.
+- [Standing Orders](/dashboard/docs/automation/standing-orders) — pair a schedule's timing with a standing order that spells out what "checking" means and where the line is.
+- [Heartbeat](/dashboard/docs/automation/heartbeat) — a simpler, single always-on self-check per agent, with no setup form of its own.

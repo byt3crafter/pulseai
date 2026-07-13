@@ -1,63 +1,36 @@
-Pulse AI is a multi-tenant platform for running AI agents that have a persona, a set of tools, and a place to talk to people — Telegram, email, an API, or a chat app your team builds against. You run one deployment (one gateway, one dashboard, one Postgres database); each of your customers or business units is a **tenant** with its own agents, keys, and conversation history, fully isolated from every other tenant's.
+Pulse AI gives your business a team of AI agents that you configure, not code. Each agent has a persona, a set of things it's allowed to do, and a way for people to reach it — Telegram today, with more channels planned. Where it matters, an agent checks with a human before it acts. This page is a short tour of what that looks like in practice; the [Quickstart](/dashboard/docs/quickstart) walks you through building your first agent.
 
-## The two codebases, one database
+## An agent is a persona plus a job
 
-Pulse ships as two services that share a single schema:
+Every agent starts from a plain-language description of who it is and what it's for — a sales assistant, a support triager, an inbox manager. You write that description once when you create the agent, and refine it any time from the agent's own settings page: its personality and tone, its name and avatar, what it should remember, and how it should behave. See [Profile, Soul & Identity](/dashboard/docs/agents/profile).
 
-| Codebase | What it is | Tech |
-|---|---|---|
-| `pulse/` | The API gateway — receives messages, runs the agent loop, calls the LLM, executes tools | Fastify 5 + TypeScript + Node.js |
-| `dashboard/` | The admin/tenant web app — where you configure agents, providers, channels, and settings | Next.js 16 + React 19 + Tailwind CSS 4 |
+What an agent is allowed to *do* is a separate question from who it *is*. An agent's tools — sending email, searching the web, calling one of your own systems — come from several places at once, and a **Tool Policy** sits on top of all of them deciding what's allowed, denied, or needs a human's sign-off first. This is one of the more confusing parts of the dashboard if nobody explains it, so [Core concepts](/dashboard/docs/concepts) spells it out plainly, and [Tools & Skills](/dashboard/docs/agents/tools) goes deeper.
 
-Both talk to the same PostgreSQL database through Drizzle ORM. The schema is defined once (`pulse/src/storage/schema.ts`) and copied into the dashboard so both sides stay in sync. Nothing about an agent, a tool, or a conversation lives in two places — the dashboard is a UI over the same rows the gateway reads and writes at runtime.
+## Where it can talk to people
 
-## What happens when someone sends a message
+**Telegram** is the fastest way to put an agent in front of your team or your customers today — connect a bot and people can message it directly, in a DM or a group. See [Telegram](/dashboard/docs/setup/telegram).
 
-A message — say, a Telegram DM — takes this path through the gateway:
+**Email** works differently: an agent doesn't sit and wait for mail to trigger a reply the way it does on Telegram. Instead, it checks, reads, drafts, and sends mail because it decided to — in the moment, or on a schedule you set up. See [Email](/dashboard/docs/setup/email).
 
-```
-Telegram / API token / desktop app
-        ↓
-pulse/src/gateway/server.ts        Fastify HTTP + WebSocket entrypoint
-        ↓
-pulse/src/queue/                   BullMQ + Redis (or a synchronous fallback if Redis isn't configured)
-        ↓
-pulse/src/agent/runtime.ts         AgentRuntime.processMessage() — the core loop
-        ↓
-pulse/src/agent/providers/         Routes the call to Anthropic / OpenAI / Codex / Google / Groq / OpenRouter / MiniMax
-        ↓
-pulse/src/agent/tools/registry.ts  Resolves which tools this agent actually has, executes tool calls
-        ↓
-Reply sent back through the same channel
-```
+You can also reach an agent through Pulse's API, or through a desktop app, if your team builds against either.
 
-`AgentRuntime.processMessage()` is the one function that does all of this for every inbound message, regardless of channel: it resolves which agent should answer, loads that agent's persona and enabled tools, calls the LLM (looping on tool calls up to a fixed iteration budget), strips any chain-of-thought the model leaked into its answer, records token usage against the tenant's balance, and dispatches the reply.
+## A human stays in control
 
-## An agent, concretely
+For anything sensitive — sending an email under your company's name, running a command on a real server, spending money — you can require a person to approve the action before it happens. The agent drafts what it wants to do, a designated approver sees exactly what that is, and nothing happens until someone says yes. See [Approval gates](/dashboard/docs/approvals) and [People & approvers](/dashboard/docs/people).
 
-An **Agent Profile** (`agentProfiles` table) is a row with a name, a model, a system prompt, and a handful of JSON config blobs (tool policy, sandbox settings, heartbeat schedule, delegation config). In the dashboard it's a single editor page with a section rail — Profile, Soul, Identity, Memory, Heartbeat, User, Bootstrap, Agents, Tools, Skills, Tool Policy, Sandbox, Standing Orders, Email, Telegram, Revisions. On disk it also has a workspace directory of markdown files (`SOUL.md`, `IDENTITY.md`, `MEMORY.md`, and others) that get assembled into its system prompt on every turn — see [Profile, Soul & Identity](/docs/agents/profile) for exactly how.
+## More than one agent working together
 
-What an agent can *do* is a separate question from who it *is*. Tools are capabilities the model can call (send email, run a shell command, hit your API); which tools are actually switched on for a given agent comes from several independent sources at once — built-in tools, MCP servers, custom HTTP tools, SSH-guarded server access, and installed plugins — then filtered by a per-agent allow/deny/ask **Tool Policy**. This is one of the more confusing parts of the system if you don't read the code, so [Core concepts](/docs/concepts) spells it out precisely, and [Tools & Skills](/docs/agents/tools) goes deep.
+Beyond a single agent answering a single person, Pulse can model your company as a small org chart: a **Department** groups a lead agent with its teammates, the lead answers and routes work by default, and anyone can address a specific agent directly with an `@mention`. This is real and works today for a single flat layer of departments; connecting departments to each other and building out deeper hierarchies are still on the roadmap. See [Departments & channels](/dashboard/docs/departments) and [Message routing](/dashboard/docs/routing).
 
-## Multi-tenancy and billing
+## What to expect on day one
 
-Every tenant-facing table carries a `tenantId` column, and every query in the dashboard and the gateway filters by it — there is no cross-tenant query path by design. Before an agent runs, `AgentRuntime` checks the tenant's credit balance (`tenantBalances`) unless the platform is running in `unlimited` billing mode (used for dedicated, self-hosted deployments on the client's own provider keys); every LLM call is metered and deducted from that balance afterward, with a full ledger (`usageRecords`, `ledgerTransactions`).
-
-## Organizing agents like a company
-
-Beyond a single agent answering a single person, Pulse can model a customer as a small **org chart of AI**: a company (the tenant) breaks into **Departments**, which can contain **Groups**, each with a **lead agent** that answers by default and routes work to teammates or other departments. This is documented in full in [Departments & channels](/docs/departments) and [Message routing](/docs/routing) — it's real and shipped for the flat, single-level case; nested departments and cross-department routing are still being built.
-
-## What's genuinely self-serve today, and what isn't
-
-Not every knob described in these docs has a dashboard toggle yet. The two biggest examples:
-
-> **Telegram is the only fully-shipped inbound channel adapter.** The gateway's channel-type registry has room for others, but only `TelegramAdapter` is actually registered at startup. Email is real, but it's tool-driven (the agent sends/reads mail when it decides to, or on a schedule) rather than an inbound trigger that starts a conversation the way a Telegram message does. The desktop app and any API-token integration talk to agents through the App API / OpenAI-compatible endpoint, not through a "channel" in this sense.
-
-> **A tenant can't self-serve every built-in tool from the dashboard.** The classic built-in tool library — calculator, shell exec, memory, scheduling, email, delegation, and more — is gated by a `tenant_skills` table that has zero UI, tenant-side or admin-side, anywhere in the dashboard. See [Tools & Skills](/docs/agents/tools) and [Core concepts](/docs/concepts) for what that actually means in practice and which tool sources *are* self-serve (Custom Tools, MCP servers, Servers/SSH, Plugins).
+> **Telegram is the channel that works out of the box; email is tool-driven, not inbound.** Connecting a Telegram bot gives you a live conversation immediately. Email needs an agent to decide to check the inbox — on its own, or on a schedule — rather than an incoming message starting the conversation the way a Telegram message does.
+>
+> **Built-in tools are switched on for your workspace, not toggled by you.** The standard library of tools — sending email, running scheduled checks, remembering things across conversations, and more — is provisioned for your account during onboarding. If a tool you expect isn't available to your agent, that's not a setting you're missing; contact your Pulse administrator.
 
 ## Where to go next
 
-- [Quickstart](/docs/quickstart) — the fastest real path from an empty workspace to a working agent.
-- [Core concepts](/docs/concepts) — the vocabulary: agents, tools vs. skills, channels, approvals, automation.
-- [AI providers](/docs/setup/providers) — connect a model.
-- [Security](/docs/security) — encryption, roles, audit log, SSO, 2FA.
+- [Quickstart](/dashboard/docs/quickstart) — the fastest real path from an empty workspace to a working agent.
+- [Core concepts](/dashboard/docs/concepts) — the vocabulary: agents, tools vs. skills, channels, approvals, automation.
+- [AI providers](/dashboard/docs/setup/providers) — connect a model.
+- [Security & your data](/dashboard/docs/security) — encryption, roles, audit log, SSO, 2FA.
