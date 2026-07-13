@@ -14,7 +14,7 @@ import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
-import { ToolPolicy } from "./tools/tool-policy.js";
+import { ToolPolicy, isToolAllowed } from "./tools/tool-policy.js";
 import { ensureToolApproved } from "./tools/approval-gate.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
 import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader.js";
@@ -227,9 +227,19 @@ export class AgentRuntime {
                     if (ctx.isLead) {
                         channelTeammates = ctx.teammates;
                         routableChannels = ctx.routable.map((c) => ({ name: c.name, description: c.description }));
+                        // Respect the agent's Tool Policy: a lead-injected routing tool
+                        // must still honor an explicit Deny (an allow-list, if set, must
+                        // permit it) — otherwise `deny: ["delegate_to_agent"]` is silently
+                        // overridden for channel leads.
+                        const leadProfile = await db.query.agentProfiles.findFirst({
+                            where: eq(agentProfiles.id, resolvedAgentProfileId),
+                            columns: { toolPolicy: true },
+                        });
+                        const leadPolicy = (leadProfile?.toolPolicy as ToolPolicy) || null;
                         const toolsToAdd = ["delegate_to_agent", "list_agents"];
                         if (routableChannels.length > 0) toolsToAdd.push("route_to_channel");
                         for (const name of toolsToAdd) {
+                            if (!isToolAllowed(leadPolicy, name)) continue;
                             if (!enabledTools.some((t) => t.name === name)) {
                                 const tool = this.toolRegistry.getBuiltInTool(name);
                                 if (tool) enabledTools.push(tool);
@@ -291,8 +301,14 @@ export class AgentRuntime {
             const promptMode: PromptMode = inbound.channelType === "heartbeat" ? "minimal" : "full";
 
             if (resolvedAgentProfileId) {
+                // Scope by tenant: resolvedAgentProfileId can originate from a
+                // caller-supplied value (e.g. /api/app/chat body), so an id from
+                // another tenant must never load that tenant's profile/persona.
                 const profile = await db.query.agentProfiles.findFirst({
-                    where: eq(agentProfiles.id, resolvedAgentProfileId)
+                    where: and(
+                        eq(agentProfiles.id, resolvedAgentProfileId),
+                        eq(agentProfiles.tenantId, inbound.tenantId)
+                    )
                 });
 
                 // Disabled agents are paused — they don't respond or route.

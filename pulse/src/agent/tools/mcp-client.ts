@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { logger } from "../../utils/logger.js";
 import { Tool } from "./tool.interface.js";
+import { assertSafeUrl, assertResolvedHostSafe } from "../../utils/ssrf.js";
 
 // Cache of active MCP clients indexed by mcpServerId
 const activeClients: Map<string, Client> = new Map();
@@ -13,9 +14,14 @@ export async function getMcpClient(serverId: string, url: string, authHeaders: R
 
     try {
         logger.info({ serverId, url }, "Initializing new MCP Client connection");
+        // SSRF guard: the server URL is tenant-configured. Reject loopback/private
+        // targets and hostnames that only resolve to one, so an MCP server can't be
+        // pointed at internal services or the cloud metadata endpoint.
+        const safe = assertSafeUrl(url);
+        await assertResolvedHostSafe(safe.hostname);
         // For a SaaS gateway, we connect to remote MCP servers via SSE over HTTP/HTTPS
         // Using URL object to ensure proper formatting
-        const transport = new SSEClientTransport(new URL(url), {
+        const transport = new SSEClientTransport(safe, {
             requestInit: {
                 headers: authHeaders
             }

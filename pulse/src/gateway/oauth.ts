@@ -129,51 +129,13 @@ export const oauthRoutes: FastifyPluginAsync = async (server) => {
         return reply.redirect(`${dashboardUrl}/oauth/authorize?${params.toString()}`);
     });
 
-    // POST /oauth/authorize — kept for backward compatibility / direct API usage
-    server.post("/oauth/authorize", async (request, reply) => {
-        const body = request.body as Record<string, any>;
-        const clientId = body.client_id || body.clientId;
-        const tenantId = body.tenant_id || body.tenantId;
-        const redirectUri = body.redirect_uri || body.redirectUri;
-
-        if (!clientId || !tenantId) {
-            return reply.code(400).send({ error: "invalid_request", error_description: "client_id and tenant_id are required" });
-        }
-
-        const client = await db.query.oauthClients.findFirst({
-            where: eq(oauthClients.clientId, clientId),
-        });
-
-        if (!client) {
-            return reply.code(400).send({ error: "invalid_client" });
-        }
-
-        // Validate redirect URI against registered URIs
-        if (redirectUri) {
-            const registeredUris = client.redirectUris as string[];
-            if (!registeredUris || !registeredUris.includes(redirectUri)) {
-                return reply.code(400).send({
-                    error: "invalid_request",
-                    error_description: "redirect_uri does not match any registered URI for this client",
-                });
-            }
-        }
-
-        const code = randomBytes(32).toString("hex");
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-        await db.insert(oauthCodes).values({
-            code,
-            clientId,
-            tenantId,
-            redirectUri,
-            codeChallenge: body.code_challenge,
-            codeChallengeMethod: body.code_challenge_method,
-            expiresAt,
-        });
-
-        return reply.send({ code });
-    });
+    // NOTE: there is deliberately NO `POST /oauth/authorize` handler. Authorization
+    // codes are only ever issued by the dashboard consent action
+    // (`dashboard/src/app/oauth/authorize/actions.ts`), which derives `tenantId`
+    // from the authenticated session. A body-driven variant used to exist here for
+    // "direct API usage" but it trusted `tenant_id` from the request body with no
+    // auth or consent, letting anyone mint a token for any tenant — removed. The
+    // GET handler above is the entry point: it redirects to that consent page.
 
     // ── Token Exchange (OAuth 2.0 Standard endpoint) ────────────────────────────
 

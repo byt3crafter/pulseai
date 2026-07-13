@@ -483,7 +483,12 @@ export class TelegramAdapter implements ChannelAdapter {
         }
 
         const inbound: InboundMessage = {
-            id: randomUUID(),
+            // Stable per Telegram message so a webhook redelivery dedupes on the
+            // queue (jobId) instead of being processed twice (double reply / double
+            // side-effect). Falls back to a random id if ids are somehow absent.
+            id: (ctx.chat?.id != null && ctx.message?.message_id != null)
+                ? `tg-${ctx.chat.id}-${ctx.message.message_id}`
+                : randomUUID(),
             tenantId: conn.tenantId,
             agentProfileId: conn.agentProfileId || undefined,
             channelType: "telegram",
@@ -584,7 +589,11 @@ export class TelegramAdapter implements ChannelAdapter {
         }
 
         const inbound: InboundMessage = {
-            id: randomUUID(),
+            // Stable per Telegram message so a webhook redelivery dedupes on the
+            // queue instead of being processed twice.
+            id: (ctx.chat?.id != null && ctx.message?.message_id != null)
+                ? `tg-${ctx.chat.id}-${ctx.message.message_id}`
+                : randomUUID(),
             tenantId: conn.tenantId,
             agentProfileId: conn.agentProfileId || undefined,
             channelType: "telegram",

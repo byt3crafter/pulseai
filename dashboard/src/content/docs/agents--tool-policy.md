@@ -10,15 +10,17 @@ Tool Policy is a per-agent set of rules that decides which tools it can use free
 
 ## Which patterns actually work
 
-The field only understands three forms:
+`*` is a wildcard for any run of characters, and it works anywhere in the pattern:
 
 ```
 *              matches every tool
-prefix*        matches any tool name starting with "prefix"
+erpnext_*      matches any tool name starting with "erpnext_"
+*_send         matches any tool name ending with "_send"
+mcp_*_delete   matches mcp_<anything>_delete
 exact_name     matches only that exact tool name
 ```
 
-Nothing else works as a wildcard. A leading wildcard (`*_send`), a wildcard in the middle (`email_*_confirm`), more than one wildcard, `?`, or a character list like `[abc]` are all compared as a literal, exact string — they will almost certainly match nothing. `erpnext_*` works because it ends in `*`; `*_send` does not, even though it looks like it should.
+`*` is the only wildcard — `?` and character lists like `[abc]` are treated as literal characters, not patterns.
 
 ## What happens when a tool needs approval
 

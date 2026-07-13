@@ -18,9 +18,9 @@ import { sql } from "drizzle-orm";
 export const globalSettings = pgTable("global_settings", {
     id: varchar("id", { length: 50 }).primaryKey().default("root"), // Singleton pattern, always 'root'
     config: jsonb("config").notNull().default({}),
-    anthropicApiKeyHash: varchar("anthropic_api_key_hash", { length: 255 }),
-    openaiApiKeyHash: varchar("openai_api_key_hash", { length: 255 }),
-    gatewayConfig: jsonb("gateway_config").default({}),
+    anthropicApiKeyHash: text("anthropic_api_key_hash"),
+    openaiApiKeyHash: text("openai_api_key_hash"),
+    gatewayConfig: jsonb("gateway_config").notNull().default({}),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -53,12 +53,12 @@ export const agentProfiles = pgTable("agent_profiles", {
     dockerSandboxEnabled: boolean("docker_sandbox_enabled").default(false), // WARNING: Grants raw bash execution
     selfConfigEnabled: boolean("self_config_enabled").notNull().default(false), // Allow agent to edit its own workspace files
     enabled: boolean("enabled").notNull().default(true), // Disabled agents don't respond or route
-    heartbeatConfig: jsonb("heartbeat_config").default({}),
-    sandboxConfig: jsonb("sandbox_config").default({}),
-    toolPolicy: jsonb("tool_policy").default({}),
-    delegationConfig: jsonb("delegation_config").default({}),
-    skillConfig: jsonb("skill_config").default({}),
-    emailConfig: jsonb("email_config").default({}),
+    heartbeatConfig: jsonb("heartbeat_config").notNull().default({}),
+    sandboxConfig: jsonb("sandbox_config").notNull().default({}),
+    toolPolicy: jsonb("tool_policy").notNull().default({}),
+    delegationConfig: jsonb("delegation_config").notNull().default({}),
+    skillConfig: jsonb("skill_config").notNull().default({}),
+    emailConfig: jsonb("email_config").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 }, (table) => [

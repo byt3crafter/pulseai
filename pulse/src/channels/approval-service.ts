@@ -253,9 +253,9 @@ function finalStatusLabel(status: ApprovalStatus, approverLabel?: string | null)
     return "⏱ Expired — nobody responded in time.";
 }
 
-async function editAllCards(row: typeof pendingApprovals.$inferSelect, status: ApprovalStatus, approverLabel?: string | null): Promise<void> {
+async function editAllCards(row: typeof pendingApprovals.$inferSelect, status: ApprovalStatus, approverLabel?: string | null, note?: string): Promise<void> {
     const messageIds = (row.approvalMessageIds as Record<string, string>) || {};
-    const suffix = finalStatusLabel(status, approverLabel);
+    const suffix = finalStatusLabel(status, approverLabel) + (note ? `\n${note}` : "");
     await Promise.all(
         Object.entries(messageIds).map(([telegramUserId, messageId]) =>
             editApprovalCard(row.tenantId, telegramUserId, messageId, `${row.summary}\n\n${suffix}`, row.agentProfileId)
@@ -327,7 +327,7 @@ export async function awaitDecision(approvalId: string, timeoutMs: number = DEFA
     return entry.promise;
 }
 
-async function finalizeApproval(id: string, status: ApprovalStatus, decidedBy: string | null, approverLabel?: string | null): Promise<boolean> {
+async function finalizeApproval(id: string, status: ApprovalStatus, decidedBy: string | null, approverLabel?: string | null, note?: string): Promise<boolean> {
     const [row] = await db
         .update(pendingApprovals)
         .set({ status, decidedBy: decidedBy ?? undefined, decidedAt: new Date() })
@@ -341,7 +341,7 @@ async function finalizeApproval(id: string, status: ApprovalStatus, decidedBy: s
     entry?.resolve({ status, approverLabel: approverLabel ?? undefined });
     resolvers.delete(id);
 
-    await editAllCards(row, status, approverLabel);
+    await editAllCards(row, status, approverLabel, note);
     return true;
 }
 
@@ -362,7 +362,21 @@ export async function decide(approvalId: string, action: ApprovalDecisionAction,
     const approverLabel = approver.displayName || approver.username || approverTelegramId;
     const status: ApprovalStatus = action === "deny" ? "denied" : "approved";
 
-    const applied = await finalizeApproval(approvalId, status, approverTelegramId, approverLabel);
+    // A `tool_call` re-executes from its stored payload (runApprovedToolCall), so
+    // it survives a restart. `command`/`user_request` approvals instead resume a
+    // blocking waiter held in memory (awaitDecision); if the gateway restarted
+    // while this was pending, that waiter is gone and the action cannot run — so
+    // don't render a bare "✅ Approved" that misleads the approver into thinking
+    // it did. Tell them to re-send.
+    const orphaned =
+        status === "approved" &&
+        row.kind !== "tool_call" &&
+        !resolvers.has(approvalId);
+    const note = orphaned
+        ? "⚠️ The service restarted while this was waiting, so it could not run automatically. Please ask again."
+        : undefined;
+
+    const applied = await finalizeApproval(approvalId, status, approverTelegramId, approverLabel, note);
     if (!applied) return { ok: false, reason: "already_decided" };
 
     if (action === "allowall" && status === "approved") {

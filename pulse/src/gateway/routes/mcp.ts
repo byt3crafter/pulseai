@@ -308,9 +308,11 @@ export const mcpRoutes: FastifyPluginAsync = async (fastify) => {
         if (agentParam) {
             const profile = await db.query.agentProfiles.findFirst({
                 where: and(eq(agentProfiles.id, agentParam), eq(agentProfiles.tenantId, auth.tenantId)),
-                columns: { id: true },
+                columns: { id: true, enabled: true },
             });
-            if (profile) agentProfileId = profile.id;
+            // A disabled agent is paused: the runtime refuses to act for it, so the
+            // MCP/operator path must not expose its tools either.
+            if (profile && profile.enabled !== false) agentProfileId = profile.id;
         }
 
         // ?conv=<conversationId> — the real conversation this codex thread

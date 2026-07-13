@@ -18,6 +18,12 @@ export class CronScheduler {
     private timers: Map<string, NodeJS.Timeout> = new Map();
     private commitmentTimer: NodeJS.Timeout | null = null;
     private approvalSweepTimer: NodeJS.Timeout | null = null;
+    // Re-entrancy guards: setInterval does NOT wait for the async callback to
+    // finish, so a tick slower than its period would overlap the previous run
+    // and double-process the same rows. These flags skip a tick still in flight.
+    private commitmentTickRunning = false;
+    private approvalSweepRunning = false;
+    private intervalJobRunning: Set<string> = new Set();
 
     /**
      * Initialize the scheduler by loading all enabled jobs from DB.
@@ -31,16 +37,30 @@ export class CronScheduler {
         }
 
         // Global tick: deliver due commitments (per each tenant's deliveryMode).
+        // Guarded against overlap — a slow tick (many tenants × LLM check-ins) must
+        // not let the next tick re-read the same still-pending commitments and send
+        // duplicate customer messages.
         if (!this.commitmentTimer) {
             this.commitmentTimer = setInterval(() => {
-                deliverDueCommitments().catch((err) => logger.error({ err }, "commitment delivery tick failed"));
+                if (this.commitmentTickRunning) {
+                    logger.warn("commitment delivery tick still running — skipping this interval");
+                    return;
+                }
+                this.commitmentTickRunning = true;
+                deliverDueCommitments()
+                    .catch((err) => logger.error({ err }, "commitment delivery tick failed"))
+                    .finally(() => { this.commitmentTickRunning = false; });
             }, COMMITMENT_TICK_MS);
         }
 
         // Global tick: expire queued tool approvals past their TTL.
         if (!this.approvalSweepTimer) {
             this.approvalSweepTimer = setInterval(() => {
-                expirePendingApprovals().catch((err) => logger.error({ err }, "approval sweep failed"));
+                if (this.approvalSweepRunning) return;
+                this.approvalSweepRunning = true;
+                expirePendingApprovals()
+                    .catch((err) => logger.error({ err }, "approval sweep failed"))
+                    .finally(() => { this.approvalSweepRunning = false; });
             }, APPROVAL_SWEEP_MS);
         }
     }
@@ -53,6 +73,9 @@ export class CronScheduler {
             if (job.scheduleType === "cron" && job.cronExpression) {
                 const cron = new Cron(job.cronExpression, {
                     timezone: job.timezone || "UTC",
+                    // Skip a scheduled run if the previous one is still executing —
+                    // an agent turn can outlast a short cron period.
+                    protect: true,
                 }, () => {
                     executeJob(job).catch((err) =>
                         logger.error({ err, jobId: job.id }, "Cron job execution failed")
@@ -62,9 +85,15 @@ export class CronScheduler {
                 logger.debug({ jobId: job.id, name: job.name, cron: job.cronExpression }, "Cron job scheduled");
             } else if (job.scheduleType === "interval" && job.intervalSeconds) {
                 const timer = setInterval(() => {
-                    executeJob(job).catch((err) =>
-                        logger.error({ err, jobId: job.id }, "Interval job execution failed")
-                    );
+                    // Overlap guard: setInterval won't wait for the async turn.
+                    if (this.intervalJobRunning.has(job.id)) {
+                        logger.warn({ jobId: job.id }, "Interval job still running — skipping this tick");
+                        return;
+                    }
+                    this.intervalJobRunning.add(job.id);
+                    executeJob(job)
+                        .catch((err) => logger.error({ err, jobId: job.id }, "Interval job execution failed"))
+                        .finally(() => this.intervalJobRunning.delete(job.id));
                 }, job.intervalSeconds * 1000);
                 this.timers.set(job.id, timer);
                 logger.debug({ jobId: job.id, name: job.name, interval: job.intervalSeconds }, "Interval job scheduled");
