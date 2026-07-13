@@ -1,38 +1,38 @@
-Plugins bundle a set of tools, credentials, and (sometimes) an OAuth flow into one installable unit — think "connect ERPNext" or "give agents a browser," rather than defining one HTTP call at a time the way [Custom Tools](/docs/tools/custom) do. Plugins live on disk in `pulse/plugins/` and are discovered automatically when the gateway starts.
+Plugins bundle a set of tools, credentials, and sometimes a sign-in flow into one installable unit — think "connect ERPNext" or "give agents a browser," rather than defining one HTTP call at a time the way [Custom Tools](/dashboard/docs/tools/custom) do.
 
-Getting a plugin's tools in front of an agent takes three separate switches, in order — miss one and the tool simply won't appear, with no error shown to the agent:
+Getting a plugin's tools in front of an agent takes three separate steps, in order. Miss one and the tool won't appear — with no error shown to the agent, so if a tool seems to be missing, work back through this list.
 
 ## The three gates
 
-1. **Platform approval** (`/admin/plugins`, admin-only). When the gateway discovers a plugin, it's **pending approval** until an admin reviews its declared permissions (network hosts, filesystem paths, shell commands) and clicks **Approve capabilities**. A plugin can also be enabled/disabled globally here, and an admin can override enablement per tenant. If a plugin's declared permissions change after approval (a new version asks for more), it's automatically deactivated as **"Capabilities changed — re-approve"** until reviewed again.
-2. **Workspace enable + credentials** (**Settings → Plugins**, called "Business Integrations" in the UI, tenant-side). Once a plugin is globally approved, each workspace can enable/disable it independently and fill in its credentials. Credential values are encrypted with AES-256-GCM; leaving a field blank on save keeps whatever was already stored.
-3. **Per-agent access** — via [Tools & Skills](/docs/agents/tools) and [Tool Policy](/docs/agents/tool-policy) on the agent editor. Enabling a plugin for the workspace makes its tools *available*; whether a given agent can actually call them (and whether a call needs human approval first) is still controlled there.
+1. **Platform approval.** Before a plugin is available to any workspace, a Pulse platform administrator reviews what it's asking permission to do (which external services it talks to, what it can access) and approves it. This step is entirely on our side — there's nothing for you to do here, and nothing to enable on your own. If a plugin you expect to see is missing from your workspace's plugin list, this is the first thing to check with your Pulse administrator or support.
+2. **Workspace enable + credentials** (**Settings → Plugins**, shown as "Business Integrations"). Once a plugin has been approved for the platform, you can enable or disable it for your own workspace and fill in its credentials. Credential values are encrypted before they're stored; leaving a field blank when you save keeps whatever was already stored there.
+3. **Per-agent access** — via [Tools & Skills](/dashboard/docs/agents/tools) and [Tool Policy](/dashboard/docs/agents/tool-policy) on the agent editor. Enabling a plugin for your workspace makes its tools *available*; whether a given agent can actually call them — and whether a call needs a person's approval first — is still controlled there.
 
 ## Installed plugins
 
-These seven exist in `pulse/plugins/` today — this list is exhaustive; there is no hidden or half-shipped eighth plugin.
+This is the complete list of plugins available today — there is no hidden or partially available extra one.
 
-| Plugin | Tools | Credentials | Setup |
-|---|---|---|---|
-| **ERPNext** | `erpnext_list`, `erpnext_get`, `erpnext_create`, `erpnext_update`, `erpnext_delete`, `erpnext_report`, `erpnext_method` | `ERPNEXT_URL`, `ERPNEXT_API_KEY`, `ERPNEXT_API_SECRET` | Paste your ERPNext site URL and an API key/secret from ERPNext's own User Settings → API Access. No OAuth. |
-| **OneDrive** | `onedrive_list`, `onedrive_search`, `onedrive_get`, `onedrive_read`, `onedrive_upload`, `onedrive_create_folder`, `onedrive_share`, `onedrive_delete` | `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT_ID` (optional, defaults `common`), `MS_REFRESH_TOKEN` | See below — partially one-click. |
-| **Web Search** | `web_search` | `TAVILY_API_KEY` | Free key from tavily.com. Search results are AI-optimized (Tavily), not raw Google/Bing results. |
-| **Voice** | `voice_transcribe` (Whisper), `text_to_speech` | None required — reuses your existing OpenAI provider key. `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` optional, for premium voices instead of OpenAI TTS. | Just enable it once OpenAI is connected under AI Providers. |
-| **Image Generation** | `image_generate` (MiniMax image-01) | Reuses your MiniMax key from AI Providers. `IMAGEGEN_ENABLED` credential field is really a kill switch — type `false` to disable it for the workspace, blank/anything else = on. | Billed per image by MiniMax. |
-| **Browser (Playwright)** | `browser_navigate`, `browser_screenshot`, `browser_click`, `browser_fill`, `browser_extract`, `browser_close`, `browser_save_image` | `PLAYWRIGHT_ALLOW_PRIVATE_NETWORK` (default `false`), `PLAYWRIGHT_ENABLE_IMAGE_FETCH` (default enabled) | See SSRF note below. Driven by a system Chromium via `playwright-core` — no browser download bundled. |
-| **Commitments** | `commitment_create`, `commitment_list`, `commitment_complete` | None | Lets an agent record a follow-up to come back to later. Delivery behavior when one is due is a per-tenant setting — see [Commitments & follow-ups](/docs/automation/commitments) for the full picture; this plugin just adds the tools that create/list/close them. |
+| Plugin | What it does | Setup |
+|---|---|---|
+| **ERPNext** | Lets an agent list, look up, create, update, and delete records in your ERPNext instance, run financial and stock reports, and call whitelisted server actions (e.g. submitting a document). | Enter your **ERPNext URL**, **API Key**, and **API Secret** — found in ERPNext under User Settings → API Access. No sign-in flow required. |
+| **OneDrive** | Lets an agent list, search, read, upload, share, and delete files in your organization's OneDrive / Microsoft 365. | See below — partially one-click. |
+| **Web Search** | Gives an agent a `web_search` tool for looking things up online. Results are AI-summarized, not raw search-engine listings. | Enter a **Tavily API Key** — a free key from tavily.com. |
+| **Voice** | Lets an agent transcribe voice messages to text and reply with spoken audio. | No credentials required — it reuses the OpenAI connection you've already set up under AI Providers. Optionally add an **ElevenLabs API Key** and **Voice ID** for premium voices instead of the standard ones. |
+| **Image Generation** | Lets an agent generate images from a text description and send them into the conversation. | No setup beyond having a MiniMax connection under AI Providers — images are billed per generation through that connection. An **Enable Image Generation** field acts as an on/off switch for your workspace if you ever need to turn it off. |
+| **Browser** | Gives an agent a real browser it can navigate, click, fill in forms, extract content from, and screenshot. | See the note below on network access. No credentials required. |
+| **Commitments** | Lets an agent record a follow-up to come back to later and check it off when done. How a due follow-up is delivered is a setting for your workspace — see [Commitments & follow-ups](/dashboard/docs/automation/commitments) for the full picture; this plugin adds the tools that create, list, and close them. |
 
 ### OneDrive: one-click connect, but not zero-setup
 
-The **Connect OneDrive** button on Settings → Plugins genuinely automates the OAuth token exchange — click it, sign into Microsoft, and Pulse stores the refresh token for you. But it only appears once `MS_CLIENT_ID` and `MS_CLIENT_SECRET` (and optionally `MS_TENANT_ID`) are already filled in, and getting those still means creating an Azure Entra app registration yourself (free, but manual, on Microsoft's side). If you'd rather skip the Connect button, you can also paste a manually-obtained refresh token (scopes `Files.ReadWrite.All offline_access User.Read`) straight into the `MS_REFRESH_TOKEN` field.
+The **Connect OneDrive** button on Settings → Plugins genuinely automates sign-in — click it, sign into Microsoft, and Pulse stores what it needs for you. It only appears once you've entered an **Azure App (Client) ID** and **Client Secret** (and optionally a **Tenant ID**), and getting those means creating a free app registration in Microsoft's own Entra admin center yourself — that part happens outside Pulse. If you'd rather skip the Connect button, you can instead paste a manually obtained refresh token directly into the **Refresh Token** field.
 
-### Browser tools: SSRF guard on by default
+### Browser: internal network access is blocked by default
 
-Playwright's declared network permission is `*` — an agent with this plugin can navigate anywhere on the open internet by design. What's guarded is **internal/private network access**: navigation to loopback, link-local, and private-range hosts is **blocked by default**. An admin can lift that per workspace by setting `PLAYWRIGHT_ALLOW_PRIVATE_NETWORK` to `true` if agents genuinely need intranet access — treat that as equivalent to giving the agent a foothold on your internal network.
+The browser plugin can navigate anywhere on the open internet by design. What's blocked by default is access to internal or private network addresses — an agent can't use the browser to reach machines on your internal network unless a Pulse administrator or workspace owner deliberately turns that on for your workspace. Treat turning it on as equivalent to giving the agent a foothold on your internal network, and only do it if agents genuinely need that access.
 
-Each agent's browser session is private to it and auto-closes after a few minutes of inactivity (or on `browser_close`). Screenshots and saved images are delivered straight into the chat (Telegram) when possible — the agent cannot itself "see" an image it captures.
+Each agent's browser session is private to it and closes automatically after a few minutes of inactivity. Screenshots and saved images are delivered straight into the conversation (for example, into Telegram) when possible — the agent itself cannot "see" an image it captures, only report that it was sent.
 
 ## Good to know
 
-- The admin approval step is capability-based, not per-plugin-forever: any change to a plugin's declared `permissions` (network hosts, filesystem paths, commands) re-triggers the pending-approval state, even for a plugin an admin already approved once.
-- A plugin being enabled for your workspace doesn't mean every agent has it — check each agent's Tools/Skills section. This is the same gating chain [Custom Tools](/docs/tools/custom) and [Servers](/docs/tools/servers) skip (they're tenant-owned, not platform-installed), so plugins are the one case where an admin is in the loop before you can even see the credential form.
+- Platform approval isn't a one-time event: if what a plugin is permitted to access ever changes, it goes back into a pending state until reviewed again, even for a plugin already approved once.
+- A plugin being enabled for your workspace doesn't mean every agent has it — check each agent's Tools & Skills section. [Custom Tools](/dashboard/docs/tools/custom) and [Servers](/dashboard/docs/tools/servers) skip the platform-approval step because they're things you build and own yourself; plugins are the one case where a Pulse administrator is in the loop before you can even see the credential form.

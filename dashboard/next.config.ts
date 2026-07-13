@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
   // ESM chunk — keep it as a real Node require in the server bundle instead
   // of trying to inline it. Only used server-side (server actions).
   serverExternalPackages: ['ssh2'],
+  // The docs pages read their markdown from src/content/docs at request time.
+  // They live under the dashboard's force-dynamic layout, so they can't be
+  // prerendered — which means those .md files must be traced into the
+  // standalone output or the container would 404 every docs page.
+  outputFileTracingIncludes: {
+    '/dashboard/docs/[[...slug]]': ['./src/content/docs/**/*'],
+  },
 };
 
 export default nextConfig;

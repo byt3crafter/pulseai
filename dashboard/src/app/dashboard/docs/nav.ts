@@ -85,10 +85,9 @@ export const DOCS_NAV: DocSection[] = [
         ],
     },
     {
-        title: "Operations",
+        title: "Reference",
         pages: [
-            { slug: "deployment", title: "Deployment & environment", description: "Every environment variable, and how a release reaches production." },
-            { slug: "security", title: "Security", description: "Encryption, roles, audit log, SSO and 2FA." },
+            { slug: "security", title: "Security & your data", description: "How your credentials and data are protected, and who can do what." },
         ],
     },
 ];
@@ -109,5 +108,5 @@ export function segmentsToSlug(segments: string[] | undefined): string {
 }
 
 export function docHref(slug: string): string {
-    return slug ? `/docs/${slugToSegments(slug).join("/")}` : "/docs";
+    return slug ? `/dashboard/docs/${slugToSegments(slug).join("/")}` : "/dashboard/docs";
 }
