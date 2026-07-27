@@ -43,6 +43,10 @@ export async function executeJob(job: any): Promise<void> {
             contactName: `Cron: ${job.name}`,
             content: job.message,
             receivedAt: new Date(),
+            // Label the operational run by the job kind rather than the synthetic
+            // "heartbeat" channel, and title it with the job name.
+            trigger: (job.scheduleType === "interval" ? "heartbeat" : "cron") as "cron" | "heartbeat",
+            triggerRef: job.id,
         };
 
         // Capture the response instead of sending to a channel
