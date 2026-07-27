@@ -58,6 +58,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         label: "Activity",
         items: [
             { href: "/dashboard/tasks", label: "Task Queue", icon: QueueListIcon },
+            { href: "/dashboard/approvals", label: "Approvals", icon: ShieldCheckIcon },
             { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon },
             { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, feature: "billing" },
             { href: "/dashboard/chatgpt", label: "ChatGPT Connect", icon: SparklesIcon, feature: "chatgptConnect" },
