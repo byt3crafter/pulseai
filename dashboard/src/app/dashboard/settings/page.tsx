@@ -1,6 +1,6 @@
 import { auth } from "../../../auth";
 import { db } from "../../../storage/db";
-import { tenants, tenantBalances, channelConnections, oauthClients, tenantProviderKeys, pairingCodes, allowlists, apiTokens, installedPlugins, tenantPluginConfigs, credentials, users } from "../../../storage/schema";
+import { tenants, tenantBalances, channelConnections, oauthClients, tenantProviderKeys, pairingCodes, allowlists, apiTokens, installedPlugins, tenantPluginConfigs, credentials, users, tenantSkills } from "../../../storage/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
@@ -142,6 +142,14 @@ export default async function SettingsPage({
             columns: { name: true },
         })
         : [];
+
+    // Built-in tools currently enabled for this workspace (the tenant_skills gate).
+    const enabledToolRows = tenantId
+        ? await db.select({ skillName: tenantSkills.skillName })
+            .from(tenantSkills)
+            .where(and(eq(tenantSkills.tenantId, tenantId), eq(tenantSkills.enabled, true)))
+        : [];
+    const enabledTools = enabledToolRows.map((r) => r.skillName);
     const credentialNames = new Set(existingCreds.map((c) => c.name));
 
     const enabledPlugins = allPlugins
@@ -289,6 +297,7 @@ export default async function SettingsPage({
             }))}
             credentialAgents={credentialAgents.map((a: any) => ({ id: a.id, name: a.name }))}
             addCredential={addCredential}
+            enabledTools={enabledTools}
         />
     );
 }

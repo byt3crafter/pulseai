@@ -1282,3 +1282,35 @@ export async function resetMyWorkspaceAction(scope: ResetScope, confirmText: str
         return { success: false, message: "Failed to reset workspace data." };
     }
 }
+
+/**
+ * Persist which built-in tools are enabled for this workspace (the tenant_skills
+ * gate). Upserts every catalog tool to enabled/disabled so the set is exact.
+ */
+export async function saveWorkspaceToolsAction(enabledNames: string[]) {
+    "use server";
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const { ALL_CATALOG_TOOLS, CATALOG_TOOL_NAMES } = await import("../../../utils/tenant-skills-catalog");
+        const wanted = new Set((enabledNames || []).filter((n) => CATALOG_TOOL_NAMES.has(n)));
+
+        // Upsert one row per catalog tool with its desired enabled state, so the
+        // stored set exactly matches the toggles (idempotent on re-save).
+        for (const tool of ALL_CATALOG_TOOLS) {
+            await db.execute(sql`
+                INSERT INTO tenant_skills (tenant_id, skill_name, enabled)
+                VALUES (${tenantId}::uuid, ${tool.name}, ${wanted.has(tool.name)})
+                ON CONFLICT (tenant_id, skill_name) DO UPDATE SET enabled = EXCLUDED.enabled
+            `);
+        }
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Workspace tools updated." };
+    } catch (error) {
+        console.error("Failed to save workspace tools:", error);
+        return { success: false, message: "Failed to update workspace tools." };
+    }
+}

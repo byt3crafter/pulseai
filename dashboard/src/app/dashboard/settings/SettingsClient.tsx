@@ -35,6 +35,7 @@ import {
     resetMyWorkspaceAction,
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
+import WorkspaceToolsTab from "./WorkspaceToolsTab";
 import { PROVIDERS } from "../../../utils/models";
 import { CHANNEL_SETUP_CATALOG, type ChannelSetupDefinition } from "../../../utils/channel-catalog";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../../utils/pkce";
@@ -60,6 +61,7 @@ const TABS = [
     { id: "integrations", label: "Integrations" },
     { id: "telegram", label: "Telegram" },
     { id: "providers", label: "AI Providers" },
+    { id: "tools", label: "Workspace Tools" },
     { id: "memory", label: "Memory" },
     { id: "email", label: "Email" },
     { id: "plugins", label: "Plugins" },
@@ -164,6 +166,7 @@ interface Props {
     credentials: CredentialInfo[];
     credentialAgents: { id: string; name: string }[];
     addCredential: (formData: FormData) => Promise<void>;
+    enabledTools: string[];
 }
 
 export default function SettingsClient({
@@ -178,6 +181,7 @@ export default function SettingsClient({
     credentials,
     credentialAgents,
     addCredential,
+    enabledTools,
 }: Props) {
     const router = useRouter();
 
@@ -224,6 +228,7 @@ export default function SettingsClient({
                     )}
                     {tab === "email" && <EmailTab config={emailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
+                    {tab === "tools" && <WorkspaceToolsTab enabledTools={enabledTools} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} toolSearchConfig={toolSearchConfig} />}
                     {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} />}
