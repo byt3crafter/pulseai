@@ -12,12 +12,26 @@ import { logger } from "../utils/logger.js";
 
 const COMMITMENT_TICK_MS = 5 * 60 * 1000; // check for due commitments every 5 min
 const APPROVAL_SWEEP_MS = 60 * 1000; // expire stale queued approvals every 60s
+const RECONCILE_MS = 30 * 1000; // reconcile scheduled jobs with the DB every 30s
+
+/** Fields whose change means a scheduled job must be re-created. */
+function jobSignature(job: any): string {
+    return [
+        job.scheduleType, job.cronExpression, job.intervalSeconds,
+        job.runAt ? new Date(job.runAt).getTime() : "", job.timezone,
+        job.agentId, job.message,
+    ].join("|");
+}
 
 export class CronScheduler {
     private jobs: Map<string, Cron> = new Map();
     private timers: Map<string, NodeJS.Timeout> = new Map();
+    // Signature per scheduled job so reconcile() can detect an edited schedule.
+    private jobSignatures: Map<string, string> = new Map();
     private commitmentTimer: NodeJS.Timeout | null = null;
     private approvalSweepTimer: NodeJS.Timeout | null = null;
+    private reconcileTimer: NodeJS.Timeout | null = null;
+    private reconcileRunning = false;
     // Re-entrancy guards: setInterval does NOT wait for the async callback to
     // finish, so a tick slower than its period would overlap the previous run
     // and double-process the same rows. These flags skip a tick still in flight.
@@ -63,6 +77,46 @@ export class CronScheduler {
                     .finally(() => { this.approvalSweepRunning = false; });
             }, APPROVAL_SWEEP_MS);
         }
+
+        // Global tick: reconcile scheduled jobs with the DB. The dashboard writes
+        // job rows but runs in a different process and cannot call this scheduler
+        // directly — without this, a job created/edited/disabled in the UI would
+        // not take effect until a gateway restart. Reconcile closes that gap.
+        if (!this.reconcileTimer) {
+            this.reconcileTimer = setInterval(() => {
+                if (this.reconcileRunning) return;
+                this.reconcileRunning = true;
+                this.reconcile()
+                    .catch((err) => logger.error({ err }, "scheduler reconcile failed"))
+                    .finally(() => { this.reconcileRunning = false; });
+            }, RECONCILE_MS);
+        }
+    }
+
+    /**
+     * Bring the live scheduler in line with the DB: schedule newly-enabled jobs,
+     * unschedule deleted/disabled ones, and re-create jobs whose schedule changed.
+     */
+    async reconcile(): Promise<void> {
+        const enabled = await getEnabledJobs();
+        const enabledById = new Map(enabled.map((j: any) => [j.id, j]));
+        const scheduledIds = new Set<string>([...this.jobs.keys(), ...this.timers.keys()]);
+
+        // Add newly-enabled jobs, and re-create any whose schedule changed.
+        for (const job of enabled) {
+            const sig = jobSignature(job);
+            if (!scheduledIds.has(job.id)) {
+                this.addJob(job);
+            } else if (this.jobSignatures.get(job.id) !== sig) {
+                logger.info({ jobId: job.id, name: job.name }, "Job schedule changed — rescheduling");
+                this.removeJob(job.id);
+                this.addJob(job);
+            }
+        }
+        // Remove jobs that are no longer enabled/present.
+        for (const id of scheduledIds) {
+            if (!enabledById.has(id)) this.removeJob(id);
+        }
     }
 
     /**
@@ -70,6 +124,8 @@ export class CronScheduler {
      */
     addJob(job: any): void {
         try {
+            // Record the schedule signature so reconcile() can detect edits.
+            this.jobSignatures.set(job.id, jobSignature(job));
             if (job.scheduleType === "cron" && job.cronExpression) {
                 const cron = new Cron(job.cronExpression, {
                     timezone: job.timezone || "UTC",
@@ -129,6 +185,7 @@ export class CronScheduler {
             clearInterval(timer);
             this.timers.delete(jobId);
         }
+        this.jobSignatures.delete(jobId);
     }
 
     /**
@@ -158,6 +215,10 @@ export class CronScheduler {
             clearInterval(this.approvalSweepTimer);
             this.approvalSweepTimer = null;
         }
+        if (this.reconcileTimer) {
+            clearInterval(this.reconcileTimer);
+            this.reconcileTimer = null;
+        }
         for (const [, cron] of this.jobs) {
             cron.stop();
         }
@@ -167,6 +228,7 @@ export class CronScheduler {
         }
         this.jobs.clear();
         this.timers.clear();
+        this.jobSignatures.clear();
         logger.info("Cron scheduler shut down");
     }
 }

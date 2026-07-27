@@ -1,7 +1,8 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { tenants, tenantBalances, users, oauthClients, passwordResetTokens } from "../../../storage/schema";
+import { tenants, tenantBalances, users, oauthClients, passwordResetTokens, tenantSkills } from "../../../storage/schema";
+import { DEFAULT_ENABLED_TOOLS } from "../../../utils/tenant-skills-catalog";
 import { revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -50,6 +51,13 @@ export async function createTenantAction(formData: FormData) {
                 tenantId: newTenant.id,
                 balance: validatedData.initialBalance.toFixed(4),
             });
+
+            // Seed the default built-in toolset so a new workspace's agents can
+            // actually do something out of the box. Without this a fresh tenant
+            // had zero tools (the tenant_skills gate) until someone ran SQL.
+            await tx.insert(tenantSkills).values(
+                DEFAULT_ENABLED_TOOLS.map((name) => ({ tenantId: newTenant.id, skillName: name, enabled: true }))
+            );
 
             const clientId = `pls_${crypto.randomBytes(16).toString("hex")}`;
             const clientSecret = crypto.randomBytes(32).toString("hex");
