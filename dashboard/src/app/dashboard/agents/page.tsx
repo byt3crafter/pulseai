@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import AgentsTableClient from "./AgentsTableClient";
+import { getAgentActivityBatch, type AgentActivity } from "../../../utils/run-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function AgentsPage() {
     }[] = [];
     let connectedProviders: string[] = [];
     let deptsByAgent: Record<string, { name: string; kind: string; role: string }[]> = {};
+    let activity: Record<string, AgentActivity> = {};
 
     if (!isNextBuild) {
         const tenantId = session.user.tenantId;
@@ -64,6 +66,8 @@ export default async function AgentsPage() {
             if (!deptsByAgent[row.agentId]) deptsByAgent[row.agentId] = [];
             deptsByAgent[row.agentId].push({ name: row.channelName, kind: row.channelKind, role: row.role });
         }
+
+        activity = await getAgentActivityBatch(tenantId);
     }
 
     return (
@@ -71,6 +75,7 @@ export default async function AgentsPage() {
             agents={agents}
             deptsByAgent={deptsByAgent}
             connectedProviders={connectedProviders}
+            activity={activity}
         />
     );
 }

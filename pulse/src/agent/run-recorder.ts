@@ -85,6 +85,30 @@ export class RunHandle {
 }
 
 /**
+ * Registry of in-flight runs keyed by conversationId, so tool calls that a
+ * Codex agent executes through the MCP operator bridge (a separate HTTP handler,
+ * `gateway/routes/mcp.ts`) can be attributed back to the run that the runtime
+ * opened. The native runtime loop records tool calls directly on its handle;
+ * Codex runs execute tools out in the bridge, so without this their runs show
+ * zero tool calls. A run uses ONE path or the other, never both — no double
+ * counting. Best-effort: if the run isn't registered (no conversationId), the
+ * tool call is simply not counted (same as before), never an error.
+ */
+const activeRunsByConversation = new Map<string, RunHandle>();
+
+export function bindRunToConversation(conversationId: string | null | undefined, handle: RunHandle): void {
+    if (conversationId) activeRunsByConversation.set(conversationId, handle);
+}
+export function unbindRunFromConversation(conversationId: string | null | undefined): void {
+    if (conversationId) activeRunsByConversation.delete(conversationId);
+}
+/** Record a tool call against the run currently bound to this conversation. */
+export function recordConversationToolCall(conversationId: string | null | undefined, name: string, ok: boolean, ms: number): void {
+    if (!conversationId) return;
+    activeRunsByConversation.get(conversationId)?.addToolCall(name, ok, ms);
+}
+
+/**
  * Insert a "running" row and return a handle. On any DB failure returns a
  * no-op handle (id = null) so processing continues unaffected.
  */
