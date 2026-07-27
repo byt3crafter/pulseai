@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.35] - 2026-07-27
+
+### Features
+- make hiring an AI employee actually work
+
 ## [0.14.34] - 2026-07-27
 
 ### Features
