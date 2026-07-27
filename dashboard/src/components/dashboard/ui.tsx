@@ -12,6 +12,7 @@ import {
     type SVGProps,
 } from "react";
 import { CheckIcon, ChevronUpDownIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
 
 /**
  * Shared visual primitives for the tenant dashboard — "Clerk-grade" flat
@@ -499,4 +500,40 @@ export function SelectMenu({
             )}
         </div>
     );
+}
+
+/**
+ * Compact KPI tile for the executive dashboard. Presentational only — pass a
+ * preformatted `value` string, optional `hint`, and an optional accent tone.
+ */
+export function StatTile({
+    label,
+    value,
+    hint,
+    tone = "default",
+    href,
+}: {
+    label: string;
+    value: string;
+    hint?: string;
+    tone?: "default" | "good" | "warn" | "bad" | "accent";
+    href?: string;
+}) {
+    const toneClass =
+        tone === "good" ? "text-emerald-500"
+        : tone === "warn" ? "text-amber-500"
+        : tone === "bad" ? "text-red-500"
+        : tone === "accent" ? "text-pulse-accent-hi"
+        : "text-pulse-text";
+    const inner = (
+        <div className="rounded-xl border border-pulse-border-subtle bg-pulse-panel p-4 h-full transition-colors hover:bg-pulse-hover">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-pulse-faint">{label}</p>
+            <p className={`mt-1.5 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</p>
+            {hint && <p className="mt-1 text-xs text-pulse-muted">{hint}</p>}
+        </div>
+    );
+    if (href) {
+        return <Link href={href} className="block">{inner}</Link>;
+    }
+    return inner;
 }
