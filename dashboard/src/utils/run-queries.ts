@@ -151,7 +151,9 @@ export interface AgentActivity {
  * keyed by agentProfileId. Agents with no runs simply won't appear in the map.
  */
 export async function getAgentActivityBatch(tenantId: string): Promise<Record<string, AgentActivity>> {
-    const since = startOfTodayUtc();
+    // ISO string (not a Date object) — the pg driver rejects a raw Date embedded
+    // inside a sql`` fragment; a string literal is coerced to timestamptz.
+    const since = startOfTodayUtc().toISOString();
     const rows = await db
         .select({
             agentId: agentRuns.agentProfileId,
