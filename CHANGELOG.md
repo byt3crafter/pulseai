@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.34] - 2026-07-27
+
+### Features
+- agent run/task keystone — operational record per invocation
+
 ## [0.14.33] - 2026-07-13
 
 ### Bug Fixes
