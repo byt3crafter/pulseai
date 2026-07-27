@@ -352,6 +352,41 @@ export const usageRecords = pgTable(
     (table) => [index("idx_usage_tenant").on(table.tenantId, table.createdAt)]
 );
 
+// -- Agent Runs (operational task record — see pulse copy for full docs) --
+export const agentRuns = pgTable(
+    "agent_runs",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        agentProfileId: uuid("agent_profile_id").references(() => agentProfiles.id),
+        trigger: varchar("trigger", { length: 32 }).notNull().default("chat"),
+        triggerRef: varchar("trigger_ref", { length: 128 }),
+        parentRunId: uuid("parent_run_id"),
+        status: varchar("status", { length: 16 }).notNull().default("running"),
+        title: text("title"),
+        model: varchar("model", { length: 100 }),
+        inputTokens: integer("input_tokens").notNull().default(0),
+        outputTokens: integer("output_tokens").notNull().default(0),
+        costUsd: decimal("cost_usd", { precision: 10, scale: 6 }).notNull().default("0"),
+        toolCallCount: integer("tool_call_count").notNull().default(0),
+        toolCalls: jsonb("tool_calls").notNull().default([]),
+        error: text("error"),
+        channelType: varchar("channel_type", { length: 50 }),
+        channelContactId: varchar("channel_contact_id", { length: 255 }),
+        conversationId: uuid("conversation_id"),
+        startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+        endedAt: timestamp("ended_at", { withTimezone: true }),
+        durationMs: integer("duration_ms"),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_agent_runs_tenant").on(table.tenantId, table.startedAt),
+        index("idx_agent_runs_agent").on(table.agentProfileId, table.startedAt),
+        index("idx_agent_runs_status").on(table.tenantId, table.status),
+        index("idx_agent_runs_parent").on(table.parentRunId),
+    ]
+);
+
 // -- Contact allowlists (Security layer) --
 export const allowlists = pgTable(
     "allowlists",

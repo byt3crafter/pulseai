@@ -21,6 +21,7 @@ import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles, globalSettings, tenants } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
+import { startRun, finishRun, RunHandle, RunTrigger } from "./run-recorder.js";
 import { logger } from "../utils/logger.js";
 import { sanitizeToolSchema } from "./tools/schema-sanitizer.js";
 import {
@@ -69,6 +70,26 @@ export class AgentRuntime {
         }
     ): Promise<void> {
         const tenantLog = logger.child({ tenantId: inbound.tenantId, channel: inbound.channelType });
+
+        // Keystone: open an operational run record for this invocation. Finished
+        // in the `finally` below with final status + metrics. Fail-soft — never
+        // affects message processing.
+        const derivedTrigger: RunTrigger =
+            inbound.trigger ??
+            (inbound.channelType === "heartbeat" ? "heartbeat"
+                : inbound.channelType === "api" ? "api"
+                : inbound.channelId ? "channel"
+                : "chat");
+        const run: RunHandle = await startRun({
+            tenantId: inbound.tenantId,
+            agentProfileId: inbound.agentProfileId ?? null,
+            trigger: derivedTrigger,
+            triggerRef: inbound.triggerRef ?? inbound.channelId ?? null,
+            parentRunId: inbound.parentRunId ?? null,
+            title: (inbound.content || "").trim().slice(0, 120) || null,
+            channelType: inbound.channelType,
+            channelContactId: inbound.channelContactId,
+        });
 
         try {
             // 0. Pre-Flight Check: Verify tenant has sufficient credits.
@@ -711,6 +732,7 @@ export class AgentRuntime {
                             tenantLog.warn({ toolName: toolCall.name }, "Attempted to execute unknown tool");
                             result = { result: `Error: Tool '${toolCall.name}' not found` };
                         } else {
+                            const toolStart = Date.now();
                             try {
                                 // Inject _agentId so tools can identify the calling agent
                                 const toolArgs = { ...(toolCall.input as Record<string, any>) };
@@ -722,9 +744,11 @@ export class AgentRuntime {
                                     conversationId: conversation.id,
                                     args: toolArgs,
                                 });
+                                run.addToolCall(toolCall.name, true, Date.now() - toolStart);
                             } catch (err: any) {
                                 tenantLog.error({ err, toolName: toolCall.name }, "Tool execution failed");
                                 result = { result: `Error executing tool '${toolCall.name}': ${err.message || "Unknown error"}` };
+                                run.addToolCall(toolCall.name, false, Date.now() - toolStart);
                             }
                         }
 
@@ -894,6 +918,10 @@ export class AgentRuntime {
 
             const creditsUsed = costUsd * 100; // 1 credit = $0.01
 
+            // Keystone: snapshot the run's operational metrics.
+            run.setAgent(resolvedAgentProfileId ?? inbound.agentProfileId);
+            run.setUsage(usedModel, llmResponse.usage.inputTokens, llmResponse.usage.outputTokens, costUsd);
+
             tenantLog.info(
                 {
                     provider: llmResponse.provider,
@@ -975,6 +1003,7 @@ export class AgentRuntime {
 
         } catch (err: any) {
             tenantLog.error({ err }, "Agent Runtime failed to process message");
+            run.setError(err?.message || String(err));
 
             // Provide actionable, correctly-classified error messages. When the provider
             // manager returns an aggregate ("All LLM providers failed. Primary (X): ..."),
@@ -1015,6 +1044,9 @@ export class AgentRuntime {
                 content: userMessage,
                 replyToMessageId: inbound.isGroup ? (inbound.raw as any)?.message_id?.toString() : undefined,
             }).catch((e) => tenantLog.error({ e }, "Failed to send fallback error message"));
+        } finally {
+            // Keystone: close the operational run record with its final state.
+            await finishRun(run);
         }
     }
 
