@@ -10,6 +10,7 @@ import { InboundMessage } from "../../channels/types.js";
 import { AgentRuntime } from "../../agent/runtime.js";
 import { ToolRegistry } from "../../agent/tools/registry.js";
 import { ensureToolApproved } from "../../agent/tools/approval-gate.js";
+import { recordConversationToolCall } from "../../agent/run-recorder.js";
 import { logger } from "../../utils/logger.js";
 
 // Registry instance for agent-scoped MCP sessions (reads enablement from DB per call).
@@ -236,6 +237,7 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
                             if (!gate.ok) {
                                 return { content: [{ type: "text" as const, text: gate.message }], isError: true };
                             }
+                            const toolStart = Date.now();
                             const result = await tool.execute({
                                 tenantId,
                                 // Real conversation when the codex provider passed one
@@ -244,6 +246,10 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
                                 conversationId: conversationId || `codex-mcp-${agentProfileId}`,
                                 args: { ...args, _agentId: agentProfileId },
                             });
+                            // Attribute this tool call to the run the runtime opened for
+                            // this conversation, so Codex agents' tool activity shows up in
+                            // the task queue (they execute out here, not in the native loop).
+                            recordConversationToolCall(conversationId, tool.name, true, Date.now() - toolStart);
                             // Observability: agent tool results were previously invisible,
                             // letting models claim success on silent error JSONs.
                             logger.info(
@@ -252,6 +258,7 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
                             );
                             return { content: [{ type: "text" as const, text: result.result }] };
                         } catch (err: any) {
+                            recordConversationToolCall(conversationId, tool.name, false, 0);
                             logger.error({ err, tool: tool.name, tenantId, agentProfileId }, "Agent MCP tool failed");
                             return {
                                 content: [{ type: "text" as const, text: `Tool error: ${err?.message || "unknown"}` }],

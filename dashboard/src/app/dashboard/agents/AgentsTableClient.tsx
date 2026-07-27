@@ -40,10 +40,12 @@ export default function AgentsTableClient({
     agents,
     deptsByAgent,
     connectedProviders,
+    activity,
 }: {
     agents: AgentRow[];
     deptsByAgent: Record<string, DeptInfo[]>;
     connectedProviders: string[];
+    activity: Record<string, { running: number; tasksToday: number; successRate: number | null; lastActiveAt: string | null }>;
 }) {
     const router = useRouter();
     const [, startTransition] = useTransition();
@@ -187,6 +189,7 @@ export default function AgentsTableClient({
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Agent</th>
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Model</th>
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Departments</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Activity (today)</th>
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Status</th>
                                     <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
                                 </tr>
@@ -267,6 +270,34 @@ export default function AgentsTableClient({
                                                         ))}
                                                     </div>
                                                 )}
+                                            </td>
+
+                                            {/* Activity (today) — live from agent_runs */}
+                                            <td className="px-4 py-3 align-top">
+                                                {(() => {
+                                                    const a = activity[agent.id];
+                                                    if (!a || a.tasksToday === 0) {
+                                                        return <span className="text-sm text-pulse-muted">{a?.running ? "" : "No tasks yet"}</span>;
+                                                    }
+                                                    return (
+                                                        <div className="flex flex-col gap-0.5 text-xs">
+                                                            <div className="flex items-center gap-2">
+                                                                {a.running > 0 && (
+                                                                    <span className="inline-flex items-center gap-1 text-indigo-400">
+                                                                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+                                                                        working
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-pulse-soft tabular-nums">{a.tasksToday} task{a.tasksToday === 1 ? "" : "s"}</span>
+                                                            </div>
+                                                            {a.successRate != null && (
+                                                                <span className={a.successRate >= 0.9 ? "text-emerald-500" : a.successRate >= 0.6 ? "text-amber-500" : "text-red-500"}>
+                                                                    {Math.round(a.successRate * 100)}% success
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
 
                                             {/* Status */}

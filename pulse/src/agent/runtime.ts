@@ -21,7 +21,7 @@ import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles, globalSettings, tenants } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { startRun, finishRun, RunHandle, RunTrigger } from "./run-recorder.js";
+import { startRun, finishRun, RunHandle, RunTrigger, bindRunToConversation, unbindRunFromConversation } from "./run-recorder.js";
 import { logger } from "../utils/logger.js";
 import { sanitizeToolSchema } from "./tools/schema-sanitizer.js";
 import {
@@ -90,6 +90,7 @@ export class AgentRuntime {
             channelType: inbound.channelType,
             channelContactId: inbound.channelContactId,
         });
+        let boundConversationId: string | null = null;
 
         try {
             // 0. Pre-Flight Check: Verify tenant has sufficient credits.
@@ -146,6 +147,12 @@ export class AgentRuntime {
                 conversation = insert;
                 tenantLog.info({ conversationId: conversation.id }, "Created new conversation thread");
             }
+
+            // Bind the run to this conversation so a Codex agent's tool calls
+            // (which execute out in the MCP operator bridge, not this loop) get
+            // attributed back to this run. Unbound in the finally below.
+            boundConversationId = conversation.id;
+            bindRunToConversation(conversation.id, run);
 
             // 2. Save Inbound User Message to the database.
             const messageMetadata: Record<string, any> = { receivedAt: inbound.receivedAt };
@@ -1046,6 +1053,7 @@ export class AgentRuntime {
             }).catch((e) => tenantLog.error({ e }, "Failed to send fallback error message"));
         } finally {
             // Keystone: close the operational run record with its final state.
+            unbindRunFromConversation(boundConversationId);
             await finishRun(run);
         }
     }

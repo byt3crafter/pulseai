@@ -139,6 +139,48 @@ export async function getRecentRuns(tenantId: string, limit = 12): Promise<RunRo
     return rows.map(mapRun);
 }
 
+export interface AgentActivity {
+    running: number;         // runs in flight right now
+    tasksToday: number;
+    successRate: number | null;
+    lastActiveAt: string | null;
+}
+
+/**
+ * Live activity per agent for the workforce directory (agents list). One pass,
+ * keyed by agentProfileId. Agents with no runs simply won't appear in the map.
+ */
+export async function getAgentActivityBatch(tenantId: string): Promise<Record<string, AgentActivity>> {
+    const since = startOfTodayUtc();
+    const rows = await db
+        .select({
+            agentId: agentRuns.agentProfileId,
+            running: sql<number>`count(*) filter (where ${agentRuns.status} = 'running')`,
+            tasksToday: sql<number>`count(*) filter (where ${agentRuns.startedAt} >= ${since})`,
+            completedToday: sql<number>`count(*) filter (where ${agentRuns.status} = 'completed' and ${agentRuns.startedAt} >= ${since})`,
+            failedToday: sql<number>`count(*) filter (where ${agentRuns.status} = 'failed' and ${agentRuns.startedAt} >= ${since})`,
+            lastActive: sql<string | null>`max(${agentRuns.startedAt})`,
+        })
+        .from(agentRuns)
+        .where(eq(agentRuns.tenantId, tenantId))
+        .groupBy(agentRuns.agentProfileId);
+
+    const out: Record<string, AgentActivity> = {};
+    for (const r of rows) {
+        if (!r.agentId) continue;
+        const completed = Number(r.completedToday ?? 0);
+        const failed = Number(r.failedToday ?? 0);
+        const denom = completed + failed;
+        out[r.agentId] = {
+            running: Number(r.running ?? 0),
+            tasksToday: Number(r.tasksToday ?? 0),
+            successRate: denom > 0 ? completed / denom : null,
+            lastActiveAt: r.lastActive ? new Date(r.lastActive).toISOString() : null,
+        };
+    }
+    return out;
+}
+
 const RUN_STATUSES = ["queued", "running", "waiting", "blocked", "retrying", "completed", "failed", "cancelled"] as const;
 
 /** Paginated task queue with optional status filter. */
