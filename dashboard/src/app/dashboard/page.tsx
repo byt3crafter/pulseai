@@ -3,7 +3,9 @@ import { db } from "../../storage/db";
 import { tenantBalances, channelConnections, oauthClients, globalSettings } from "../../storage/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { PageHeader, Card } from "../../components/dashboard/ui";
+import { PageHeader, Card, StatTile } from "../../components/dashboard/ui";
+import { getWorkforceStats, getRecentRuns } from "../../utils/run-queries";
+import { RunStatusBadge, triggerLabel, relativeTime, formatDuration } from "../../components/dashboard/run-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +13,12 @@ export default async function DashboardOverview() {
     const session = await auth();
     const tenantId = session?.user?.tenantId;
 
-    const [balances, channels, cliClients] = await Promise.all([
+    const [balances, channels, cliClients, stats, recentRuns] = await Promise.all([
         tenantId ? db.select().from(tenantBalances).where(eq(tenantBalances.tenantId, tenantId)).limit(1) : Promise.resolve([]),
         tenantId ? db.select().from(channelConnections).where(eq(channelConnections.tenantId, tenantId)) : Promise.resolve([]),
         tenantId ? db.select().from(oauthClients).where(eq(oauthClients.tenantId, tenantId)) : Promise.resolve([]),
+        tenantId ? getWorkforceStats(tenantId) : Promise.resolve(null),
+        tenantId ? getRecentRuns(tenantId, 10) : Promise.resolve([]),
     ]);
 
     // Billing mode gates all credits/top-up UI. "unlimited" = BYOK / dedicated (no metering).
@@ -36,8 +40,60 @@ export default async function DashboardOverview() {
         <div className="p-4 sm:p-6 lg:p-8 space-y-8">
             <PageHeader
                 title="Workspace Overview"
-                description={showBilling ? "Monitor your Agent's API usage, credit balance, and active channels." : "Monitor your agents, integrations, and workspace."}
+                description="Your AI workforce at a glance — what's running now, what got done today, and what needs you."
             />
+
+            {stats && (
+                <section className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                        <StatTile label="Workers active" value={String(stats.activeAgents)} hint="agents run today" tone="accent" href="/dashboard/agents" />
+                        <StatTile label="Running now" value={String(stats.running)} tone={stats.running > 0 ? "accent" : "default"} href="/dashboard/tasks?status=running" />
+                        <StatTile label="Tasks today" value={stats.runsToday.toLocaleString()} href="/dashboard/tasks" />
+                        <StatTile label="Completed" value={stats.completedToday.toLocaleString()} tone="good" href="/dashboard/tasks?status=completed" />
+                        <StatTile label="Failed" value={stats.failedToday.toLocaleString()} tone={stats.failedToday > 0 ? "bad" : "default"} href="/dashboard/tasks?status=failed" />
+                        <StatTile
+                            label="Success rate"
+                            value={stats.successRate == null ? "—" : `${Math.round(stats.successRate * 100)}%`}
+                            tone={stats.successRate == null ? "default" : stats.successRate >= 0.9 ? "good" : stats.successRate >= 0.6 ? "warn" : "bad"}
+                            hint="completed vs failed today"
+                        />
+                        <StatTile label="Waiting on you" value={String(stats.waiting)} tone={stats.waiting > 0 ? "warn" : "default"} hint="queued / awaiting approval" />
+                        <StatTile label="Avg task time" value={formatDuration(stats.avgDurationMs || null)} hint="completed today" />
+                        <StatTile label="Tokens today" value={stats.tokensToday.toLocaleString()} />
+                        <StatTile
+                            label="Metered cost today"
+                            value={`$${stats.costTodayUsd.toFixed(2)}`}
+                            hint="excludes flat-rate models"
+                        />
+                    </div>
+
+                    <Card>
+                        <div className="flex items-center justify-between border-b border-pulse-border-subtle px-5 py-3">
+                            <h2 className="text-sm font-semibold text-pulse-text">Recent activity</h2>
+                            <Link href="/dashboard/tasks" className="text-xs font-medium text-pulse-accent hover:text-pulse-accent-hi">View all tasks</Link>
+                        </div>
+                        {recentRuns.length === 0 ? (
+                            <p className="px-5 py-8 text-center text-sm text-pulse-muted">No activity yet. When an agent handles a message or a scheduled job runs, it appears here.</p>
+                        ) : (
+                            <ul className="divide-y divide-pulse-border-subtle">
+                                {recentRuns.map((r) => (
+                                    <li key={r.id} className="flex items-center gap-3 px-5 py-3">
+                                        <RunStatusBadge status={r.status} />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm text-pulse-text">{r.title || "(untitled task)"}</p>
+                                            <p className="truncate text-xs text-pulse-muted">
+                                                {r.agentName || "Unassigned"} · {triggerLabel(r.trigger)}
+                                                {r.durationMs != null && ` · ${formatDuration(r.durationMs)}`}
+                                            </p>
+                                        </div>
+                                        <span className="shrink-0 text-xs text-pulse-faint">{relativeTime(r.startedAt)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </Card>
+                </section>
+            )}
 
             <div className={`grid grid-cols-1 gap-6 ${showBilling ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 {/* Credit Balance Card — only in managed (credits) mode */}

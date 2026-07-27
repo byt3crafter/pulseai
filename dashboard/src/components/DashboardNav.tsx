@@ -18,6 +18,7 @@ import {
     UsersIcon,
     UserGroupIcon,
     BookOpenIcon,
+    QueueListIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
 
@@ -56,6 +57,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     {
         label: "Activity",
         items: [
+            { href: "/dashboard/tasks", label: "Task Queue", icon: QueueListIcon },
             { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon },
             { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, feature: "billing" },
             { href: "/dashboard/chatgpt", label: "ChatGPT Connect", icon: SparklesIcon, feature: "chatgptConnect" },
