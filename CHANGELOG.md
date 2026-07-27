@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.38] - 2026-07-27
+
+### Bug Fixes
+- agents list crashed — Date in raw sql fragment
+
 ## [0.14.37] - 2026-07-27
 
 ### Features
