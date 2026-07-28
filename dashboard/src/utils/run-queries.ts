@@ -183,6 +183,64 @@ export async function getAgentActivityBatch(tenantId: string): Promise<Record<st
     return out;
 }
 
+export interface AgentDetailStats {
+    running: number;
+    currentTask: string | null;
+    tasksToday: number;
+    tasks7d: number;
+    successRate7d: number | null;
+    avgDurationMs: number;
+    tokensToday: number;
+    costTodayUsd: number;
+    lastActiveAt: string | null;
+}
+
+/** Deep operational stats for one agent's profile ("employee") header. */
+export async function getAgentDetailStats(tenantId: string, agentProfileId: string): Promise<AgentDetailStats> {
+    const sinceToday = startOfTodayUtc().toISOString();
+    const since7d = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const scope = and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.agentProfileId, agentProfileId));
+
+    const [agg] = await db
+        .select({
+            running: sql<number>`count(*) filter (where ${agentRuns.status} = 'running')`,
+            tasksToday: sql<number>`count(*) filter (where ${agentRuns.startedAt} >= ${sinceToday})`,
+            tasks7d: sql<number>`count(*) filter (where ${agentRuns.startedAt} >= ${since7d})`,
+            completed7d: sql<number>`count(*) filter (where ${agentRuns.status} = 'completed' and ${agentRuns.startedAt} >= ${since7d})`,
+            failed7d: sql<number>`count(*) filter (where ${agentRuns.status} = 'failed' and ${agentRuns.startedAt} >= ${since7d})`,
+            avgDur: sql<number>`coalesce(avg(${agentRuns.durationMs}) filter (where ${agentRuns.status} = 'completed' and ${agentRuns.startedAt} >= ${since7d}), 0)`,
+            tokensToday: sql<number>`coalesce(sum(${agentRuns.inputTokens} + ${agentRuns.outputTokens}) filter (where ${agentRuns.startedAt} >= ${sinceToday}), 0)`,
+            costToday: sql<number>`coalesce(sum(${agentRuns.costUsd}) filter (where ${agentRuns.startedAt} >= ${sinceToday}), 0)`,
+            lastActive: sql<string | null>`max(${agentRuns.startedAt})`,
+        })
+        .from(agentRuns)
+        .where(scope);
+
+    // Title of a run currently in flight, if any.
+    const [current] = await db
+        .select({ title: agentRuns.title })
+        .from(agentRuns)
+        .where(and(scope, eq(agentRuns.status, "running")))
+        .orderBy(desc(agentRuns.startedAt))
+        .limit(1);
+
+    const completed = Number(agg?.completed7d ?? 0);
+    const failed = Number(agg?.failed7d ?? 0);
+    const denom = completed + failed;
+
+    return {
+        running: Number(agg?.running ?? 0),
+        currentTask: current?.title ?? null,
+        tasksToday: Number(agg?.tasksToday ?? 0),
+        tasks7d: Number(agg?.tasks7d ?? 0),
+        successRate7d: denom > 0 ? completed / denom : null,
+        avgDurationMs: Math.round(Number(agg?.avgDur ?? 0)),
+        tokensToday: Number(agg?.tokensToday ?? 0),
+        costTodayUsd: Number(agg?.costToday ?? 0),
+        lastActiveAt: agg?.lastActive ? new Date(agg.lastActive).toISOString() : null,
+    };
+}
+
 const RUN_STATUSES = ["queued", "running", "waiting", "blocked", "retrying", "completed", "failed", "cancelled"] as const;
 
 /** Paginated task queue with optional status filter. */
