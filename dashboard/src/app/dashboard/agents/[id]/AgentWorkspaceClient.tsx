@@ -33,6 +33,7 @@ interface AgentData {
     avatar: string | null;
     reasoningEffort: string | null;
     progressVerbosity?: string | null;
+    roiHourlyRate?: string | null;
     modelId: string;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
@@ -550,6 +551,7 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                 initialAvatar={agent.avatar}
                 initialReasoningEffort={agent.reasoningEffort}
                 initialProgressVerbosity={agent.progressVerbosity ?? null}
+                initialRoiHourlyRate={agent.roiHourlyRate ?? null}
             />
 
             {/* Model Selection */}
