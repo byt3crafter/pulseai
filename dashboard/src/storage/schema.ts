@@ -44,6 +44,7 @@ export const agentProfiles = pgTable("agent_profiles", {
         .notNull(),
     name: varchar("name", { length: 255 }).notNull(), // e.g., "Sélina - COO"
     title: varchar("title", { length: 160 }), // Role/subtitle shown under the name, e.g. "Chief Financial Officer"
+    roiHourlyRate: decimal("roi_hourly_rate", { precision: 10, scale: 2 }), // ROI: hourly value of the human this agent replaces (tenant-set, nullable)
     avatar: text("avatar"), // Profile picture: data URL (data:image/...;base64,...) or an https URL
     systemPrompt: text("system_prompt"), // The specific instructions injected to the LLM
     modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),

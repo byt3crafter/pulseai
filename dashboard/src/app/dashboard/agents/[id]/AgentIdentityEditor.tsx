@@ -36,6 +36,7 @@ export default function AgentIdentityEditor({
     initialAvatar,
     initialReasoningEffort,
     initialProgressVerbosity,
+    initialRoiHourlyRate,
 }: {
     agentId: string;
     initialName: string;
@@ -43,6 +44,7 @@ export default function AgentIdentityEditor({
     initialAvatar: string | null;
     initialReasoningEffort: string | null;
     initialProgressVerbosity: string | null;
+    initialRoiHourlyRate: string | null;
 }) {
     const [name, setName] = useState(initialName);
     const [title, setTitle] = useState(initialTitle ?? "");
@@ -51,6 +53,7 @@ export default function AgentIdentityEditor({
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const [reasoningEffort, setReasoningEffort] = useState(initialReasoningEffort ?? "default");
     const [progressVerbosity, setProgressVerbosity] = useState(initialProgressVerbosity ?? "progress");
+    const [roiHourlyRate, setRoiHourlyRate] = useState(initialRoiHourlyRate ?? "");
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
         type: "idle",
         message: "",
@@ -63,7 +66,8 @@ export default function AgentIdentityEditor({
         || title !== (initialTitle ?? "")
         || avatarDirty
         || reasoningEffort !== (initialReasoningEffort ?? "default")
-        || progressVerbosity !== (initialProgressVerbosity ?? "progress");
+        || progressVerbosity !== (initialProgressVerbosity ?? "progress")
+        || roiHourlyRate !== (initialRoiHourlyRate ?? "");
 
     /**
      * Downscale + re-encode an image to a small avatar entirely in the browser,
@@ -142,6 +146,7 @@ export default function AgentIdentityEditor({
         fd.set("agentId", agentId);
         fd.set("name", name.trim());
         fd.set("title", title.trim());
+        fd.set("roiHourlyRate", roiHourlyRate.trim());
         fd.set("reasoningEffort", reasoningEffort);
         fd.set("progressVerbosity", progressVerbosity);
         if (avatarDirty) {
@@ -229,6 +234,20 @@ export default function AgentIdentityEditor({
                             className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
                         />
                     </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Hourly value ($/hr)</label>
+                    <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={roiHourlyRate}
+                        onChange={(e) => setRoiHourlyRate(e.target.value)}
+                        placeholder="e.g. 30"
+                        className="w-full max-w-xs px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all motion-reduce:transition-none bg-pulse-panel text-pulse-text placeholder:text-pulse-faint"
+                    />
+                    <p className="mt-1 text-xs text-pulse-faint">What an hour of the person this agent stands in for is worth. Used only to estimate money saved in Analytics. Leave blank to exclude from the money estimate.</p>
                 </div>
 
                 <div>

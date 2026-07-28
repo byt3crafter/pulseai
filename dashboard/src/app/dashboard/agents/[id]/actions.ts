@@ -147,7 +147,16 @@ export async function updateAgentIdentityAction(formData: FormData) {
     const removeAvatar = formData.get("removeAvatar") === "true";
     const reasoningEffortRaw = (formData.get("reasoningEffort") as string || "").trim().toLowerCase();
     const progressVerbosityRaw = (formData.get("progressVerbosity") as string || "").trim().toLowerCase();
+    const roiHourlyRateRaw = (formData.get("roiHourlyRate") as string || "").trim();
     const PROGRESS_LEVELS = new Set(["off", "progress", "verbose"]);
+
+    // ROI hourly rate: empty clears it; otherwise a non-negative number.
+    let roiHourlyRate: string | null = null;
+    if (roiHourlyRateRaw) {
+        const n = Number(roiHourlyRateRaw);
+        if (!Number.isFinite(n) || n < 0 || n > 100000) return { success: false, message: "Hourly value must be a number between 0 and 100000." };
+        roiHourlyRate = n.toFixed(2);
+    }
 
     if (!agentId) return { success: false, message: "Missing agent." };
     if (!name) return { success: false, message: "Name is required." };
@@ -162,11 +171,12 @@ export async function updateAgentIdentityAction(formData: FormData) {
     });
     if (!agent) return { success: false, message: "Agent not found." };
 
-    const update: { name: string; title: string | null; avatar?: string | null; reasoningEffort: string | null; progressVerbosity: string | null; updatedAt: Date } = {
+    const update: { name: string; title: string | null; avatar?: string | null; reasoningEffort: string | null; progressVerbosity: string | null; roiHourlyRate: string | null; updatedAt: Date } = {
         name,
         title: titleRaw || null,
         reasoningEffort: reasoningEffortRaw && reasoningEffortRaw !== "default" ? reasoningEffortRaw : null,
         progressVerbosity: PROGRESS_LEVELS.has(progressVerbosityRaw) && progressVerbosityRaw !== "progress" ? progressVerbosityRaw : (progressVerbosityRaw === "progress" ? "progress" : null),
+        roiHourlyRate,
         updatedAt: new Date(),
     };
 

@@ -241,6 +241,117 @@ export async function getAgentDetailStats(tenantId: string, agentProfileId: stri
     };
 }
 
+export interface AgentRoiRow {
+    agentId: string | null;
+    agentName: string | null;
+    tasks: number;
+    completed: number;
+    failed: number;
+    tokens: number;
+    costUsd: number;
+    hourlyRate: number | null;
+    hoursSaved: number;
+    moneySaved: number;
+}
+
+export interface Analytics {
+    windowDays: number;
+    minutesPerTask: number;
+    totals: {
+        tasks: number;
+        completed: number;
+        failed: number;
+        successRate: number | null;
+        hoursSaved: number;
+        moneySaved: number;
+        tokens: number;
+        meteredCostUsd: number;
+    };
+    agents: AgentRoiRow[];
+    trend: { date: string; tasks: number; completed: number }[];
+    agentsMissingRate: number;
+}
+
+/**
+ * Analytics + ROI over the last `windowDays`. Operational figures are measured
+ * from agent_runs; hoursSaved/moneySaved are an ESTIMATE — hoursSaved =
+ * completed × minutesPerTask, moneySaved = hoursSaved × each agent's hourly
+ * rate. Agents with no rate set contribute hours but not money.
+ */
+export async function getAnalytics(tenantId: string, minutesPerTask: number, windowDays = 30): Promise<Analytics> {
+    const since = new Date(Date.now() - windowDays * 86_400_000).toISOString();
+    const scope = and(eq(agentRuns.tenantId, tenantId), gte(agentRuns.startedAt, sql`${since}`));
+
+    const agentRows = await db
+        .select({
+            agentId: agentRuns.agentProfileId,
+            agentName: agentProfiles.name,
+            hourlyRate: agentProfiles.roiHourlyRate,
+            tasks: sql<number>`count(*)`,
+            completed: sql<number>`count(*) filter (where ${agentRuns.status} = 'completed')`,
+            failed: sql<number>`count(*) filter (where ${agentRuns.status} = 'failed')`,
+            tokens: sql<number>`coalesce(sum(${agentRuns.inputTokens} + ${agentRuns.outputTokens}), 0)`,
+            cost: sql<number>`coalesce(sum(${agentRuns.costUsd}), 0)`,
+        })
+        .from(agentRuns)
+        .leftJoin(agentProfiles, eq(agentRuns.agentProfileId, agentProfiles.id))
+        .where(scope)
+        .groupBy(agentRuns.agentProfileId, agentProfiles.name, agentProfiles.roiHourlyRate);
+
+    const agents: AgentRoiRow[] = agentRows.map((r) => {
+        const completed = Number(r.completed ?? 0);
+        const hoursSaved = (completed * minutesPerTask) / 60;
+        const rate = r.hourlyRate != null ? Number(r.hourlyRate) : null;
+        return {
+            agentId: r.agentId ?? null,
+            agentName: r.agentName ?? null,
+            tasks: Number(r.tasks ?? 0),
+            completed,
+            failed: Number(r.failed ?? 0),
+            tokens: Number(r.tokens ?? 0),
+            costUsd: Number(r.cost ?? 0),
+            hourlyRate: rate,
+            hoursSaved,
+            moneySaved: rate != null ? hoursSaved * rate : 0,
+        };
+    }).sort((a, b) => b.completed - a.completed);
+
+    const totalCompleted = agents.reduce((s, a) => s + a.completed, 0);
+    const totalFailed = agents.reduce((s, a) => s + a.failed, 0);
+    const denom = totalCompleted + totalFailed;
+
+    // Daily trend (last 14 days).
+    const trendSince = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    const trendRows = await db
+        .select({
+            day: sql<string>`to_char(date_trunc('day', ${agentRuns.startedAt}), 'YYYY-MM-DD')`,
+            tasks: sql<number>`count(*)`,
+            completed: sql<number>`count(*) filter (where ${agentRuns.status} = 'completed')`,
+        })
+        .from(agentRuns)
+        .where(and(eq(agentRuns.tenantId, tenantId), gte(agentRuns.startedAt, sql`${trendSince}`)))
+        .groupBy(sql`date_trunc('day', ${agentRuns.startedAt})`)
+        .orderBy(sql`date_trunc('day', ${agentRuns.startedAt})`);
+
+    return {
+        windowDays,
+        minutesPerTask,
+        totals: {
+            tasks: agents.reduce((s, a) => s + a.tasks, 0),
+            completed: totalCompleted,
+            failed: totalFailed,
+            successRate: denom > 0 ? totalCompleted / denom : null,
+            hoursSaved: agents.reduce((s, a) => s + a.hoursSaved, 0),
+            moneySaved: agents.reduce((s, a) => s + a.moneySaved, 0),
+            tokens: agents.reduce((s, a) => s + a.tokens, 0),
+            meteredCostUsd: agents.reduce((s, a) => s + a.costUsd, 0),
+        },
+        agents,
+        trend: trendRows.map((t) => ({ date: t.day, tasks: Number(t.tasks ?? 0), completed: Number(t.completed ?? 0) })),
+        agentsMissingRate: agents.filter((a) => a.hourlyRate == null && a.completed > 0).length,
+    };
+}
+
 const RUN_STATUSES = ["queued", "running", "waiting", "blocked", "retrying", "completed", "failed", "cancelled"] as const;
 
 /** Paginated task queue with optional status filter. */
