@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.40] - 2026-07-28
+
+### Features
+- Allow/Deny/Allow-always from the dashboard
+
 ## [0.14.39] - 2026-07-27
 
 ### Features
