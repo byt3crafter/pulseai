@@ -5,6 +5,7 @@ import { auth } from "../../../../auth";
 import { redirect, notFound } from "next/navigation";
 import { readWorkspaceFile, workspaceExists } from "../../../../utils/workspace";
 import { getActiveProvidersAction } from "./actions";
+import { getAgentDetailStats } from "../../../../utils/run-queries";
 import AgentWorkspaceClient from "./AgentWorkspaceClient";
 
 export default async function AgentDetailPage({
@@ -95,8 +96,11 @@ export default async function AgentDetailPage({
     const bootstrapRevisionCount = revisions.filter(r => r.fileName === "BOOTSTRAP.md").length;
     const agentsRevisionCount = revisions.filter(r => r.fileName === "AGENTS.md").length;
 
+    const agentStats = await getAgentDetailStats(session.user.tenantId, agent.id);
+
     return (
         <AgentWorkspaceClient
+            stats={agentStats}
             agent={{
                 id: agent.id,
                 name: agent.name,

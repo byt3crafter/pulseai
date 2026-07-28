@@ -12,6 +12,8 @@ import {
     updateSelfConfigAction,
 } from "./actions";
 import { getLiveModelsAction } from "../actions";
+import type { AgentDetailStats } from "../../../../utils/run-queries";
+import { formatDuration, relativeTime } from "../../../../components/dashboard/run-ui";
 import { PROVIDERS, getModelDisplayName, getProviderName } from "../../../../utils/models";
 import ToolPolicyEditor from "./ToolPolicyEditor";
 import SandboxConfigEditor from "./SandboxConfigEditor";
@@ -73,6 +75,7 @@ interface Props {
     hasTenantEmail: boolean;
     telegramConnected: boolean;
     telegramBotUsername: string | null;
+    stats: AgentDetailStats;
 }
 
 // Grouped left section-nav (Clerk/Stripe/Linear settings pattern). Section
@@ -147,6 +150,7 @@ export default function AgentWorkspaceClient({
     hasTenantEmail,
     telegramConnected,
     telegramBotUsername,
+    stats,
 }: Props) {
     const [activeTab, setActiveTab] = useState("config");
     const router = useRouter();
@@ -186,6 +190,41 @@ export default function AgentWorkspaceClient({
                             </div>
                         </div>
                     </div>
+                    {/* Live employee status */}
+                    <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                        {stats.running > 0 ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-400">
+                                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current" /> Working
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-pulse-panel-alt px-2.5 py-1 text-xs font-medium text-pulse-muted">
+                                Idle
+                            </span>
+                        )}
+                        {stats.lastActiveAt && (
+                            <span className="text-xs text-pulse-faint">Last active {relativeTime(stats.lastActiveAt)}</span>
+                        )}
+                    </div>
+                </div>
+
+                {stats.running > 0 && stats.currentTask && (
+                    <p className="mt-3 truncate text-sm text-pulse-soft">
+                        <span className="text-pulse-faint">Current task:</span> {stats.currentTask}
+                    </p>
+                )}
+
+                {/* Live workload stats from agent_runs */}
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <MiniStat label="Tasks today" value={String(stats.tasksToday)} />
+                    <MiniStat label="Tasks (7d)" value={String(stats.tasks7d)} />
+                    <MiniStat
+                        label="Success (7d)"
+                        value={stats.successRate7d == null ? "—" : `${Math.round(stats.successRate7d * 100)}%`}
+                        tone={stats.successRate7d == null ? undefined : stats.successRate7d >= 0.9 ? "good" : stats.successRate7d >= 0.6 ? "warn" : "bad"}
+                    />
+                    <MiniStat label="Avg time" value={stats.avgDurationMs ? formatDuration(stats.avgDurationMs) : "—"} />
+                    <MiniStat label="Tokens today" value={stats.tokensToday.toLocaleString()} />
+                    <MiniStat label="Cost today" value={`$${stats.costTodayUsd.toFixed(2)}`} />
                 </div>
             </div>
 
@@ -442,6 +481,16 @@ function FileEditor({
 }
 
 // ─── Config Tab ──────────────────────────────────────────────────────────────
+
+function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" | "bad" }) {
+    const toneClass = tone === "good" ? "text-emerald-500" : tone === "warn" ? "text-amber-500" : tone === "bad" ? "text-red-500" : "text-pulse-text";
+    return (
+        <div className="rounded-lg border border-pulse-border-subtle bg-pulse-panel px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-pulse-faint">{label}</p>
+            <p className={`mt-0.5 text-lg font-semibold tabular-nums ${toneClass}`}>{value}</p>
+        </div>
+    );
+}
 
 function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProviders: string[] }) {
     const [modelId, setModelId] = useState(agent.modelId);
