@@ -73,6 +73,9 @@ services:
       - WORKSPACE_BASE_DIR=/app/data/workspaces
       - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
+      # Shared secret for server-to-server calls from the dashboard (e.g. Approval
+      # Center Allow/Deny). Empty = those dashboard actions are disabled (fail-safe).
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
       # Codex/ChatGPT-subscription backend: auth persists in the mounted volume.
       - CODEX_HOME=/app/.codex
     volumes:
@@ -122,6 +125,10 @@ services:
       - WORKSPACE_BASE_DIR=/app/data/workspaces
       - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
+      # Reach the gateway over the internal docker network for server-to-server
+      # calls (Approval Center decisions), authed with the shared ADMIN_API_KEY.
+      - PULSE_GATEWAY_URL=http://pulse-gateway:8080
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
     volumes:
       - pulse-workspace-data:/app/data/workspaces
     healthcheck:

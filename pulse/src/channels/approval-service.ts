@@ -393,6 +393,48 @@ export async function decide(approvalId: string, action: ApprovalDecisionAction,
 }
 
 /**
+ * Decide an approval from the dashboard (not a Telegram card). Authorized by
+ * tenant scope — the caller is an authenticated workspace admin, and the gateway
+ * endpoint that reaches this is server-to-server authed — rather than the
+ * Telegram is_approver check used by decide().
+ *
+ * Runs IN THE GATEWAY, so it behaves exactly like a Telegram decision: it
+ * resolves any in-memory waiter (command/user_request) AND executes an approved
+ * tool_call out-of-band. Event-driven and immediate — no polling, nothing blocks
+ * an agent.
+ */
+export async function decideFromDashboard(
+    approvalId: string,
+    action: ApprovalDecisionAction,
+    tenantId: string,
+    actorLabel: string,
+): Promise<DecisionResult> {
+    const row = await db.query.pendingApprovals.findFirst({ where: eq(pendingApprovals.id, approvalId) });
+    if (!row) return { ok: false, reason: "not_found" };
+    if (row.tenantId !== tenantId) return { ok: false, reason: "not_authorized" };
+    if (row.status !== "pending") return { ok: false, reason: "already_decided" };
+
+    const label = (actorLabel || "Dashboard").slice(0, 32);
+    const status: ApprovalStatus = action === "deny" ? "denied" : "approved";
+
+    const orphaned = status === "approved" && row.kind !== "tool_call" && !resolvers.has(approvalId);
+    const note = orphaned
+        ? "⚠️ The service restarted while this was waiting, so it could not run automatically. Please ask again."
+        : undefined;
+
+    const applied = await finalizeApproval(approvalId, status, label, label, note);
+    if (!applied) return { ok: false, reason: "already_decided" };
+
+    if (action === "allowall" && status === "approved") {
+        await grantAllowanceForApproval(row, label);
+    }
+    if (status === "approved" && row.kind === "tool_call") {
+        void runApprovedToolCall(row, label);
+    }
+    return { ok: true, approverLabel: label };
+}
+
+/**
  * Execute a just-approved tool_call out-of-band and append the outcome to the
  * approver's card. Fire-and-forget from decide().
  */
