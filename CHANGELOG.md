@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.42] - 2026-07-28
+
+### Features
+- Analytics + ROI dashboard
+
 ## [0.14.41] - 2026-07-28
 
 ### Features
