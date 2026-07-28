@@ -4,6 +4,7 @@ import { PageHeader, Card } from "../../../components/dashboard/ui";
 import { getPendingApprovals, getApprovalHistory, getStandingAllowances, type ApprovalItem } from "../../../utils/approval-queries";
 import { relativeTime } from "../../../components/dashboard/run-ui";
 import AllowancesClient from "./AllowancesClient";
+import PendingApprovals from "./PendingApprovals";
 
 export const dynamic = "force-dynamic";
 
@@ -72,18 +73,7 @@ export default async function ApprovalsPage() {
                         <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-500">{pendingItems.length} pending</span>
                     )}
                 </div>
-                {pendingItems.length === 0 ? (
-                    <p className="px-5 py-8 text-center text-sm text-pulse-muted">Nothing waiting. When an agent hits a gated action it appears here.</p>
-                ) : (
-                    <>
-                        <p className="border-b border-pulse-border-subtle bg-pulse-panel-alt/40 px-5 py-2 text-xs text-pulse-muted">
-                            Decisions are made from the approver's Telegram card (Allow / Deny / Allow&nbsp;always). This is the live view of what's outstanding.
-                        </p>
-                        <ul className="divide-y divide-pulse-border-subtle">
-                            {pendingItems.map((item) => <ApprovalCard key={item.id} item={item} pending />)}
-                        </ul>
-                    </>
-                )}
+                <PendingApprovals items={pendingItems} />
             </Card>
 
             <Card>
