@@ -1019,3 +1019,44 @@ async function discoverMiniMax(_apiKey: string): Promise<DiscoveredModel[]> {
         };
     });
 }
+
+/**
+ * Save deployment branding (company/product name, logo). Config-driven white-label
+ * — stored in globalSettings.config.branding, read by getBranding(). No hardcoding.
+ */
+export async function saveBrandingAction(input: {
+    productName: string;
+    companyName: string;
+    logoDataUrl: string | null;
+    supportEmail: string | null;
+}) {
+    const adminCheck = await requireAdmin("platform.settings.write");
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+
+    const productName = (input.productName || "").trim().slice(0, 60);
+    const companyName = (input.companyName || "").trim().slice(0, 100);
+    const supportEmail = (input.supportEmail || "").trim().slice(0, 160) || null;
+    let logoDataUrl = input.logoDataUrl || null;
+    if (logoDataUrl) {
+        // Only accept a small inline image data URL (uploaded + downscaled client-side).
+        if (!/^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(logoDataUrl) || logoDataUrl.length > 400_000) {
+            return { success: false, message: "Logo must be a PNG/JPEG/WEBP/SVG under ~300KB." };
+        }
+    }
+    if (!productName) return { success: false, message: "Product name is required." };
+
+    try {
+        const cur = await db.query.globalSettings.findFirst({ where: (t, { eq: e }) => e(t.id, "root") }) as any;
+        const cfg = cur?.config ? { ...cur.config } : {};
+        cfg.branding = { productName, companyName, logoDataUrl, supportEmail };
+        await db.insert(globalSettings)
+            .values({ id: "root", config: cfg, updatedAt: new Date() })
+            .onConflictDoUpdate({ target: globalSettings.id, set: { config: cfg, updatedAt: new Date() } });
+        await logAudit({ action: "settings.branding.update", targetType: "settings", summary: `Branding set to ${productName}` });
+        revalidatePath("/", "layout");
+        return { success: true, message: "Branding updated." };
+    } catch (e) {
+        console.error("Failed to save branding:", e);
+        return { success: false, message: "Could not save branding." };
+    }
+}
