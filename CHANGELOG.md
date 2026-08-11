@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.48] - 2026-08-11
+
+### Features
+- capture reasoning for the thinking panel across all agents
+
 ## [0.14.47] - 2026-08-11
 
 ### Features
