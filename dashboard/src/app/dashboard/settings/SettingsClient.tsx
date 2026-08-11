@@ -2742,9 +2742,6 @@ export function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, i
 
     return (
         <div>
-            <h2 className="text-lg font-semibold text-pulse-text mb-1">Plugins</h2>
-            <p className="text-sm text-pulse-muted mb-5">Pick an integration to configure — its credentials are stored in your vault.</p>
-
             {/* Plugin picker — one dropdown, no extra sidebar */}
             <div className="mb-6 flex flex-wrap items-center gap-3">
                 <label htmlFor="plugin-picker" className="text-sm font-medium text-pulse-text-soft">Plugin</label>
