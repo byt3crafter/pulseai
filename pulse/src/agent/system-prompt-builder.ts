@@ -132,6 +132,9 @@ export interface SystemPromptParams {
 
     /** Resolved skills for this agent (detailed tool usage guidance) */
     skills?: string;
+
+    /** IANA workspace timezone for the Current Date & Time header (default UTC). */
+    timezone?: string;
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────
@@ -148,21 +151,31 @@ function sanitize(value: string): string {
 }
 
 /**
- * Format current date/time in a human-readable way.
- * Matches OpenClaw's formatUserTime() — "Thursday, February 27th, 2026 — 3:26 PM"
+ * Format current date/time in a human-readable way, in the WORKSPACE timezone.
+ * Matches OpenClaw's formatUserTime() — "Thursday, February 27th, 2026 — 3:26 PM".
+ *
+ * CRITICAL: this must render in the tenant's timezone, not the server's. The
+ * gateway container runs on UTC, so reading now.getHours()/getDate() directly
+ * injects an unlabeled UTC time that contradicts the get_current_time tool and
+ * confuses the model into inventing a third, wrong time.
  */
-function formatCurrentDateTime(): string {
+function formatCurrentDateTime(timezone: string): string {
     const now = new Date();
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const months = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
-    ];
+    // Pull each field AS RENDERED in the target timezone via Intl.
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        weekday: "long", month: "long", day: "numeric", year: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true,
+    }).formatToParts(now);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
 
-    const dayName = days[now.getDay()];
-    const monthName = months[now.getMonth()];
-    const date = now.getDate();
-    const year = now.getFullYear();
+    const dayName = get("weekday");
+    const monthName = get("month");
+    const date = parseInt(get("day"), 10);
+    const year = get("year");
+    const hours = get("hour");
+    const minutes = get("minute");
+    const ampm = get("dayPeriod").toUpperCase();
 
     // Ordinal suffix
     const suffix = (date === 1 || date === 21 || date === 31) ? "st"
@@ -170,22 +183,16 @@ function formatCurrentDateTime(): string {
         : (date === 3 || date === 23) ? "rd"
         : "th";
 
-    // 12-hour format
-    let hours = now.getHours();
-    const minutes = now.getMinutes().toString().padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-
-    return `${dayName}, ${monthName} ${date}${suffix}, ${year} — ${hours}:${minutes} ${ampm}`;
+    return `${dayName}, ${monthName} ${date}${suffix}, ${year} — ${hours}:${minutes} ${ampm} (${timezone})`;
 }
 
 // ─── Section Builders ────────────────────────────────────────────────
 
-function buildCurrentDateTimeSection(): string[] {
+function buildCurrentDateTimeSection(timezone: string): string[] {
     return [
         "## Current Date & Time",
-        formatCurrentDateTime(),
-        "Use this to infer dates from relative references. If someone says 'January report', use the most recent January relative to today.",
+        formatCurrentDateTime(timezone),
+        "This is the authoritative current time, already in the workspace timezone. Use it to infer dates from relative references (if someone says 'January report', use the most recent January relative to today). Ignore any different date/time that appears earlier in the conversation — it is stale.",
         "",
     ];
 }
@@ -456,8 +463,9 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
         lines.push(...buildSoulInstruction());
     }
 
-    // 3. Current Date & Time — prominent, human-readable (not buried in runtime)
-    lines.push(...buildCurrentDateTimeSection());
+    // 3. Current Date & Time — prominent, human-readable (not buried in runtime).
+    //    Rendered in the workspace timezone so it agrees with get_current_time.
+    lines.push(...buildCurrentDateTimeSection(params.timezone || "UTC"));
 
     // 3.5. Who the agent is currently talking to (by name) — so it never has to
     // ask and can address the person naturally.

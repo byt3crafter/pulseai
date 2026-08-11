@@ -13,6 +13,7 @@ import { getChannelLeadContext } from "../gateway/channel-service.js";
 import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
+import { getTenantTimezone } from "./tools/tz-util.js";
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
 import { ToolPolicy, isToolAllowed } from "./tools/tool-policy.js";
 import { ensureToolApproved } from "./tools/approval-gate.js";
@@ -465,6 +466,7 @@ export class AgentRuntime {
             );
 
             // 3.88 Build the complete system prompt via the builder
+            const workspaceTimezone = await getTenantTimezone(inbound.tenantId);
             let activeSystemPrompt = buildAgentSystemPrompt({
                 basePrompt,
                 enabledTools: enabledTools.map((t) => ({ name: t.name, description: t.description })),
@@ -484,6 +486,7 @@ export class AgentRuntime {
                 isGroup: inbound.isGroup,
                 groupTitle: inbound.groupTitle,
                 routableChannels,
+                timezone: workspaceTimezone,
             });
 
             // 3.885 If self-editing is enabled, state it explicitly. Models otherwise
