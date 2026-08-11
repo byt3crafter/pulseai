@@ -704,9 +704,14 @@ export class AgentRuntime {
             let toolUseCount = 0;
             // Higher limit when delegation is active; +2 when Tool Search is on so
             // the search step(s) don't eat into the real tool-use budget.
-            const maxToolIterations = (delegationActive ? 10 : 5) + (toolSearchActive ? 2 : 0);
+            const maxToolIterations = (delegationActive ? 10 : 8) + (toolSearchActive ? 2 : 0);
             let totalInputTokens = llmResponse.usage.inputTokens;
             let totalOutputTokens = llmResponse.usage.outputTokens;
+            // Running conversation for the tool loop. Each turn must see ALL prior
+            // tool calls + results — previously only the latest exchange was passed,
+            // so the model "forgot" what it had already done, re-called tools, and
+            // looped until the cap (which then dispatched an empty reply).
+            const workingMessages: any[] = [...llmMessages];
 
             while (llmResponse.toolCalls && llmResponse.toolCalls.length > 0 && toolUseCount < maxToolIterations) {
                 toolUseCount++;
@@ -819,6 +824,10 @@ export class AgentRuntime {
                 // revealed new tools that must be callable on the next turn.
                 if (toolSearchActive) activeToolDefinitions = buildActiveDefs();
 
+                // Grow the running history so the model remembers everything it has
+                // already done this turn (prevents the re-call loop).
+                workingMessages.push(assistantMessage as any, toolResultMessage as any);
+
                 // Web streaming: reset the buffer so this turn's answer/reasoning
                 // streams fresh (the previous turn's pre-tool text isn't the answer).
                 if (options?.forceStream && streamCallbacks) streamAccumulated = "";
@@ -831,11 +840,7 @@ export class AgentRuntime {
                     tenantId: inbound.tenantId,
                     systemPrompt: activeSystemPrompt,
                     stream: options?.forceStream ? streamCallbacks : undefined,
-                    messages: [
-                        ...llmMessages,
-                        assistantMessage as any,
-                        toolResultMessage as any,
-                    ],
+                    messages: workingMessages,
                     tools: activeToolDefinitions.length > 0 ? activeToolDefinitions : undefined,
                     attachments: inbound.attachments,
                     reasoningEffort: activeReasoningEffort,
@@ -847,6 +852,37 @@ export class AgentRuntime {
 
             if (toolUseCount >= maxToolIterations) {
                 tenantLog.warn("Reached maximum tool use iterations, stopping");
+            }
+
+            // Safety net: if the loop ended with the model still wanting a tool (hit
+            // the cap) or with no user-facing text, force ONE final answer with tools
+            // disabled — otherwise the user gets an empty reply.
+            const pendingToolCalls = (llmResponse.toolCalls?.length ?? 0) > 0;
+            const visibleContent = (llmResponse.content || "")
+                .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")
+                .replace(/<\/?think(?:ing)?>/gi, "").trim();
+            if (pendingToolCalls || !visibleContent) {
+                tenantLog.info({ pendingToolCalls, hadText: !!visibleContent }, "Forcing a final answer turn (tools disabled)");
+                try {
+                    if (options?.forceStream && streamCallbacks) streamAccumulated = "";
+                    const finalResp = await this.providerManager.chat({
+                        agentProfileId: resolvedAgentProfileId ?? undefined,
+                        conversationId: conversation.id,
+                        model: activeModelId,
+                        tenantId: inbound.tenantId,
+                        systemPrompt: activeSystemPrompt,
+                        stream: options?.forceStream ? streamCallbacks : undefined,
+                        messages: [...workingMessages, { role: "user", content: "Give me your final answer now, based on the results above. Reply to me directly and do not call any more tools." } as any],
+                        tools: undefined, // no tools → the model must produce text
+                        attachments: inbound.attachments,
+                        reasoningEffort: activeReasoningEffort,
+                    });
+                    totalInputTokens += finalResp.usage.inputTokens;
+                    totalOutputTokens += finalResp.usage.outputTokens;
+                    llmResponse = finalResp;
+                } catch (e) {
+                    tenantLog.warn({ e }, "Final answer turn failed; using best-effort content");
+                }
             }
 
             // Update usage to reflect total tokens across all iterations
