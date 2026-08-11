@@ -2672,7 +2672,7 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
     const router = useRouter();
     // Deep link ?plugin=<name|id>: resolve to the plugin id, auto-open + scroll.
     const targetId = initialPlugin ? (plugins.find((p) => p.name === initialPlugin)?.id ?? initialPlugin) : null;
-    const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(() => targetId ? new Set([targetId]) : new Set());
+    const [selected, setSelected] = useState<string>(() => targetId ?? plugins[0]?.id ?? "toolsearch");
     const [saving, startTransition] = useTransition();
     const [clearing, startClearing] = useTransition();
     const [odConnecting, setOdConnecting] = useState(false);
@@ -2725,15 +2725,6 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
         }
     };
 
-    const toggleExpand = (pluginId: string) => {
-        setExpandedPlugins((prev) => {
-            const next = new Set(prev);
-            if (next.has(pluginId)) next.delete(pluginId);
-            else next.add(pluginId);
-            return next;
-        });
-    };
-
     // A plugin needs setup only if it declares credentials; "configured" = no
     // credentials needed, or all of them are set.
     const needsConfig = (p: PluginData) => p.config.credentialSchema.length > 0;
@@ -2750,13 +2741,6 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
         if (!q) return true;
         return p.name.toLowerCase().includes(q) || (p.config.description || "").toLowerCase().includes(q);
     });
-
-    // Deep-link: scroll the opened plugin into view on mount.
-    useEffect(() => {
-        if (!targetId) return;
-        const el = document.getElementById(`plugin-${targetId}`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, [targetId]);
 
     const handleClear = (plugin: PluginData) => {
         const names = plugin.config.credentialSchema.map((f) => f.name);
@@ -2775,38 +2759,85 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
         { id: "unconfigured", label: "Needs setup", n: counts.unconfigured },
     ];
 
+    const selectedPlugin = plugins.find((p) => p.id === selected) ?? null;
+    const statusTone = (p: PluginData) => !needsConfig(p) ? "none" : isConfigured(p) ? "ok" : (p.config.credentialSchema.every((f) => !f.configured) ? "bad" : "warn");
+
     return (
         <div>
             <h2 className="text-lg font-semibold text-pulse-text mb-1">Plugins</h2>
-            <p className="text-sm text-pulse-muted mb-4">Integrations your agents can use. Configure one to connect it — its credentials are stored in your vault.</p>
+            <p className="text-sm text-pulse-muted mb-4">Integrations your agents can use. Pick one on the left to configure it — its credentials are stored in your vault.</p>
 
-            {/* Search + status filter */}
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="relative flex-1">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pulse-faint pointer-events-none" />
-                    <input
-                        type="search"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search plugins…"
-                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text placeholder-pulse-faint outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
-                    />
-                </div>
-                <div className="flex items-center gap-2">
-                    {FILTERS.map((f) => (
-                        <button
-                            key={f.id}
-                            type="button"
-                            aria-pressed={filter === f.id}
-                            onClick={() => setFilter(f.id)}
-                            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${filter === f.id ? "bg-indigo-600 border-indigo-600 text-white" : "bg-pulse-panel border-pulse-border text-pulse-muted hover:text-pulse-text hover:border-pulse-border-strong"}`}
-                        >
-                            {f.label} <span className="opacity-70">{f.n}</span>
-                        </button>
+            {/* Mobile picker */}
+            <div className="mb-4 md:hidden">
+                <select
+                    value={selected}
+                    onChange={(e) => setSelected(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
+                    <option value="toolsearch">⚙ Tool Search (global)</option>
+                    {plugins.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}{!needsConfig(p) ? "" : isConfigured(p) ? " • configured" : " • needs setup"}</option>
                     ))}
-                </div>
+                </select>
             </div>
 
+            <div className="flex flex-col gap-6 md:flex-row md:items-start">
+                {/* ── Left rail: searchable plugin picker ── */}
+                <aside className="hidden md:flex md:w-64 md:shrink-0 md:flex-col">
+                    <div className="relative mb-3">
+                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pulse-faint pointer-events-none" />
+                        <input
+                            type="search"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search plugins…"
+                            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text placeholder-pulse-faint outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        />
+                    </div>
+                    <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                        {FILTERS.map((f) => (
+                            <button
+                                key={f.id}
+                                type="button"
+                                aria-pressed={filter === f.id}
+                                onClick={() => setFilter(f.id)}
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium border transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${filter === f.id ? "bg-indigo-600 border-indigo-600 text-white" : "bg-pulse-panel border-pulse-border text-pulse-muted hover:text-pulse-text hover:border-pulse-border-strong"}`}
+                            >
+                                {f.label} <span className="opacity-70">{f.n}</span>
+                            </button>
+                        ))}
+                    </div>
+                    <nav className="rounded-xl border border-pulse-border-subtle bg-pulse-panel p-1.5 max-h-[70vh] overflow-y-auto">
+                        <p className="px-2 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">General</p>
+                        <button
+                            type="button"
+                            onClick={() => setSelected("toolsearch")}
+                            className={`mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${selected === "toolsearch" ? "bg-pulse-tint text-pulse-text font-medium" : "text-pulse-text-soft hover:bg-pulse-hover"}`}
+                        >
+                            <KeyIcon className="h-4 w-4 shrink-0 text-pulse-muted" /> Tool Search
+                        </button>
+                        <p className="px-2 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">Integrations</p>
+                        {filtered.length === 0 && <p className="px-2 py-2 text-xs text-pulse-faint">No matches.</p>}
+                        {filtered.map((p) => {
+                            const tone = statusTone(p);
+                            const active = selected === p.id;
+                            return (
+                                <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => setSelected(p.id)}
+                                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${active ? "bg-pulse-tint" : "hover:bg-pulse-hover"}`}
+                                >
+                                    <span className={`h-2 w-2 shrink-0 rounded-full ${tone === "ok" ? "bg-green-500" : tone === "bad" ? "bg-red-400" : tone === "warn" ? "bg-amber-500" : "bg-pulse-border-strong"}`} />
+                                    <span className={`flex-1 truncate text-sm capitalize ${active ? "font-medium text-pulse-text" : "text-pulse-text-soft"}`}>{p.name}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </aside>
+
+                {/* ── Right: detail pane ── */}
+                <div className="min-w-0 flex-1">
             {odBanner && (
                 <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${odBanner.ok ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
                     {odBanner.text}
@@ -2820,16 +2851,11 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
                     </svg>
                     <p className="text-pulse-muted text-sm">No plugins enabled. Contact your administrator to enable plugins.</p>
                 </div>
-            ) : filtered.length === 0 ? (
-                <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl p-10 text-center">
-                    <p className="text-pulse-muted text-sm">No plugins match your search.</p>
-                </div>
             ) : (
-                <div className="space-y-4">
-                    {filtered.map((plugin) => {
+                <div>
+                    {(selected === "toolsearch" || !selectedPlugin ? [] : [selectedPlugin]).map((plugin) => {
                         const { config } = plugin;
                         const hasCredentials = config.credentialSchema.length > 0;
-                        const isExpanded = expandedPlugins.has(plugin.id);
                         const allConfigured = config.credentialSchema.every((f) => f.configured);
                         const noneConfigured = config.credentialSchema.every((f) => !f.configured);
 
@@ -2883,19 +2909,11 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
                                                     {odConnecting ? "Connecting…" : "Connect OneDrive"}
                                                 </button>
                                             )}
-                                            {hasCredentials && (
-                                                <button
-                                                    onClick={() => toggleExpand(plugin.id)}
-                                                    className="px-3 py-1.5 text-sm font-medium text-indigo-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                                >
-                                                    {isExpanded ? "Close" : "Configure"}
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
 
-                                {isExpanded && hasCredentials && (
+                                {hasCredentials && (
                                     <div className="border-t border-pulse-border-subtle bg-pulse-panel-alt px-5 py-4">
                                         <h4 className="text-sm font-medium text-pulse-text-soft mb-1">Credentials</h4>
                                         <p className="mb-3 text-xs text-pulse-faint">Set them up here once. They&apos;re saved to your Credentials vault (under these env-var names) — no need to add them again on the Credentials tab.</p>
@@ -2964,8 +2982,8 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
                 </div>
             )}
 
-            {/* Tool Search — global agent setting, kept below the plugin list */}
-            <div className="mt-8">
+                    {/* Tool Search — global agent setting (shown when selected) */}
+                    {selected === "toolsearch" && (
                 <Card>
                     <CardHeader
                         title="Tool Search"
@@ -3045,6 +3063,8 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialP
                         </form>
                     </div>
                 </Card>
+                    )}
+                </div>
             </div>
         </div>
     );
