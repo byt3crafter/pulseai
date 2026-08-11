@@ -68,7 +68,7 @@ export default function ToolEditor({ agents, tool }: { agents: Agent[]; tool?: T
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-3xl mx-auto">
             <Link href="/dashboard/tools" className="inline-flex items-center gap-1.5 text-sm text-pulse-muted hover:text-pulse-text transition-colors motion-reduce:transition-none mb-4">
                 <ArrowLeftIcon className="w-4 h-4" aria-hidden="true" /> Custom Tools
             </Link>
@@ -77,7 +77,7 @@ export default function ToolEditor({ agents, tool }: { agents: Agent[]; tool?: T
                 Connect your own API or software as an action your agents can call. Define the request once — the AI fills in the parameters.
             </p>
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-8">
+            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
                 {error && (
                     <div role="alert" className="p-3 text-sm text-red-400 bg-red-500/10 rounded-lg border border-red-500/30 flex items-start gap-2">
                         <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" aria-hidden="true" />

@@ -19,7 +19,7 @@ export default async function AgentMemoryPage({ params }: { params: Promise<{ id
     const stats = await getMemoryStats(agentId);
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-5 lg:p-6">
             <div className="mb-8">
                 <a href={`/dashboard/agents/${agentId}`} className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                     &larr; Back to {agent.name}

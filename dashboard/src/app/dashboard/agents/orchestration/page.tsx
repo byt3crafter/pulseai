@@ -14,7 +14,7 @@ export default async function OrchestrationOverviewPage() {
     if (!session?.user) return redirect("/auth/login");
 
     const tenantId = (session.user as any).tenantId;
-    if (!tenantId) return <div className="p-4 sm:p-6 lg:p-8 text-pulse-muted">No tenant associated with this account.</div>;
+    if (!tenantId) return <div className="p-4 sm:p-5 lg:p-6 text-pulse-muted">No tenant associated with this account.</div>;
 
     // Get all agents with their delegation configs
     const agents = await db.query.agentProfiles.findMany({
@@ -37,7 +37,7 @@ export default async function OrchestrationOverviewPage() {
     const failedCount = recentDelegations.filter((d) => d.status === "failed").length;
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-5 lg:p-6">
             <div className="mb-8">
                 <a href="/dashboard/agents" className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                     &larr; Back to Agents

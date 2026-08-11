@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from "@heroicons/react/24/outline";
 import BrandMark from "./BrandMark";
 import ThemeToggle from "./ThemeToggle";
+
+/** Desktop sidebar collapse state — consumed by DashboardNav to hide labels. */
+export const SidebarCollapseContext = createContext(false);
 
 interface DashboardShellProps {
     workspaceName: string;
@@ -24,7 +27,18 @@ interface DashboardShellProps {
  */
 export default function DashboardShell({ workspaceName, nav, userMenu, children }: DashboardShellProps) {
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
+
+    // Restore collapsed preference.
+    useEffect(() => {
+        try { setCollapsed(localStorage.getItem("pulse_sidebar_collapsed") === "1"); } catch { /* ignore */ }
+    }, []);
+    const toggleCollapsed = () => setCollapsed((v) => {
+        const next = !v;
+        try { localStorage.setItem("pulse_sidebar_collapsed", next ? "1" : "0"); } catch { /* ignore */ }
+        return next;
+    });
     const hamburgerRef = useRef<HTMLButtonElement>(null);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
     const isFirstRender = useRef(true);
@@ -66,22 +80,56 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
     return (
         <div className="flex h-dvh bg-pulse-bg w-full font-sans overflow-hidden">
             {/* Desktop sidebar */}
-            <aside className="hidden md:flex w-60 bg-pulse-panel flex-shrink-0 flex-col border-r border-pulse-border-subtle h-dvh">
-                <div className="h-14 px-5 flex items-center border-b border-pulse-border-subtle flex-shrink-0">
-                    <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
-                        <BrandMark size={28} />
-                        <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
-                    </Link>
+            <aside className={`hidden md:flex ${collapsed ? "w-16" : "w-60"} bg-pulse-panel flex-shrink-0 flex-col border-r border-pulse-border-subtle h-dvh transition-[width] duration-200 ease-out motion-reduce:transition-none`}>
+                <div className={`h-14 flex items-center border-b border-pulse-border-subtle flex-shrink-0 ${collapsed ? "justify-center px-0" : "px-5 justify-between"}`}>
+                    {collapsed ? (
+                        <Link href="/dashboard" aria-label={workspaceName} className="flex items-center justify-center">
+                            <BrandMark size={26} />
+                        </Link>
+                    ) : (
+                        <>
+                            <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
+                                <BrandMark size={28} />
+                                <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={toggleCollapsed}
+                                aria-label="Collapse sidebar"
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            >
+                                <ChevronDoubleLeftIcon className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                        </>
+                    )}
                 </div>
 
-                {nav}
+                <SidebarCollapseContext.Provider value={collapsed}>
+                    {nav}
+                </SidebarCollapseContext.Provider>
 
-                <div className="p-3 border-t border-pulse-border-subtle flex-shrink-0 space-y-2">
-                    <div className="flex items-center justify-between px-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-pulse-faint">Theme</span>
-                        <ThemeToggle />
-                    </div>
-                    {userMenu}
+                <div className={`border-t border-pulse-border-subtle flex-shrink-0 ${collapsed ? "p-2 space-y-2 flex flex-col items-center" : "p-3 space-y-2"}`}>
+                    {collapsed ? (
+                        <>
+                            <button
+                                type="button"
+                                onClick={toggleCollapsed}
+                                aria-label="Expand sidebar"
+                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                            >
+                                <ChevronDoubleRightIcon className="w-4 h-4" aria-hidden="true" />
+                            </button>
+                            <ThemeToggle />
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex items-center justify-between px-1">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-pulse-faint">Theme</span>
+                                <ThemeToggle />
+                            </div>
+                            {userMenu}
+                        </>
+                    )}
                 </div>
             </aside>
 

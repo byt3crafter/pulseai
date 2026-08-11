@@ -12,7 +12,7 @@ interface Props {
 
 export default function PluginsPageClient({ plugins, savePluginCredentials, toolSearchConfig, initialPlugin }: Props) {
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-5 lg:p-6">
             <PageHeader title="Plugins" description="Pick an integration to configure — its credentials are stored in your vault." />
             <div className="mt-6" />
             <PluginsTab

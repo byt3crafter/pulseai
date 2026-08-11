@@ -70,32 +70,41 @@ body {
   --color-indigo-700: #4F5AD6;
 
   /* ── Enterprise / Google-AI-Studio palette ──────────────────────────────
-     One accent (indigo above); everything else is heavily desaturated so the
-     dashboard reads neutral. Status chips keep only a faint hue — enough to
-     tell apart, not enough to shout. Retuning the Tailwind status scales here
-     neutralises every bg-green-500/10, text-red-400, amber chip, blue tool
-     tag, etc. across the whole app without touching a single component. */
-  --color-green-400:   #6E9384;
-  --color-green-500:   #5E8676;
-  --color-green-600:   #517564;
-  --color-emerald-400: #6E9384;
-  --color-emerald-500: #5E8676;
-  --color-emerald-600: #517564;
-  --color-red-300:     #C9A39C;
-  --color-red-400:     #BE8B81;
-  --color-red-500:     #B0796E;
-  --color-red-600:     #9E6A60;
-  --color-rose-400:    #BE8B81;
-  --color-rose-500:    #B0796E;
-  --color-amber-400:   #B29E72;
-  --color-amber-500:   #A5905F;
-  --color-yellow-400:  #B29E72;
-  --color-yellow-500:  #A5905F;
-  --color-blue-400:    #7D8BA5;
-  --color-blue-500:    #6F7E99;
-  --color-blue-600:    #63728C;
-  --color-sky-400:     #7D8BA5;
-  --color-sky-500:     #6F7E99;
+     One accent (indigo above); every other hue is heavily desaturated so the
+     dashboard reads neutral. Status keeps only a faint tint — enough to tell
+     apart, not enough to shout. Retuning the Tailwind status scales here
+     neutralises every green/red/amber/blue chip, tag, dot and border across
+     the whole app in one place, no component edits. Rare decorative hues
+     (violet/purple/cyan/fuchsia/teal/lime/orange) collapse to a muted slate. */
+  /* Green / Emerald (success, configured, online) */
+  --color-green-200:   #C7D6CD; --color-green-300:   #A9BFB2;
+  --color-green-400:   #6E9384; --color-green-500:   #5E8676;
+  --color-green-600:   #517564; --color-green-700:   #445F52; --color-green-800: #374C42;
+  --color-emerald-200: #C7D6CD; --color-emerald-300: #A9BFB2;
+  --color-emerald-400: #6E9384; --color-emerald-500: #5E8676;
+  --color-emerald-600: #517564; --color-emerald-700: #445F52; --color-emerald-800: #374C42;
+  --color-teal-400:    #6E9390; --color-teal-500:    #5E8682;
+  --color-lime-400:    #8A9370; --color-lime-500:    #7C865E;
+  /* Red / Rose (error, needs-setup, destructive) */
+  --color-red-200:     #E0C9C4; --color-red-300:     #C9A39C;
+  --color-red-400:     #BE8B81; --color-red-500:     #B0796E;
+  --color-red-600:     #9E6A60; --color-red-700:     #855851; --color-red-800: #6B4741;
+  --color-rose-300:    #C9A39C; --color-rose-400:    #BE8B81; --color-rose-500: #B0796E; --color-rose-600: #9E6A60;
+  --color-orange-400:  #BE9481; --color-orange-500:  #B0836E;
+  --color-pink-400:    #C296A6; --color-pink-500:    #B4859A;
+  --color-fuchsia-400: #A691AE; --color-fuchsia-500: #9A82A4;
+  /* Amber / Yellow (warning, partial) */
+  --color-amber-200:   #DCD1B6; --color-amber-300:   #C9B994;
+  --color-amber-400:   #B29E72; --color-amber-500:   #A5905F;
+  --color-amber-600:   #8E7B4F; --color-amber-700:   #746340; --color-amber-800: #5A4D33;
+  --color-yellow-300:  #C9B994; --color-yellow-400:  #B29E72; --color-yellow-500: #A5905F; --color-yellow-600: #8E7B4F;
+  /* Blue / Sky / Violet / Purple / Cyan (info, tool tags, decorative) */
+  --color-blue-300:    #A6B1C6; --color-blue-400:    #7D8BA5;
+  --color-blue-500:    #6F7E99; --color-blue-600:    #63728C; --color-blue-700: #536078;
+  --color-sky-300:     #A6B1C6; --color-sky-400:     #7D8BA5; --color-sky-500: #6F7E99; --color-sky-600: #63728C;
+  --color-violet-400:  #8C8FB2; --color-violet-500:  #7E82A6;
+  --color-purple-400:  #8C8AB2; --color-purple-500:  #7E7CA6;
+  --color-cyan-400:    #7D96A5; --color-cyan-500:    #6F8999;
   --color-pulse-bg:            var(--pulse-bg);
   --color-pulse-panel:         var(--pulse-panel);
   --color-pulse-panel-alt:     var(--pulse-panel-alt);
