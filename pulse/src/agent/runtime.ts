@@ -33,6 +33,7 @@ import {
     formatSearchResult,
     TOOL_SEARCH_NAME,
 } from "./tools/tool-search.js";
+import { getToolUsageScores, topToolsByUsage } from "./tools/tool-usage.js";
 import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
@@ -304,6 +305,15 @@ export class AgentRuntime {
             const defByName = new Map(toolDefinitions.map((d) => [d.name, d]));
             const deferredNames = new Set(deferrableTools.map((t) => t.name));
             const revealedNames = new Set<string>();
+            // Usage-aware "hot cache": keep this agent's most-used extension tools
+            // always loaded (frequent → instant), so only the cold long tail is
+            // deferred behind tool_search. Idle tools degrade to search-on-demand.
+            let toolUsageScores = new Map<string, number>();
+            if (toolSearchActive) {
+                toolUsageScores = await getToolUsageScores(inbound.tenantId, resolvedAgentProfileId ?? undefined);
+                const HOT_CACHE = 6;
+                for (const n of topToolsByUsage(toolUsageScores, HOT_CACHE, deferredNames)) revealedNames.add(n);
+            }
             const buildActiveDefs = () => {
                 if (!toolSearchActive) return toolDefinitions;
                 const core = toolDefinitions.filter((d) => !deferredNames.has(d.name));
@@ -716,7 +726,7 @@ export class AgentRuntime {
                         // a registered tool — it manipulates which schemas are exposed).
                         if (toolSearchActive && toolCall.name === TOOL_SEARCH_NAME) {
                             const query = String((toolCall.input as any)?.query ?? "");
-                            const { matches, total } = rankDeferredTools(deferrableTools, query, toolSearchCfg.maxResults);
+                            const { matches, total } = rankDeferredTools(deferrableTools, query, toolSearchCfg.maxResults, toolUsageScores);
                             for (const m of matches) revealedNames.add(m.name);
                             tenantLog.debug(
                                 { query, revealed: matches.map((m) => m.name) },
