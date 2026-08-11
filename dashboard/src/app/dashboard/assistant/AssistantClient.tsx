@@ -57,6 +57,7 @@ export default function AssistantClient({
     const [showThinking, setShowThinking] = useState<boolean>(true);
 
     const wsRef = useRef<WebSocket | null>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const sessionRef = useRef(sessionId);
@@ -147,6 +148,15 @@ export default function AssistantClient({
         setSessions(await listSessionsAction());
     }
 
+    // Grow the composer with its content, capped — keeps a single line vertically
+    // centred and lets multi-line wrap without an inner scrollbar until it's tall.
+    const autoGrow = useCallback(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.style.height = "auto";
+        el.style.height = Math.min(el.scrollHeight, 160) + "px";
+    }, []);
+
     function send() {
         const text = input.trim();
         if (!text || busy || conn !== "online") return;
@@ -159,6 +169,11 @@ export default function AssistantClient({
             sessionId: sessionRef.current,
             reasoningEffort: reasoning,
         }));
+        // Reset the box height and keep focus so the user can type again straight away.
+        requestAnimationFrame(() => {
+            const el = inputRef.current;
+            if (el) { el.style.height = "auto"; el.focus(); }
+        });
         scrollToBottom();
     }
 
@@ -193,7 +208,7 @@ export default function AssistantClient({
     }
 
     return (
-        <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-pulse-bg">
+        <div className="flex h-full min-h-0 overflow-hidden bg-pulse-bg">
             {/* Mobile backdrop when the rail is open as an overlay */}
             {railOpen && (
                 <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setRailOpen(false)} aria-hidden="true" />
@@ -249,7 +264,7 @@ export default function AssistantClient({
             )}
 
             {/* ── Main ── */}
-            <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-2 border-b border-pulse-border-subtle bg-pulse-panel px-3 py-2.5">
                     <div className="flex min-w-0 items-center gap-2">
@@ -282,7 +297,7 @@ export default function AssistantClient({
                 </div>
 
                 {/* Messages */}
-                <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
                     <div className="mx-auto w-full max-w-3xl space-y-6">
                         {messages.length === 0 && (
                             <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
@@ -330,17 +345,18 @@ export default function AssistantClient({
                 </div>
 
                 {/* Composer */}
-                <div className="border-t border-pulse-border-subtle bg-pulse-panel px-4 py-3 sm:px-6">
+                <div className="shrink-0 border-t border-pulse-border-subtle bg-pulse-panel px-4 py-3 sm:px-6">
                     <div className="mx-auto w-full max-w-3xl">
-                        <div className="flex items-end gap-2 rounded-2xl border border-pulse-border bg-pulse-bg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500">
+                        <div className="flex items-end gap-2 rounded-2xl border border-pulse-border bg-pulse-bg px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500">
                             <textarea
+                                ref={inputRef}
                                 value={input}
-                                onChange={(e) => setInput(e.target.value)}
+                                onChange={(e) => { setInput(e.target.value); autoGrow(); }}
                                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                                 rows={1}
                                 placeholder={conn === "online" ? "Message your assistant…" : "Connecting…"}
                                 disabled={conn !== "online"}
-                                className="max-h-40 min-h-[28px] flex-1 resize-none bg-transparent py-1 text-sm text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
+                                className="block max-h-40 h-9 flex-1 resize-none self-center bg-transparent py-1.5 text-sm leading-6 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
                             <button type="button" onClick={send} disabled={!input.trim() || busy || conn !== "online"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pulse-accent text-white transition-colors hover:bg-pulse-accent-hi disabled:opacity-40">
                                 <PaperAirplaneIcon className="h-5 w-5" />
