@@ -3,6 +3,17 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.43] - 2026-08-11
+
+### Features
+- config-driven white-label (Admin → Settings → Branding)
+
+### Bug Fixes
+- pass ANTHROPIC_API_KEY to the dashboard in base compose
+
+### Chores
+- make NEXTAUTH_URL + AUTH_TRUST_HOST env-driven
+
 ## [0.14.42] - 2026-07-28
 
 ### Features
