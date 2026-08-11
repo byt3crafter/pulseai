@@ -12,7 +12,7 @@ export default auth((req) => {
     // them through untouched. Without this the matcher catches e.g.
     // /pulse-logo.png and redirects it to /login (307 → broken images on the
     // public landing page).
-    if (/\.(png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf|css|js|map|mp4|webm|txt|xml|json)$/i.test(nextUrl.pathname)) {
+    if (/\.(png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf|css|js|map|mp4|webm|txt|xml|json|webmanifest)$/i.test(nextUrl.pathname)) {
         return NextResponse.next();
     }
     // Next.js metadata routes (favicon/app icon, apple-icon, og image) are served

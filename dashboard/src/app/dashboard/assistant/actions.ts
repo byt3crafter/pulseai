@@ -5,6 +5,7 @@ import { apiTokens, conversations, messages, usageRecords, agentRuns } from "../
 import { and, eq, asc, desc, like } from "drizzle-orm";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { logAudit } from "../../../utils/audit";
 
 const WEBCHAT_TOKEN_NAME = "__webchat__";
 
@@ -194,6 +195,14 @@ export async function deleteSessionAction(sessionId: string) {
             await db.update(agentRuns).set({ conversationId: null }).where(eq(agentRuns.conversationId, cid));
             await db.delete(messages).where(eq(messages.conversationId, cid));
             await db.delete(conversations).where(eq(conversations.id, cid));
+
+            await logAudit({
+                action: "conversation.delete",
+                targetType: "conversation",
+                targetId: sessionId,
+                tenantId,
+                summary: "Deleted chat session",
+            });
         }
         return { success: true as const };
     } catch (e) {

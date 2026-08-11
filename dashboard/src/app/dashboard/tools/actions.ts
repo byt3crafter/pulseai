@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { encrypt } from "../../../utils/crypto";
+import { logAudit } from "../../../utils/audit";
 
 const PATH = "/dashboard/tools";
 type Result = { success: boolean; message: string };
@@ -79,6 +80,16 @@ export async function saveCustomToolAction(formData: FormData): Promise<Result> 
         } else {
             await db.insert(customTools).values({ tenantId, name, description, method, urlTemplate, bodyTemplate, paramSchema, allowedAgentIds, timeoutMs, headersEnc });
         }
+
+        await logAudit({
+            action: "tenant.custom_tool.save",
+            targetType: "custom_tool",
+            targetId: toolId || undefined,
+            tenantId,
+            summary: `Saved custom tool ${name}`,
+            metadata: { name },
+        });
+
         revalidatePath(PATH);
         return { success: true, message: "Saved." };
     } catch (error) {
@@ -93,6 +104,15 @@ export async function deleteCustomToolAction(formData: FormData): Promise<Result
     const toolId = formData.get("toolId") as string;
     try {
         await db.delete(customTools).where(and(eq(customTools.id, toolId), eq(customTools.tenantId, check.tenantId)));
+
+        await logAudit({
+            action: "tenant.custom_tool.delete",
+            targetType: "custom_tool",
+            targetId: toolId,
+            tenantId: check.tenantId,
+            summary: "Deleted custom tool",
+        });
+
         revalidatePath(PATH);
         return { success: true, message: "Deleted." };
     } catch (error) {
@@ -109,6 +129,16 @@ export async function toggleCustomToolAction(formData: FormData): Promise<Result
     try {
         await db.update(customTools).set({ enabled, updatedAt: new Date() })
             .where(and(eq(customTools.id, toolId), eq(customTools.tenantId, check.tenantId)));
+
+        await logAudit({
+            action: "tenant.custom_tool.toggle",
+            targetType: "custom_tool",
+            targetId: toolId,
+            tenantId: check.tenantId,
+            summary: enabled ? "Enabled custom tool" : "Disabled custom tool",
+            metadata: { enabled },
+        });
+
         revalidatePath(PATH);
         return { success: true, message: enabled ? "Enabled." : "Disabled." };
     } catch (error) {

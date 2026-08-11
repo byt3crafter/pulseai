@@ -1,8 +1,13 @@
 import { Sora, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { redirect } from "next/navigation";
+import { auth } from "../auth";
+import { getDeploymentFlags } from "../utils/branding";
 import styles from "./landing.module.css";
 import LandingNav from "./LandingNav";
 import LandingFaq from "./LandingFaq";
 import PulseLogo from "./PulseLogo";
+
+export const dynamic = "force-dynamic";
 
 const sora = Sora({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-sora" });
 const instrumentSans = Instrument_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-instrument" });
@@ -157,7 +162,13 @@ const FAQS = [
     },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+    const { standaloneMode } = await getDeploymentFlags();
+    if (standaloneMode) {
+        const session = await auth();
+        redirect(session?.user ? "/dashboard/assistant" : "/login");
+    }
+
     return (
         <div className={`${styles.page} ${sora.variable} ${instrumentSans.variable} ${jetbrainsMono.variable}`} style={{ fontFamily: "var(--font-instrument), sans-serif" }}>
             <LandingNav />

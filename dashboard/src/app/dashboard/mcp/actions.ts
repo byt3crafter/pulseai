@@ -10,6 +10,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
+import { logAudit } from "../../../utils/audit";
 
 /**
  * MCP auth headers hold bearer tokens / API keys for the external server, so
@@ -70,6 +71,14 @@ export async function createMcpServerAction(formData: FormData) {
             url,
             authHeaders: packAuthHeaders(authHeadersStr),
             status: "active",
+        });
+
+        await logAudit({
+            action: "mcp.create",
+            targetType: "mcp_server",
+            tenantId: session.user.tenantId,
+            summary: `Created MCP server ${name}`,
+            metadata: { name },
         });
 
         revalidatePath("/dashboard/mcp");
@@ -149,6 +158,15 @@ export async function deleteMcpServerAction(serverId: string) {
     try {
         // Cascading delete handles bindings via FK
         await db.delete(mcpServers).where(eq(mcpServers.id, serverId));
+
+        await logAudit({
+            action: "mcp.delete",
+            targetType: "mcp_server",
+            targetId: serverId,
+            tenantId: session.user.tenantId,
+            summary: `Deleted MCP server ${server.name}`,
+        });
+
         revalidatePath("/dashboard/mcp");
         return { success: true, message: "MCP server deleted." };
     } catch (error) {

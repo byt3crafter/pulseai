@@ -1069,3 +1069,23 @@ export async function saveBrandingAction(input: {
         return { success: false, message: "Could not save branding." };
     }
 }
+
+export async function saveStandaloneModeAction(enabled: boolean) {
+    const adminCheck = await requireAdmin("platform.settings.write");
+    if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
+
+    try {
+        const cur = await db.query.globalSettings.findFirst({ where: (t, { eq: e }) => e(t.id, "root") }) as any;
+        const cfg = cur?.config ? { ...cur.config } : {};
+        cfg.standaloneMode = !!enabled;
+        await db.insert(globalSettings)
+            .values({ id: "root", config: cfg, updatedAt: new Date() })
+            .onConflictDoUpdate({ target: globalSettings.id, set: { config: cfg, updatedAt: new Date() } });
+        await logAudit({ action: "settings.standalone.update", targetType: "settings", summary: `Standalone mode ${enabled ? "enabled" : "disabled"}`, metadata: { enabled } });
+        revalidatePath("/", "layout");
+        return { success: true, message: `Standalone mode ${enabled ? "enabled" : "disabled"}.` };
+    } catch (e) {
+        console.error("Failed to save standalone mode:", e);
+        return { success: false, message: "Could not save standalone mode." };
+    }
+}

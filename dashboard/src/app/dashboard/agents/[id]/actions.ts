@@ -10,6 +10,7 @@ import { stripReasoning } from "../../../../utils/strip-reasoning";
 import { redirect } from "next/navigation";
 import { requireTenant } from "../../../../utils/tenant-auth";
 import { encrypt, decrypt } from "../../../../utils/crypto";
+import { logAudit } from "../../../../utils/audit";
 
 export async function updateWorkspaceFileAction(formData: FormData) {
     const session = await auth();
@@ -200,6 +201,14 @@ export async function updateAgentIdentityAction(formData: FormData) {
     // the bot's PROFILE PHOTO can only be set via @BotFather — not the API.)
     await syncAgentTelegramProfile(tenantId, agentId, name, titleRaw || null);
 
+    await logAudit({
+        action: "agent.identity.update",
+        targetType: "agent",
+        targetId: agentId,
+        tenantId,
+        summary: `Updated identity for agent ${name}`,
+    });
+
     revalidatePath(`/dashboard/agents/${agentId}`);
     revalidatePath("/dashboard/agents");
     return { success: true, message: "Profile updated." };
@@ -276,6 +285,15 @@ export async function updateAgentModelAction(formData: FormData) {
     await db.update(agentProfiles)
         .set({ modelId, updatedAt: new Date() })
         .where(eq(agentProfiles.id, agentId));
+
+    await logAudit({
+        action: "agent.model.update",
+        targetType: "agent",
+        targetId: agentId,
+        tenantId: session.user.tenantId,
+        summary: `Changed model for agent ${agentId}`,
+        metadata: { modelId },
+    });
 
     revalidatePath(`/dashboard/agents/${agentId}`);
     return { success: true, message: "Model updated." };
@@ -389,6 +407,14 @@ export async function deleteAgentAction(formData: FormData) {
     // Cascading delete handles workspace_revisions via FK
     await db.delete(agentProfiles).where(eq(agentProfiles.id, agentId));
 
+    await logAudit({
+        action: "agent.delete",
+        targetType: "agent",
+        targetId: agentId,
+        tenantId: session.user.tenantId,
+        summary: `Deleted agent ${agent.name}`,
+    });
+
     // Note: Workspace directory cleanup on disk is not critical; orphaned dirs are harmless
     revalidatePath("/dashboard/agents");
     redirect("/dashboard/agents");
@@ -485,6 +511,15 @@ export async function updateToolPolicyAction(formData: FormData) {
     await db.update(agentProfiles)
         .set({ toolPolicy, updatedAt: new Date() })
         .where(eq(agentProfiles.id, agentId));
+
+    await logAudit({
+        action: "agent.tool_policy.update",
+        targetType: "agent",
+        targetId: agentId,
+        tenantId: session.user.tenantId,
+        summary: `Changed tool policy for agent ${agentId}`,
+        metadata: { allow: toolPolicy.allow, deny: toolPolicy.deny, ask: toolPolicy.ask },
+    });
 
     revalidatePath(`/dashboard/agents/${agentId}`);
     return { success: true, message: "Tool policy updated." };

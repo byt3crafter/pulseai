@@ -301,6 +301,15 @@ export async function saveProviderKeyAction(formData: FormData) {
             });
         }
 
+        await logAudit({
+            action: "tenant.provider_key.update",
+            targetType: "provider_key",
+            targetId: provider,
+            tenantId,
+            summary: `Saved ${provider} provider key`,
+            metadata: { provider, authMethod },
+        });
+
         revalidatePath("/dashboard/settings");
         const label = authMethod === "setup_token" ? "setup token" : authMethod === "oauth" ? "token" : "key";
         return { success: true, message: `${provider} ${label} saved and encrypted.` };
@@ -326,6 +335,15 @@ export async function removeProviderKeyAction(formData: FormData) {
                     eq(tenantProviderKeys.provider, provider)
                 )
             );
+
+        await logAudit({
+            action: "tenant.provider_key.remove",
+            targetType: "provider_key",
+            targetId: provider,
+            tenantId,
+            summary: `Removed ${provider} provider key`,
+            metadata: { provider },
+        });
 
         revalidatePath("/dashboard/settings");
         return { success: true, message: `${provider} key removed.` };
@@ -367,6 +385,15 @@ export async function connectCodexAction() {
                 isActive: true,
             });
         }
+
+        await logAudit({
+            action: "tenant.provider_key.update",
+            targetType: "provider_key",
+            targetId: "codex",
+            tenantId,
+            summary: "Enabled Codex provider",
+            metadata: { provider: "codex" },
+        });
 
         revalidatePath("/dashboard/settings");
         return { success: true, message: "Codex enabled for this workspace." };
@@ -1370,6 +1397,14 @@ export async function saveWorkspaceToolsAction(enabledNames: string[]) {
                 ON CONFLICT (tenant_id, skill_name) DO UPDATE SET enabled = EXCLUDED.enabled
             `);
         }
+
+        await logAudit({
+            action: "tenant.tools.update",
+            targetType: "tenant",
+            tenantId,
+            summary: `Updated workspace tools (${wanted.size} enabled)`,
+            metadata: { count: wanted.size, enabled: Array.from(wanted) },
+        });
 
         revalidatePath("/dashboard/settings");
         return { success: true, message: "Workspace tools updated." };

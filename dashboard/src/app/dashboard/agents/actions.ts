@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { initializeWorkspace, WORKSPACE_DEFAULTS } from "../../../utils/workspace";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { logAudit } from "../../../utils/audit";
 import { decrypt } from "../../../utils/crypto";
 import { PROVIDERS } from "../../../utils/models";
 import { stripReasoning } from "../../../utils/strip-reasoning";
@@ -251,6 +252,15 @@ export async function createAgentProfileAction(formData: FormData) {
             .set({ workspacePath, updatedAt: new Date() })
             .where(eq(agentProfiles.id, agent.id));
 
+        await logAudit({
+            action: "agent.create",
+            targetType: "agent",
+            targetId: agent.id,
+            tenantId: session.user.tenantId,
+            summary: `Created agent ${name}`,
+            metadata: { name },
+        });
+
         revalidatePath("/dashboard/agents");
         return { success: true, message: "Agent Profile created successfully." };
     } catch (error) {
@@ -318,6 +328,16 @@ export async function toggleAgentEnabledAction(agentId: string, enabled: boolean
             .where(and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, tc.tenantId)))
             .returning({ id: agentProfiles.id });
         if (!res.length) return { success: false, message: "Agent not found." };
+
+        await logAudit({
+            action: "agent.toggle_enabled",
+            targetType: "agent",
+            targetId: agentId,
+            tenantId: tc.tenantId,
+            summary: enabled ? `Enabled agent ${agentId}` : `Disabled agent ${agentId}`,
+            metadata: { enabled },
+        });
+
         revalidatePath("/dashboard/agents");
         return { success: true, message: enabled ? "Agent enabled." : "Agent disabled." };
     } catch (e) {

@@ -41,6 +41,27 @@ export async function getBranding(): Promise<Branding> {
     }
 }
 
+/**
+ * Per-deployment behavior flags stored in globalSettings.config (sibling to
+ * `branding`). `standaloneMode` skips the marketing landing page at "/" and
+ * sends visitors straight to sign-in (or the assistant if already logged
+ * in) — for dedicated single-customer deployments. Defaults to false so
+ * nothing changes until an admin opts in.
+ */
+export async function getDeploymentFlags(): Promise<{ standaloneMode: boolean }> {
+    try {
+        const row = await db
+            .select({ config: globalSettings.config })
+            .from(globalSettings)
+            .where(eq(globalSettings.id, "root"))
+            .limit(1);
+        const config = row[0]?.config as any;
+        return { standaloneMode: !!(config?.standaloneMode) };
+    } catch {
+        return { standaloneMode: false };
+    }
+}
+
 /** The environment host shown in the admin shell — derived from the deploy URL. */
 export function deploymentHost(): string {
     const url = process.env.NEXTAUTH_URL || process.env.WEBHOOK_BASE_URL || "";

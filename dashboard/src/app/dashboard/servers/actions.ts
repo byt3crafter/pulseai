@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { encrypt, decrypt } from "../../../utils/crypto";
 import { testSshConnection } from "../../../utils/ssh-test";
+import { logAudit } from "../../../utils/audit";
 
 const PATH = "/dashboard/servers";
 type Result = { success: boolean; message: string };
@@ -121,6 +122,16 @@ export async function saveServerAction(formData: FormData): Promise<Result> {
                 enabled,
             });
         }
+
+        await logAudit({
+            action: "server.save",
+            targetType: "server",
+            targetId: serverId || undefined,
+            tenantId,
+            summary: `Saved server ${name}`,
+            metadata: { name, host },
+        });
+
         revalidatePath(PATH);
         return { success: true, message: "Saved." };
     } catch (error) {
@@ -135,6 +146,15 @@ export async function deleteServerAction(formData: FormData): Promise<Result> {
     const serverId = (formData.get("serverId") as string) || "";
     try {
         await db.delete(servers).where(and(eq(servers.id, serverId), eq(servers.tenantId, check.tenantId)));
+
+        await logAudit({
+            action: "server.delete",
+            targetType: "server",
+            targetId: serverId,
+            tenantId: check.tenantId,
+            summary: "Deleted server",
+        });
+
         revalidatePath(PATH);
         return { success: true, message: "Deleted." };
     } catch (error) {
@@ -154,6 +174,16 @@ export async function toggleServerEnabledAction(serverId: string, enabled: boole
             .where(and(eq(servers.id, serverId), eq(servers.tenantId, check.tenantId)))
             .returning({ id: servers.id });
         if (!res.length) return { success: false, message: "Server not found." };
+
+        await logAudit({
+            action: "server.toggle_enabled",
+            targetType: "server",
+            targetId: serverId,
+            tenantId: check.tenantId,
+            summary: enabled ? "Enabled server" : "Disabled server",
+            metadata: { enabled },
+        });
+
         revalidatePath(PATH);
         return { success: true, message: enabled ? "Enabled." : "Disabled." };
     } catch (error) {
