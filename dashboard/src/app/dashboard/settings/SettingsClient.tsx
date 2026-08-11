@@ -232,7 +232,7 @@ export default function SettingsClient({
                     {tab === "tools" && <WorkspaceToolsTab enabledTools={enabledTools} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} toolSearchConfig={toolSearchConfig} />}
-                    {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} />}
+                    {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} managedBy={Object.fromEntries(plugins.flatMap((p) => p.config.credentialSchema.map((f) => [f.name.toUpperCase(), p.name])))} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
                     {tab === "billing" && <BillingTab credits={credits} />}
                 </div>
@@ -2510,17 +2510,20 @@ function CredentialsTab({
     credentials,
     agents,
     addCredential,
+    managedBy,
 }: {
     credentials: CredentialInfo[];
     agents: { id: string; name: string }[];
     addCredential: (formData: FormData) => Promise<void>;
+    managedBy: Record<string, string>;
 }) {
     const inputCls = "w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all";
     const agentName = (id: string | null) => (id ? agents.find((a) => a.id === id)?.name || "Specific agent" : "All agents");
+    const ownerOf = (name: string) => managedBy[name?.toUpperCase()] || null;
 
     return (
         <div className="space-y-6">
-            <Section title="API Credentials" description="Store API keys and secrets securely. Agents access these as environment variables in code execution.">
+            <Section title="API Credentials" description="Store API keys and secrets securely. Agents access these as environment variables in code execution. Plugin integrations (e.g. ERPNext) write here automatically — set those up on the Plugins tab, not here.">
                 <form action={addCredential} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -2588,18 +2591,32 @@ function CredentialsTab({
                                 </tr>
                             </thead>
                             <tbody>
-                                {credentials.map((c) => (
+                                {credentials.map((c) => {
+                                    const owner = ownerOf(c.name);
+                                    return (
                                     <tr key={c.id} className="border-b border-pulse-border-subtle last:border-0 hover:bg-pulse-hover transition-colors motion-reduce:transition-none">
-                                        <td className="px-5 py-3 font-mono text-pulse-text">{c.name}</td>
+                                        <td className="px-5 py-3 font-mono text-pulse-text">
+                                            <span>{c.name}</span>
+                                            {owner && (
+                                                <span className="ml-2 inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 font-sans text-[11px] font-medium text-pulse-accent-hi">
+                                                    Managed by {owner}
+                                                </span>
+                                            )}
+                                        </td>
                                         <td className="px-5 py-3">
                                             <span className="px-2 py-0.5 text-xs bg-pulse-panel-alt text-pulse-muted rounded-full">{c.credentialType}</span>
                                         </td>
                                         <td className="px-5 py-3 text-pulse-muted">{c.description || "—"}</td>
                                         <td className="px-5 py-3 text-pulse-muted">{agentName(c.agentId)}</td>
                                         <td className="px-5 py-3 text-xs text-pulse-faint">{c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "—"}</td>
-                                        <td className="px-5 py-3 text-right"><DeleteCredentialButton credentialId={c.id} /></td>
+                                        <td className="px-5 py-3 text-right">
+                                            {owner
+                                                ? <a href="/dashboard/settings?tab=plugins" className="text-xs font-medium text-pulse-accent-hi hover:underline">Manage in Plugins →</a>
+                                                : <DeleteCredentialButton credentialId={c.id} />}
+                                        </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -2878,7 +2895,8 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig }: {
 
                                 {isExpanded && hasCredentials && (
                                     <div className="border-t border-pulse-border-subtle bg-pulse-panel-alt px-5 py-4">
-                                        <h4 className="text-sm font-medium text-pulse-text-soft mb-3">Credentials</h4>
+                                        <h4 className="text-sm font-medium text-pulse-text-soft mb-1">Credentials</h4>
+                                        <p className="mb-3 text-xs text-pulse-faint">Set them up here once. They&apos;re saved to your Credentials vault (under these env-var names) — no need to add them again on the Credentials tab.</p>
                                         <form action={(formData) => startTransition(() => savePluginCredentials(formData))} className="space-y-4">
                                             <input type="hidden" name="pluginName" value={plugin.name} />
                                             <input type="hidden" name="credentialSchema" value={JSON.stringify(config.credentialSchema)} />
