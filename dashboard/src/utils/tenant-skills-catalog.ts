@@ -128,6 +128,39 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "notepad",
+        title: "Notepad",
+        description: "Let an agent jot and recall freeform notes.",
+        tools: [
+            { name: "note_save", label: "Save note", description: "Write or update a note.", defaultOn: true },
+            { name: "note_list", label: "List notes", description: "See saved notes.", defaultOn: true },
+            { name: "note_search", label: "Search notes", description: "Find notes by keyword.", defaultOn: true },
+            { name: "note_delete", label: "Delete note", description: "Remove a note.", defaultOn: false },
+        ],
+    },
+    {
+        key: "todos",
+        title: "To-dos",
+        description: "Let an agent manage a task list.",
+        tools: [
+            { name: "todo_add", label: "Add to-do", description: "Add a task, optionally with a due date.", defaultOn: true },
+            { name: "todo_list", label: "List to-dos", description: "See open (and completed) tasks.", defaultOn: true },
+            { name: "todo_complete", label: "Complete to-do", description: "Mark a task done or reopen it.", defaultOn: true },
+            { name: "todo_delete", label: "Delete to-do", description: "Remove a task.", defaultOn: false },
+        ],
+    },
+    {
+        key: "bookmarks",
+        title: "Bookmarks",
+        description: "Let an agent save and recall links (web pages + YouTube videos).",
+        tools: [
+            { name: "bookmark_save", label: "Save bookmark", description: "Bookmark a link (YouTube auto-detected).", defaultOn: true },
+            { name: "bookmark_list", label: "List bookmarks", description: "See saved bookmarks.", defaultOn: true },
+            { name: "bookmark_search", label: "Search bookmarks", description: "Find bookmarks by keyword.", defaultOn: true },
+            { name: "bookmark_delete", label: "Delete bookmark", description: "Remove a bookmark.", defaultOn: false },
+        ],
+    },
+    {
         key: "technical",
         title: "Technical (advanced)",
         description: "Powerful tools for technical/DevOps agents. Off by default — enable deliberately.",

@@ -14,6 +14,9 @@ import { activityLogTool } from "./built-in/activity-log.js";
 import { contactLookupTool, contactListTool, contactSaveTool, contactDeleteTool } from "./built-in/contacts.js";
 import { calendarAddTool, calendarListTool, calendarSearchTool, calendarDeleteTool } from "./built-in/calendar.js";
 import { loginListTool } from "./built-in/logins.js";
+import { noteSaveTool, noteListTool, noteSearchTool, noteDeleteTool } from "./built-in/notes.js";
+import { todoAddTool, todoListTool, todoCompleteTool, todoDeleteTool } from "./built-in/todos.js";
+import { bookmarkSaveTool, bookmarkListTool, bookmarkSearchTool, bookmarkDeleteTool } from "./built-in/bookmarks.js";
 import {
     emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool, emailDraftTool,
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
@@ -86,6 +89,18 @@ export class ToolRegistry {
         this.builtInTools.set("calendar_search", calendarSearchTool);
         this.builtInTools.set("calendar_delete", calendarDeleteTool);
         this.builtInTools.set("login_list", loginListTool);
+        this.builtInTools.set("note_save", noteSaveTool);
+        this.builtInTools.set("note_list", noteListTool);
+        this.builtInTools.set("note_search", noteSearchTool);
+        this.builtInTools.set("note_delete", noteDeleteTool);
+        this.builtInTools.set("todo_add", todoAddTool);
+        this.builtInTools.set("todo_list", todoListTool);
+        this.builtInTools.set("todo_complete", todoCompleteTool);
+        this.builtInTools.set("todo_delete", todoDeleteTool);
+        this.builtInTools.set("bookmark_save", bookmarkSaveTool);
+        this.builtInTools.set("bookmark_list", bookmarkListTool);
+        this.builtInTools.set("bookmark_search", bookmarkSearchTool);
+        this.builtInTools.set("bookmark_delete", bookmarkDeleteTool);
         this.builtInTools.set("route_to_channel", routeToChannelTool);
         this.builtInTools.set("email_send", emailSendTool);
         this.builtInTools.set("email_draft", emailDraftTool);
