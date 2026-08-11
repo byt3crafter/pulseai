@@ -125,6 +125,10 @@ services:
       - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-false}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      # The dashboard's config schema requires this even though it doesn't call
+      # Anthropic directly (transitive import). Empty default satisfies it so a
+      # base deployment boots without a bespoke override.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - WORKSPACE_BASE_DIR=/app/data/workspaces
       - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
