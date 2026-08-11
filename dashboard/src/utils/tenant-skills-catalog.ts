@@ -72,6 +72,14 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "oversight",
+        title: "Oversight",
+        description: "Let an agent review the workspace audit trail — who changed what.",
+        tools: [
+            { name: "activity_log", label: "Activity log", description: "Read the workspace audit log: who changed settings, tools, credentials, agents, team roles and integrations.", defaultOn: false },
+        ],
+    },
+    {
         key: "email",
         title: "Email",
         description: "Send, read and manage email. Requires email to be connected in Settings → Email.",

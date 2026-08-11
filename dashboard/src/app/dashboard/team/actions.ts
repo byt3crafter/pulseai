@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { TENANT_ROLES } from "../../../utils/permissions";
+import { logAudit } from "../../../utils/audit";
 import { generateSecurePassword } from "../../../utils/password";
 import { generateToken, hashToken } from "../../../utils/tokens";
 import {
@@ -116,6 +117,15 @@ export async function createMemberAction(formData: FormData): Promise<InviteResu
         await applyDepartmentAssignments(tenantId, created.id, formData);
         const { delivered, inviteLink } = await sendTeamInvite(tenantId, created.id, email, name);
 
+        await logAudit({
+            action: "team.member.create",
+            targetType: "user",
+            targetId: created.id,
+            tenantId,
+            summary: `Added team member ${email}`,
+            metadata: { email, role: accessRole },
+        });
+
         revalidatePath(PATH);
         return {
             success: true,
@@ -183,6 +193,16 @@ export async function updateMemberRoleAction(userId: string, accessRole: string)
 
     try {
         await db.update(users).set({ accessRole, updatedAt: new Date() }).where(eq(users.id, userId));
+
+        await logAudit({
+            action: "team.member.role_change",
+            targetType: "user",
+            targetId: userId,
+            tenantId,
+            summary: "Changed role for team member",
+            metadata: { role: accessRole },
+        });
+
         revalidatePath(PATH);
         return { success: true, message: "Role updated." };
     } catch (error) {
@@ -210,6 +230,15 @@ export async function removeMemberAction(userId: string): Promise<Result> {
 
     try {
         await db.delete(users).where(eq(users.id, userId));
+
+        await logAudit({
+            action: "team.member.remove",
+            targetType: "user",
+            targetId: userId,
+            tenantId,
+            summary: "Removed team member",
+        });
+
         revalidatePath(PATH);
         return { success: true, message: "Team member removed." };
     } catch (error) {

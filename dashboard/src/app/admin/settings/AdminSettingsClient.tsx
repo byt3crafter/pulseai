@@ -25,6 +25,7 @@ import {
     saveSsoSettingsAction,
     setBillingModeAction,
     saveBrandingAction,
+    saveStandaloneModeAction,
     type EmailSettingsView,
     type SsoSettingsView,
 } from "./actions";
@@ -66,6 +67,7 @@ interface Props {
     providerStatuses: Array<{ provider: string; hasKey: boolean }>;
     emailSettings: EmailSettingsView | null;
     ssoSettings: SsoSettingsView | null;
+    standaloneMode: boolean;
     canWrite: boolean;
     canBilling: boolean;
 }
@@ -152,6 +154,7 @@ export default function AdminSettingsClient({
     providerStatuses,
     emailSettings,
     ssoSettings,
+    standaloneMode,
     canWrite,
     canBilling,
 }: Props) {
@@ -199,7 +202,7 @@ export default function AdminSettingsClient({
 
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
-                    {tab === "branding" && <BrandingTab initial={(settings as any)?.config?.branding ?? {}} canWrite={canWrite} />}
+                    {tab === "branding" && <BrandingTab initial={(settings as any)?.config?.branding ?? {}} standaloneMode={standaloneMode} canWrite={canWrite} />}
                     {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} canWrite={canWrite} />}
                     {tab === "billing" && <BillingTab initialMode={((settings as any)?.config?.billingMode === "unlimited") ? "unlimited" : "credits"} canWrite={canBilling || canWrite} />}
                     {tab === "system" && <SystemTab settings={settings} canWrite={canWrite} />}
@@ -230,13 +233,27 @@ const PROVIDER_CARDS = [
     { id: "minimax", name: "MiniMax", description: "MiniMax M2.5 models", placeholder: "eyJ..." },
 ];
 
-function BrandingTab({ initial, canWrite }: { initial: any; canWrite: boolean }) {
+function BrandingTab({ initial, standaloneMode, canWrite }: { initial: any; standaloneMode: boolean; canWrite: boolean }) {
     const [productName, setProductName] = useState(initial?.productName ?? "Pulse AI");
     const [companyName, setCompanyName] = useState(initial?.companyName ?? "Runstate Ltd");
     const [supportEmail, setSupportEmail] = useState(initial?.supportEmail ?? "");
     const [logo, setLogo] = useState<string | null>(initial?.logoDataUrl ?? null);
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+    const [standalone, setStandalone] = useState(standaloneMode);
+    const [savingStandalone, setSavingStandalone] = useState(false);
+    const [standaloneMsg, setStandaloneMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+    async function onStandaloneChange(checked: boolean) {
+        setStandalone(checked);
+        setSavingStandalone(true);
+        setStandaloneMsg(null);
+        const res = await saveStandaloneModeAction(checked);
+        if (!res.success) setStandalone(!checked); // revert on failure
+        setStandaloneMsg({ ok: res.success, text: res.message });
+        setSavingStandalone(false);
+    }
 
     async function onLogo(file: File) {
         // Downscale to a small square PNG data URL, entirely client-side.
@@ -290,6 +307,19 @@ function BrandingTab({ initial, canWrite }: { initial: any; canWrite: boolean })
                 </button>
                 {!canWrite && <p className="text-[12px] text-pulse-faint">You don&apos;t have permission to change branding.</p>}
                 {msg && <p className={`text-[13px] ${msg.ok ? "text-emerald-500" : "text-red-500"}`}>{msg.text}</p>}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-pulse-border-subtle max-w-lg">
+                <fieldset disabled={!canWrite || savingStandalone} className="border-0 p-0 m-0 min-w-0">
+                    <Toggle
+                        checked={standalone}
+                        onChange={onStandaloneChange}
+                        label="Standalone deployment"
+                        description="Skip the marketing page — the site opens straight to sign-in / the assistant."
+                    />
+                </fieldset>
+                {!canWrite && <p className="mt-2 text-[12px] text-pulse-faint">You don&apos;t have permission to change this setting.</p>}
+                {standaloneMsg && <p className={`mt-2 text-[13px] ${standaloneMsg.ok ? "text-emerald-500" : "text-red-500"}`}>{standaloneMsg.text}</p>}
             </div>
         </Panel>
     );

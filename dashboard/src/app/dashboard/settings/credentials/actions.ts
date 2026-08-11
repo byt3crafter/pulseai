@@ -5,6 +5,7 @@ import { credentials, agentProfiles } from "../../../../storage/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../../utils/tenant-auth";
+import { logAudit } from "../../../../utils/audit";
 
 // Re-implement encrypt/decrypt for dashboard (uses same ENCRYPTION_KEY)
 import { createCipheriv, randomBytes } from "crypto";
@@ -98,6 +99,15 @@ export async function addCredential(formData: FormData) {
                 },
             });
 
+        await logAudit({
+            action: "tenant.credential.add",
+            targetType: "credential",
+            targetId: name,
+            tenantId,
+            summary: `Added credential ${name}`,
+            metadata: { name },
+        });
+
         revalidatePath("/dashboard/settings/credentials");
         revalidatePath("/dashboard/settings");
     } catch (error) {
@@ -122,6 +132,15 @@ export async function clearPluginCredentialsAction(names: string[]) {
 
     try {
         await db.delete(credentials).where(and(eq(credentials.tenantId, tenantId), inArray(credentials.name, wanted)));
+
+        await logAudit({
+            action: "tenant.credential.clear",
+            targetType: "credential",
+            tenantId,
+            summary: `Cleared ${wanted.length} credential(s)`,
+            metadata: { names: wanted },
+        });
+
         revalidatePath("/dashboard/settings/plugins");
         revalidatePath("/dashboard/settings");
         return { success: true as const };
@@ -139,6 +158,16 @@ export async function deleteCredential(formData: FormData) {
     try {
         const credentialId = formData.get("credentialId") as string;
         await db.delete(credentials).where(and(eq(credentials.id, credentialId), eq(credentials.tenantId, tenantId)));
+
+        await logAudit({
+            action: "tenant.credential.delete",
+            targetType: "credential",
+            targetId: credentialId,
+            tenantId,
+            summary: "Deleted credential",
+            metadata: { credentialId },
+        });
+
         revalidatePath("/dashboard/settings/credentials");
         revalidatePath("/dashboard/settings");
     } catch (error) {

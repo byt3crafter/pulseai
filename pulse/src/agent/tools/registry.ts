@@ -10,6 +10,7 @@ import { memoryStoreTool, memorySearchTool, memoryForgetTool } from "./built-in/
 import { scheduleJobTool, scheduleOnceTool, listJobsTool, cancelJobTool } from "./built-in/schedule.js";
 import { delegateToAgentTool } from "./built-in/delegate.js";
 import { listAgentsTool } from "./built-in/agent-mgmt.js";
+import { activityLogTool } from "./built-in/activity-log.js";
 import {
     emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool,
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
@@ -72,6 +73,7 @@ export class ToolRegistry {
         this.builtInTools.set("cancel_job", cancelJobTool);
         this.builtInTools.set("delegate_to_agent", delegateToAgentTool);
         this.builtInTools.set("list_agents", listAgentsTool);
+        this.builtInTools.set("activity_log", activityLogTool);
         this.builtInTools.set("route_to_channel", routeToChannelTool);
         this.builtInTools.set("email_send", emailSendTool);
         this.builtInTools.set("email_read", emailReadTool);
