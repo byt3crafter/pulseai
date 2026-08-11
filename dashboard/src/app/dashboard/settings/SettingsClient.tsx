@@ -48,6 +48,7 @@ import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../.
 import DeleteCredentialButton from "./credentials/DeleteCredentialButton";
 import { getOneDriveConnectUrlAction } from "./plugins/onedrive-actions";
 import { clearPluginCredentialsAction } from "./credentials/actions";
+import { saveTimezoneAction } from "../calendar/actions";
 
 interface CredentialInfo {
     id: string;
@@ -126,6 +127,7 @@ interface ChannelSetupStatus {
 interface Props {
     tab: string;
     initialPlugin: string | null;
+    timezone: string;
     credits: number;
     telegramConnected: boolean;
     channelSetups: ChannelSetupStatus[];
@@ -172,7 +174,7 @@ interface Props {
 }
 
 export default function SettingsClient({
-    tab, initialPlugin, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
+    tab, initialPlugin, timezone, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
     telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, pendingPairings, approvedUsers, approvedGroups,
@@ -218,7 +220,7 @@ export default function SettingsClient({
 
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
-                    {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} allowSelfReset={allowSelfReset} />}
+                    {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} allowSelfReset={allowSelfReset} timezone={timezone} />}
                     {tab === "integrations" && <IntegrationsTab telegramConnected={telegramConnected} oauthEnabled={enableThirdPartyCli} channelSetups={channelSetups} />}
                     {tab === "telegram" && (
                         <TelegramTab
@@ -244,7 +246,26 @@ export default function SettingsClient({
 
 // ─── Account Tab ────────────────────────────────────────────────────────────
 
-function AccountTab({ userEmail, userName, allowSelfReset }: { userEmail: string; userName: string; allowSelfReset: boolean }) {
+function TimezoneSelect({ current }: { current: string }) {
+    const router = useRouter();
+    const [pending, start] = useTransition();
+    const zones: string[] = (Intl as any).supportedValuesOf
+        ? (Intl as any).supportedValuesOf("timeZone")
+        : ["UTC", "Africa/Gaborone", "Africa/Johannesburg", "Europe/London", "Europe/Paris", "America/New_York", "America/Los_Angeles", "Asia/Dubai", "Asia/Kolkata", "Asia/Singapore", "Australia/Sydney"];
+    return (
+        <select
+            value={current}
+            disabled={pending}
+            onChange={(e) => { const tz = e.target.value; start(async () => { await saveTimezoneAction(tz); router.refresh(); }); }}
+            className="min-w-[14rem] rounded-lg border border-pulse-border bg-pulse-panel px-3 py-2 text-sm text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-60"
+        >
+            {!zones.includes(current) && <option value={current}>{current}</option>}
+            {zones.map((z) => <option key={z} value={z}>{z}</option>)}
+        </select>
+    );
+}
+
+function AccountTab({ userEmail, userName, allowSelfReset, timezone }: { userEmail: string; userName: string; allowSelfReset: boolean; timezone: string }) {
     const [status, setStatus] = useState<{ type: "idle" | "loading" | "success" | "error"; message: string }>({ type: "idle", message: "" });
     const searchParams = useSearchParams();
     const forcePasswordChange = searchParams.get("forcePasswordChange") === "true";
@@ -284,6 +305,11 @@ function AccountTab({ userEmail, userName, allowSelfReset }: { userEmail: string
                         control={<ProfileNameEditor initialName={userName} />}
                     />
                     <SettingRow title="Email" control={<span className="text-sm text-pulse-text-soft">{userEmail || "--"}</span>} />
+                    <SettingRow
+                        title="Workspace timezone"
+                        description="Used for scheduling, the calendar, and how agents interpret times like '10am'."
+                        control={<TimezoneSelect current={timezone || "UTC"} />}
+                    />
                 </div>
             </Card>
 

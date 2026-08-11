@@ -223,6 +223,7 @@ export default async function SettingsPage({
         <SettingsClient
             tab={tab}
             initialPlugin={initialPlugin}
+            timezone={(tenantConfig as any)?.timezone ?? "UTC"}
             credits={credits}
             telegramConnected={!!telegramChannel}
             channelSetups={channelSetupStatus}

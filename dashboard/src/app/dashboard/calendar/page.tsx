@@ -2,7 +2,7 @@ import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import { PageHeader } from "../../../components/dashboard/ui";
 import CalendarClient from "./CalendarClient";
-import { getEvents, type EventRow } from "./actions";
+import { getEvents, getTimezone, type EventRow } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +16,11 @@ export default async function CalendarPage() {
     const isNextBuild = process.env.npm_lifecycle_event === "build" || process.env.NEXT_PHASE === "phase-production-build";
 
     let eventRows: EventRow[] = [];
+    let timezone = "UTC";
 
     if (!isNextBuild) {
         eventRows = await getEvents();
+        timezone = await getTimezone();
     }
 
     return (
@@ -27,7 +29,7 @@ export default async function CalendarPage() {
                 title="Calendar"
                 description="Your schedule — meetings and events. The assistant can read and add to this."
             />
-            <CalendarClient events={eventRows} />
+            <CalendarClient events={eventRows} timezone={timezone} />
         </div>
     );
 }
