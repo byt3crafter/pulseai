@@ -120,6 +120,14 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "passwords",
+        title: "Passwords",
+        description: "Let an agent use your saved website logins (it never sees the passwords).",
+        tools: [
+            { name: "login_list", label: "List logins", description: "See which saved logins are available (labels/usernames only, never passwords).", defaultOn: false },
+        ],
+    },
+    {
         key: "technical",
         title: "Technical (advanced)",
         description: "Powerful tools for technical/DevOps agents. Off by default — enable deliberately.",

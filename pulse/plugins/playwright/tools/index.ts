@@ -5,3 +5,4 @@ export { browserFillTool } from "./fill.js";
 export { browserExtractTool } from "./extract.js";
 export { browserCloseTool } from "./close.js";
 export { browserSaveImageTool } from "./save-image.js";
+export { browserLoginTool } from "./login.js";

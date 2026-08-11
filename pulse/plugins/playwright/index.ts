@@ -20,6 +20,7 @@ import {
     browserExtractTool,
     browserCloseTool,
     browserSaveImageTool,
+    browserLoginTool,
 } from "./tools/index.js";
 
 const PLAYWRIGHT_PROMPT_CONTEXT = `
@@ -97,6 +98,7 @@ export default definePlugin({
         browserExtractTool,
         browserCloseTool,
         browserSaveImageTool,
+        browserLoginTool,
     ],
 
     hooks: {

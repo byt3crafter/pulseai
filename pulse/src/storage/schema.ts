@@ -976,6 +976,29 @@ export const events = pgTable(
     ]
 );
 
+// -- Site logins (password vault). Passwords are AES-256-GCM encrypted and are
+//    NEVER returned to the model — the runtime decrypts + fills them into the
+//    browser directly. login use is approval-gated + optionally agent-scoped. --
+export const siteLogins = pgTable(
+    "site_logins",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id), // NULL = any agent
+        label: text("label").notNull(),          // "Runstate ERP admin"
+        site: text("site"),                       // URL or domain the login is for
+        username: text("username").notNull(),
+        encryptedPassword: text("encrypted_password").notNull(), // AES-256-GCM
+        notes: text("notes"),
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_site_logins_tenant").on(table.tenantId),
+    ]
+);
+
 // -- Agent Delegations (Phase 15 - Multi-Agent Orchestration) --
 export const agentDelegations = pgTable(
     "agent_delegations",
