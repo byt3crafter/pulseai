@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.70] - 2026-08-12
+
+### Features
+- notepad, to-dos, and bookmarks suite
+
 ## [0.14.69] - 2026-08-11
 
 ### Bug Fixes
