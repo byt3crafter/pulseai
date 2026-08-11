@@ -76,6 +76,9 @@ services:
       # Shared secret for server-to-server calls from the dashboard (e.g. Approval
       # Center Allow/Deny). Empty = those dashboard actions are disabled (fail-safe).
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+      # Real-time WebSocket control plane — powers the in-dashboard Assistant chat.
+      # On by default now that the browser chat depends on it.
+      - GATEWAY_WS_ENABLED=${GATEWAY_WS_ENABLED:-true}
       # Codex/ChatGPT-subscription backend: auth persists in the mounted volume.
       - CODEX_HOME=/app/.codex
     volumes:
