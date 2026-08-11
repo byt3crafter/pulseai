@@ -70,7 +70,10 @@ export default function AssistantClient({
             const t = localStorage.getItem("pulse_show_thinking"); if (t !== null) setShowThinking(t === "1");
             const rail = localStorage.getItem("pulse_rail_open"); if (rail !== null) setRailOpen(rail === "1");
         } catch { }
+        // On phones the rail is an overlay — start closed so the chat is full-width.
+        if (typeof window !== "undefined" && window.innerWidth < 768) setRailOpen(false);
     }, []);
+    const isMobile = () => typeof window !== "undefined" && window.innerWidth < 768;
     useEffect(() => { try { localStorage.setItem("pulse_reasoning", reasoning); } catch { } }, [reasoning]);
     useEffect(() => { try { localStorage.setItem("pulse_show_thinking", showThinking ? "1" : "0"); } catch { } }, [showThinking]);
     useEffect(() => { try { localStorage.setItem("pulse_rail_open", railOpen ? "1" : "0"); } catch { } }, [railOpen]);
@@ -163,9 +166,11 @@ export default function AssistantClient({
         setSessionId(newSessionId());
         setMessages([]);
         setBusy(false);
+        if (isMobile()) setRailOpen(false);
     }
 
     async function switchSession(sid: string) {
+        if (isMobile()) setRailOpen(false);
         if (sid === sessionId) return;
         setSessionId(sid);
         setBusy(false);
@@ -189,9 +194,13 @@ export default function AssistantClient({
 
     return (
         <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-pulse-bg">
-            {/* ── Session rail ── */}
+            {/* Mobile backdrop when the rail is open as an overlay */}
             {railOpen && (
-                <aside className="flex w-64 shrink-0 flex-col border-r border-pulse-border-subtle bg-pulse-panel">
+                <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setRailOpen(false)} aria-hidden="true" />
+            )}
+            {/* ── Session rail (docked on desktop, overlay on mobile) ── */}
+            {railOpen && (
+                <aside className="flex w-64 shrink-0 flex-col border-r border-pulse-border-subtle bg-pulse-panel max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[82%] max-md:max-w-xs max-md:shadow-xl">
                     <div className="flex items-center gap-2 p-2.5">
                         <button
                             onClick={startNewChat}
