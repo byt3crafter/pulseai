@@ -17,6 +17,7 @@ import {
     WrenchScrewdriverIcon,
     ServerIcon,
     PuzzlePieceIcon,
+    LockClosedIcon,
     SparklesIcon,
     UsersIcon,
     UserGroupIcon,
@@ -66,6 +67,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
             { href: "/dashboard/servers", label: "Servers", icon: ServerIcon },
             { href: "/dashboard/mcp", label: "MCP Servers", icon: ServerStackIcon },
             { href: "/dashboard/plugins", label: "Plugins", icon: PuzzlePieceIcon },
+            { href: "/dashboard/logins", label: "Passwords", icon: LockClosedIcon },
         ],
     },
     {

@@ -13,6 +13,7 @@ import { listAgentsTool } from "./built-in/agent-mgmt.js";
 import { activityLogTool } from "./built-in/activity-log.js";
 import { contactLookupTool, contactListTool, contactSaveTool, contactDeleteTool } from "./built-in/contacts.js";
 import { calendarAddTool, calendarListTool, calendarSearchTool, calendarDeleteTool } from "./built-in/calendar.js";
+import { loginListTool } from "./built-in/logins.js";
 import {
     emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool, emailDraftTool,
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
@@ -84,6 +85,7 @@ export class ToolRegistry {
         this.builtInTools.set("calendar_list", calendarListTool);
         this.builtInTools.set("calendar_search", calendarSearchTool);
         this.builtInTools.set("calendar_delete", calendarDeleteTool);
+        this.builtInTools.set("login_list", loginListTool);
         this.builtInTools.set("route_to_channel", routeToChannelTool);
         this.builtInTools.set("email_send", emailSendTool);
         this.builtInTools.set("email_draft", emailDraftTool);

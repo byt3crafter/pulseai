@@ -939,6 +939,28 @@ export const events = pgTable(
     ]
 );
 
+// -- Site logins (password vault). Passwords AES-256-GCM encrypted; never
+//    returned to the model. Approval-gated + optionally agent-scoped. --
+export const siteLogins = pgTable(
+    "site_logins",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id),
+        label: text("label").notNull(),
+        site: text("site"),
+        username: text("username").notNull(),
+        encryptedPassword: text("encrypted_password").notNull(),
+        notes: text("notes"),
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_site_logins_tenant").on(table.tenantId),
+    ]
+);
+
 // -- Agent Delegations (Phase 15 - Multi-Agent Orchestration) --
 export const agentDelegations = pgTable(
     "agent_delegations",
