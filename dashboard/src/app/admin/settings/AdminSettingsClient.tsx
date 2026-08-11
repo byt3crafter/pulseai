@@ -24,6 +24,7 @@ import {
     testEmailSettingsAction,
     saveSsoSettingsAction,
     setBillingModeAction,
+    saveBrandingAction,
     type EmailSettingsView,
     type SsoSettingsView,
 } from "./actions";
@@ -35,6 +36,7 @@ import {
 } from "./exec-safety/actions";
 
 const TABS = [
+    { id: "branding", label: "Branding" },
     { id: "providers", label: "AI Providers" },
     { id: "billing", label: "Billing" },
     { id: "model-pricing", label: "Model Pricing" },
@@ -197,6 +199,7 @@ export default function AdminSettingsClient({
 
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
+                    {tab === "branding" && <BrandingTab initial={(settings as any)?.config?.branding ?? {}} canWrite={canWrite} />}
                     {tab === "providers" && <ProvidersTab providerStatuses={providerStatuses} canWrite={canWrite} />}
                     {tab === "billing" && <BillingTab initialMode={((settings as any)?.config?.billingMode === "unlimited") ? "unlimited" : "credits"} canWrite={canBilling || canWrite} />}
                     {tab === "system" && <SystemTab settings={settings} canWrite={canWrite} />}
@@ -226,6 +229,71 @@ const PROVIDER_CARDS = [
     { id: "openrouter", name: "OpenRouter", description: "Multi-provider routing", placeholder: "sk-or-..." },
     { id: "minimax", name: "MiniMax", description: "MiniMax M2.5 models", placeholder: "eyJ..." },
 ];
+
+function BrandingTab({ initial, canWrite }: { initial: any; canWrite: boolean }) {
+    const [productName, setProductName] = useState(initial?.productName ?? "Pulse AI");
+    const [companyName, setCompanyName] = useState(initial?.companyName ?? "Runstate Ltd");
+    const [supportEmail, setSupportEmail] = useState(initial?.supportEmail ?? "");
+    const [logo, setLogo] = useState<string | null>(initial?.logoDataUrl ?? null);
+    const [saving, setSaving] = useState(false);
+    const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+    async function onLogo(file: File) {
+        // Downscale to a small square PNG data URL, entirely client-side.
+        const dataUrl: string = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = () => rej(); r.readAsDataURL(file); });
+        if (file.type === "image/svg+xml") { setLogo(dataUrl); return; }
+        const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(); i.src = dataUrl; });
+        const S = 128; const c = document.createElement("canvas"); c.width = S; c.height = S;
+        const ctx = c.getContext("2d"); if (!ctx) { setLogo(dataUrl); return; }
+        const scale = Math.min(S / img.width, S / img.height); const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+        setLogo(c.toDataURL("image/png"));
+    }
+
+    async function save() {
+        setSaving(true); setMsg(null);
+        const res = await saveBrandingAction({ productName, companyName, logoDataUrl: logo, supportEmail: supportEmail || null });
+        setMsg({ ok: res.success, text: res.message });
+        setSaving(false);
+    }
+
+    return (
+        <Panel bodyClassName="p-6">
+            <h2 className="text-[15px] font-semibold text-pulse-text mb-1">Branding</h2>
+            <p className="text-[13px] text-pulse-muted mb-4">White-label this deployment. These apply everywhere the product name and logo appear — admin, login, the customer dashboard. No code change needed.</p>
+            <div className="space-y-4 max-w-lg">
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Product name</label>
+                    <input value={productName} onChange={(e) => setProductName(e.target.value)} disabled={!canWrite} maxLength={60} placeholder="Pulse AI" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Company name (footer)</label>
+                    <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} disabled={!canWrite} maxLength={100} placeholder="Runstate Ltd" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Support email (optional)</label>
+                    <input value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} disabled={!canWrite} maxLength={160} placeholder="support@company.com" className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Logo (optional, square, PNG/SVG)</label>
+                    <div className="flex items-center gap-3">
+                        {logo
+                            ? <img src={logo} alt="logo" className="h-12 w-12 rounded-lg border border-pulse-border object-contain bg-pulse-panel" />
+                            : <div className="h-12 w-12 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt" />}
+                        <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" disabled={!canWrite} onChange={(e) => { const f = e.target.files?.[0]; if (f) onLogo(f); }} className="text-xs text-pulse-muted" />
+                        {logo && <button type="button" onClick={() => setLogo(null)} className="text-xs text-red-500">Remove</button>}
+                    </div>
+                    <p className="mt-1 text-xs text-pulse-faint">Replaces the default mark. Downscaled to 128px. Leave empty to keep the default logo.</p>
+                </div>
+                <button type="button" onClick={save} disabled={!canWrite || saving} className="rounded-lg bg-pulse-accent px-4 py-2 text-sm font-medium text-white hover:bg-pulse-accent-hi disabled:opacity-50">
+                    {saving ? "Saving…" : "Save branding"}
+                </button>
+                {!canWrite && <p className="text-[12px] text-pulse-faint">You don&apos;t have permission to change branding.</p>}
+                {msg && <p className={`text-[13px] ${msg.ok ? "text-emerald-500" : "text-red-500"}`}>{msg.text}</p>}
+            </div>
+        </Panel>
+    );
+}
 
 function BillingTab({ initialMode, canWrite }: { initialMode: "credits" | "unlimited"; canWrite: boolean }) {
     const [mode, setMode] = useState<"credits" | "unlimited">(initialMode);

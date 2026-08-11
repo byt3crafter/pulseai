@@ -10,6 +10,7 @@ import { getAdminStatus } from "./overview-data";
 import { db } from "../../storage/db";
 import { tenants } from "../../storage/schema";
 import { ui } from "../../components/admin/ui";
+import { getBranding, deploymentHost } from "../../utils/branding";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +25,12 @@ export default async function AdminLayout({
     const userName = session?.user?.name || "Admin";
     const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
-    const [status, tenantRows] = await Promise.all([
+    const [status, tenantRows, branding] = await Promise.all([
         getAdminStatus(),
         db.select({ id: tenants.id, name: tenants.name }).from(tenants).orderBy(tenants.name).limit(200),
+        getBranding(),
     ]);
+    const envHost = deploymentHost();
 
     return (
         <div className="flex flex-col h-screen bg-pulse-bg text-pulse-text font-sans">
@@ -41,9 +44,11 @@ export default async function AdminLayout({
                 <aside className="w-[232px] flex-shrink-0 bg-pulse-panel border-r border-pulse-border flex flex-col">
                     {/* Brand */}
                     <div className="h-14 px-4 flex items-center gap-2.5 border-b border-pulse-border">
-                        <BrandMark size={28} />
+                        {branding.logoDataUrl
+                            ? <img src={branding.logoDataUrl} alt="" className="h-7 w-7 rounded-md object-contain" />
+                            : <BrandMark size={28} />}
                         <div className="min-w-0">
-                            <p className="text-sm font-bold text-pulse-text leading-none">Pulse AI</p>
+                            <p className="text-sm font-bold text-pulse-text leading-none truncate">{branding.productName}</p>
                             <p className="text-[10px] uppercase tracking-[0.2em] text-pulse-faint mt-1">Admin Console</p>
                         </div>
                     </div>
@@ -55,7 +60,7 @@ export default async function AdminLayout({
                             <span className="w-1.5 h-1.5 rounded-full bg-pulse-profit" aria-hidden="true" />
                             <span className="text-pulse-text text-xs">PRODUCTION</span>
                         </div>
-                        <p className="text-[11px] text-pulse-faint mt-0.5">pulse.runstate.mu</p>
+                        <p className="text-[11px] text-pulse-faint mt-0.5">{envHost}</p>
                     </div>
 
                     <div className="flex-1 overflow-y-auto mt-2">
