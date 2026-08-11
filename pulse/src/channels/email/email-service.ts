@@ -444,6 +444,49 @@ async function withMailbox<T>(config: ImapConfig, folder: string, fn: (client: I
     }
 }
 
+/**
+ * Save a message to the mailbox Drafts folder (IMAP APPEND) instead of sending.
+ * Builds the raw MIME with nodemailer's stream transport (no network send),
+ * then appends it flagged \Draft. Finds the Drafts folder by special-use, else
+ * by name, else "Drafts".
+ */
+export async function saveDraft(
+    smtp: SmtpConfig,
+    imap: ImapConfig,
+    to: string | string[],
+    subject: string,
+    body: string,
+    html?: string,
+    opts?: { cc?: string | string[] }
+): Promise<{ folder: string }> {
+    const fromAddr = smtp.fromAddress || smtp.username;
+    const from = smtp.fromName ? `"${smtp.fromName}" <${fromAddr}>` : fromAddr;
+    const builder = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: "crlf" });
+    const info: any = await builder.sendMail({ from, to, cc: opts?.cc, subject, text: body, html });
+    const raw: Buffer = info.message;
+
+    const client = new ImapFlow({
+        host: imap.host,
+        port: imap.port,
+        secure: imap.tls,
+        auth: { user: imap.username, pass: imap.password },
+        logger: false,
+    });
+    await client.connect();
+    try {
+        let folder = "Drafts";
+        try {
+            const boxes = await client.list();
+            const draft = boxes.find((b: any) => b.specialUse === "\\Drafts") || boxes.find((b: any) => /draft/i.test(b.path));
+            if (draft) folder = draft.path;
+        } catch { /* fall back to "Drafts" */ }
+        await client.append(folder, raw, ["\\Draft"]);
+        return { folder };
+    } finally {
+        await client.logout().catch(() => {});
+    }
+}
+
 export interface EmailSearchCriteria {
     from?: string;
     subject?: string;

@@ -7,7 +7,7 @@
 import { Tool } from "../tool.interface.js";
 import {
     resolveEmailConfig, sendEmail, readEmails, readUnreadEmails,
-    searchEmails, getReplyContext, setMessageFlag, moveMessage, deleteMessage, listFolders,
+    searchEmails, getReplyContext, setMessageFlag, moveMessage, deleteMessage, listFolders, saveDraft,
 } from "../../../channels/email/email-service.js";
 
 export const emailSendTool: Tool = {
@@ -93,6 +93,37 @@ export const emailSendTool: Tool = {
             };
         } catch (err: any) {
             return { result: `Error sending email: ${err.message}` };
+        }
+    },
+};
+
+export const emailDraftTool: Tool = {
+    name: "email_draft",
+    description:
+        "Save an email to the mailbox's Drafts folder instead of sending it — use this when the user wants to review/edit before it goes out. " +
+        "The draft appears in their normal email client's Drafts, ready to send by hand. Requires email (SMTP + IMAP) configured.",
+    parameters: {
+        type: "object",
+        properties: {
+            to: { type: "string", description: "Recipient email address(es), comma-separated." },
+            cc: { type: "string", description: "Optional CC recipient(s), comma-separated." },
+            subject: { type: "string", description: "Subject line." },
+            body: { type: "string", description: "Email body (plain text)." },
+            html: { type: "string", description: "Optional HTML body." },
+        },
+        required: ["to", "subject", "body"],
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available for email config resolution." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.smtp) return { result: "Error: No SMTP configuration found — configure email in the dashboard settings." };
+        if (!config?.imap) return { result: "Error: No IMAP configuration found — a draft is saved to your mailbox over IMAP, which isn't configured." };
+        try {
+            const { folder } = await saveDraft(config.smtp, config.imap, params.args.to, params.args.subject, params.args.body, params.args.html, { cc: params.args.cc });
+            return { result: JSON.stringify({ success: true, savedTo: folder, subject: params.args.subject, to: params.args.to }) };
+        } catch (err: any) {
+            return { result: `Error saving draft: ${err.message}` };
         }
     },
 };

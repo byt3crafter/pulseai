@@ -24,6 +24,7 @@ import {
     QueueListIcon,
     ChatBubbleOvalLeftEllipsisIcon,
     ClipboardDocumentListIcon,
+    IdentificationIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
 import { SidebarCollapseContext } from "./DashboardShell";
@@ -44,6 +45,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         items: [
             { href: "/dashboard", label: "Overview", icon: Squares2X2Icon, exact: true },
             { href: "/dashboard/assistant", label: "Assistant", icon: ChatBubbleOvalLeftEllipsisIcon },
+            { href: "/dashboard/contacts", label: "Contacts", icon: IdentificationIcon },
         ],
     },
     {
