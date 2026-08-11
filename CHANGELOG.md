@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.46] - 2026-08-11
+
+### Bug Fixes
+- eliminate onboarding→dashboard redirect loop
+
 ## [0.14.45] - 2026-08-11
 
 ### Bug Fixes
