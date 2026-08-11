@@ -961,6 +961,69 @@ export const siteLogins = pgTable(
     ]
 );
 
+// ── Quick-capture suite: notes, todos, bookmarks. Simple per-tenant lists the
+//    agent and the dashboard both read/write. ──
+
+// -- Notepad: freeform notes the agent can jot and recall. --
+export const notes = pgTable(
+    "notes",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        title: text("title"),
+        body: text("body").notNull(),
+        pinned: boolean("pinned").default(false),
+        tags: text("tags"), // comma-separated
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_notes_tenant").on(table.tenantId),
+    ]
+);
+
+// -- To-dos: lightweight task list. --
+export const todos = pgTable(
+    "todos",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        text: text("text").notNull(),
+        done: boolean("done").default(false),
+        doneAt: timestamp("done_at", { withTimezone: true }),
+        dueAt: timestamp("due_at", { withTimezone: true }),
+        priority: varchar("priority", { length: 16 }).default("normal"), // low|normal|high
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_todos_tenant").on(table.tenantId),
+        index("idx_todos_tenant_done").on(table.tenantId, table.done),
+    ]
+);
+
+// -- Bookmarks: saved links (web + YouTube). `kind` is auto-detected from the URL. --
+export const bookmarks = pgTable(
+    "bookmarks",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        url: text("url").notNull(),
+        title: text("title"),
+        notes: text("notes"),
+        kind: varchar("kind", { length: 16 }).default("web"), // web|youtube
+        tags: text("tags"), // comma-separated
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_bookmarks_tenant").on(table.tenantId),
+    ]
+);
+
 // -- Agent Delegations (Phase 15 - Multi-Agent Orchestration) --
 export const agentDelegations = pgTable(
     "agent_delegations",
