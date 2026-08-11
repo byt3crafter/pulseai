@@ -148,6 +148,8 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                         },
                         {
                             reasoningEffort: typeof msg.reasoningEffort === "string" ? msg.reasoningEffort : undefined,
+                            // Stream every turn's tokens + reasoning live to the browser.
+                            forceStream: true,
                             editMessageCallback: async (_tid: string, _cid: string, _mid: string, content: string) => {
                                 const { thinking, answer } = splitThinking(content);
                                 if (thinking) {
