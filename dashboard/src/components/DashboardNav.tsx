@@ -14,6 +14,7 @@ import {
     BuildingOffice2Icon,
     WrenchScrewdriverIcon,
     ServerIcon,
+    PuzzlePieceIcon,
     SparklesIcon,
     UsersIcon,
     UserGroupIcon,
@@ -56,6 +57,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
             { href: "/dashboard/tools", label: "Custom Tools", icon: WrenchScrewdriverIcon },
             { href: "/dashboard/servers", label: "Servers", icon: ServerIcon },
             { href: "/dashboard/mcp", label: "MCP Servers", icon: ServerStackIcon },
+            { href: "/dashboard/plugins", label: "Plugins", icon: PuzzlePieceIcon },
         ],
     },
     {
