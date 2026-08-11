@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.69] - 2026-08-11
+
+### Bug Fixes
+- make session delete/rename usable on mobile
+
 ## [0.14.68] - 2026-08-11
 
 ### Bug Fixes
