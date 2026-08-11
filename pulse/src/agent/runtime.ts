@@ -831,11 +831,15 @@ export class AgentRuntime {
             llmResponse.usage.outputTokens = totalOutputTokens;
 
             // 4.55 Strip chain-of-thought — reasoning models (e.g. MiniMax M2.5) emit
-            // <think>…</think> in the content; never surface it to users or persist it.
+            // <think>…</think> in the content; never persist it. Capture it first so
+            // surfaces that opt in (web chat's collapsible "thinking" panel) can show
+            // it; it is never written to the DB or sent to channels that don't ask.
+            let capturedThinking = "";
             llmResponse.content = llmResponse.content
-                .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")  // paired blocks
+                .replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, (_m, inner) => { capturedThinking += inner; return ""; })
                 .replace(/<\/?think(?:ing)?>/gi, "")                          // stray tags
                 .trim();
+            capturedThinking = capturedThinking.trim();
 
             // 4.6 Check for silent reply token — suppress empty/ack responses
             const isSilentReply = llmResponse.content.trim() === SILENT_REPLY_TOKEN;
@@ -1004,6 +1008,7 @@ export class AgentRuntime {
                     channelContactId: inbound.channelContactId,
                     content: llmResponse.content,
                     format: "markdown",
+                    thinking: capturedThinking || undefined,
                 };
 
                 // For group messages, reply in-thread to the original message
