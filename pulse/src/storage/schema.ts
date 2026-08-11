@@ -930,6 +930,29 @@ export const credentials = pgTable(
     ]
 );
 
+// -- Contacts (native mini-CRM store; the agent uses this when the tenant's
+//    contacts source is "native", or ERPNext/Google when configured). --
+export const contacts = pgTable(
+    "contacts",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        name: text("name").notNull(),
+        email: varchar("email", { length: 320 }),
+        phone: varchar("phone", { length: 64 }),
+        company: text("company"),
+        title: text("title"),
+        notes: text("notes"),
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_contacts_tenant").on(table.tenantId),
+        index("idx_contacts_tenant_name").on(table.tenantId, table.name),
+    ]
+);
+
 // -- Agent Delegations (Phase 15 - Multi-Agent Orchestration) --
 export const agentDelegations = pgTable(
     "agent_delegations",

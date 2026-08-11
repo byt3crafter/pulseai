@@ -11,8 +11,9 @@ import { scheduleJobTool, scheduleOnceTool, listJobsTool, cancelJobTool } from "
 import { delegateToAgentTool } from "./built-in/delegate.js";
 import { listAgentsTool } from "./built-in/agent-mgmt.js";
 import { activityLogTool } from "./built-in/activity-log.js";
+import { contactLookupTool, contactListTool, contactSaveTool, contactDeleteTool } from "./built-in/contacts.js";
 import {
-    emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool,
+    emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool, emailDraftTool,
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
 } from "./built-in/email.js";
 import { db } from "../../storage/db.js";
@@ -74,8 +75,13 @@ export class ToolRegistry {
         this.builtInTools.set("delegate_to_agent", delegateToAgentTool);
         this.builtInTools.set("list_agents", listAgentsTool);
         this.builtInTools.set("activity_log", activityLogTool);
+        this.builtInTools.set("contact_lookup", contactLookupTool);
+        this.builtInTools.set("contact_list", contactListTool);
+        this.builtInTools.set("contact_save", contactSaveTool);
+        this.builtInTools.set("contact_delete", contactDeleteTool);
         this.builtInTools.set("route_to_channel", routeToChannelTool);
         this.builtInTools.set("email_send", emailSendTool);
+        this.builtInTools.set("email_draft", emailDraftTool);
         this.builtInTools.set("email_read", emailReadTool);
         this.builtInTools.set("email_list", emailListTool);
         this.builtInTools.set("email_fetch_unread", emailFetchUnreadTool);

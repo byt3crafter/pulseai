@@ -94,6 +94,18 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
             { name: "email_move", label: "Move email", description: "Move a message to a folder.", defaultOn: true },
             { name: "email_delete", label: "Delete email", description: "Delete a message.", defaultOn: true },
             { name: "email_folders", label: "List folders", description: "List mailbox folders.", defaultOn: true },
+            { name: "email_draft", label: "Save draft", description: "Save an email to the Drafts folder instead of sending.", defaultOn: true },
+        ],
+    },
+    {
+        key: "contacts",
+        title: "Contacts",
+        description: "Let an agent look up and manage your address book.",
+        tools: [
+            { name: "contact_lookup", label: "Look up contact", description: "Find a person's email/phone/company by name.", defaultOn: true },
+            { name: "contact_save", label: "Save contact", description: "Add or update a contact.", defaultOn: true },
+            { name: "contact_list", label: "List contacts", description: "List saved contacts.", defaultOn: true },
+            { name: "contact_delete", label: "Delete contact", description: "Remove a contact.", defaultOn: false },
         ],
     },
     {
