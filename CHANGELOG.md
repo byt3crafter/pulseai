@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.49] - 2026-08-11
+
+### Features
+- live streaming, session rail, working delete
+
 ## [0.14.48] - 2026-08-11
 
 ### Features
