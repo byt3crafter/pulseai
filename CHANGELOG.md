@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.54] - 2026-08-11
+
+### Features
+- enterprise/Google-AI-Studio restyle + Plugins top-level nav
+
 ## [0.14.53] - 2026-08-11
 
 ### Bug Fixes
