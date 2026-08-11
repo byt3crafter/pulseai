@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.60] - 2026-08-11
+
+### Features
+- tenant audit viewer page + usage-aware tool loading
+
 ## [0.14.59] - 2026-08-11
 
 ### Bug Fixes
