@@ -67,6 +67,10 @@ export class AgentRuntime {
                 parseMode?: string,
                 agentProfileId?: string
             ) => Promise<void>;
+            // Per-invocation reasoning-effort override (e.g. the web chat composer's
+            // selector). Wins over the agent's own default when provided. Undefined =
+            // fall back to the agent profile / provider default.
+            reasoningEffort?: string;
         }
     ): Promise<void> {
         const tenantLog = logger.child({ tenantId: inbound.tenantId, channel: inbound.channelType });
@@ -656,6 +660,11 @@ export class AgentRuntime {
                         ).catch(() => {});
                     }
                 };
+            }
+
+            // Per-invocation override (web chat composer) wins over the agent default.
+            if (options?.reasoningEffort) {
+                activeReasoningEffort = options.reasoningEffort === "auto" ? undefined : options.reasoningEffort;
             }
 
             let llmResponse = await this.providerManager.chat({

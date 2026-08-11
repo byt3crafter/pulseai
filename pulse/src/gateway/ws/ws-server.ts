@@ -23,6 +23,27 @@ interface WsClient {
 const clients = new Map<string, WsClient>();
 let clientIdCounter = 0;
 
+/**
+ * Split a (possibly still-streaming) assistant chunk into its chain-of-thought
+ * and its user-facing answer. Reasoning models emit <think>…</think>; we surface
+ * the thinking in a separate collapsible panel and keep it out of the answer.
+ * Handles an unclosed trailing <think> mid-stream.
+ */
+function splitThinking(raw: string): { thinking: string; answer: string } {
+    let thinking = "";
+    let answer = raw.replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, (_m, inner) => {
+        thinking += inner;
+        return "";
+    });
+    const openMatch = answer.match(/<think(?:ing)?>/i);
+    if (openMatch && openMatch.index !== undefined) {
+        thinking += answer.slice(openMatch.index).replace(/<think(?:ing)?>/i, "");
+        answer = answer.slice(0, openMatch.index);
+    }
+    answer = answer.replace(/<\/?think(?:ing)?>/gi, "").trim();
+    return { thinking: thinking.trim(), answer };
+}
+
 export async function registerWebSocket(fastify: FastifyInstance): Promise<void> {
     await fastify.register(websocket);
 
@@ -88,19 +109,30 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                         socket.send(JSON.stringify({ type: "error", message: "Assistant is starting up — try again in a moment." }));
                         return;
                     }
+                    // Each browser chat "session" is its own conversation (its own
+                    // memory thread) via a structured contact id. No sessionId =
+                    // the legacy single per-tenant web conversation (back-compat).
+                    const sessionId = typeof msg.sessionId === "string" && msg.sessionId.trim()
+                        ? msg.sessionId.trim().slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, "")
+                        : "";
+                    const contactId = sessionId ? `web-${tenantId}-${sessionId}` : `web-${tenantId}`;
                     const inbound: any = {
                         id: randomUUID(),
                         tenantId,
                         agentProfileId: msg.agentProfileId || undefined,
                         channelType: "webapp",
-                        // Stable per-tenant web contact → one persistent web conversation
-                        // (memory carries across reloads, like Telegram).
-                        channelContactId: `web-${tenantId}`,
+                        channelContactId: contactId,
                         content: text,
                         receivedAt: new Date(),
                         trigger: "chat",
                     };
-                    socket.send(JSON.stringify({ type: "chat.accepted" }));
+                    socket.send(JSON.stringify({ type: "chat.accepted", sessionId }));
+
+                    // Reasoning models (e.g. MiniMax) emit <think>…</think> in the
+                    // stream. Split it so the browser can show the answer live and
+                    // the reasoning in a separate, collapsible panel. Web-only — the
+                    // runtime still strips it from the persisted/Telegram content.
+                    let lastThinking = "";
                     runtime.processMessage(
                         inbound,
                         async (outbound: any) => {
@@ -109,14 +141,20 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                 conversationId: outbound.conversationId,
                                 agentProfileId: outbound.agentProfileId,
                                 content: outbound.content,
+                                thinking: lastThinking || undefined,
+                                sessionId,
                             }));
                             return { channelMessageId: `web-${Date.now()}` };
                         },
                         {
-                            // Progressive content (text stream on no-tool turns, step
-                            // trail on tool turns) → live "typing" in the browser.
+                            reasoningEffort: typeof msg.reasoningEffort === "string" ? msg.reasoningEffort : undefined,
                             editMessageCallback: async (_tid: string, _cid: string, _mid: string, content: string) => {
-                                socket.send(JSON.stringify({ type: "agent.streaming", content }));
+                                const { thinking, answer } = splitThinking(content);
+                                if (thinking) {
+                                    lastThinking = thinking;
+                                    socket.send(JSON.stringify({ type: "agent.thinking", content: thinking }));
+                                }
+                                socket.send(JSON.stringify({ type: "agent.streaming", content: answer }));
                             },
                         }
                     ).catch((err: unknown) => {

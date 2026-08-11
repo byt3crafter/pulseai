@@ -1,9 +1,10 @@
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import { db } from "../../../storage/db";
-import { agentProfiles, conversations, messages } from "../../../storage/schema";
-import { and, eq, asc } from "drizzle-orm";
+import { agentProfiles } from "../../../storage/schema";
+import { eq } from "drizzle-orm";
 import AssistantClient from "./AssistantClient";
+import { listSessionsAction, getSessionHistoryAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,25 +23,17 @@ export default async function AssistantPage() {
         .where(eq(agentProfiles.tenantId, tenantId));
     const activeAgents = agents.filter((a) => a.enabled !== false);
 
-    // Load the persistent web-chat history (same conversation the WS writes to).
-    const webContact = `web-${tenantId}`;
-    const conv = await db
-        .select({ id: conversations.id })
-        .from(conversations)
-        .where(and(eq(conversations.tenantId, tenantId), eq(conversations.channelType, "webapp"), eq(conversations.channelContactId, webContact)))
-        .limit(1);
-    let history: { role: string; content: string }[] = [];
-    if (conv[0]) {
-        const rows = await db
-            .select({ role: messages.role, content: messages.content })
-            .from(messages)
-            .where(eq(messages.conversationId, conv[0].id))
-            .orderBy(asc(messages.createdAt))
-            .limit(200);
-        history = rows
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({ role: m.role, content: m.content }));
-    }
+    // Session list + the most-recent session's history (the one the UI opens on).
+    const sessions = await listSessionsAction();
+    const initialSessionId = sessions[0]?.sessionId ?? "";
+    const initialHistory = sessions.length ? await getSessionHistoryAction(initialSessionId) : [];
 
-    return <AssistantClient agents={activeAgents} history={history} />;
+    return (
+        <AssistantClient
+            agents={activeAgents}
+            sessions={sessions}
+            initialSessionId={initialSessionId}
+            initialHistory={initialHistory}
+        />
+    );
 }
