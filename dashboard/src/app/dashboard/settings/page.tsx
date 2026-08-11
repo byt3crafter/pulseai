@@ -13,12 +13,13 @@ import SettingsClient from "./SettingsClient";
 export default async function SettingsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ tab?: string }>;
+    searchParams: Promise<{ tab?: string; plugin?: string }>;
 }) {
     const session = await auth();
     const tenantId = session?.user?.tenantId;
     const resolvedParams = await searchParams;
     const tab = resolvedParams?.tab ?? "account";
+    const initialPlugin = resolvedParams?.plugin ?? null;
 
     const [balances, channels, clients, providerKeys, apiTokensList] = await Promise.all([
         tenantId ? db.select().from(tenantBalances).where(eq(tenantBalances.tenantId, tenantId)).limit(1) : [],
@@ -219,6 +220,7 @@ export default async function SettingsPage({
     return (
         <SettingsClient
             tab={tab}
+            initialPlugin={initialPlugin}
             credits={credits}
             telegramConnected={!!telegramChannel}
             channelSetups={channelSetupStatus}

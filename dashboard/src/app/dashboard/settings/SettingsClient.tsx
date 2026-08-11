@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon, MagnifyingGlassIcon, TrashIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
     updateProfileNameAction,
@@ -47,6 +47,7 @@ import { PageHeader, Card, CardHeader, EmptyState, SettingRow, Toggle } from "..
 import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../components/dashboard/SignatureEditor";
 import DeleteCredentialButton from "./credentials/DeleteCredentialButton";
 import { getOneDriveConnectUrlAction } from "./plugins/onedrive-actions";
+import { clearPluginCredentialsAction } from "./credentials/actions";
 
 interface CredentialInfo {
     id: string;
@@ -125,6 +126,7 @@ interface ChannelSetupStatus {
 
 interface Props {
     tab: string;
+    initialPlugin: string | null;
     credits: number;
     telegramConnected: boolean;
     channelSetups: ChannelSetupStatus[];
@@ -171,7 +173,7 @@ interface Props {
 }
 
 export default function SettingsClient({
-    tab, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
+    tab, initialPlugin, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
     telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, pendingPairings, approvedUsers, approvedGroups,
@@ -231,7 +233,7 @@ export default function SettingsClient({
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
                     {tab === "tools" && <WorkspaceToolsTab enabledTools={enabledTools} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
-                    {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} toolSearchConfig={toolSearchConfig} />}
+                    {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} toolSearchConfig={toolSearchConfig} initialPlugin={initialPlugin} />}
                     {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} managedBy={Object.fromEntries(plugins.flatMap((p) => p.config.credentialSchema.map((f) => [f.name.toUpperCase(), p.name])))} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
                     {tab === "billing" && <BillingTab credits={credits} />}
@@ -2610,9 +2612,12 @@ function CredentialsTab({
                                         <td className="px-5 py-3 text-pulse-muted">{agentName(c.agentId)}</td>
                                         <td className="px-5 py-3 text-xs text-pulse-faint">{c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "—"}</td>
                                         <td className="px-5 py-3 text-right">
-                                            {owner
-                                                ? <a href="/dashboard/settings?tab=plugins" className="text-xs font-medium text-pulse-accent-hi hover:underline">Manage in Plugins →</a>
-                                                : <DeleteCredentialButton credentialId={c.id} />}
+                                            <div className="flex items-center justify-end gap-3">
+                                                {owner && (
+                                                    <a href={`/dashboard/settings?tab=plugins&plugin=${encodeURIComponent(owner)}`} className="text-xs font-medium text-pulse-accent-hi hover:underline">Configure</a>
+                                                )}
+                                                <DeleteCredentialButton credentialId={c.id} />
+                                            </div>
                                         </td>
                                     </tr>
                                     );
@@ -2658,16 +2663,22 @@ function FormInput({ label, name, type, placeholder, mono }: { label: string; na
 
 // ─── Plugins Tab ─────────────────────────────────────────────────────────────
 
-function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig }: {
+function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialPlugin }: {
     plugins: PluginData[];
     savePluginCredentials: (formData: FormData) => Promise<void>;
     toolSearchConfig: { mode: "off" | "auto" | "on"; threshold: number; maxResults: number };
+    initialPlugin: string | null;
 }) {
     const router = useRouter();
-    const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(new Set());
+    // Deep link ?plugin=<name|id>: resolve to the plugin id, auto-open + scroll.
+    const targetId = initialPlugin ? (plugins.find((p) => p.name === initialPlugin)?.id ?? initialPlugin) : null;
+    const [expandedPlugins, setExpandedPlugins] = useState<Set<string>>(() => targetId ? new Set([targetId]) : new Set());
     const [saving, startTransition] = useTransition();
+    const [clearing, startClearing] = useTransition();
     const [odConnecting, setOdConnecting] = useState(false);
     const [odBanner, setOdBanner] = useState<{ ok: boolean; text: string } | null>(null);
+    const [query, setQuery] = useState("");
+    const [filter, setFilter] = useState<"all" | "configured" | "unconfigured">("all");
 
     // Tool Search (progressive tool disclosure)
     const [tsMode, setTsMode] = useState<"off" | "auto" | "on">(toolSearchConfig.mode);
@@ -2723,92 +2734,78 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig }: {
         });
     };
 
+    // A plugin needs setup only if it declares credentials; "configured" = no
+    // credentials needed, or all of them are set.
+    const needsConfig = (p: PluginData) => p.config.credentialSchema.length > 0;
+    const isConfigured = (p: PluginData) => !needsConfig(p) || p.config.credentialSchema.every((f) => f.configured);
+    const counts = {
+        all: plugins.length,
+        configured: plugins.filter(isConfigured).length,
+        unconfigured: plugins.filter((p) => !isConfigured(p)).length,
+    };
+    const q = query.trim().toLowerCase();
+    const filtered = plugins.filter((p) => {
+        if (filter === "configured" && !isConfigured(p)) return false;
+        if (filter === "unconfigured" && isConfigured(p)) return false;
+        if (!q) return true;
+        return p.name.toLowerCase().includes(q) || (p.config.description || "").toLowerCase().includes(q);
+    });
+
+    // Deep-link: scroll the opened plugin into view on mount.
+    useEffect(() => {
+        if (!targetId) return;
+        const el = document.getElementById(`plugin-${targetId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, [targetId]);
+
+    const handleClear = (plugin: PluginData) => {
+        const names = plugin.config.credentialSchema.map((f) => f.name);
+        if (typeof window !== "undefined" && !window.confirm(
+            `Disconnect "${plugin.name}"?\n\nThis permanently clears its saved credentials (${names.join(", ")}). The agent will lose access until you set it up again.`
+        )) return;
+        startClearing(async () => {
+            await clearPluginCredentialsAction(names);
+            router.refresh();
+        });
+    };
+
+    const FILTERS: { id: "all" | "configured" | "unconfigured"; label: string; n: number }[] = [
+        { id: "all", label: "All", n: counts.all },
+        { id: "configured", label: "Configured", n: counts.configured },
+        { id: "unconfigured", label: "Needs setup", n: counts.unconfigured },
+    ];
+
     return (
         <div>
             <h2 className="text-lg font-semibold text-pulse-text mb-1">Plugins</h2>
-            <p className="text-sm text-pulse-muted mb-6">Configure credentials for each plugin to activate integrations.</p>
+            <p className="text-sm text-pulse-muted mb-4">Integrations your agents can use. Configure one to connect it — its credentials are stored in your vault.</p>
 
-            <Card>
-                <CardHeader
-                    title="Tool Search"
-                    description="When agents have many tools, sending every tool to the model on each turn is slow and hurts accuracy. Tool Search lets the agent look up the tools it needs on demand instead."
-                />
-                <div className="px-5 py-5">
-                    <form onSubmit={handleSaveToolSearch} className="space-y-5 max-w-xl">
-                        <fieldset className="space-y-2">
-                            <legend className="block text-sm font-medium text-pulse-text-soft mb-1">Mode</legend>
-                            {TS_MODES.map((m) => (
-                                <label
-                                    key={m.id}
-                                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${tsMode === m.id ? "border-indigo-500 bg-pulse-tint" : "border-pulse-border hover:bg-pulse-hover"}`}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="ts-mode"
-                                        value={m.id}
-                                        checked={tsMode === m.id}
-                                        onChange={() => setTsMode(m.id)}
-                                        className="mt-1 h-4 w-4 border-pulse-border text-indigo-600 focus:ring-indigo-600"
-                                    />
-                                    <span>
-                                        <span className="block text-sm font-semibold text-pulse-text">{m.title}</span>
-                                        <span className="block text-xs text-pulse-muted mt-1">{m.desc}</span>
-                                    </span>
-                                </label>
-                            ))}
-                        </fieldset>
-
-                        {tsMode === "auto" && (
-                            <div className="max-w-xs">
-                                <label htmlFor="ts-threshold" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Switch to search above</label>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        id="ts-threshold"
-                                        type="number"
-                                        min="1"
-                                        max="100"
-                                        value={tsThreshold}
-                                        onChange={(e) => setTsThreshold(e.target.value)}
-                                        className="w-24 px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
-                                    />
-                                    <span className="text-sm text-pulse-muted">extension tools</span>
-                                </div>
-                                <p className="text-xs text-pulse-faint mt-1">Counts plugin, MCP, custom and server tools — not the core built-ins.</p>
-                            </div>
-                        )}
-
-                        {tsMode !== "off" && (
-                            <div className="max-w-xs">
-                                <label htmlFor="ts-max" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Results per search</label>
-                                <input
-                                    id="ts-max"
-                                    type="number"
-                                    min="1"
-                                    max="25"
-                                    value={tsMax}
-                                    onChange={(e) => setTsMax(e.target.value)}
-                                    className="w-24 px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
-                                />
-                                <p className="text-xs text-pulse-faint mt-1">How many matching tools a single search returns to the agent.</p>
-                            </div>
-                        )}
-
-                        {tsStatus.type !== "idle" && (
-                            <p className={`text-sm ${tsStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>{tsStatus.message}</p>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={savingTs}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
-                        >
-                            {savingTs ? "Saving..." : "Save Tool Search"}
-                        </button>
-                    </form>
+            {/* Search + status filter */}
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pulse-faint pointer-events-none" />
+                    <input
+                        type="search"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search plugins…"
+                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text placeholder-pulse-faint outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
+                    />
                 </div>
-            </Card>
-
-            <div className="h-6" />
+                <div className="flex items-center gap-2">
+                    {FILTERS.map((f) => (
+                        <button
+                            key={f.id}
+                            type="button"
+                            aria-pressed={filter === f.id}
+                            onClick={() => setFilter(f.id)}
+                            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${filter === f.id ? "bg-indigo-600 border-indigo-600 text-white" : "bg-pulse-panel border-pulse-border text-pulse-muted hover:text-pulse-text hover:border-pulse-border-strong"}`}
+                        >
+                            {f.label} <span className="opacity-70">{f.n}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             {odBanner && (
                 <div className={`mb-6 rounded-lg border px-4 py-3 text-sm ${odBanner.ok ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
@@ -2823,9 +2820,13 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig }: {
                     </svg>
                     <p className="text-pulse-muted text-sm">No plugins enabled. Contact your administrator to enable plugins.</p>
                 </div>
+            ) : filtered.length === 0 ? (
+                <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl p-10 text-center">
+                    <p className="text-pulse-muted text-sm">No plugins match your search.</p>
+                </div>
             ) : (
                 <div className="space-y-4">
-                    {plugins.map((plugin) => {
+                    {filtered.map((plugin) => {
                         const { config } = plugin;
                         const hasCredentials = config.credentialSchema.length > 0;
                         const isExpanded = expandedPlugins.has(plugin.id);
@@ -2833,7 +2834,8 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig }: {
                         const noneConfigured = config.credentialSchema.every((f) => !f.configured);
 
                         return (
-                            <Card key={plugin.id}>
+                            <div key={plugin.id} id={`plugin-${plugin.id}`} className="scroll-mt-4">
+                            <Card>
                                 <div className="p-5">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1 min-w-0">
@@ -2930,24 +2932,120 @@ function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig }: {
                                                 ))}
                                             </div>
 
-                                            <div className="flex items-center justify-between pt-2">
+                                            <div className="flex items-center justify-between gap-3 pt-2">
                                                 <p className="text-xs text-pulse-faint">Encrypted with AES-256-GCM. Empty fields are skipped.</p>
-                                                <button
-                                                    type="submit"
-                                                    disabled={saving}
-                                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel-alt"
-                                                >
-                                                    {saving ? "Saving..." : "Save Credentials"}
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    {config.credentialSchema.some((f) => f.configured) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleClear(plugin)}
+                                                            disabled={clearing}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                                                        >
+                                                            <TrashIcon className="w-4 h-4" /> {clearing ? "Clearing…" : "Disconnect"}
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="submit"
+                                                        disabled={saving}
+                                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel-alt"
+                                                    >
+                                                        {saving ? "Saving..." : "Save Credentials"}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </form>
                                     </div>
                                 )}
                             </Card>
+                            </div>
                         );
                     })}
                 </div>
             )}
+
+            {/* Tool Search — global agent setting, kept below the plugin list */}
+            <div className="mt-8">
+                <Card>
+                    <CardHeader
+                        title="Tool Search"
+                        description="When agents have many tools, sending every tool to the model on each turn is slow and hurts accuracy. Tool Search lets the agent look up the tools it needs on demand instead."
+                    />
+                    <div className="px-5 py-5">
+                        <form onSubmit={handleSaveToolSearch} className="space-y-5 max-w-xl">
+                            <fieldset className="space-y-2">
+                                <legend className="block text-sm font-medium text-pulse-text-soft mb-1">Mode</legend>
+                                {TS_MODES.map((m) => (
+                                    <label
+                                        key={m.id}
+                                        className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${tsMode === m.id ? "border-indigo-500 bg-pulse-tint" : "border-pulse-border hover:bg-pulse-hover"}`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="ts-mode"
+                                            value={m.id}
+                                            checked={tsMode === m.id}
+                                            onChange={() => setTsMode(m.id)}
+                                            className="mt-1 h-4 w-4 border-pulse-border text-indigo-600 focus:ring-indigo-600"
+                                        />
+                                        <span>
+                                            <span className="block text-sm font-semibold text-pulse-text">{m.title}</span>
+                                            <span className="block text-xs text-pulse-muted mt-1">{m.desc}</span>
+                                        </span>
+                                    </label>
+                                ))}
+                            </fieldset>
+
+                            {tsMode === "auto" && (
+                                <div className="max-w-xs">
+                                    <label htmlFor="ts-threshold" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Switch to search above</label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            id="ts-threshold"
+                                            type="number"
+                                            min="1"
+                                            max="100"
+                                            value={tsThreshold}
+                                            onChange={(e) => setTsThreshold(e.target.value)}
+                                            className="w-24 px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
+                                        />
+                                        <span className="text-sm text-pulse-muted">extension tools</span>
+                                    </div>
+                                    <p className="text-xs text-pulse-faint mt-1">Counts plugin, MCP, custom and server tools — not the core built-ins.</p>
+                                </div>
+                            )}
+
+                            {tsMode !== "off" && (
+                                <div className="max-w-xs">
+                                    <label htmlFor="ts-max" className="block text-sm font-medium text-pulse-text-soft mb-1.5">Results per search</label>
+                                    <input
+                                        id="ts-max"
+                                        type="number"
+                                        min="1"
+                                        max="25"
+                                        value={tsMax}
+                                        onChange={(e) => setTsMax(e.target.value)}
+                                        className="w-24 px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-pulse-panel text-pulse-text"
+                                    />
+                                    <p className="text-xs text-pulse-faint mt-1">How many matching tools a single search returns to the agent.</p>
+                                </div>
+                            )}
+
+                            {tsStatus.type !== "idle" && (
+                                <p className={`text-sm ${tsStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>{tsStatus.message}</p>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={savingTs}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel"
+                            >
+                                {savingTs ? "Saving..." : "Save Tool Search"}
+                            </button>
+                        </form>
+                    </div>
+                </Card>
+            </div>
         </div>
     );
 }

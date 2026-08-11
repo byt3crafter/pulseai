@@ -2,7 +2,7 @@
 
 import { db } from "../../../../storage/db";
 import { credentials, agentProfiles } from "../../../../storage/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../../utils/tenant-auth";
 
@@ -102,6 +102,32 @@ export async function addCredential(formData: FormData) {
         revalidatePath("/dashboard/settings");
     } catch (error) {
         console.error("Failed to add credential:", error);
+    }
+}
+
+/**
+ * Clear (disconnect) all credential rows a plugin uses, by their env-var names.
+ * Lets the user remove a plugin integration in one click — savePluginCredentials
+ * can only add/keep, never delete. Names are matched case-insensitively (stored
+ * uppercased). Because credential names are unique per tenant (not per plugin),
+ * the caller's confirm UI should note a shared-name credential is fully removed.
+ */
+export async function clearPluginCredentialsAction(names: string[]) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const wanted = (names || []).map((n) => (n || "").toUpperCase()).filter(Boolean);
+    if (wanted.length === 0) return { success: false as const, message: "Nothing to clear." };
+
+    try {
+        await db.delete(credentials).where(and(eq(credentials.tenantId, tenantId), inArray(credentials.name, wanted)));
+        revalidatePath("/dashboard/settings/plugins");
+        revalidatePath("/dashboard/settings");
+        return { success: true as const };
+    } catch (error) {
+        console.error("Failed to clear plugin credentials:", error);
+        return { success: false as const, message: "Could not clear these credentials." };
     }
 }
 
