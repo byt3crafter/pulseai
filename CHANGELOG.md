@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.63] - 2026-08-11
+
+### Bug Fixes
+- contact_lookup always also searches the native store
+
 ## [0.14.62] - 2026-08-11
 
 ### Bug Fixes
