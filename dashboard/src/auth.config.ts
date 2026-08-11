@@ -11,7 +11,7 @@ export const authConfig = {
     },
     providers: [], // Providers added in auth.ts (to avoid Node.js apis on Edge backend)
     callbacks: {
-        jwt({ token, user }) {
+        jwt({ token, user, trigger, session }) {
             if (user) {
                 token.id = user.id!;
                 token.role = user.role as string;
@@ -19,6 +19,16 @@ export const authConfig = {
                 token.tenantId = user.tenantId as string | null;
                 token.mustChangePassword = (user as any).mustChangePassword as boolean;
                 token.onboardingComplete = (user as any).onboardingComplete as boolean;
+            }
+            // Session update (e.g. onboarding just completed): fold the new values
+            // into the token so the cookie — and thus the Edge middleware — reflect them.
+            if (trigger === "update" && session?.user) {
+                if (typeof session.user.onboardingComplete === "boolean") {
+                    token.onboardingComplete = session.user.onboardingComplete;
+                }
+                if (typeof (session.user as any).mustChangePassword === "boolean") {
+                    token.mustChangePassword = (session.user as any).mustChangePassword;
+                }
             }
             return token;
         },
