@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { apiTokens, conversations, messages } from "../../../storage/schema";
+import { apiTokens, conversations, messages, usageRecords, agentRuns } from "../../../storage/schema";
 import { and, eq, asc, desc, like } from "drizzle-orm";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -83,11 +83,13 @@ export async function listSessionsAction(): Promise<ChatSession[]> {
 
         const out: ChatSession[] = [];
         for (const c of convs) {
-            // Derive a title/preview from the first + last user message when unnamed.
+            // Title = first USER message (fallback: first message); preview = last
+            // message. Skip conversations that have no messages at all (ghost rows)
+            // so the switcher only shows real chats.
             const firstUser = await db
-                .select({ content: messages.content, role: messages.role })
+                .select({ content: messages.content })
                 .from(messages)
-                .where(eq(messages.conversationId, c.id))
+                .where(and(eq(messages.conversationId, c.id), eq(messages.role, "user")))
                 .orderBy(asc(messages.createdAt))
                 .limit(1);
             const lastMsg = await db
@@ -96,12 +98,13 @@ export async function listSessionsAction(): Promise<ChatSession[]> {
                 .where(eq(messages.conversationId, c.id))
                 .orderBy(desc(messages.createdAt))
                 .limit(1);
-            const derived = firstUser[0]?.content?.slice(0, 60) || "New chat";
+            if (!lastMsg[0]) continue; // empty conversation — don't surface it
+            const derived = firstUser[0]?.content?.replace(/\s+/g, " ").slice(0, 60) || "New chat";
             out.push({
                 sessionId: sessionIdFromContact(tenantId, c.contactId),
                 title: (c.title && c.title.trim()) || derived,
                 updatedAt: c.updatedAt?.toISOString() ?? new Date(0).toISOString(),
-                preview: (lastMsg[0]?.content || "").replace(/<\/?think(?:ing)?>[\s\S]*?/gi, "").slice(0, 80),
+                preview: (lastMsg[0]?.content || "").replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "").replace(/<\/?think(?:ing)?>/gi, "").trim().slice(0, 80),
             });
         }
         return out;
@@ -184,8 +187,13 @@ export async function deleteSessionAction(sessionId: string) {
             ))
             .limit(1);
         if (conv[0]) {
-            await db.delete(messages).where(eq(messages.conversationId, conv[0].id));
-            await db.delete(conversations).where(eq(conversations.id, conv[0].id));
+            const cid = conv[0].id;
+            // Clear rows that FK-reference the conversation, else the delete throws
+            // (which previously made "delete" silently do nothing).
+            await db.delete(usageRecords).where(eq(usageRecords.conversationId, cid));
+            await db.update(agentRuns).set({ conversationId: null }).where(eq(agentRuns.conversationId, cid));
+            await db.delete(messages).where(eq(messages.conversationId, cid));
+            await db.delete(conversations).where(eq(conversations.id, cid));
         }
         return { success: true as const };
     } catch (e) {

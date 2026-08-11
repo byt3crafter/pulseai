@@ -71,6 +71,11 @@ export class AgentRuntime {
             // selector). Wins over the agent's own default when provided. Undefined =
             // fall back to the agent profile / provider default.
             reasoningEffort?: string;
+            // Stream EVERY turn's tokens (incl. reasoning) via editMessageCallback,
+            // with no placeholder message — the web chat sets this for a live,
+            // Telegram-like feel even on tool-enabled agents. Telegram leaves it unset
+            // and keeps its placeholder+progress-trail behaviour.
+            forceStream?: boolean;
         }
     ): Promise<void> {
         const tenantLog = logger.child({ tenantId: inbound.tenantId, channel: inbound.channelType });
@@ -560,50 +565,53 @@ export class AgentRuntime {
             let streamMessageId: string | null = null;
             let streamAccumulated = "";
             let lastEditTime = 0;
-            const EDIT_THROTTLE_MS = 1000;
+            // Web (forceStream) streams over a WebSocket with no rate limit → fast,
+            // smooth. Telegram edits are rate-limited so throttle much harder.
+            const EDIT_THROTTLE_MS = options?.forceStream ? 120 : 1000;
 
-            if (options?.editMessageCallback && toolDefinitions.length === 0) {
-                // Only stream when there are no tools (tool calls need sync handling)
+            // Stream token deltas when the surface supports edits. Telegram only
+            // streams tool-less turns (tool turns get a progress trail instead); the
+            // web sets forceStream to stream EVERY turn — including live reasoning —
+            // for a Telegram-like feel even on tool-enabled agents.
+            if (options?.editMessageCallback && (toolDefinitions.length === 0 || options.forceStream)) {
+                const streamMsgId = () => streamMessageId ?? "web-stream";
                 streamCallbacks = {
                     onDelta: (delta: string) => {
                         streamAccumulated += delta;
                         const now = Date.now();
-
-                        // Send initial message on first content
-                        if (!streamMessageId && streamAccumulated.length > 20) {
-                            // Will be sent asynchronously below
-                        }
-
-                        // Throttle edits to 1 per second
-                        if (streamMessageId && now - lastEditTime >= EDIT_THROTTLE_MS) {
+                        if (now - lastEditTime >= EDIT_THROTTLE_MS) {
                             lastEditTime = now;
                             options.editMessageCallback!(
                                 inbound.tenantId,
                                 inbound.channelContactId,
-                                streamMessageId,
-                                streamAccumulated + " ...",
+                                streamMsgId(),
+                                streamAccumulated,
                                 undefined,
                                 resolvedAgentProfileId ?? undefined
                             ).catch(() => {});
                         }
                     },
                     onComplete: () => {
-                        // Final edit happens after the full response is built
+                        // Final edit happens after the full response is built.
                     },
                 };
 
-                // Start a "typing" placeholder and capture the message ID for edits
-                const placeholder = await sendMessageCallback({
-                    conversationId: conversation.id,
-                    tenantId: inbound.tenantId,
-                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
-                    channelType: inbound.channelType,
-                    channelContactId: inbound.channelContactId,
-                    content: "...",
-                    replyToMessageId: inbound.isGroup ? (inbound.raw as any)?.message_id?.toString() : undefined,
-                });
-                streamMessageId = placeholder.channelMessageId;
-                lastEditTime = Date.now();
+                if (!options.forceStream) {
+                    // Telegram-style: start a "typing" placeholder and edit it in place.
+                    const placeholder = await sendMessageCallback({
+                        conversationId: conversation.id,
+                        tenantId: inbound.tenantId,
+                        agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
+                        channelType: inbound.channelType,
+                        channelContactId: inbound.channelContactId,
+                        content: "...",
+                        replyToMessageId: inbound.isGroup ? (inbound.raw as any)?.message_id?.toString() : undefined,
+                    });
+                    streamMessageId = placeholder.channelMessageId;
+                    lastEditTime = Date.now();
+                }
+                // forceStream (web): no placeholder — deltas go straight to the socket
+                // as agent.streaming; the final reply is dispatched normally below.
             }
 
             // Progress streaming for TOOL turns (text streaming above only fires
@@ -631,7 +639,7 @@ export class AgentRuntime {
                 return `${head}\n\n${lines.join("\n")}${more}`;
             };
             let onProgress: ((text: string) => void) | undefined;
-            if (options?.editMessageCallback && toolDefinitions.length > 0 && activeProgressVerbosity !== "off") {
+            if (options?.editMessageCallback && !options?.forceStream && toolDefinitions.length > 0 && activeProgressVerbosity !== "off") {
                 onProgress = (text: string) => {
                     // De-dupe consecutive identical steps.
                     if (progressSteps[progressSteps.length - 1] !== text) {
@@ -801,6 +809,10 @@ export class AgentRuntime {
                 // revealed new tools that must be callable on the next turn.
                 if (toolSearchActive) activeToolDefinitions = buildActiveDefs();
 
+                // Web streaming: reset the buffer so this turn's answer/reasoning
+                // streams fresh (the previous turn's pre-tool text isn't the answer).
+                if (options?.forceStream && streamCallbacks) streamAccumulated = "";
+
                 // Call LLM with tool results — same model + tenant routing
                 llmResponse = await this.providerManager.chat({
                     agentProfileId: resolvedAgentProfileId ?? undefined,
@@ -808,6 +820,7 @@ export class AgentRuntime {
                     model: activeModelId,
                     tenantId: inbound.tenantId,
                     systemPrompt: activeSystemPrompt,
+                    stream: options?.forceStream ? streamCallbacks : undefined,
                     messages: [
                         ...llmMessages,
                         assistantMessage as any,
