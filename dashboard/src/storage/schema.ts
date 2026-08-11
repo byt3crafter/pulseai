@@ -916,6 +916,29 @@ export const contacts = pgTable(
     ]
 );
 
+// -- Calendar events (native user calendar; Google Calendar backend later). --
+export const events = pgTable(
+    "events",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        title: text("title").notNull(),
+        startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+        endsAt: timestamp("ends_at", { withTimezone: true }),
+        allDay: boolean("all_day").default(false),
+        location: text("location"),
+        notes: text("notes"),
+        attendees: text("attendees"),
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_events_tenant").on(table.tenantId),
+        index("idx_events_tenant_start").on(table.tenantId, table.startsAt),
+    ]
+);
+
 // -- Agent Delegations (Phase 15 - Multi-Agent Orchestration) --
 export const agentDelegations = pgTable(
     "agent_delegations",

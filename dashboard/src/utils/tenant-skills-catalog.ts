@@ -109,6 +109,17 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "calendar",
+        title: "Calendar",
+        description: "Let an agent read and manage your calendar.",
+        tools: [
+            { name: "calendar_list", label: "List events", description: "See upcoming events.", defaultOn: true },
+            { name: "calendar_add", label: "Add event", description: "Create a calendar event.", defaultOn: true },
+            { name: "calendar_search", label: "Search events", description: "Find events by title/attendee.", defaultOn: true },
+            { name: "calendar_delete", label: "Delete event", description: "Remove a calendar event.", defaultOn: false },
+        ],
+    },
+    {
         key: "technical",
         title: "Technical (advanced)",
         description: "Powerful tools for technical/DevOps agents. Off by default — enable deliberately.",
