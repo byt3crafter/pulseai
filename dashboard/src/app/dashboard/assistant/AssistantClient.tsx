@@ -202,6 +202,7 @@ export default function AssistantClient({
     }
 
     async function doDelete(sid: string) {
+        if (typeof window !== "undefined" && !window.confirm("Delete this chat? This can't be undone.")) return;
         await deleteSessionAction(sid);
         setSessions(await listSessionsAction());
         if (sid === sessionId) startNewChat();
@@ -249,11 +250,12 @@ export default function AssistantClient({
                                         <button onClick={() => switchSession(s.sessionId)} className="min-w-0 flex-1 px-2 py-2 text-left">
                                             <p className={`truncate text-sm ${s.sessionId === sessionId ? "font-medium text-pulse-text" : "text-pulse-text-soft"}`}>{s.title}</p>
                                         </button>
-                                        <button onClick={() => { setRenaming(s.sessionId); setRenameText(s.title); }} title="Rename" className="hidden shrink-0 rounded p-1 text-pulse-muted hover:text-pulse-text group-hover:block">
-                                            <PencilSquareIcon className="h-3.5 w-3.5" />
+                                        {/* Always visible — touch screens have no hover, so these must not be group-hover-gated. */}
+                                        <button onClick={() => { setRenaming(s.sessionId); setRenameText(s.title); }} title="Rename" aria-label="Rename chat" className="shrink-0 rounded p-1.5 text-pulse-muted hover:text-pulse-text">
+                                            <PencilSquareIcon className="h-4 w-4" />
                                         </button>
-                                        <button onClick={() => doDelete(s.sessionId)} title="Delete" className="hidden shrink-0 rounded p-1 text-pulse-muted hover:text-red-400 group-hover:block">
-                                            <TrashIcon className="h-3.5 w-3.5" />
+                                        <button onClick={() => doDelete(s.sessionId)} title="Delete" aria-label="Delete chat" className="shrink-0 rounded p-1.5 text-pulse-muted hover:text-red-400">
+                                            <TrashIcon className="h-4 w-4" />
                                         </button>
                                     </>
                                 )}
