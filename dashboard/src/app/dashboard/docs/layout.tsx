@@ -7,7 +7,7 @@ import DocsSidebar from "./DocsSidebar";
  */
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-5 lg:p-6">
             <div className="mx-auto flex max-w-7xl gap-8">
                 <DocsSidebar />
                 <div className="min-w-0 flex-1">{children}</div>

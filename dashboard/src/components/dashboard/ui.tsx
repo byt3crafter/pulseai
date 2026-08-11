@@ -35,10 +35,10 @@ export function PageHeader({
     action?: ReactNode;
 }) {
     return (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div className="min-w-0">
-                <h1 className="text-2xl font-semibold text-pulse-text tracking-tight">{title}</h1>
-                {description && <p className="text-sm text-pulse-muted mt-1">{description}</p>}
+                <h1 className="text-xl font-semibold text-pulse-text tracking-tight">{title}</h1>
+                {description && <p className="text-[13px] text-pulse-muted mt-0.5">{description}</p>}
             </div>
             {action && <div className="flex-shrink-0">{action}</div>}
         </div>
@@ -79,7 +79,7 @@ export function CardHeader({
     action?: ReactNode;
 }) {
     return (
-        <div className="px-5 py-4 border-b border-pulse-border-subtle flex items-center justify-between gap-3">
+        <div className="px-4 py-3 border-b border-pulse-border-subtle flex items-center justify-between gap-3">
             <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-pulse-text">{title}</h2>
                 {description && <p className="text-xs text-pulse-muted mt-0.5">{description}</p>}
@@ -162,7 +162,7 @@ export function SettingRow({
     className?: string;
 }) {
     return (
-        <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 ${className}`}>
+        <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 ${className}`}>
             <div className="min-w-0">
                 <p className="text-sm font-medium text-pulse-text">{title}</p>
                 {description && <p className="text-xs text-pulse-muted mt-0.5">{description}</p>}

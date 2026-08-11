@@ -68,7 +68,7 @@ export default function ConversationDetailClient({
     const lastActive = conversation.updatedAt || messages[messages.length - 1]?.createdAt || conversation.createdAt;
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-5 lg:p-6">
             {/* Header */}
             <div className="mb-6">
                 <Link

@@ -60,7 +60,7 @@ export default async function ApprovalsPage() {
         : [[], [], []];
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+        <div className="p-4 sm:p-5 lg:p-6 space-y-6">
             <PageHeader
                 title="Approval Center"
                 description="Actions your agents paused for a human to sign off — awaiting decisions, the decision history, and standing allowances."

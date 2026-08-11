@@ -45,7 +45,7 @@ export default async function TasksPage({
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-5">
+        <div className="p-4 sm:p-5 lg:p-6 space-y-5">
             <PageHeader
                 title="Task Queue"
                 description="Every task your AI workforce has run — live, completed, or failed. Click a row for the tool trace and details."

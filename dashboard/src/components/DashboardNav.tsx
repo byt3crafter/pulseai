@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useContext } from "react";
 import {
-    HomeIcon,
+    Squares2X2Icon,
     CpuChipIcon,
     ChatBubbleLeftRightIcon,
     ServerStackIcon,
-    ChartBarSquareIcon,
+    PresentationChartLineIcon,
+    CreditCardIcon,
     Cog6ToothIcon,
     ShieldCheckIcon,
     ArrowsRightLeftIcon,
@@ -23,6 +25,7 @@ import {
     ChatBubbleOvalLeftEllipsisIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
+import { SidebarCollapseContext } from "./DashboardShell";
 
 type NavItem = {
     href: string;
@@ -38,7 +41,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     {
         label: "Workspace",
         items: [
-            { href: "/dashboard", label: "Overview", icon: HomeIcon, exact: true },
+            { href: "/dashboard", label: "Overview", icon: Squares2X2Icon, exact: true },
             { href: "/dashboard/assistant", label: "Assistant", icon: ChatBubbleOvalLeftEllipsisIcon },
         ],
     },
@@ -65,9 +68,9 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         items: [
             { href: "/dashboard/tasks", label: "Task Queue", icon: QueueListIcon },
             { href: "/dashboard/approvals", label: "Approvals", icon: ShieldCheckIcon },
-            { href: "/dashboard/analytics", label: "Analytics", icon: ChartBarSquareIcon },
+            { href: "/dashboard/analytics", label: "Analytics", icon: PresentationChartLineIcon },
             { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon },
-            { href: "/dashboard/usage", label: "Usage & Billing", icon: ChartBarSquareIcon, feature: "billing" },
+            { href: "/dashboard/usage", label: "Usage & Billing", icon: CreditCardIcon, feature: "billing" },
             { href: "/dashboard/chatgpt", label: "ChatGPT Connect", icon: SparklesIcon, feature: "chatgptConnect" },
         ],
     },
@@ -83,6 +86,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 
 export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = true }: { isAdmin?: boolean; chatgptConnect?: boolean; showBilling?: boolean }) {
     const pathname = usePathname();
+    const collapsed = useContext(SidebarCollapseContext);
 
     const isVisible = (item: NavItem) => {
         if (item.feature === "chatgptConnect") return !!chatgptConnect;
@@ -99,58 +103,72 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 key={href}
                 href={href}
                 aria-current={isActive ? "page" : undefined}
-                className={`group relative flex items-center gap-3 pl-3.5 pr-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${isActive
+                title={collapsed ? label : undefined}
+                className={`group relative flex items-center rounded-lg text-[13.5px] font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${collapsed ? "justify-center h-10 mx-auto w-10" : "gap-3 pl-3.5 pr-3 py-2"} ${isActive
                     ? "bg-pulse-tint text-pulse-accent-hi"
                     : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                     }`}
             >
-                {/* Active left accent bar */}
-                <span
-                    aria-hidden="true"
-                    className={`absolute left-0 top-1/2 -translate-y-1/2 h-4.5 w-[3px] rounded-full bg-pulse-accent transition-opacity motion-reduce:transition-none ${isActive ? "opacity-100" : "opacity-0"}`}
-                    style={{ height: 18 }}
-                />
+                {/* Active left accent bar (expanded only) */}
+                {!collapsed && (
+                    <span
+                        aria-hidden="true"
+                        className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-full bg-pulse-accent transition-opacity motion-reduce:transition-none ${isActive ? "opacity-100" : "opacity-0"}`}
+                        style={{ height: 18 }}
+                    />
+                )}
                 <Icon
                     aria-hidden="true"
                     className={`flex-shrink-0 transition-colors motion-reduce:transition-none ${isActive ? "text-pulse-accent-hi" : "text-pulse-faint group-hover:text-pulse-text-soft"}`}
                     style={{ width: 18, height: 18 }}
                 />
-                {label}
+                {!collapsed && label}
             </Link>
         );
     };
 
     return (
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
-            <div className="mb-4 px-0.5">
-                <CommandPalette isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />
-            </div>
+        <nav className={`flex-1 overflow-y-auto overflow-x-hidden ${collapsed ? "px-2 py-3" : "px-3 py-4"}`}>
+            {!collapsed && (
+                <div className="mb-4 px-0.5">
+                    <CommandPalette isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />
+                </div>
+            )}
 
-            <div className="space-y-5">
-                {NAV_GROUPS.map((group) => {
+            <div className={collapsed ? "space-y-1" : "space-y-5"}>
+                {NAV_GROUPS.map((group, gi) => {
                     const items = group.items.filter(isVisible);
                     if (items.length === 0) return null;
                     return (
-                        <div key={group.label} className="space-y-0.5">
-                            <div className="px-3.5 pb-1.5">
-                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-pulse-faint">{group.label}</span>
-                            </div>
+                        <div key={group.label} className={collapsed ? "space-y-1" : "space-y-0.5"}>
+                            {collapsed
+                                ? (gi > 0 && <div className="mx-2 my-1 border-t border-pulse-border-subtle" aria-hidden="true" />)
+                                : (
+                                    <div className="px-3.5 pb-1.5">
+                                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-pulse-faint">{group.label}</span>
+                                    </div>
+                                )}
                             {items.map(renderLink)}
                         </div>
                     );
                 })}
 
                 {isAdmin && (
-                    <div className="space-y-0.5">
-                        <div className="px-3.5 pb-1.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-pulse-faint">Administration</span>
-                        </div>
+                    <div className={collapsed ? "space-y-1" : "space-y-0.5"}>
+                        {collapsed
+                            ? <div className="mx-2 my-1 border-t border-pulse-border-subtle" aria-hidden="true" />
+                            : (
+                                <div className="px-3.5 pb-1.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-pulse-faint">Administration</span>
+                                </div>
+                            )}
                         <Link
                             href="/admin"
-                            className="group relative flex items-center gap-3 pl-3.5 pr-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
+                            title={collapsed ? "Admin Panel" : undefined}
+                            className={`group relative flex items-center rounded-lg text-[13.5px] font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "justify-center h-10 mx-auto w-10" : "gap-3 pl-3.5 pr-3 py-2"}`}
                         >
                             <ShieldCheckIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft transition-colors motion-reduce:transition-none" style={{ width: 18, height: 18 }} />
-                            Admin Panel
+                            {!collapsed && "Admin Panel"}
                         </Link>
                     </div>
                 )}
