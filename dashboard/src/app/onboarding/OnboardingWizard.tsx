@@ -10,6 +10,7 @@ import {
     changePasswordOnboardingAction,
     validateProviderKeyOnboardingAction,
     saveProviderKeyOnboardingAction,
+    connectCodexOnboardingAction,
     exchangeOpenAICodeOnboardingAction,
     saveTelegramOnboardingAction,
     saveTelegramConfigOnboardingAction,
@@ -88,6 +89,8 @@ export default function OnboardingWizard({
 
     const supportsOAuth = selectedProvider === "openai";
     const isOAuth = authMethod === "oauth" && supportsOAuth;
+    // Codex has no per-workspace key — it runs on the server's ChatGPT login.
+    const isCodex = selectedProvider === "codex";
 
     // Telegram config state
     const [botMode, setBotMode] = useState<"private" | "group" | "both">("private");
@@ -181,6 +184,20 @@ export default function OnboardingWizard({
             prev.includes(selectedProvider) ? prev : [...prev, selectedProvider]
         );
         setApiKeyInput("");
+        router.refresh();
+    };
+
+    const handleConnectCodex = async () => {
+        clearMessages();
+        setValidating(true);
+        const result = await connectCodexOnboardingAction();
+        setValidating(false);
+        if (!result.success) {
+            setError(result.message ?? "Failed to enable Codex.");
+            return;
+        }
+        setSuccess(result.message ?? "Codex enabled.");
+        setConnectedProviders((prev) => (prev.includes("codex") ? prev : [...prev, "codex"]));
         router.refresh();
     };
 
@@ -701,8 +718,36 @@ export default function OnboardingWizard({
                                 </div>
                             )}
 
-                            {/* API Key input — hidden when OAuth is active */}
-                            {!isOAuth && (
+                            {/* Codex — no key; runs on the server's ChatGPT login */}
+                            {isCodex && (
+                                <div className="space-y-3">
+                                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                                        <p className="text-xs text-emerald-800 leading-relaxed">
+                                            <span className="font-semibold">No API key needed.</span> Codex runs on the ChatGPT
+                                            subscription that&apos;s logged in on this server. Your administrator signs in once on
+                                            the server with <code className="bg-emerald-100 px-1 rounded font-mono">codex login</code>;
+                                            click below to enable it for this workspace.
+                                        </p>
+                                    </div>
+                                    <ErrorMessage message={error} />
+                                    <SuccessMessage message={success} />
+                                    <button
+                                        type="button"
+                                        onClick={handleConnectCodex}
+                                        disabled={validating}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-60 text-sm"
+                                    >
+                                        {validating
+                                            ? "Enabling..."
+                                            : connectedProviders.includes("codex")
+                                            ? "Codex Enabled"
+                                            : "Enable Codex"}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* API Key input — hidden when OAuth or Codex is active */}
+                            {!isOAuth && !isCodex && (
                                 <>
                                     <InputField
                                         label="API Key"

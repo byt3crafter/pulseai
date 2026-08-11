@@ -105,6 +105,7 @@ export async function saveProviderKeyAction(formData: FormData) {
                 google: "googleApiKey",
                 openrouter: "openrouterApiKey",
                 minimax: "minimaxApiKey",
+                groq: "groqApiKey",
             };
             const configKey = keyMap[provider];
             if (!configKey) return { success: false, message: "Unknown provider." };
@@ -177,7 +178,15 @@ export async function testProviderKeyAction(formData: FormData) {
                 const res = await fetch("https://api.minimax.io/v1/models", {
                     headers: { Authorization: `Bearer ${apiKey}` },
                 });
-                valid = res.status !== 401 && res.status !== 403;
+                valid = res.status !== 401;
+                if (!valid) error = "Invalid API key";
+                break;
+            }
+            case "groq": {
+                const res = await fetch("https://api.groq.com/openai/v1/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                valid = res.status !== 401;
                 if (!valid) error = "Invalid API key";
                 break;
             }
