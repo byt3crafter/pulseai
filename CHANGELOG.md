@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.67] - 2026-08-11
+
+### Features
+- password/login vault — encrypted site logins, login_list + browser_login
+
 ## [0.14.66] - 2026-08-11
 
 ### Bug Fixes
