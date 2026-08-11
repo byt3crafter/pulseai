@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.58] - 2026-08-11
+
+### Features
+- tenant audit logging, agent activity_log tool, standalone mode + PWA
+
 ## [0.14.57] - 2026-08-11
 
 ### Bug Fixes
