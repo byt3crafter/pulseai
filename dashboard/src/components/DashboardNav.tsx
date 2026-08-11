@@ -19,6 +19,7 @@ import {
     UserGroupIcon,
     BookOpenIcon,
     QueueListIcon,
+    ChatBubbleOvalLeftEllipsisIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
 
@@ -35,7 +36,10 @@ type NavItem = {
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     {
         label: "Workspace",
-        items: [{ href: "/dashboard", label: "Overview", icon: HomeIcon, exact: true }],
+        items: [
+            { href: "/dashboard", label: "Overview", icon: HomeIcon, exact: true },
+            { href: "/dashboard/assistant", label: "Assistant", icon: ChatBubbleOvalLeftEllipsisIcon },
+        ],
     },
     {
         label: "Agents",
