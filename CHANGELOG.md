@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.64] - 2026-08-11
+
+### Features
+- native user calendar + agent tools
+
 ## [0.14.63] - 2026-08-11
 
 ### Bug Fixes
