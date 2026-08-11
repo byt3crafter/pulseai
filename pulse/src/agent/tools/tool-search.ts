@@ -80,7 +80,8 @@ function tokenize(s: string): string[] {
 export function rankDeferredTools(
     deferred: Tool[],
     query: string,
-    max: number
+    max: number,
+    usage?: Map<string, number>
 ): { matches: Tool[]; total: number } {
     const tokens = tokenize(query || "");
     const scored = deferred.map((t) => {
@@ -91,9 +92,12 @@ export function rankDeferredTools(
             if (name.includes(tok)) score += 3;
             if (desc.includes(tok)) score += 1;
         }
-        return { tool: t, score };
+        // Nudge tools this agent actually uses toward the top (capped so a
+        // relevant-but-new tool still wins on a strong text match).
+        const use = usage?.get(t.name) ?? 0;
+        return { tool: t, score, use };
     });
-    scored.sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name));
+    scored.sort((a, b) => b.score - a.score || b.use - a.use || a.tool.name.localeCompare(b.tool.name));
     return { matches: scored.slice(0, max).map((s) => s.tool), total: deferred.length };
 }
 

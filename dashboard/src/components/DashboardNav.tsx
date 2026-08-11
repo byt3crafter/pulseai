@@ -23,6 +23,7 @@ import {
     BookOpenIcon,
     QueueListIcon,
     ChatBubbleOvalLeftEllipsisIcon,
+    ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
 import { SidebarCollapseContext } from "./DashboardShell";
@@ -70,6 +71,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
             { href: "/dashboard/approvals", label: "Approvals", icon: ShieldCheckIcon },
             { href: "/dashboard/analytics", label: "Analytics", icon: PresentationChartLineIcon },
             { href: "/dashboard/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon },
+            { href: "/dashboard/audit", label: "Audit Log", icon: ClipboardDocumentListIcon },
             { href: "/dashboard/usage", label: "Usage & Billing", icon: CreditCardIcon, feature: "billing" },
             { href: "/dashboard/chatgpt", label: "ChatGPT Connect", icon: SparklesIcon, feature: "chatgptConnect" },
         ],
