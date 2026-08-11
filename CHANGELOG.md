@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.44] - 2026-08-11
+
+### Features
+- live streaming web chat in the customer dashboard
+
 ## [0.14.43] - 2026-08-11
 
 ### Features
