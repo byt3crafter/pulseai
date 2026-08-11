@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
 import { getBranding } from "../utils/branding";
 
+// Read branding at request time (not build) so the install name follows the
+// deployment's white-label instead of being frozen at prerender.
+export const dynamic = "force-dynamic";
+
 // PWA manifest — served by Next.js at /manifest.webmanifest. Lets a standalone
 // deployment be "installed" (Add to Home Screen / desktop PWA) so it opens
 // straight into the app chrome. Name follows the workspace branding so a
