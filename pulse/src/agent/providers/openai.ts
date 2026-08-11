@@ -300,13 +300,27 @@ export class OpenAIProvider {
                 let promptTokens = 0;
                 let completionTokens = 0;
 
+                // Some OpenAI-compatible providers (MiniMax, DeepSeek, …) stream the
+                // chain-of-thought in a separate `reasoning_content` field rather than
+                // inline. Wrap it in <think>…</think> live so downstream (web chat)
+                // can show it in its collapsible panel; the runtime strips it from the
+                // persisted answer.
+                let thinkOpen = false;
                 for await (const chunk of stream) {
-                    const delta = chunk.choices[0]?.delta;
+                    const delta = chunk.choices[0]?.delta as any;
                     if (!delta) continue;
 
                     model = chunk.model || model;
 
+                    const rc = delta.reasoning_content;
+                    if (rc) {
+                        if (!thinkOpen) { content += "<think>"; params.stream.onDelta!("<think>"); thinkOpen = true; }
+                        content += rc;
+                        params.stream.onDelta!(rc);
+                    }
+
                     if (delta.content) {
+                        if (thinkOpen) { content += "</think>"; params.stream.onDelta!("</think>"); thinkOpen = false; }
                         content += delta.content;
                         params.stream.onDelta!(delta.content);
                     }
@@ -339,6 +353,8 @@ export class OpenAIProvider {
                     }
                 }
 
+                if (thinkOpen) { content += "</think>"; params.stream.onDelta!("</think>"); thinkOpen = false; }
+
                 params.stream.onComplete?.();
 
                 const toolCalls: ToolCall[] = [];
@@ -369,7 +385,10 @@ export class OpenAIProvider {
             });
 
             const message = response.choices[0].message;
-            const content = message.content || "";
+            // Fold any separate reasoning_content into <think>…</think> so the runtime
+            // can capture it for the web chat's thinking panel (and strip it elsewhere).
+            const reasoning = (message as any).reasoning_content || "";
+            const content = (reasoning ? `<think>${reasoning}</think>` : "") + (message.content || "");
 
             const toolCalls: ToolCall[] = [];
             if (message.tool_calls) {

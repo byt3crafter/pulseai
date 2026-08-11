@@ -45,4 +45,8 @@ export interface OutboundMessage {
   content: string;
   format?: "text" | "markdown" | "html";
   replyToMessageId?: string;
+  // Reasoning models emit a chain-of-thought that is stripped from `content`.
+  // Surfaces (e.g. the web chat) can show it in a collapsible panel; channel
+  // adapters that don't support it simply ignore it. Never persisted.
+  thinking?: string;
 }

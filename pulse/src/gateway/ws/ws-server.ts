@@ -141,7 +141,7 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                 conversationId: outbound.conversationId,
                                 agentProfileId: outbound.agentProfileId,
                                 content: outbound.content,
-                                thinking: lastThinking || undefined,
+                                thinking: outbound.thinking || lastThinking || undefined,
                                 sessionId,
                             }));
                             return { channelMessageId: `web-${Date.now()}` };
