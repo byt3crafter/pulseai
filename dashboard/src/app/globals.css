@@ -68,6 +68,34 @@ body {
   --color-indigo-500: #7E8AF0;
   --color-indigo-600: #6470E6;
   --color-indigo-700: #4F5AD6;
+
+  /* ── Enterprise / Google-AI-Studio palette ──────────────────────────────
+     One accent (indigo above); everything else is heavily desaturated so the
+     dashboard reads neutral. Status chips keep only a faint hue — enough to
+     tell apart, not enough to shout. Retuning the Tailwind status scales here
+     neutralises every bg-green-500/10, text-red-400, amber chip, blue tool
+     tag, etc. across the whole app without touching a single component. */
+  --color-green-400:   #6E9384;
+  --color-green-500:   #5E8676;
+  --color-green-600:   #517564;
+  --color-emerald-400: #6E9384;
+  --color-emerald-500: #5E8676;
+  --color-emerald-600: #517564;
+  --color-red-300:     #C9A39C;
+  --color-red-400:     #BE8B81;
+  --color-red-500:     #B0796E;
+  --color-red-600:     #9E6A60;
+  --color-rose-400:    #BE8B81;
+  --color-rose-500:    #B0796E;
+  --color-amber-400:   #B29E72;
+  --color-amber-500:   #A5905F;
+  --color-yellow-400:  #B29E72;
+  --color-yellow-500:  #A5905F;
+  --color-blue-400:    #7D8BA5;
+  --color-blue-500:    #6F7E99;
+  --color-blue-600:    #63728C;
+  --color-sky-400:     #7D8BA5;
+  --color-sky-500:     #6F7E99;
   --color-pulse-bg:            var(--pulse-bg);
   --color-pulse-panel:         var(--pulse-panel);
   --color-pulse-panel-alt:     var(--pulse-panel-alt);

@@ -2,6 +2,7 @@ import { auth } from "../../../auth";
 import { db } from "../../../storage/db";
 import { tenants, tenantBalances, channelConnections, oauthClients, tenantProviderKeys, pairingCodes, allowlists, apiTokens, installedPlugins, tenantPluginConfigs, credentials, users, tenantSkills } from "../../../storage/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -19,6 +20,7 @@ export default async function SettingsPage({
     const tenantId = session?.user?.tenantId;
     const resolvedParams = await searchParams;
     const tab = resolvedParams?.tab ?? "account";
+    if (tab === "plugins") redirect("/dashboard/plugins");
     const initialPlugin = resolvedParams?.plugin ?? null;
 
     const [balances, channels, clients, providerKeys, apiTokensList] = await Promise.all([

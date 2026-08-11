@@ -66,7 +66,6 @@ const TABS = [
     { id: "tools", label: "Workspace Tools" },
     { id: "memory", label: "Memory" },
     { id: "email", label: "Email" },
-    { id: "plugins", label: "Plugins" },
     { id: "credentials", label: "Credentials" },
     { id: "api", label: "API & Developer" },
     { id: "billing", label: "Billing" },
@@ -94,7 +93,7 @@ interface AllowlistInfo {
     contactName: string | null;
 }
 
-interface PluginCredentialField {
+export interface PluginCredentialField {
     name: string;
     label: string;
     type: "url" | "text" | "secret";
@@ -104,7 +103,7 @@ interface PluginCredentialField {
     configured: boolean;
 }
 
-interface PluginData {
+export interface PluginData {
     id: string;
     name: string;
     version: string | null;
@@ -2614,7 +2613,7 @@ function CredentialsTab({
                                         <td className="px-5 py-3 text-right">
                                             <div className="flex items-center justify-end gap-3">
                                                 {owner && (
-                                                    <a href={`/dashboard/settings?tab=plugins&plugin=${encodeURIComponent(owner)}`} className="text-xs font-medium text-pulse-accent-hi hover:underline">Configure</a>
+                                                    <a href={`/dashboard/plugins?plugin=${encodeURIComponent(owner)}`} className="text-xs font-medium text-pulse-accent-hi hover:underline">Configure</a>
                                                 )}
                                                 <DeleteCredentialButton credentialId={c.id} />
                                             </div>
@@ -2663,7 +2662,7 @@ function FormInput({ label, name, type, placeholder, mono }: { label: string; na
 
 // ─── Plugins Tab ─────────────────────────────────────────────────────────────
 
-function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialPlugin }: {
+export function PluginsTab({ plugins, savePluginCredentials, toolSearchConfig, initialPlugin }: {
     plugins: PluginData[];
     savePluginCredentials: (formData: FormData) => Promise<void>;
     toolSearchConfig: { mode: "off" | "auto" | "on"; threshold: number; maxResults: number };
