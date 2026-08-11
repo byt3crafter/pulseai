@@ -335,6 +335,47 @@ export async function removeProviderKeyAction(formData: FormData) {
     }
 }
 
+/**
+ * Enable Codex for this workspace. Codex has no per-workspace API key — it uses
+ * the ChatGPT/Codex subscription logged in on the server (`codex login`). This
+ * records a marker so Codex counts as connected and its models are selectable.
+ */
+export async function connectCodexAction() {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const existing = await db.query.tenantProviderKeys.findFirst({
+            where: and(
+                eq(tenantProviderKeys.tenantId, tenantId),
+                eq(tenantProviderKeys.provider, "codex")
+            ),
+        });
+
+        if (existing) {
+            await db.update(tenantProviderKeys)
+                .set({ authMethod: "subscription", isActive: true, updatedAt: new Date() })
+                .where(eq(tenantProviderKeys.id, existing.id));
+        } else {
+            await db.insert(tenantProviderKeys).values({
+                tenantId,
+                provider: "codex",
+                authMethod: "subscription",
+                encryptedApiKey: null,
+                keyAlias: "ChatGPT subscription (server)",
+                isActive: true,
+            });
+        }
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Codex enabled for this workspace." };
+    } catch (error) {
+        console.error("Failed to enable Codex:", error);
+        return { success: false, message: "Failed to enable Codex." };
+    }
+}
+
 export async function validateProviderKeyAction(formData: FormData) {
     const session = await auth();
     if (!session?.user?.tenantId) return { valid: false, error: "Unauthorized." };
@@ -417,6 +458,29 @@ export async function validateProviderKeyAction(formData: FormData) {
                 }
                 return { valid: true };
             }
+            case "groq": {
+                const res = await fetch("https://api.groq.com/openai/v1/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                if (res.status === 401) {
+                    return { valid: false, error: "Invalid API key" };
+                }
+                return { valid: true };
+            }
+            case "minimax": {
+                // Only a clear 401 means a bad key — MiniMax can 403/404 the models
+                // endpoint for scope/region reasons even with a valid key.
+                const res = await fetch("https://api.minimax.io/v1/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                if (res.status === 401) {
+                    return { valid: false, error: "Invalid API key" };
+                }
+                return { valid: true };
+            }
+            case "codex":
+                // Codex authenticates via the server's ChatGPT login, not a key.
+                return { valid: true };
             default:
                 return { valid: false, error: `Unknown provider: ${provider}` };
         }

@@ -11,6 +11,7 @@ import {
     saveProviderKeyAction,
     removeProviderKeyAction,
     validateProviderKeyAction,
+    connectCodexAction,
     toggleCliAccessAction,
     updateTelegramPoliciesAction,
     approvePairingAction,
@@ -993,6 +994,8 @@ function ProviderCard({
     const supportsSetupToken = false; // authMethods.includes("setup_token") — re-enable when Anthropic supports OAuth
     const supportsOAuth = authMethods.includes("oauth");
     const isOpenAIOAuth = supportsOAuth && providerId === "openai";
+    // Codex has no per-workspace key — it uses the server's ChatGPT login.
+    const isCodex = providerId === "codex";
     const [showForm, setShowForm] = useState(false);
     const [apiKey, setApiKey] = useState("");
     const [authMethod, setAuthMethod] = useState<"api_key" | "setup_token" | "oauth">(
@@ -1035,6 +1038,16 @@ function ProviderCard({
         const result = await removeProviderKeyAction(fd);
         setStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
         if (result.success) router.refresh();
+    };
+
+    const handleConnectCodex = async () => {
+        setStatus({ type: "saving", message: "" });
+        const result = await connectCodexAction();
+        setStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
+        if (result.success) {
+            setShowForm(false);
+            router.refresh();
+        }
     };
 
     const handleValidate = async () => {
@@ -1202,7 +1215,7 @@ function ProviderCard({
                 <div className="flex items-center gap-2">
                     {isConfigured && (
                         <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
-                            {existingKey?.authMethod === "setup_token" ? "Claude Account" : existingKey?.authMethod === "oauth" ? "ChatGPT Subscription" : "Configured"}
+                            {existingKey?.authMethod === "setup_token" ? "Claude Account" : existingKey?.authMethod === "oauth" ? "ChatGPT Subscription" : isCodex ? "Server Subscription" : "Configured"}
                         </span>
                     )}
                 </div>
@@ -1213,7 +1226,7 @@ function ProviderCard({
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm text-pulse-muted">
-                                {existingKey?.authMethod === "setup_token" ? "Setup token configured" : existingKey?.authMethod === "oauth" ? "OAuth token configured" : "API key configured"}
+                                {existingKey?.authMethod === "setup_token" ? "Setup token configured" : existingKey?.authMethod === "oauth" ? "OAuth token configured" : isCodex ? "Using the server's ChatGPT subscription" : "API key configured"}
                                 {existingKey?.keyAlias && <span className="text-pulse-faint"> ({existingKey.keyAlias})</span>}
                             </p>
                         </div>
@@ -1236,6 +1249,26 @@ function ProviderCard({
 
                 {(!isConfigured || showForm) && (
                     <div className="space-y-3 max-w-md">
+                        {isCodex && (
+                            <>
+                                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                                    <p className="text-xs text-emerald-400 leading-relaxed">
+                                        <span className="font-semibold">No API key needed.</span> Codex runs on the ChatGPT
+                                        subscription logged in on this server. Your administrator signs in once on the server
+                                        with <code className="bg-emerald-500/20 px-1 py-0.5 rounded font-mono">codex login</code>;
+                                        click below to enable Codex models for this workspace.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleConnectCodex}
+                                    disabled={status.type === "saving"}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                >
+                                    {status.type === "saving" ? "Enabling..." : isConfigured ? "Re-enable Codex" : "Enable Codex"}
+                                </button>
+                            </>
+                        )}
+
                         {supportsSetupToken && (
                             <div>
                                 <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Authentication Method</label>
@@ -1264,7 +1297,7 @@ function ProviderCard({
                             </div>
                         )}
 
-                        {supportsOAuth && (
+                        {supportsOAuth && !isCodex && (
                             <div>
                                 <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">Authentication Method</label>
                                 <div className="flex rounded-lg border border-pulse-border overflow-hidden">
@@ -1394,7 +1427,7 @@ function ProviderCard({
                         )}
 
                         {/* Show manual key/token input for: API key, setup_token, or non-OpenAI OAuth */}
-                        {(!isOAuth || !isOpenAIOAuth) && (
+                        {(!isOAuth || !isOpenAIOAuth) && !isCodex && (
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-pulse-text-soft mb-1.5">

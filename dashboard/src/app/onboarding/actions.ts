@@ -98,6 +98,27 @@ export async function validateProviderKeyOnboardingAction(formData: FormData) {
                 if (res.status === 401) return { valid: false, error: "Invalid API key." };
                 return { valid: true };
             }
+            case "groq": {
+                const res = await fetch("https://api.groq.com/openai/v1/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                if (res.status === 401) return { valid: false, error: "Invalid API key." };
+                return { valid: true };
+            }
+            case "minimax": {
+                // Only a clear 401 means a bad key. MiniMax can 403/404 the models
+                // endpoint for scope/region reasons even with a valid key — don't
+                // block saving on those (the real test is the first agent run).
+                const res = await fetch("https://api.minimax.io/v1/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                if (res.status === 401) return { valid: false, error: "Invalid API key." };
+                return { valid: true };
+            }
+            case "codex":
+                // Codex authenticates via the ChatGPT login on the server, not a
+                // per-workspace key — use connectCodexOnboardingAction instead.
+                return { valid: true };
             default:
                 return { valid: false, error: "Unknown provider." };
         }
@@ -152,6 +173,48 @@ export async function saveProviderKeyOnboardingAction(formData: FormData) {
         return { success: true, message: `${provider} key saved and encrypted.` };
     } catch {
         return { success: false, message: "Failed to save provider key." };
+    }
+}
+
+/**
+ * Enable Codex for this workspace. Codex has no per-workspace API key — it runs
+ * on the ChatGPT/Codex subscription that is logged in on the server (`codex login`
+ * in the gateway's CODEX_HOME). This just records a marker so Codex counts as a
+ * connected provider and its models become selectable. Auth lives on the host.
+ */
+export async function connectCodexOnboardingAction() {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const existing = await db.query.tenantProviderKeys.findFirst({
+            where: and(
+                eq(tenantProviderKeys.tenantId, tenantId),
+                eq(tenantProviderKeys.provider, "codex")
+            ),
+        });
+
+        if (existing) {
+            await db
+                .update(tenantProviderKeys)
+                .set({ authMethod: "subscription", isActive: true, updatedAt: new Date() })
+                .where(eq(tenantProviderKeys.id, existing.id));
+        } else {
+            await db.insert(tenantProviderKeys).values({
+                tenantId,
+                provider: "codex",
+                authMethod: "subscription",
+                encryptedApiKey: null,
+                keyAlias: "ChatGPT subscription (server)",
+                isActive: true,
+            });
+        }
+
+        revalidatePath("/onboarding");
+        return { success: true, message: "Codex enabled for this workspace." };
+    } catch {
+        return { success: false, message: "Failed to enable Codex." };
     }
 }
 
