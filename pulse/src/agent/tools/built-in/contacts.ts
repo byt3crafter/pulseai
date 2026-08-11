@@ -32,54 +32,46 @@ async function resolveSource(tenantId: string, agentId?: string): Promise<Source
     return creds ? "erpnext" : "native";
 }
 
-async function lookupErpNext(tenantId: string, agentId: string | undefined, q: string): Promise<string | null> {
+type ContactRow = { name: string; email?: string | null; phone?: string | null; company?: string | null; title?: string | null; from: "ERPNext" | "address book" };
+
+async function fetchErpNext(tenantId: string, agentId: string | undefined, q: string): Promise<ContactRow[] | null> {
     const creds = await getErpNextCredentials(tenantId, agentId).catch(() => null);
     if (!creds) return null;
     try {
         const like = `%${q}%`;
         const res = await erpNextRequest<any[]>(creds, "GET", "/api/resource/Contact", undefined, {
             or_filters: JSON.stringify([
-                ["first_name", "like", like],
-                ["last_name", "like", like],
-                ["email_id", "like", like],
-                ["company_name", "like", like],
+                ["first_name", "like", like], ["last_name", "like", like],
+                ["email_id", "like", like], ["company_name", "like", like],
             ]),
             fields: JSON.stringify(["name", "first_name", "last_name", "email_id", "mobile_no", "phone", "company_name"]),
             limit_page_length: "10",
         });
-        const rows = (res as any)?.data ?? [];
-        if (!Array.isArray(rows) || rows.length === 0) return "No matching contacts in ERPNext.";
-        const lines = rows.map((r: any) => {
-            const name = [r.first_name, r.last_name].filter(Boolean).join(" ") || r.name;
-            const bits = [r.email_id && `email: ${r.email_id}`, (r.mobile_no || r.phone) && `phone: ${r.mobile_no || r.phone}`, r.company_name && `company: ${r.company_name}`].filter(Boolean);
-            return `- ${name}${bits.length ? ` (${bits.join(", ")})` : ""}`;
-        });
-        return `Contacts (from ERPNext):\n${lines.join("\n")}`;
+        const rows = (res as any)?.data;
+        if (!Array.isArray(rows)) return null;
+        return rows.map((r: any) => ({
+            name: [r.first_name, r.last_name].filter(Boolean).join(" ") || r.name,
+            email: r.email_id, phone: r.mobile_no || r.phone, company: r.company_name, from: "ERPNext" as const,
+        }));
     } catch {
-        return null; // fall back to native on any ERPNext error
+        return null; // ERPNext error → treated as "no ERPNext results", native still runs
     }
 }
 
-async function lookupNative(tenantId: string, q: string): Promise<string> {
+async function fetchNative(tenantId: string, q: string): Promise<ContactRow[]> {
     const like = `%${q}%`;
     const rows = await db.select().from(contacts)
         .where(and(eq(contacts.tenantId, tenantId), or(ilike(contacts.name, like), ilike(contacts.email, like), ilike(contacts.company, like))))
-        .orderBy(asc(contacts.name))
-        .limit(10);
-    if (rows.length === 0) return `No contacts match "${q}".`;
-    const lines = rows.map((c) => {
-        const bits = [c.email && `email: ${c.email}`, c.phone && `phone: ${c.phone}`, c.company && `company: ${c.company}`, c.title && `title: ${c.title}`].filter(Boolean);
-        return `- ${c.name}${bits.length ? ` (${bits.join(", ")})` : ""}`;
-    });
-    return `Contacts:\n${lines.join("\n")}`;
+        .orderBy(asc(contacts.name)).limit(10);
+    return rows.map((c) => ({ name: c.name, email: c.email, phone: c.phone, company: c.company, title: c.title, from: "address book" as const }));
 }
 
 export const contactLookupTool: Tool = {
     name: "contact_lookup",
     source: "builtin",
     description:
-        "Look up a person in the address book by name, email or company — use this to resolve who to email/call when the user says 'email <name>'. " +
-        "Returns matching contacts with their email, phone and company. Reads from ERPNext when the workspace uses it, otherwise the built-in contacts store.",
+        "Look up a person by name, email or company — use this to resolve who to email/call when the user says 'email <name>'. " +
+        "Searches the built-in address book, plus ERPNext when the workspace is connected to it. Returns email, phone and company.",
     parameters: {
         type: "object",
         properties: { query: { type: "string", description: "Name, email, or company to search for." } },
@@ -90,12 +82,26 @@ export const contactLookupTool: Tool = {
         if (!q) return { result: "Provide a name, email, or company to search for." };
         const agentId = typeof args?._agentId === "string" ? args._agentId : undefined;
         const source = await resolveSource(tenantId, agentId);
+
+        const rows: ContactRow[] = [];
+        // Search ERPNext when it's the configured/auto source; ALWAYS also search the
+        // native store so contacts saved here are never missed.
         if (source === "erpnext") {
-            const erp = await lookupErpNext(tenantId, agentId, q);
-            if (erp !== null) return { result: erp };
-            // ERPNext unavailable → fall back to native
+            const erp = await fetchErpNext(tenantId, agentId, q);
+            if (erp) rows.push(...erp);
         }
-        return { result: await lookupNative(tenantId, q) };
+        rows.push(...await fetchNative(tenantId, q));
+
+        // De-dupe by email (or name when no email), keep the first (ERPNext wins).
+        const seen = new Set<string>();
+        const uniq = rows.filter((r) => { const k = (r.email || r.name).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+        if (uniq.length === 0) return { result: `No contact matches "${q}".` };
+
+        const lines = uniq.map((r) => {
+            const bits = [r.email && `email: ${r.email}`, r.phone && `phone: ${r.phone}`, r.company && `company: ${r.company}`, r.title && `title: ${r.title}`].filter(Boolean);
+            return `- ${r.name}${bits.length ? ` (${bits.join(", ")})` : ""} [${r.from}]`;
+        });
+        return { result: `Contacts matching "${q}":\n${lines.join("\n")}` };
     },
 };
 
