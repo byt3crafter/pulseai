@@ -9,6 +9,8 @@ import { hashToken } from "../middleware/api-token-auth.js";
 import { db } from "../../storage/db.js";
 import { apiTokens } from "../../storage/schema.js";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { getJobRunnerRuntime } from "../../cron/job-runner.js";
 import type { WebSocket } from "ws";
 
 interface WsClient {
@@ -71,6 +73,57 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                 // Handle ping
                 if (msg.type === "ping") {
                     socket.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+                    return;
+                }
+
+                // Live chat: run the agent and stream its response back over this
+                // socket. Progressive content arrives as agent.streaming; the final
+                // reply as agent.message. Reuses the exact same processMessage brain
+                // (memory, tools, approvals) as Telegram — just a browser surface.
+                if (msg.type === "chat") {
+                    const text = String(msg.text || "").trim();
+                    if (!text) return;
+                    const runtime = getJobRunnerRuntime();
+                    if (!runtime) {
+                        socket.send(JSON.stringify({ type: "error", message: "Assistant is starting up — try again in a moment." }));
+                        return;
+                    }
+                    const inbound: any = {
+                        id: randomUUID(),
+                        tenantId,
+                        agentProfileId: msg.agentProfileId || undefined,
+                        channelType: "webapp",
+                        // Stable per-tenant web contact → one persistent web conversation
+                        // (memory carries across reloads, like Telegram).
+                        channelContactId: `web-${tenantId}`,
+                        content: text,
+                        receivedAt: new Date(),
+                        trigger: "chat",
+                    };
+                    socket.send(JSON.stringify({ type: "chat.accepted" }));
+                    runtime.processMessage(
+                        inbound,
+                        async (outbound: any) => {
+                            socket.send(JSON.stringify({
+                                type: "agent.message",
+                                conversationId: outbound.conversationId,
+                                agentProfileId: outbound.agentProfileId,
+                                content: outbound.content,
+                            }));
+                            return { channelMessageId: `web-${Date.now()}` };
+                        },
+                        {
+                            // Progressive content (text stream on no-tool turns, step
+                            // trail on tool turns) → live "typing" in the browser.
+                            editMessageCallback: async (_tid: string, _cid: string, _mid: string, content: string) => {
+                                socket.send(JSON.stringify({ type: "agent.streaming", content }));
+                            },
+                        }
+                    ).catch((err: unknown) => {
+                        logger.error({ err, tenantId }, "web chat processMessage failed");
+                        socket.send(JSON.stringify({ type: "error", message: "The assistant hit an error handling that." }));
+                    });
+                    return;
                 }
             } catch {
                 // Ignore malformed messages
