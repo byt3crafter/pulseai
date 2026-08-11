@@ -94,7 +94,7 @@ function credentialsProvider() {
     });
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
+export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth(async () => {
     // Build providers dynamically: Credentials always; OIDC only when an admin
     // has configured + enabled SSO (so default behavior is unchanged).
     const sso = await resolveSso().catch(() => null);
@@ -117,7 +117,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
         providers,
         callbacks: {
             ...authConfig.callbacks,
-            async jwt({ token, user, account, profile, trigger }) {
+            async jwt({ token, user, account, profile, trigger, session }) {
                 // OIDC sign-in → JIT-provision the Pulse user and stamp the token.
                 if (account?.provider === "sso" && profile) {
                     const prov = await provisionSsoUser(profile as Record<string, unknown>);
@@ -134,27 +134,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth(async () => {
                     return token;
                 }
 
-                // Delegate to base callback for credentials sign-in (sets all token fields)
-                const result = authConfig.callbacks!.jwt!({ token, user, trigger } as any);
+                // Delegate to base callback for credentials sign-in (sets all token
+                // fields) and to fold in session updates (trigger === "update").
+                //
+                // NOTE: we deliberately do NOT re-read onboardingComplete from the DB
+                // here. This Node callback and the Edge middleware (auth.config.ts,
+                // which cannot touch the DB) must agree on the SAME cookie value —
+                // otherwise Node reports "complete", the onboarding page redirects to
+                // /dashboard, the Edge middleware still sees "incomplete" and bounces
+                // back to /onboarding → infinite redirect loop. The cookie is refreshed
+                // authoritatively via unstable_update() in completeOnboardingAction.
+                const result = authConfig.callbacks!.jwt!({ token, user, trigger, session } as any);
                 const tok = result instanceof Promise ? await result : result;
-
-                // After onboarding completes, the DB has onboardingComplete=true but the
-                // JWT still has false. Re-check the DB so the user doesn't need to re-login.
-                if (tok.onboardingComplete === false && tok.id) {
-                    try {
-                        const [row] = await db
-                            .select({ onboardingComplete: users.onboardingComplete })
-                            .from(users)
-                            .where(eq(users.id, tok.id as string))
-                            .limit(1);
-                        if (row?.onboardingComplete === true) {
-                            tok.onboardingComplete = true;
-                        }
-                    } catch {
-                        // Ignore — will re-check next request
-                    }
-                }
-
                 return tok;
             },
         },

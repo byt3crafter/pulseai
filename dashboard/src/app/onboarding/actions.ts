@@ -16,7 +16,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { encrypt } from "../../utils/crypto";
 import { requireTenant } from "../../utils/tenant-auth";
-import { auth } from "../../auth";
+import { auth, unstable_update } from "../../auth";
 import { initializeWorkspace, WORKSPACE_DEFAULTS } from "../../utils/workspace";
 
 // ─── Step 1: Change Password ─────────────────────────────────────────────────
@@ -695,6 +695,17 @@ export async function completeOnboardingAction() {
         .update(users)
         .set({ onboardingComplete: true, updatedAt: new Date() })
         .where(eq(users.id, session.user.id));
+
+    // Rewrite the session cookie so the Edge middleware sees onboardingComplete=true
+    // immediately. Without this the DB says true but the JWT cookie stays false, and
+    // the middleware (Edge, no DB access) keeps bouncing /dashboard → /onboarding while
+    // the onboarding page (Node, re-reads DB) bounces back → infinite redirect loop.
+    try {
+        await unstable_update({ user: { onboardingComplete: true } } as any);
+    } catch (e) {
+        console.error("Failed to refresh session after onboarding:", e);
+        // Non-fatal: the DB is authoritative; a re-login also clears the stale cookie.
+    }
 
     revalidatePath("/onboarding");
     return { success: true };
