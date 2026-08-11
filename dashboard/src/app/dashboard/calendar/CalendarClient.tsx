@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
     CalendarDaysIcon,
+    GlobeAltIcon,
     MagnifyingGlassIcon,
     MapPinIcon,
     PencilIcon,
@@ -13,7 +14,33 @@ import {
     XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Card, EmptyState, SettingHint, Toggle } from "../../../components/dashboard/ui";
-import { deleteEventAction, getEvents, saveEventAction, type EventRow } from "./actions";
+import { deleteEventAction, getEvents, saveEventAction, saveTimezoneAction, type EventRow } from "./actions";
+
+/** Fallback list when the runtime doesn't support Intl.supportedValuesOf (older Node/browsers). */
+const FALLBACK_TIMEZONES = [
+    "UTC",
+    "Africa/Gaborone",
+    "Africa/Johannesburg",
+    "Europe/London",
+    "Europe/Paris",
+    "America/New_York",
+    "America/Los_Angeles",
+    "Asia/Dubai",
+    "Asia/Singapore",
+    "Australia/Sydney",
+];
+
+function listTimezones(): string[] {
+    const supported = (Intl as any).supportedValuesOf;
+    if (typeof supported === "function") {
+        try {
+            return supported("timeZone");
+        } catch {
+            return FALLBACK_TIMEZONES;
+        }
+    }
+    return FALLBACK_TIMEZONES;
+}
 
 type FormState = {
     id: string;
@@ -46,48 +73,50 @@ function toLocalInputValue(iso: string | null): string {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** Local midnight-to-midnight day key, so grouping ignores time-of-day. */
-function dayKey(iso: string): string {
-    const d = new Date(iso);
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+/** Calendar-day key (YYYY-MM-DD) as seen in the given IANA timezone, so grouping ignores time-of-day. */
+function dayKey(iso: string, timeZone: string): string {
+    return new Date(iso).toLocaleDateString("en-CA", { timeZone });
 }
 
-function formatDayHeading(iso: string): string {
-    const d = new Date(iso);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-    if (day.getTime() === today.getTime()) return "Today";
-    if (day.getTime() === tomorrow.getTime()) return "Tomorrow";
-    return d.toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "short" });
+/** Shift a YYYY-MM-DD key by `days`, calendar-arithmetic only (no timezone involved). */
+function shiftDayKey(key: string, days: number): string {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-function formatTimeRange(ev: EventRow): string {
+function formatDayHeading(iso: string, timeZone: string): string {
+    const key = dayKey(iso, timeZone);
+    const todayKey = dayKey(new Date().toISOString(), timeZone);
+    const tomorrowKey = shiftDayKey(todayKey, 1);
+
+    if (key === todayKey) return "Today";
+    if (key === tomorrowKey) return "Tomorrow";
+    return new Date(iso).toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "short", timeZone });
+}
+
+function formatTimeRange(ev: EventRow, timeZone: string): string {
     if (ev.allDay) return "All day";
-    const start = new Date(ev.startsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const start = new Date(ev.startsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone });
     if (!ev.endsAt) return start;
-    const end = new Date(ev.endsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const end = new Date(ev.endsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone });
     return `${start} – ${end}`;
 }
 
-function groupByDay(list: EventRow[]) {
+function groupByDay(list: EventRow[], timeZone: string) {
     const groups: { key: string; heading: string; events: EventRow[] }[] = [];
     const index = new Map<string, number>();
     for (const ev of list) {
-        const key = dayKey(ev.startsAt);
+        const key = dayKey(ev.startsAt, timeZone);
         if (!index.has(key)) {
             index.set(key, groups.length);
-            groups.push({ key, heading: formatDayHeading(ev.startsAt), events: [] });
+            groups.push({ key, heading: formatDayHeading(ev.startsAt, timeZone), events: [] });
         }
         groups[index.get(key)!].events.push(ev);
     }
     return groups;
 }
 
-export default function CalendarClient({ events }: { events: EventRow[] }) {
+export default function CalendarClient({ events, timezone: initialTimezone }: { events: EventRow[]; timezone: string }) {
     const router = useRouter();
     const [, startTransition] = useTransition();
 
@@ -96,6 +125,30 @@ export default function CalendarClient({ events }: { events: EventRow[] }) {
     const [pastLoading, setPastLoading] = useState(false);
     const [allEvents, setAllEvents] = useState<EventRow[] | null>(null);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    const [timezone, setTimezone] = useState(initialTimezone);
+    const [tzSaving, setTzSaving] = useState(false);
+    const timezoneOptions = useMemo(() => listTimezones(), []);
+
+    // Resync when the server refetches with a newly-saved timezone (router.refresh()).
+    useEffect(() => {
+        setTimezone(initialTimezone);
+    }, [initialTimezone]);
+
+    function handleTimezoneChange(tz: string) {
+        setTimezone(tz);
+        setTzSaving(true);
+        startTransition(async () => {
+            const res = await saveTimezoneAction(tz);
+            setTzSaving(false);
+            if (res.success) {
+                router.refresh();
+            } else {
+                setTimezone(initialTimezone);
+                setMessage({ type: "error", text: res.message || "Failed to save timezone." });
+            }
+        });
+    }
 
     const [formOpen, setFormOpen] = useState(false);
     const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -114,7 +167,7 @@ export default function CalendarClient({ events }: { events: EventRow[] }) {
         });
     }, [sourceEvents, search]);
 
-    const grouped = useMemo(() => groupByDay(filtered), [filtered]);
+    const grouped = useMemo(() => groupByDay(filtered, timezone), [filtered, timezone]);
 
     function refreshEvents() {
         router.refresh();
@@ -246,6 +299,28 @@ export default function CalendarClient({ events }: { events: EventRow[] }) {
                         className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text placeholder-pulse-faint outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
                     />
                 </div>
+                <div className="flex items-center gap-1.5 text-sm">
+                    <label
+                        htmlFor="workspace-timezone"
+                        className="inline-flex items-center gap-1.5 text-pulse-muted whitespace-nowrap"
+                    >
+                        <GlobeAltIcon className="w-4 h-4 text-pulse-faint" aria-hidden="true" />
+                        Timezone
+                    </label>
+                    <select
+                        id="workspace-timezone"
+                        value={timezone}
+                        onChange={(e) => handleTimezoneChange(e.target.value)}
+                        disabled={tzSaving}
+                        aria-label="Workspace timezone"
+                        className="border border-pulse-border rounded-lg px-2.5 py-1.5 text-sm text-pulse-text bg-pulse-panel outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-60 max-w-[11rem]"
+                    >
+                        {timezoneOptions.map((tz) => (
+                            <option key={tz} value={tz}>{tz}</option>
+                        ))}
+                    </select>
+                    {tzSaving && <span className="text-xs text-pulse-faint whitespace-nowrap">saving…</span>}
+                </div>
                 <label className="inline-flex items-center gap-2 text-sm text-pulse-muted cursor-pointer select-none">
                     <Toggle checked={showPast} onChange={handleTogglePast} label="Show past events" />
                     Show past events
@@ -259,6 +334,9 @@ export default function CalendarClient({ events }: { events: EventRow[] }) {
                     <PlusIcon className="w-4 h-4" aria-hidden="true" />
                     Add event
                 </button>
+            </div>
+            <div className="-mt-2 mb-4">
+                <SettingHint>The assistant uses this timezone for scheduling.</SettingHint>
             </div>
 
             {/* Add/edit form */}
@@ -302,6 +380,7 @@ export default function CalendarClient({ events }: { events: EventRow[] }) {
                                     onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))}
                                     className="w-full px-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
                                 />
+                                <p className="text-xs text-pulse-faint mt-1">Entered in your local time.</p>
                             </div>
                             <div>
                                 <label htmlFor="event-ends" className="block text-xs font-medium text-pulse-muted mb-1.5">End</label>
@@ -429,7 +508,7 @@ export default function CalendarClient({ events }: { events: EventRow[] }) {
                                                 className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 rounded-lg px-2 py-2 -mx-2 hover:bg-pulse-hover"
                                             >
                                                 <div className="w-full sm:w-28 flex-shrink-0 text-xs text-pulse-muted pt-0.5">
-                                                    {formatTimeRange(ev)}
+                                                    {formatTimeRange(ev, timezone)}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-pulse-text">{ev.title}</p>
@@ -478,7 +557,7 @@ export default function CalendarClient({ events }: { events: EventRow[] }) {
                     </div>
                 )}
             </Card>
-            <SettingHint>Times are shown in your browser's local timezone.</SettingHint>
+            <SettingHint>Times shown in the workspace timezone ({timezone}).</SettingHint>
         </div>
     );
 }

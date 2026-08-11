@@ -1,9 +1,9 @@
 "use server";
 
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
-import { events } from "../../../storage/schema";
+import { events, tenants } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { logAudit } from "../../../utils/audit";
 
@@ -57,6 +57,60 @@ export async function getEvents(includePast: boolean = false): Promise<EventRow[
     } catch (error) {
         console.error("Failed to load events:", error);
         return [];
+    }
+}
+
+/** Read the workspace's IANA timezone from tenant config. Defaults to "UTC". Returns "UTC" on auth failure. */
+export async function getTimezone(): Promise<string> {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return "UTC";
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const [row] = await db.select({ config: tenants.config })
+            .from(tenants)
+            .where(eq(tenants.id, tenantId))
+            .limit(1);
+
+        const tz = (row?.config as any)?.timezone;
+        return typeof tz === "string" && tz ? tz : "UTC";
+    } catch (error) {
+        console.error("Failed to load workspace timezone:", error);
+        return "UTC";
+    }
+}
+
+/** Set the workspace's IANA timezone. The assistant uses this for scheduling; the calendar uses it for display. */
+export async function saveTimezoneAction(tz: string) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const timezone = (tz || "").trim();
+    try {
+        new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    } catch {
+        return { success: false, message: "Invalid timezone." };
+    }
+
+    try {
+        await db.execute(
+            sql`UPDATE tenants SET config = config || ${JSON.stringify({ timezone })}::jsonb, updated_at = now() WHERE id = ${tenantId}::uuid`
+        );
+
+        await logAudit({
+            action: "workspace.timezone.update",
+            targetType: "settings",
+            tenantId,
+            summary: `Timezone set to ${timezone}`,
+            metadata: { tz: timezone },
+        });
+
+        revalidatePath("/dashboard/calendar");
+        return { success: true, message: "Timezone saved." };
+    } catch (error) {
+        console.error("Failed to save workspace timezone:", error);
+        return { success: false, message: "Failed to save timezone." };
     }
 }
 
