@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon, TrashIcon, ChevronDownIcon, SunIcon, SwatchIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon, TrashIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
     updateProfileNameAction,
@@ -64,13 +64,13 @@ interface CredentialInfo {
 
 const TABS = [
     { id: "account", label: "Account" },
-    { id: "appearance", label: "Appearance", icon: SwatchIcon },
+    { id: "appearance", label: "Appearance" },
     { id: "integrations", label: "Integrations" },
     { id: "telegram", label: "Telegram" },
     { id: "providers", label: "AI Providers" },
     { id: "tools", label: "Workspace Tools" },
     { id: "memory", label: "Memory" },
-    { id: "briefing", label: "Briefing", icon: SunIcon },
+    { id: "briefing", label: "Briefing" },
     { id: "email", label: "Email" },
     { id: "credentials", label: "Credentials" },
     { id: "api", label: "API & Developer" },
