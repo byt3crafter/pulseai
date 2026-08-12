@@ -48,6 +48,7 @@ export interface ChatSession {
     title: string;
     updatedAt: string;
     preview: string;
+    pinned: boolean;
 }
 
 function contactPrefix(tenantId: string) {
@@ -72,7 +73,7 @@ export async function listSessionsAction(): Promise<ChatSession[]> {
 
     try {
         const convs = await db
-            .select({ id: conversations.id, contactId: conversations.channelContactId, title: conversations.contactName, updatedAt: conversations.updatedAt })
+            .select({ id: conversations.id, contactId: conversations.channelContactId, title: conversations.contactName, updatedAt: conversations.updatedAt, metadata: conversations.metadata })
             .from(conversations)
             .where(and(
                 eq(conversations.tenantId, tenantId),
@@ -106,12 +107,41 @@ export async function listSessionsAction(): Promise<ChatSession[]> {
                 title: (c.title && c.title.trim()) || derived,
                 updatedAt: c.updatedAt?.toISOString() ?? new Date(0).toISOString(),
                 preview: (lastMsg[0]?.content || "").replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "").replace(/<\/?think(?:ing)?>/gi, "").trim().slice(0, 80),
+                pinned: (c.metadata as any)?.pinned === true,
             });
         }
+        // Pinned first, then most-recent — the client renders them in two groups.
+        out.sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || (b.updatedAt.localeCompare(a.updatedAt)));
         return out;
     } catch (e) {
         console.error("Failed to list chat sessions:", e);
         return [];
+    }
+}
+
+/** Pin or unpin a session (stored on conversations.metadata.pinned). */
+export async function pinSessionAction(sessionId: string, pinned: boolean) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+    try {
+        const contactId = contactFromSession(tenantId, (sessionId || "").slice(0, 64));
+        const [conv] = await db
+            .select({ id: conversations.id, metadata: conversations.metadata })
+            .from(conversations)
+            .where(and(
+                eq(conversations.tenantId, tenantId),
+                eq(conversations.channelType, "webapp"),
+                eq(conversations.channelContactId, contactId),
+            ))
+            .limit(1);
+        if (!conv) return { success: false as const, message: "Chat not found." };
+        const meta = { ...((conv.metadata as Record<string, any>) || {}), pinned: !!pinned };
+        await db.update(conversations).set({ metadata: meta }).where(eq(conversations.id, conv.id));
+        return { success: true as const };
+    } catch (e) {
+        console.error("Failed to pin session:", e);
+        return { success: false as const, message: "Could not update this chat." };
     }
 }
 
