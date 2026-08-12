@@ -187,6 +187,16 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "followups",
+        title: "Follow-ups",
+        description: "Let an agent remember what it's waiting on (e.g. a reply to a quotation) and chase it.",
+        tools: [
+            { name: "commitment_create", label: "Add follow-up", description: "Record something to follow up on, with a due date.", defaultOn: false },
+            { name: "commitment_list", label: "List follow-ups", description: "See open follow-ups / things it's waiting on.", defaultOn: false },
+            { name: "commitment_complete", label: "Close follow-up", description: "Mark a follow-up resolved or dismiss it.", defaultOn: false },
+        ],
+    },
+    {
         key: "documents",
         title: "Documents",
         description: "Let an agent find and read files in your document locker (contracts, quotes, receipts).",
