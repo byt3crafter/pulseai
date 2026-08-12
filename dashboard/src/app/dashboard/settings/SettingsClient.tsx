@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon, TrashIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon, TrashIcon, ChevronDownIcon, SunIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
     updateProfileNameAction,
@@ -37,6 +37,8 @@ import {
 } from "./actions";
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import WorkspaceToolsTab from "./WorkspaceToolsTab";
+import BriefingTab from "./BriefingTab";
+import type { BriefingConfig } from "./actions";
 import { PROVIDERS } from "../../../utils/models";
 import { CHANNEL_SETUP_CATALOG, type ChannelSetupDefinition } from "../../../utils/channel-catalog";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../../utils/pkce";
@@ -66,6 +68,7 @@ const TABS = [
     { id: "providers", label: "AI Providers" },
     { id: "tools", label: "Workspace Tools" },
     { id: "memory", label: "Memory" },
+    { id: "briefing", label: "Briefing", icon: SunIcon },
     { id: "email", label: "Email" },
     { id: "credentials", label: "Credentials" },
     { id: "api", label: "API & Developer" },
@@ -159,6 +162,7 @@ interface Props {
         threshold: number;
         maxResults: number;
     };
+    briefingConfig: BriefingConfig;
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -177,7 +181,7 @@ export default function SettingsClient({
     tab, initialPlugin, timezone, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -206,6 +210,12 @@ export default function SettingsClient({
                                         : "text-pulse-muted hover:text-pulse-text hover:bg-pulse-hover"
                                         }`}
                                 >
+                                    {(t as any).icon && (
+                                        (() => {
+                                            const TabIcon = (t as any).icon;
+                                            return <TabIcon className="inline w-4 h-4 mr-1.5 -mt-0.5" aria-hidden="true" />;
+                                        })()
+                                    )}
                                     {t.label}
                                     {t.id === "telegram" && pendingPairings.length > 0 && (
                                         <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
@@ -234,6 +244,7 @@ export default function SettingsClient({
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
                     {tab === "tools" && <WorkspaceToolsTab enabledTools={enabledTools} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
+                    {tab === "briefing" && <BriefingTab config={briefingConfig} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} toolSearchConfig={toolSearchConfig} initialPlugin={initialPlugin} />}
                     {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} managedBy={Object.fromEntries(plugins.flatMap((p) => p.config.credentialSchema.map((f) => [f.name.toUpperCase(), p.name])))} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}

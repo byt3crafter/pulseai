@@ -2,7 +2,7 @@
 
 import { auth, signIn } from "../../../auth";
 import { db } from "../../../storage/db";
-import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pairingCodes, agentProfiles, apiTokens } from "../../../storage/schema";
+import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pairingCodes, agentProfiles, apiTokens, scheduledJobs } from "../../../storage/schema";
 import { eq, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -1411,5 +1411,177 @@ export async function saveWorkspaceToolsAction(enabledNames: string[]) {
     } catch (error) {
         console.error("Failed to save workspace tools:", error);
         return { success: false, message: "Failed to update workspace tools." };
+    }
+}
+
+// ─── Daily Briefing ─────────────────────────────────────────────────────────
+
+export interface BriefingConfig {
+    enabled: boolean;
+    time: string; // "HH:MM"
+    days: "daily" | "weekdays" | "mon-sat";
+    recipientEmail: string;
+    channels: { inbox: boolean; email: boolean };
+}
+
+const BRIEFING_DAY_OPTIONS = ["daily", "weekdays", "mon-sat"] as const;
+
+const DEFAULT_BRIEFING_CONFIG: BriefingConfig = {
+    enabled: false,
+    time: "07:00",
+    days: "mon-sat",
+    recipientEmail: "",
+    channels: { inbox: true, email: true },
+};
+
+function normalizeBriefingTime(time: unknown): string {
+    if (typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return time;
+    return DEFAULT_BRIEFING_CONFIG.time;
+}
+
+function briefingDayspec(days: BriefingConfig["days"]): string {
+    if (days === "daily") return "*";
+    if (days === "weekdays") return "1-5";
+    return "1-6"; // mon-sat
+}
+
+/** Reads the tenant's saved daily-briefing config, or sensible defaults if unset. */
+export async function getBriefingConfig(): Promise<BriefingConfig> {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return DEFAULT_BRIEFING_CONFIG;
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const [row] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        const briefing = (row?.config as Record<string, any>)?.briefing;
+        if (!briefing || typeof briefing !== "object") return DEFAULT_BRIEFING_CONFIG;
+
+        return {
+            enabled: briefing.enabled === true,
+            time: normalizeBriefingTime(briefing.time),
+            days: BRIEFING_DAY_OPTIONS.includes(briefing.days) ? briefing.days : DEFAULT_BRIEFING_CONFIG.days,
+            recipientEmail: typeof briefing.recipientEmail === "string" ? briefing.recipientEmail : "",
+            channels: {
+                inbox: briefing.channels?.inbox !== false,
+                email: briefing.channels?.email !== false,
+            },
+        };
+    } catch (error) {
+        console.error("Failed to load daily briefing config:", error);
+        return DEFAULT_BRIEFING_CONFIG;
+    }
+}
+
+function buildBriefingMessage(recipientEmail: string, channels: { inbox: boolean; email: boolean }): string {
+    const deliveryLines: string[] = [];
+    if (channels.inbox) {
+        deliveryLines.push(`- Post ONE notification with the notify tool (title "Your daily briefing", body = the full digest) to the owner's inbox.`);
+    }
+    if (channels.email) {
+        deliveryLines.push(`- Send the digest by email with email_send to ${recipientEmail} (subject "Daily briefing").`);
+    }
+
+    return `[Daily briefing — running automatically each morning. Assemble ONE concise briefing for the owner. You are not talking to a person right now.]
+Gather ONLY what the tools actually return (never invent data):
+- Email: call email_list (read-only, does not mark mail read) and note anything needing attention.
+- Follow-ups: call commitment_list — what is pending, and flag anything OVERDUE.
+- Tasks: call task_list and todo_list — what is pending or due.
+- Calendar: call calendar_list for today's events.
+Then deliver the briefing:
+${deliveryLines.join("\n")}
+Keep it tight and scannable: a short section per area with a few bullets, then your top 1-3 recommendations for the day. If a section has nothing, say "nothing". `;
+}
+
+export async function saveBriefingSettingsAction(config: {
+    enabled: boolean;
+    time: string;
+    days: "daily" | "weekdays" | "mon-sat";
+    recipientEmail: string;
+    channels: { inbox: boolean; email: boolean };
+}) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const enabled = config.enabled === true;
+    const time = normalizeBriefingTime(config?.time);
+    const days = BRIEFING_DAY_OPTIONS.includes(config?.days) ? config.days : DEFAULT_BRIEFING_CONFIG.days;
+    const recipientEmail = (config?.recipientEmail || "").trim();
+    const channels = {
+        inbox: config?.channels?.inbox !== false,
+        email: config?.channels?.email !== false,
+    };
+    if (!channels.inbox && !channels.email) channels.inbox = true;
+
+    if (enabled && channels.email && !recipientEmail) {
+        return { success: false, message: "Add a recipient email for email delivery, or disable the email channel." };
+    }
+
+    try {
+        // 1-2. Persist the config on the tenant record (jsonb merge, same pattern
+        // as the other settings.write actions in this file).
+        await db.execute(
+            sql`UPDATE tenants
+                SET config = config || ${JSON.stringify({
+                    briefing: { enabled, time, days, recipientEmail, channels },
+                })}::jsonb,
+                updated_at = now()
+                WHERE id = ${tenantId}::uuid`
+        );
+
+        // 4. The briefing needs an agent to run as — use the tenant's primary agent.
+        const agent = await db.query.agentProfiles.findFirst({ where: eq(agentProfiles.tenantId, tenantId) });
+        if (!agent) {
+            return { success: false, message: "Add an agent first." };
+        }
+
+        // 5. Tenant timezone (used by the scheduler to resolve the local cron time).
+        const [tenantRow] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        const timezone = (tenantRow?.config as Record<string, any>)?.timezone || "UTC";
+
+        // 3. Derive the cron expression from time + days.
+        const [h, m] = time.split(":");
+        const cronExpression = `${Number(m)} ${Number(h)} * * ${briefingDayspec(days)}`;
+
+        // 6. Build the briefing prompt.
+        const message = buildBriefingMessage(recipientEmail, channels);
+
+        // 7. Upsert the "Daily briefing" scheduled job for this tenant.
+        const [existingJob] = await db
+            .select({ id: scheduledJobs.id })
+            .from(scheduledJobs)
+            .where(and(eq(scheduledJobs.tenantId, tenantId), eq(scheduledJobs.name, "Daily briefing")))
+            .limit(1);
+
+        if (existingJob) {
+            await db.update(scheduledJobs)
+                .set({
+                    scheduleType: "cron",
+                    cronExpression,
+                    message,
+                    timezone,
+                    agentId: agent.id,
+                    enabled,
+                    updatedAt: new Date(),
+                })
+                .where(eq(scheduledJobs.id, existingJob.id));
+        } else {
+            await db.insert(scheduledJobs).values({
+                tenantId,
+                agentId: agent.id,
+                name: "Daily briefing",
+                scheduleType: "cron",
+                cronExpression,
+                message,
+                timezone,
+                enabled,
+            });
+        }
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: "Daily briefing saved." };
+    } catch (error) {
+        console.error("Failed to save daily briefing settings:", error);
+        return { success: false, message: "Failed to save daily briefing settings." };
     }
 }
