@@ -7,6 +7,8 @@ import {
     ChevronDoubleLeftIcon, ChevronDoubleRightIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
+import { getLiveModelsAction } from "../agents/actions";
+import { getActiveProvidersAction } from "../agents/[id]/actions";
 import {
     getChatTokenAction, listSessionsAction, getSessionHistoryAction,
     renameSessionAction, deleteSessionAction, pinSessionAction, type ChatSession,
@@ -62,6 +64,10 @@ export default function AssistantClient({
     // Session pending deletion → shows the in-app confirm modal (no browser popup).
     const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
 
+    // Model picker — change the model on the fly. "" = the agent's own model.
+    const [model, setModel] = useState<string>("");
+    const [models, setModels] = useState<{ id: string; label: string; provider: string }[]>([]);
+
     // Persisted settings (nothing hardcoded).
     const [reasoning, setReasoning] = useState<string>("auto");
     const [showThinking, setShowThinking] = useState<boolean>(true);
@@ -87,6 +93,25 @@ export default function AssistantClient({
     const isMobile = () => typeof window !== "undefined" && window.innerWidth < 768;
     useEffect(() => { try { localStorage.setItem("pulse_reasoning", reasoning); } catch { } }, [reasoning]);
     useEffect(() => { try { localStorage.setItem("pulse_show_thinking", showThinking ? "1" : "0"); } catch { } }, [showThinking]);
+    useEffect(() => { try { const m = localStorage.getItem("pulse_assistant_model"); if (m) setModel(m); } catch { } }, []);
+    useEffect(() => { try { localStorage.setItem("pulse_assistant_model", model); } catch { } }, [model]);
+
+    // Load the models the tenant can pick (across connected providers) for the picker.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const providers = await getActiveProvidersAction();
+                const lists = await Promise.all(providers.map((p) => getLiveModelsAction(p)));
+                if (cancelled) return;
+                const flat = lists.flat().map((m) => ({ id: m.id, label: m.displayName || m.id, provider: m.provider }));
+                // De-dup by id, keep provider order.
+                const seen = new Set<string>();
+                setModels(flat.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true))));
+            } catch { /* leave picker at Default only */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
     useEffect(() => { try { localStorage.setItem("pulse_rail_open", railOpen ? "1" : "0"); } catch { } }, [railOpen]);
 
     const scrollToBottom = useCallback(() => {
@@ -178,6 +203,7 @@ export default function AssistantClient({
             agentProfileId: agentId || undefined,
             sessionId: sessionRef.current,
             reasoningEffort: reasoning,
+            model: model || undefined,
         }));
         // Reset the box height and keep focus so the user can type again straight away.
         requestAnimationFrame(() => {
@@ -461,6 +487,15 @@ export default function AssistantClient({
                         </div>
                         {/* Compact controls */}
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-pulse-faint">
+                            {models.length > 0 && (
+                                <label className="flex items-center gap-1">
+                                    <span>Model</span>
+                                    <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[11rem] rounded border border-pulse-border-subtle bg-pulse-panel px-1 py-0.5 text-[11px] text-pulse-text-soft outline-none focus:ring-1 focus:ring-indigo-500">
+                                        <option value="">Default ({activeAgent?.name ?? "agent"}&apos;s model)</option>
+                                        {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                    </select>
+                                </label>
+                            )}
                             <label className="flex items-center gap-1">
                                 <SparklesIcon className="h-3 w-3" />
                                 <span>Reasoning</span>

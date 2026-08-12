@@ -79,6 +79,10 @@ export class AgentRuntime {
             // Telegram-like feel even on tool-enabled agents. Telegram leaves it unset
             // and keeps its placeholder+progress-trail behaviour.
             forceStream?: boolean;
+            // Per-invocation model override (the assistant's model picker). Wins over
+            // the agent's own model. The provider is resolved from the model id, so a
+            // Claude/OpenAI/MiniMax id works if that provider's key is configured.
+            modelOverride?: string;
         }
     ): Promise<void> {
         const tenantLog = logger.child({ tenantId: inbound.tenantId, channel: inbound.channelType });
@@ -719,6 +723,12 @@ export class AgentRuntime {
             // Per-invocation override (web chat composer) wins over the agent default.
             if (options?.reasoningEffort) {
                 activeReasoningEffort = options.reasoningEffort === "auto" ? undefined : options.reasoningEffort;
+            }
+            // Per-invocation MODEL override (assistant model picker). Provider is
+            // resolved from the model id downstream, so any configured provider works.
+            if (options?.modelOverride && options.modelOverride.trim()) {
+                activeModelId = options.modelOverride.trim();
+                tenantLog.debug({ modelOverride: activeModelId }, "Using per-message model override");
             }
 
             let llmResponse = await this.providerManager.chat({
