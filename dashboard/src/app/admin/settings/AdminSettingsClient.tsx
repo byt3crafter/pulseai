@@ -238,6 +238,7 @@ function BrandingTab({ initial, standaloneMode, canWrite }: { initial: any; stan
     const [companyName, setCompanyName] = useState(initial?.companyName ?? "Runstate Ltd");
     const [supportEmail, setSupportEmail] = useState(initial?.supportEmail ?? "");
     const [logo, setLogo] = useState<string | null>(initial?.logoDataUrl ?? null);
+    const [accent, setAccent] = useState<string>((initial as any)?.accent ?? "");
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -269,7 +270,7 @@ function BrandingTab({ initial, standaloneMode, canWrite }: { initial: any; stan
 
     async function save() {
         setSaving(true); setMsg(null);
-        const res = await saveBrandingAction({ productName, companyName, logoDataUrl: logo, supportEmail: supportEmail || null });
+        const res = await saveBrandingAction({ productName, companyName, logoDataUrl: logo, supportEmail: supportEmail || null, accent: accent || null });
         setMsg({ ok: res.success, text: res.message });
         setSaving(false);
     }
@@ -301,6 +302,15 @@ function BrandingTab({ initial, standaloneMode, canWrite }: { initial: any; stan
                         {logo && <button type="button" onClick={() => setLogo(null)} className="text-xs text-red-500">Remove</button>}
                     </div>
                     <p className="mt-1 text-xs text-pulse-faint">Replaces the default mark. Downscaled to 128px. Leave empty to keep the default logo.</p>
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-pulse-text-soft mb-1">Accent color (optional)</label>
+                    <div className="flex items-center gap-3">
+                        <input type="color" value={accent || "#6470E6"} disabled={!canWrite} onChange={(e) => setAccent(e.target.value)} className="h-9 w-12 rounded-lg border border-pulse-border bg-pulse-panel cursor-pointer disabled:opacity-50" />
+                        <input value={accent} onChange={(e) => setAccent(e.target.value)} disabled={!canWrite} maxLength={7} placeholder="#6470E6" className="w-32 px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500" />
+                        {accent && <button type="button" onClick={() => setAccent("")} className="text-xs text-red-500">Reset</button>}
+                    </div>
+                    <p className="mt-1 text-xs text-pulse-faint">Accent for the admin console. Leave empty for the default theme color.</p>
                 </div>
                 <button type="button" onClick={save} disabled={!canWrite || saving} className="rounded-lg bg-pulse-accent px-4 py-2 text-sm font-medium text-white hover:bg-pulse-accent-hi disabled:opacity-50">
                     {saving ? "Saving…" : "Save branding"}

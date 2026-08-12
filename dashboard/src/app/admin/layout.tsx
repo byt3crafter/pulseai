@@ -11,6 +11,7 @@ import { db } from "../../storage/db";
 import { tenants } from "../../storage/schema";
 import { ui } from "../../components/admin/ui";
 import { getBranding, deploymentHost } from "../../utils/branding";
+import { accentOverrideCss } from "../../utils/accent";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,11 @@ export default async function AdminLayout({
     ]);
     const envHost = deploymentHost();
 
+    const accentCss = accentOverrideCss(branding.accent);
+
     return (
         <div className="flex flex-col h-screen bg-pulse-bg text-pulse-text font-sans">
+            {accentCss && <style dangerouslySetInnerHTML={{ __html: accentCss }} />}
             <script
                 dangerouslySetInnerHTML={{
                     __html: `(function(){try{var t=localStorage.getItem('pulse-admin-theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;}}catch(e){}})();`,

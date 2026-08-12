@@ -1038,6 +1038,7 @@ export async function saveBrandingAction(input: {
     companyName: string;
     logoDataUrl: string | null;
     supportEmail: string | null;
+    accent?: string | null;
 }) {
     const adminCheck = await requireAdmin("platform.settings.write");
     if (!adminCheck.authorized) return { success: false, message: "Unauthorized" };
@@ -1045,6 +1046,8 @@ export async function saveBrandingAction(input: {
     const productName = (input.productName || "").trim().slice(0, 60);
     const companyName = (input.companyName || "").trim().slice(0, 100);
     const supportEmail = (input.supportEmail || "").trim().slice(0, 160) || null;
+    const rawAccent = (input.accent || "").trim();
+    const accent = /^#[0-9a-fA-F]{6}$/.test(rawAccent) ? rawAccent : null; // empty/invalid → default
     let logoDataUrl = input.logoDataUrl || null;
     if (logoDataUrl) {
         // Only accept a small inline image data URL (uploaded + downscaled client-side).
@@ -1057,7 +1060,7 @@ export async function saveBrandingAction(input: {
     try {
         const cur = await db.query.globalSettings.findFirst({ where: (t, { eq: e }) => e(t.id, "root") }) as any;
         const cfg = cur?.config ? { ...cur.config } : {};
-        cfg.branding = { productName, companyName, logoDataUrl, supportEmail };
+        cfg.branding = { productName, companyName, logoDataUrl, supportEmail, accent };
         await db.insert(globalSettings)
             .values({ id: "root", config: cfg, updatedAt: new Date() })
             .onConflictDoUpdate({ target: globalSettings.id, set: { config: cfg, updatedAt: new Date() } });

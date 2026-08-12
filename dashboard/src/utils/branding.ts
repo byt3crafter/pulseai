@@ -13,6 +13,7 @@ export interface Branding {
     companyName: string;   // footer / copyright
     logoDataUrl: string | null; // optional square logo (data URL); falls back to the default mark
     supportEmail: string | null;
+    accent: string | null; // optional hex accent for the admin area; falls back to the base theme
 }
 
 export const BRANDING_DEFAULTS: Branding = {
@@ -20,6 +21,7 @@ export const BRANDING_DEFAULTS: Branding = {
     companyName: "Runstate Ltd",
     logoDataUrl: null,
     supportEmail: null,
+    accent: null,
 };
 
 export async function getBranding(): Promise<Branding> {
@@ -35,6 +37,7 @@ export async function getBranding(): Promise<Branding> {
             companyName: (b.companyName || "").trim() || BRANDING_DEFAULTS.companyName,
             logoDataUrl: b.logoDataUrl || null,
             supportEmail: b.supportEmail || null,
+            accent: (typeof b.accent === "string" && /^#[0-9a-fA-F]{6}$/.test(b.accent)) ? b.accent : null,
         };
     } catch {
         return BRANDING_DEFAULTS;

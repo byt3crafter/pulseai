@@ -16,6 +16,17 @@ interface DashboardShellProps {
     nav: React.ReactNode;
     userMenu: React.ReactNode;
     children: React.ReactNode;
+    /** Optional custom logo (data URI or URL). Falls back to the Pulse BrandMark. */
+    logo?: string;
+}
+
+/** The brand logo: a tenant's custom image if set, otherwise the default BrandMark. */
+function Mark({ size, logo }: { size: number; logo?: string }) {
+    if (logo) {
+        // eslint-disable-next-line @next/next/no-img-element
+        return <img src={logo} alt="" width={size} height={size} className="rounded-md object-contain" style={{ width: size, height: size }} />;
+    }
+    return <BrandMark size={size} />;
 }
 
 /**
@@ -26,7 +37,7 @@ interface DashboardShellProps {
  * passed in so they can stay client components without this file owning
  * their data-fetching.
  */
-export default function DashboardShell({ workspaceName, nav, userMenu, children }: DashboardShellProps) {
+export default function DashboardShell({ workspaceName, nav, userMenu, children, logo }: DashboardShellProps) {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
@@ -85,12 +96,12 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
                 <div className={`h-14 flex items-center border-b border-pulse-border-subtle flex-shrink-0 ${collapsed ? "justify-center px-0" : "px-5 justify-between"}`}>
                     {collapsed ? (
                         <Link href="/dashboard" aria-label={workspaceName} className="flex items-center justify-center">
-                            <BrandMark size={26} />
+                            <Mark size={26} logo={logo} />
                         </Link>
                     ) : (
                         <>
                             <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
-                                <BrandMark size={28} />
+                                <Mark size={28} logo={logo} />
                                 <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
                             </Link>
                             <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -161,7 +172,7 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
                 >
                     <div className="h-14 px-4 flex items-center justify-between border-b border-pulse-border-subtle flex-shrink-0">
                         <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0" onClick={() => setDrawerOpen(false)}>
-                            <BrandMark size={28} />
+                            <Mark size={28} logo={logo} />
                             <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
                         </Link>
                         <button
