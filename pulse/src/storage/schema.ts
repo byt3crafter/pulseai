@@ -1062,6 +1062,58 @@ export const bookmarks = pgTable(
     ]
 );
 
+// -- Expenses: simple expense/receipt ledger. receiptDocumentId links to a
+//    stored document (Phase 2 file store); NULL until a receipt is attached. --
+export const expenses = pgTable(
+    "expenses",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        amount: decimal("amount", { precision: 14, scale: 2 }).notNull(),
+        currency: varchar("currency", { length: 8 }),
+        vendor: text("vendor"),
+        category: text("category"),
+        description: text("description"),
+        spentAt: timestamp("spent_at", { withTimezone: true }),
+        receiptDocumentId: uuid("receipt_document_id"),
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_expenses_tenant").on(table.tenantId),
+        index("idx_expenses_tenant_spent").on(table.tenantId, table.spentAt),
+    ]
+);
+
+// -- Tasks / projects: hybrid work tracker. Agents auto-log real jobs (source
+//    'agent') and update status as they work; users add their own (source
+//    'user'). A "project" is just a task with children (parentId). --
+export const tasks = pgTable(
+    "tasks",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        title: text("title").notNull(),
+        description: text("description"),
+        status: varchar("status", { length: 16 }).default("todo"), // todo|doing|done|blocked
+        priority: varchar("priority", { length: 16 }).default("normal"), // low|normal|high
+        parentId: uuid("parent_id"), // self-ref (project → subtasks); no FK to avoid cascade friction
+        agentId: uuid("agent_id").references(() => agentProfiles.id), // owning/creating agent
+        source: varchar("source", { length: 16 }).default("user"), // agent|user
+        conversationId: uuid("conversation_id"), // the job/chat that spawned it (no FK on purpose)
+        dueAt: timestamp("due_at", { withTimezone: true }),
+        doneAt: timestamp("done_at", { withTimezone: true }),
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_tasks_tenant").on(table.tenantId),
+        index("idx_tasks_tenant_status").on(table.tenantId, table.status),
+    ]
+);
+
 // -- Agent Delegations (Phase 15 - Multi-Agent Orchestration) --
 export const agentDelegations = pgTable(
     "agent_delegations",

@@ -17,6 +17,8 @@ import { loginListTool } from "./built-in/logins.js";
 import { noteSaveTool, noteListTool, noteSearchTool, noteDeleteTool } from "./built-in/notes.js";
 import { todoAddTool, todoListTool, todoCompleteTool, todoDeleteTool } from "./built-in/todos.js";
 import { bookmarkSaveTool, bookmarkListTool, bookmarkSearchTool, bookmarkDeleteTool } from "./built-in/bookmarks.js";
+import { expenseAddTool, expenseListTool, expenseSearchTool, expenseDeleteTool } from "./built-in/expenses.js";
+import { taskCreateTool, taskUpdateTool, taskListTool, taskCompleteTool, taskDeleteTool } from "./built-in/tasks.js";
 import {
     emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool, emailDraftTool,
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
@@ -101,6 +103,15 @@ export class ToolRegistry {
         this.builtInTools.set("bookmark_list", bookmarkListTool);
         this.builtInTools.set("bookmark_search", bookmarkSearchTool);
         this.builtInTools.set("bookmark_delete", bookmarkDeleteTool);
+        this.builtInTools.set("expense_add", expenseAddTool);
+        this.builtInTools.set("expense_list", expenseListTool);
+        this.builtInTools.set("expense_search", expenseSearchTool);
+        this.builtInTools.set("expense_delete", expenseDeleteTool);
+        this.builtInTools.set("task_create", taskCreateTool);
+        this.builtInTools.set("task_update", taskUpdateTool);
+        this.builtInTools.set("task_list", taskListTool);
+        this.builtInTools.set("task_complete", taskCompleteTool);
+        this.builtInTools.set("task_delete", taskDeleteTool);
         this.builtInTools.set("route_to_channel", routeToChannelTool);
         this.builtInTools.set("email_send", emailSendTool);
         this.builtInTools.set("email_draft", emailDraftTool);
