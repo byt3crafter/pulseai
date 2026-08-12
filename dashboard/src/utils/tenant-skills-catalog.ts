@@ -95,6 +95,7 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
             { name: "email_delete", label: "Delete email", description: "Delete a message.", defaultOn: true },
             { name: "email_folders", label: "List folders", description: "List mailbox folders.", defaultOn: true },
             { name: "email_draft", label: "Save draft", description: "Save an email to the Drafts folder instead of sending.", defaultOn: true },
+            { name: "email_configure", label: "Configure mailbox", description: "Let the agent set up its own SMTP/IMAP mailbox settings (writes encrypted credentials). Off by default.", defaultOn: false },
         ],
     },
     {
