@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useContext } from "react";
+import { useContext, useState, useEffect } from "react";
 import {
+    AdjustmentsHorizontalIcon,
     Squares2X2Icon,
     CpuChipIcon,
     ChatBubbleLeftRightIcon,
@@ -46,8 +47,9 @@ type NavItem = {
     feature?: "billing" | "chatgptConnect";
 };
 
-// Grouped nav (labels + hrefs + active logic unchanged — only presentation).
-const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+// Grouped nav. `advanced` groups are hidden in the Simple view (for non-technical
+// users) — Workspace + Account always show; agent/infra/activity config is opt-in.
+const NAV_GROUPS: { label: string; items: NavItem[]; advanced?: boolean }[] = [
     {
         label: "Workspace",
         items: [
@@ -65,6 +67,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     },
     {
         label: "Agents",
+        advanced: true,
         items: [
             { href: "/dashboard/agents", label: "Agent Profiles", icon: CpuChipIcon, exclude: "/dashboard/agents/routing" },
             { href: "/dashboard/agents/routing", label: "Routing", icon: ArrowsRightLeftIcon },
@@ -74,6 +77,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     },
     {
         label: "Tools & Infra",
+        advanced: true,
         items: [
             { href: "/dashboard/tools", label: "Custom Tools", icon: WrenchScrewdriverIcon },
             { href: "/dashboard/servers", label: "Servers", icon: ServerIcon },
@@ -84,6 +88,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     },
     {
         label: "Activity",
+        advanced: true,
         items: [
             { href: "/dashboard/tasks", label: "Task Queue", icon: QueueListIcon },
             { href: "/dashboard/approvals", label: "Approvals", icon: ShieldCheckIcon },
@@ -107,6 +112,19 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = true }: { isAdmin?: boolean; chatgptConnect?: boolean; showBilling?: boolean }) {
     const pathname = usePathname();
     const collapsed = useContext(SidebarCollapseContext);
+
+    // Per-user "Simple view": hides the advanced (agent/infra/activity) sections
+    // so non-technical users see just their workspace. Persisted in localStorage;
+    // defaults to Simple. (SSR renders Simple, then hydrates from the stored value.)
+    const [simple, setSimple] = useState(true);
+    useEffect(() => {
+        try { const v = localStorage.getItem("pulse_nav_simple"); if (v !== null) setSimple(v === "1"); } catch { /* ignore */ }
+    }, []);
+    const toggleSimple = () => setSimple((s) => {
+        const next = !s;
+        try { localStorage.setItem("pulse_nav_simple", next ? "1" : "0"); } catch { /* ignore */ }
+        return next;
+    });
 
     const isVisible = (item: NavItem) => {
         if (item.feature === "chatgptConnect") return !!chatgptConnect;
@@ -156,7 +174,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
             )}
 
             <div className={collapsed ? "space-y-1" : "space-y-5"}>
-                {NAV_GROUPS.map((group, gi) => {
+                {NAV_GROUPS.filter((g) => !simple || !g.advanced).map((group, gi) => {
                     const items = group.items.filter(isVisible);
                     if (items.length === 0) return null;
                     return (
@@ -173,7 +191,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                     );
                 })}
 
-                {isAdmin && (
+                {isAdmin && !simple && (
                     <div className={collapsed ? "space-y-1" : "space-y-0.5"}>
                         {collapsed
                             ? <div className="mx-2 my-1 border-t border-pulse-border-subtle" aria-hidden="true" />
@@ -192,6 +210,21 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                         </Link>
                     </div>
                 )}
+
+                {/* Simple / Full view toggle — hides the advanced admin sections for
+                    non-technical users. Per-user, remembered on this device. */}
+                <div className={collapsed ? "pt-1" : "pt-2 mt-1 border-t border-pulse-border-subtle"}>
+                    <button
+                        type="button"
+                        onClick={toggleSimple}
+                        title={simple ? "Show all sections" : "Show the simple menu"}
+                        aria-pressed={!simple}
+                        className={`group relative flex items-center rounded-lg text-[13px] font-medium text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none ${collapsed ? "justify-center h-10 mx-auto w-10" : "gap-3 w-full pl-3.5 pr-3 py-2"}`}
+                    >
+                        <AdjustmentsHorizontalIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft" style={{ width: 18, height: 18 }} />
+                        {!collapsed && (simple ? "Show all sections" : "Simple view")}
+                    </button>
+                </div>
             </div>
         </nav>
     );
