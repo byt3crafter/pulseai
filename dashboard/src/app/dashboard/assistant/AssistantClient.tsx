@@ -444,7 +444,7 @@ export default function AssistantClient({
                                     {activeAgent?.avatar ? <img src={activeAgent.avatar} alt="" className="h-full w-full object-cover" /> : (activeAgent?.name?.[0] ?? "A")}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <p className="mb-1 text-xs font-medium text-pulse-muted">{activeAgent?.name ?? "Assistant"}</p>
+                                    {agents.length > 1 && <p className="mb-1 text-xs font-medium text-pulse-muted">{activeAgent?.name ?? "Assistant"}</p>}
                                     {showThinking && m.thinking && (
                                         <ThinkingPanel text={m.thinking} streaming={!!m.streaming && !m.content} />
                                     )}

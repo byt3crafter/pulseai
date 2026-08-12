@@ -77,7 +77,13 @@ export default function ConversationsClient({
 }) {
     const [search, setSearch] = useState("");
     const [channelFilter, setChannelFilter] = useState<string>("all");
+    const [dateFilter, setDateFilter] = useState<string>("all");
     const [showSystem, setShowSystem] = useState(false);
+
+    const dateThreshold = useMemo(() => {
+        const days = ({ "7d": 7, "30d": 30, "90d": 90 } as Record<string, number>)[dateFilter];
+        return days ? Date.now() - days * 86400000 : 0;
+    }, [dateFilter]);
 
     const systemCount = useMemo(() => conversations.filter(isSystemConversation).length, [conversations]);
 
@@ -98,11 +104,15 @@ export default function ConversationsClient({
         const q = search.trim().toLowerCase();
         return scoped.filter((c) => {
             if (channelFilter !== "all" && c.channelType !== channelFilter) return false;
+            if (dateThreshold) {
+                const t = new Date((c.updatedAt || c.createdAt) as any).getTime();
+                if (Number.isFinite(t) && t < dateThreshold) return false;
+            }
             if (!q) return true;
             const haystack = (c.contactName || c.channelContactId || "").toLowerCase();
             return haystack.includes(q);
         });
-    }, [scoped, channelFilter, search]);
+    }, [scoped, channelFilter, search, dateThreshold]);
 
     const allSystemHidden = !showSystem && scoped.length === 0 && conversations.length > 0;
 
@@ -129,6 +139,18 @@ export default function ConversationsClient({
                         className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text placeholder-pulse-faint outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
                     />
                 </div>
+
+                <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    aria-label="Filter by date"
+                    className="px-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text outline-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
+                    <option value="all">All time</option>
+                    <option value="7d">Last 7 days</option>
+                    <option value="30d">Last 30 days</option>
+                    <option value="90d">Last 90 days</option>
+                </select>
 
                 <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by channel">
                     <button
