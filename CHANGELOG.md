@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.78] - 2026-08-12
+
+### Features
+- professional session menu — kebab, pin, in-app delete modal
+
 ## [0.14.77] - 2026-08-12
 
 ### Bug Fixes
