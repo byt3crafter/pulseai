@@ -14,6 +14,7 @@ import { getPerson, canAddressAgent } from "../channels/people-service.js";
 import { hookRegistry } from "../plugins/hooks.js";
 import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-builder.js";
 import { getTenantTimezone } from "./tools/tz-util.js";
+import { shouldRunGate, runTruthGate, isErrorResult, type ToolOutcome } from "./truth-gate.js";
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
 import { ToolPolicy, isToolAllowed } from "./tools/tool-policy.js";
 import { ensureToolApproved } from "./tools/approval-gate.js";
@@ -722,6 +723,9 @@ export class AgentRuntime {
             // so the model "forgot" what it had already done, re-called tools, and
             // looped until the cap (which then dispatched an empty reply).
             const workingMessages: any[] = [...llmMessages];
+            // Every tool outcome this turn — the Truth Gate's ground truth for
+            // catching "I did it" claims that no successful action backs.
+            const turnToolOutcomes: ToolOutcome[] = [];
 
             while (llmResponse.toolCalls && llmResponse.toolCalls.length > 0 && toolUseCount < maxToolIterations) {
                 toolUseCount++;
@@ -800,6 +804,14 @@ export class AgentRuntime {
                                 run.addToolCall(toolCall.name, false, Date.now() - toolStart);
                             }
                         }
+
+                        // Record the outcome for the Truth Gate (ground truth of
+                        // what actually happened, success or failure).
+                        turnToolOutcomes.push({
+                            name: toolCall.name,
+                            ok: !isErrorResult(result.result),
+                            result: result.result,
+                        });
 
                         return {
                             type: "tool_result" as const,
@@ -909,6 +921,43 @@ export class AgentRuntime {
                 .replace(/<\/?think(?:ing)?>/gi, "")                          // stray tags
                 .trim();
             capturedThinking = capturedThinking.trim();
+
+            // 4.55b TRUTH GATE — before the user sees the reply, make sure it doesn't
+            // claim a consequential action was done when no successful tool backs it.
+            // Runs only on the risky path (a completion claim with no successful
+            // state-changing tool call), so the happy path pays nothing.
+            if (llmResponse.content && llmResponse.content.trim() !== SILENT_REPLY_TOKEN
+                && shouldRunGate(llmResponse.content, turnToolOutcomes)) {
+                const gated = await runTruthGate({
+                    reply: llmResponse.content,
+                    outcomes: turnToolOutcomes,
+                    chat: async (system, userText) => {
+                        const resp = await this.providerManager.chat({
+                            agentProfileId: resolvedAgentProfileId ?? undefined,
+                            conversationId: conversation.id,
+                            model: activeModelId,
+                            tenantId: inbound.tenantId,
+                            systemPrompt: system,
+                            messages: [{ role: "user", content: userText } as any],
+                            tools: undefined,
+                            reasoningEffort: "low",
+                        });
+                        totalInputTokens += resp.usage.inputTokens;
+                        totalOutputTokens += resp.usage.outputTokens;
+                        llmResponse.usage.inputTokens = totalInputTokens;
+                        llmResponse.usage.outputTokens = totalOutputTokens;
+                        return (resp.content || "").replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "").trim();
+                    },
+                    log: (msg, data) => tenantLog.warn({ ...data }, msg),
+                });
+                if (gated.corrected) {
+                    tenantLog.warn({ tools: turnToolOutcomes.map((o) => `${o.name}:${o.ok ? "ok" : "fail"}`) }, "Truth Gate corrected an unsupported completion claim");
+                    // The final assistant message (persisted + sent to the client) now
+                    // carries the corrected text; on streaming surfaces the final
+                    // message replaces the streamed draft.
+                    llmResponse.content = gated.reply;
+                }
+            }
 
             // 4.6 Check for silent reply token — suppress empty/ack responses
             const isSilentReply = llmResponse.content.trim() === SILENT_REPLY_TOKEN;
