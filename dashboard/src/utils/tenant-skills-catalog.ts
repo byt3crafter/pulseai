@@ -184,6 +184,27 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "documents",
+        title: "Documents",
+        description: "Let an agent find and read files in your document locker (contracts, quotes, receipts).",
+        tools: [
+            { name: "document_list", label: "List documents", description: "See files in the locker.", defaultOn: false },
+            { name: "document_search", label: "Search documents", description: "Find files by name or content.", defaultOn: false },
+            { name: "document_read", label: "Read document", description: "Read a document's text.", defaultOn: false },
+            { name: "document_delete", label: "Delete document", description: "Remove a document.", defaultOn: false },
+        ],
+    },
+    {
+        key: "pdf",
+        title: "PDF tools",
+        description: "Let an agent read PDFs and fill fillable PDF forms.",
+        tools: [
+            { name: "pdf_read", label: "Read PDF", description: "Extract the text of a PDF in the locker.", defaultOn: false },
+            { name: "pdf_form_fields", label: "Inspect PDF form", description: "List a fillable PDF's form fields.", defaultOn: false },
+            { name: "pdf_fill_form", label: "Fill PDF form", description: "Fill a PDF form and save the completed file.", defaultOn: false },
+        ],
+    },
+    {
         key: "technical",
         title: "Technical (advanced)",
         description: "Powerful tools for technical/DevOps agents. Off by default — enable deliberately.",

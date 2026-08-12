@@ -32,6 +32,7 @@ import {
     BookmarkIcon,
     BanknotesIcon,
     RectangleStackIcon,
+    FolderIcon,
 } from "@heroicons/react/24/outline";
 import CommandPalette from "./dashboard/CommandPalette";
 import { SidebarCollapseContext } from "./DashboardShell";
@@ -58,6 +59,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
             { href: "/dashboard/todos", label: "To-dos", icon: CheckCircleIcon },
             { href: "/dashboard/work", label: "Work", icon: RectangleStackIcon },
             { href: "/dashboard/expenses", label: "Expenses", icon: BanknotesIcon },
+            { href: "/dashboard/documents", label: "Documents", icon: FolderIcon },
             { href: "/dashboard/bookmarks", label: "Bookmarks", icon: BookmarkIcon },
         ],
     },

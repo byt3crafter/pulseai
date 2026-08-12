@@ -1,17 +1,19 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+    ArrowDownTrayIcon,
     BanknotesIcon,
     MagnifyingGlassIcon,
+    PaperClipIcon,
     PencilIcon,
     PlusIcon,
     TrashIcon,
     XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Card, EmptyState } from "../../../components/dashboard/ui";
-import { deleteExpenseAction, saveExpenseAction, type ExpenseRow } from "./actions";
+import { attachReceiptAction, deleteExpenseAction, saveExpenseAction, type ExpenseRow } from "./actions";
 
 type FormState = {
     id: string;
@@ -60,6 +62,10 @@ export default function ExpensesClient({ expenses }: { expenses: ExpenseRow[] })
     const [formSaving, setFormSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [busyRows, setBusyRows] = useState<Record<string, boolean>>({});
+
+    const receiptInputRef = useRef<HTMLInputElement>(null);
+    const [receiptTargetId, setReceiptTargetId] = useState<string | null>(null);
+    const [receiptBusyRows, setReceiptBusyRows] = useState<Record<string, boolean>>({});
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -138,6 +144,31 @@ export default function ExpensesClient({ expenses }: { expenses: ExpenseRow[] })
         });
     }
 
+    function openReceiptPicker(expenseId: string) {
+        setReceiptTargetId(expenseId);
+        receiptInputRef.current?.click();
+    }
+
+    function handleReceiptFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        const expenseId = receiptTargetId;
+        e.target.value = "";
+        if (!file || !expenseId) return;
+        if (file.size > 10 * 1024 * 1024) {
+            setMessage({ type: "error", text: "File is too large. The limit is 10 MB." });
+            return;
+        }
+        setReceiptBusyRows((prev) => ({ ...prev, [expenseId]: true }));
+        const fd = new FormData();
+        fd.set("file", file);
+        startTransition(async () => {
+            const res = await attachReceiptAction(expenseId, fd);
+            setReceiptBusyRows((prev) => ({ ...prev, [expenseId]: false }));
+            setMessage({ type: res.success ? "success" : "error", text: res.message || "" });
+            if (res.success) router.refresh();
+        });
+    }
+
     return (
         <div>
             {message && (
@@ -152,6 +183,16 @@ export default function ExpensesClient({ expenses }: { expenses: ExpenseRow[] })
                     {message.text}
                 </div>
             )}
+
+            {/* Hidden input backing the per-row "Attach receipt" control */}
+            <input
+                ref={receiptInputRef}
+                type="file"
+                className="sr-only"
+                aria-hidden="true"
+                tabIndex={-1}
+                onChange={handleReceiptFileChange}
+            />
 
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -336,6 +377,7 @@ export default function ExpensesClient({ expenses }: { expenses: ExpenseRow[] })
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Vendor</th>
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Category</th>
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Description</th>
+                                    <th scope="col" className="px-4 py-3 text-left font-medium">Receipt</th>
                                     <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
                                 </tr>
                             </thead>
@@ -352,6 +394,27 @@ export default function ExpensesClient({ expenses }: { expenses: ExpenseRow[] })
                                             <td className="px-4 py-3 align-top text-pulse-text">{expense.vendor || "—"}</td>
                                             <td className="px-4 py-3 align-top text-pulse-soft">{expense.category || "—"}</td>
                                             <td className="px-4 py-3 align-top text-pulse-soft max-w-md truncate">{expense.description || "—"}</td>
+                                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                                                {expense.receiptDocumentId ? (
+                                                    <a
+                                                        href={`/dashboard/documents/${expense.receiptDocumentId}/download`}
+                                                        className="inline-flex items-center gap-1 text-xs font-medium text-indigo-500 hover:text-indigo-400 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md"
+                                                    >
+                                                        <ArrowDownTrayIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                                                        Receipt
+                                                    </a>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openReceiptPicker(expense.id)}
+                                                        disabled={!!receiptBusyRows[expense.id]}
+                                                        className="inline-flex items-center gap-1 text-xs font-medium text-pulse-muted hover:text-indigo-500 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        <PaperClipIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                                                        {receiptBusyRows[expense.id] ? "Uploading…" : "Attach receipt"}
+                                                    </button>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3 align-top text-right">
                                                 <div className="flex items-center justify-end gap-3">
                                                     <button
