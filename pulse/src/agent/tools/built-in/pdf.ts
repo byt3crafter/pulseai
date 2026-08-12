@@ -35,6 +35,10 @@ export const pdfReadTool: Tool = {
         if (!loaded.ok) return { result: loaded.error };
         const text = await extractPdfText(loaded.buffer);
         if (!text) return { result: `"${loaded.doc.filename}" has no extractable text (likely a scanned image — OCR isn't available yet).` };
+        // Cache extracted text so document_search finds this PDF's content later.
+        if (!loaded.doc.extractedText) {
+            await db.update(documents).set({ extractedText: text }).where(and(eq(documents.tenantId, tenantId), eq(documents.id, loaded.doc.id)));
+        }
         const truncated = text.length > 8000;
         return { result: `${loaded.doc.filename}:\n\n${text.slice(0, 8000)}${truncated ? `\n\n…(truncated, ${text.length} chars)` : ""}` };
     },

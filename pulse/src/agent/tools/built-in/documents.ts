@@ -61,9 +61,14 @@ export const documentReadTool: Tool = {
         const doc = rows[0];
         if (!doc) return { result: `No document found with id ${id}.` };
         let text = doc.extractedText ?? "";
-        // Fall back to extracting on the fly for PDFs that weren't indexed at upload.
+        // Fall back to extracting on the fly for PDFs that weren't indexed at
+        // upload (the dashboard doesn't extract PDFs), and cache the result so
+        // document_search can find the content next time.
         if (!text && doc.content && (doc.mimeType?.includes("pdf") || doc.filename.toLowerCase().endsWith(".pdf"))) {
             text = await extractPdfText(Buffer.from(doc.content, "base64"));
+            if (text) {
+                await db.update(documents).set({ extractedText: text }).where(and(eq(documents.tenantId, tenantId), eq(documents.id, id)));
+            }
         }
         if (!text) return { result: `"${doc.filename}" has no extractable text (it may be a scanned image or unsupported type).` };
         const truncated = text.length > READ_LIMIT;

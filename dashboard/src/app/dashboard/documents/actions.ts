@@ -52,14 +52,22 @@ export async function getDocuments(): Promise<DocumentRow[]> {
     }
 }
 
-/** Upload a file into the document locker. Extracts searchable text (PDF/text) best-effort. */
+/**
+ * Upload a file into the document locker. The file arrives as a base64 STRING
+ * field (not a multipart File part) — multipart bodies fail through the reverse
+ * proxy for server actions, and we base64 it for storage anyway.
+ * Extracts searchable text (text files) best-effort; PDFs are indexed later by
+ * the gateway on first read.
+ */
 export async function uploadDocumentAction(formData: FormData) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
     const tenantId = tenantCheck.tenantId;
 
-    const file = formData.get("file") as File | null;
-    if (!file || typeof file === "string" || !file.size) {
+    const dataBase64 = ((formData.get("dataBase64") as string) || "").trim();
+    const filename = ((formData.get("filename") as string) || "untitled").trim() || "untitled";
+    const mimeType = ((formData.get("mimeType") as string) || "").trim() || "application/octet-stream";
+    if (!dataBase64) {
         return { success: false, message: "Please choose a file to upload." };
     }
 
@@ -67,13 +75,12 @@ export async function uploadDocumentAction(formData: FormData) {
     const tags = ((formData.get("tags") as string) || "").trim();
 
     try {
-        const buf = Buffer.from(await file.arrayBuffer());
+        const buf = Buffer.from(dataBase64, "base64");
+        if (!buf.length) return { success: false, message: "The file appears to be empty." };
         if (buf.length > MAX_DOCUMENT_BYTES) {
             return { success: false, message: "File is too large. The limit is 10 MB." };
         }
 
-        const mimeType = file.type || "application/octet-stream";
-        const filename = file.name || "untitled";
         const extractedText = await extractDocumentText(buf, mimeType, filename);
 
         await db.insert(documents).values({

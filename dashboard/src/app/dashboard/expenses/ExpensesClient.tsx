@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Card, EmptyState } from "../../../components/dashboard/ui";
 import { attachReceiptAction, deleteExpenseAction, saveExpenseAction, type ExpenseRow } from "./actions";
+import { fileToBase64 } from "../documents/DocumentsClient";
 
 type FormState = {
     id: string;
@@ -159,9 +160,20 @@ export default function ExpensesClient({ expenses }: { expenses: ExpenseRow[] })
             return;
         }
         setReceiptBusyRows((prev) => ({ ...prev, [expenseId]: true }));
-        const fd = new FormData();
-        fd.set("file", file);
+        // Send as base64 string field — multipart File parts fail through the proxy.
         startTransition(async () => {
+            let dataBase64: string;
+            try {
+                dataBase64 = await fileToBase64(file);
+            } catch {
+                setReceiptBusyRows((prev) => ({ ...prev, [expenseId]: false }));
+                setMessage({ type: "error", text: "Could not read the file." });
+                return;
+            }
+            const fd = new FormData();
+            fd.set("dataBase64", dataBase64);
+            fd.set("filename", file.name || "receipt");
+            fd.set("mimeType", file.type || "application/octet-stream");
             const res = await attachReceiptAction(expenseId, fd);
             setReceiptBusyRows((prev) => ({ ...prev, [expenseId]: false }));
             setMessage({ type: res.success ? "success" : "error", text: res.message || "" });
