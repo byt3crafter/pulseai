@@ -3,13 +3,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
     PaperAirplaneIcon, PlusIcon, ChevronDownIcon, ChevronRightIcon,
-    SparklesIcon, TrashIcon, PencilSquareIcon,
+    SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
     ChevronDoubleLeftIcon, ChevronDoubleRightIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
 import {
     getChatTokenAction, listSessionsAction, getSessionHistoryAction,
-    renameSessionAction, deleteSessionAction, type ChatSession,
+    renameSessionAction, deleteSessionAction, pinSessionAction, type ChatSession,
 } from "./actions";
 
 interface AgentOpt { id: string; name: string; avatar: string | null; title: string | null; }
@@ -51,6 +51,11 @@ export default function AssistantClient({
     const [railOpen, setRailOpen] = useState(true);
     const [renaming, setRenaming] = useState<string | null>(null);
     const [renameText, setRenameText] = useState("");
+    // Session row context menu (kebab) — one fixed-position menu anchored to the
+    // clicked button, so it can't be clipped by the rail's overflow.
+    const [menu, setMenu] = useState<{ sid: string; pinned: boolean; x: number; y: number } | null>(null);
+    // Session pending deletion → shows the in-app confirm modal (no browser popup).
+    const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
 
     // Persisted settings (nothing hardcoded).
     const [reasoning, setReasoning] = useState<string>("auto");
@@ -201,12 +206,67 @@ export default function AssistantClient({
         refreshSessions();
     }
 
-    async function doDelete(sid: string) {
-        if (typeof window !== "undefined" && !window.confirm("Delete this chat? This can't be undone.")) return;
+    async function doPin(sid: string, pinned: boolean) {
+        setMenu(null);
+        // Optimistic: reflect immediately, then reconcile from the server.
+        setSessions((prev) => prev.map((s) => (s.sessionId === sid ? { ...s, pinned } : s))
+            .sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || b.updatedAt.localeCompare(a.updatedAt)));
+        await pinSessionAction(sid, pinned);
+        refreshSessions();
+    }
+
+    async function confirmDelete() {
+        const target = deleteTarget;
+        setDeleteTarget(null);
+        if (!target) return;
+        const sid = target.sessionId;
+        setSessions((prev) => prev.filter((s) => s.sessionId !== sid)); // optimistic
         await deleteSessionAction(sid);
         setSessions(await listSessionsAction());
         if (sid === sessionId) startNewChat();
     }
+
+    // Escape closes the row menu / delete modal.
+    useEffect(() => {
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") { setMenu(null); setDeleteTarget(null); }
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, []);
+
+    const pinnedSessions = sessions.filter((s) => s.pinned);
+    const recentSessions = sessions.filter((s) => !s.pinned);
+    const renderRow = (s: ChatSession) => (
+        <div key={s.sessionId} className={`mb-0.5 flex items-center gap-1 rounded-lg px-1 ${s.sessionId === sessionId ? "bg-pulse-tint" : menu?.sid === s.sessionId ? "bg-pulse-hover" : "hover:bg-pulse-hover"}`}>
+            {renaming === s.sessionId ? (
+                <input
+                    autoFocus value={renameText}
+                    onChange={(e) => setRenameText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") doRename(s.sessionId); if (e.key === "Escape") setRenaming(null); }}
+                    onBlur={() => doRename(s.sessionId)}
+                    className="my-1 w-full rounded-md border border-pulse-border bg-pulse-bg px-2 py-1 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+            ) : (
+                <>
+                    <button onClick={() => switchSession(s.sessionId)} className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-2 text-left">
+                        {s.pinned && <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-pulse-accent" />}
+                        <span className={`truncate text-sm ${s.sessionId === sessionId ? "font-medium text-pulse-text" : "text-pulse-text-soft"}`}>{s.title}</span>
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            const r = e.currentTarget.getBoundingClientRect();
+                            setMenu(menu?.sid === s.sessionId ? null : { sid: s.sessionId, pinned: s.pinned, x: r.right, y: r.bottom });
+                        }}
+                        title="Chat options" aria-label="Chat options"
+                        className="shrink-0 rounded p-1.5 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
+                    >
+                        <EllipsisVerticalIcon className="h-4 w-4" />
+                    </button>
+                </>
+            )}
+        </div>
+    );
 
     return (
         <div className="flex h-full min-h-0 overflow-hidden bg-pulse-bg">
@@ -233,36 +293,66 @@ export default function AssistantClient({
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto px-2 pb-2">
-                        <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">Recent</p>
                         {sessions.length === 0 && <p className="px-2 py-2 text-xs text-pulse-faint">No chats yet.</p>}
-                        {sessions.map((s) => (
-                            <div key={s.sessionId} className={`group mb-0.5 flex items-center gap-1 rounded-lg px-1 ${s.sessionId === sessionId ? "bg-pulse-tint" : "hover:bg-pulse-hover"}`}>
-                                {renaming === s.sessionId ? (
-                                    <input
-                                        autoFocus value={renameText}
-                                        onChange={(e) => setRenameText(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === "Enter") doRename(s.sessionId); if (e.key === "Escape") setRenaming(null); }}
-                                        onBlur={() => doRename(s.sessionId)}
-                                        className="my-1 w-full rounded-md border border-pulse-border bg-pulse-bg px-2 py-1 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                ) : (
-                                    <>
-                                        <button onClick={() => switchSession(s.sessionId)} className="min-w-0 flex-1 px-2 py-2 text-left">
-                                            <p className={`truncate text-sm ${s.sessionId === sessionId ? "font-medium text-pulse-text" : "text-pulse-text-soft"}`}>{s.title}</p>
-                                        </button>
-                                        {/* Always visible — touch screens have no hover, so these must not be group-hover-gated. */}
-                                        <button onClick={() => { setRenaming(s.sessionId); setRenameText(s.title); }} title="Rename" aria-label="Rename chat" className="shrink-0 rounded p-1.5 text-pulse-muted hover:text-pulse-text">
-                                            <PencilSquareIcon className="h-4 w-4" />
-                                        </button>
-                                        <button onClick={() => doDelete(s.sessionId)} title="Delete" aria-label="Delete chat" className="shrink-0 rounded p-1.5 text-pulse-muted hover:text-red-400">
-                                            <TrashIcon className="h-4 w-4" />
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        ))}
+                        {pinnedSessions.length > 0 && (
+                            <>
+                                <p className="flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">
+                                    <MapPinIcon className="h-3 w-3" /> Pinned
+                                </p>
+                                {pinnedSessions.map(renderRow)}
+                            </>
+                        )}
+                        {recentSessions.length > 0 && (
+                            <>
+                                <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">Recent</p>
+                                {recentSessions.map(renderRow)}
+                            </>
+                        )}
                     </div>
                 </aside>
+            )}
+
+            {/* Session row context menu — fixed-position so the rail's overflow can't clip it */}
+            {menu && (
+                <>
+                    <div className="fixed inset-0 z-50" onClick={() => setMenu(null)} aria-hidden="true" />
+                    <div
+                        className="fixed z-50 w-44 overflow-hidden rounded-lg border border-pulse-border bg-pulse-panel py-1 shadow-xl"
+                        style={{ left: Math.max(8, menu.x - 176), top: menu.y + 4 }}
+                    >
+                        <button onClick={() => doPin(menu.sid, !menu.pinned)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-pulse-text hover:bg-pulse-hover">
+                            <MapPinIcon className="h-4 w-4" /> {menu.pinned ? "Unpin" : "Pin to top"}
+                        </button>
+                        <button
+                            onClick={() => { const t = sessions.find((x) => x.sessionId === menu.sid)?.title || ""; setRenaming(menu.sid); setRenameText(t); setMenu(null); }}
+                            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-pulse-text hover:bg-pulse-hover"
+                        >
+                            <PencilSquareIcon className="h-4 w-4" /> Rename
+                        </button>
+                        <button
+                            onClick={() => { const s = sessions.find((x) => x.sessionId === menu.sid) || null; setMenu(null); setDeleteTarget(s); }}
+                            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10"
+                        >
+                            <TrashIcon className="h-4 w-4" /> Delete
+                        </button>
+                    </div>
+                </>
+            )}
+
+            {/* Delete confirmation — in-app modal, not the browser's confirm() popup */}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setDeleteTarget(null)}>
+                    <div className="w-full max-w-sm rounded-xl border border-pulse-border bg-pulse-panel p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+                        <h3 className="text-base font-semibold text-pulse-text">Delete chat?</h3>
+                        <p className="mt-2 text-sm text-pulse-muted">
+                            <span className="text-pulse-text-soft">&ldquo;{deleteTarget.title}&rdquo;</span> will be permanently deleted. This can&rsquo;t be undone.
+                        </p>
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button onClick={() => setDeleteTarget(null)} className="rounded-lg border border-pulse-border px-3.5 py-2 text-sm font-medium text-pulse-text hover:bg-pulse-hover">Cancel</button>
+                            <button onClick={confirmDelete} autoFocus className="rounded-lg bg-red-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-red-600">Delete</button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ── Main ── */}
