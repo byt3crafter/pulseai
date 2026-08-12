@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.82] - 2026-08-12
+
+### Features
+- clicking a notification opens the assistant with that agent
+
 ## [0.14.81] - 2026-08-12
 
 ### Features
