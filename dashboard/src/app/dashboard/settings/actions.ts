@@ -2,7 +2,7 @@
 
 import { auth, signIn } from "../../../auth";
 import { db } from "../../../storage/db";
-import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pairingCodes, agentProfiles, apiTokens, scheduledJobs } from "../../../storage/schema";
+import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pairingCodes, agentProfiles, apiTokens, scheduledJobs, credentials } from "../../../storage/schema";
 import { eq, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -635,7 +635,16 @@ export interface BrandingConfig {
     title: string;
     logo: string;
     accent: string;
+    /** Show the agent's name + avatar in the assistant chat (default off — Claude/ChatGPT style). Auto-on when a tenant has multiple agents. */
+    showAgentIdentity: boolean;
+    /** Voice dictation (mic in the composer) enabled for this workspace. */
+    voiceEnabled: boolean;
+    /** Whether an ElevenLabs API key is actually stored (voice can't work without it). */
+    voiceConfigured: boolean;
 }
+
+/** Credential name that voice dictation (ElevenLabs STT) reads for its key. */
+const ELEVENLABS_CREDENTIAL = "ELEVENLABS_API_KEY";
 
 const LOGO_DATA_URI_RE = /^data:image\/(png|jpeg|jpg|svg\+xml|webp|gif);base64,/;
 const ACCENT_HEX_RE = /^#[0-9a-fA-F]{6}$/;
@@ -646,20 +655,31 @@ const MAX_LOGO_BYTES = 200 * 1024;
  * stored in tenants.config.branding and applied by the dashboard layout.
  */
 export async function getBrandingConfig(): Promise<BrandingConfig> {
-    const DEFAULTS: BrandingConfig = { title: "", logo: "", accent: "" };
+    const DEFAULTS: BrandingConfig = { title: "", logo: "", accent: "", showAgentIdentity: false, voiceEnabled: false, voiceConfigured: false };
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return DEFAULTS;
     const tenantId = tenantCheck.tenantId;
 
     try {
         const [row] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
-        const branding = (row?.config as Record<string, any>)?.branding;
-        if (!branding || typeof branding !== "object") return DEFAULTS;
+        const cfg = (row?.config as Record<string, any>) || {};
+        const branding = cfg.branding && typeof cfg.branding === "object" ? cfg.branding : {};
+        const voice = cfg.voice && typeof cfg.voice === "object" ? cfg.voice : {};
+
+        // Does an ElevenLabs key actually exist? Voice is useless without it.
+        const [keyRow] = await db
+            .select({ id: credentials.id })
+            .from(credentials)
+            .where(and(eq(credentials.tenantId, tenantId), eq(credentials.name, ELEVENLABS_CREDENTIAL)))
+            .limit(1);
 
         return {
             title: typeof branding.title === "string" ? branding.title : "",
             logo: typeof branding.logo === "string" ? branding.logo : "",
             accent: typeof branding.accent === "string" ? branding.accent : "",
+            showAgentIdentity: branding.showAgentIdentity === true,
+            voiceEnabled: voice.enabled === true,
+            voiceConfigured: !!keyRow,
         };
     } catch (error) {
         console.error("Failed to load branding config:", error);
@@ -667,10 +687,58 @@ export async function getBrandingConfig(): Promise<BrandingConfig> {
     }
 }
 
+/**
+ * Voice dictation setup — enable the composer mic and store the ElevenLabs key
+ * (encrypted, as a normal credential the transcribe route reads). Passing an
+ * empty apiKey keeps any existing key; passing "__clear__" removes it.
+ */
+export async function saveVoiceSettingsAction(config: { enabled: boolean; apiKey?: string }) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const apiKey = (config.apiKey || "").trim();
+        if (apiKey === "__clear__") {
+            await db.delete(credentials).where(and(eq(credentials.tenantId, tenantId), eq(credentials.name, ELEVENLABS_CREDENTIAL)));
+        } else if (apiKey) {
+            const encryptedValue = encrypt(apiKey);
+            await db
+                .insert(credentials)
+                .values({ tenantId, name: ELEVENLABS_CREDENTIAL, description: "Voice dictation (ElevenLabs speech-to-text)", credentialType: "api_key", encryptedValue })
+                .onConflictDoUpdate({ target: [credentials.tenantId, credentials.name], set: { encryptedValue, updatedAt: new Date() } });
+        }
+
+        await db.execute(
+            sql`UPDATE tenants
+                SET config = config || ${JSON.stringify({ voice: { enabled: !!config.enabled } })}::jsonb,
+                updated_at = now()
+                WHERE id = ${tenantId}::uuid`
+        );
+
+        await logAudit({
+            action: "tenant.voice.update",
+            targetType: "tenant",
+            targetId: tenantId,
+            tenantId,
+            summary: config.enabled ? "Enabled voice dictation" : "Disabled voice dictation",
+            metadata: { enabled: !!config.enabled, keyChanged: !!apiKey },
+        });
+
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard/assistant");
+        return { success: true, message: "Voice settings saved." };
+    } catch (error) {
+        console.error("Failed to save voice settings:", error);
+        return { success: false, message: "Failed to save voice settings." };
+    }
+}
+
 export async function saveBrandingSettingsAction(config: {
     title: string;
     logo: string;
     accent: string;
+    showAgentIdentity?: boolean;
 }) {
     const tenantCheck = await requireTenant("tenant.settings.write");
     if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
@@ -702,7 +770,7 @@ export async function saveBrandingSettingsAction(config: {
         await db.execute(
             sql`UPDATE tenants
                 SET config = config || ${JSON.stringify({
-                    branding: { title, logo, accent },
+                    branding: { title, logo, accent, showAgentIdentity: config.showAgentIdentity === true },
                 })}::jsonb,
                 updated_at = now()
                 WHERE id = ${tenantId}::uuid`

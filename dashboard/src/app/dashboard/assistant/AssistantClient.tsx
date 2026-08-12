@@ -34,13 +34,19 @@ function newSessionId(): string {
  * reasoning control. Everything is a saved setting — nothing hardcoded.
  */
 export default function AssistantClient({
-    agents, sessions: initialSessions, initialSessionId, initialHistory,
+    agents, sessions: initialSessions, initialSessionId, initialHistory, showIdentityPref = false, voiceEnabled = false,
 }: {
     agents: AgentOpt[];
     sessions: ChatSession[];
     initialSessionId: string;
     initialHistory: { role: string; content: string }[];
+    showIdentityPref?: boolean;
+    voiceEnabled?: boolean;
 }) {
+    // Claude/ChatGPT style: no avatar, no name for a single agent. Auto-show when
+    // there's more than one agent (you need to know who's talking), or when the
+    // workspace owner turned it on in Appearance settings.
+    const showIdentity = agents.length > 1 || showIdentityPref;
     const [messages, setMessages] = useState<Msg[]>(
         initialHistory.map((h) => ({ role: h.role as "user" | "assistant", content: h.content }))
     );
@@ -66,7 +72,8 @@ export default function AssistantClient({
 
     // Model picker — change the model on the fly. "" = the agent's own model.
     const [model, setModel] = useState<string>("");
-    const [models, setModels] = useState<{ id: string; label: string; provider: string }[]>([]);
+    const [models, setModels] = useState<{ id: string; label: string; provider: string; free?: boolean }[]>([]);
+    const [freeOnly, setFreeOnly] = useState(false);
 
     // Persisted settings (nothing hardcoded).
     const [reasoning, setReasoning] = useState<string>("auto");
@@ -112,7 +119,7 @@ export default function AssistantClient({
                 const providers = await getActiveProvidersAction();
                 const lists = await Promise.all(providers.map((p) => getLiveModelsAction(p)));
                 if (cancelled) return;
-                const flat = lists.flat().map((m) => ({ id: m.id, label: m.displayName || m.id, provider: m.provider }));
+                const flat = lists.flat().map((m) => ({ id: m.id, label: m.displayName || m.id, provider: m.provider, free: (m as any).free === true }));
                 // De-dup by id, keep provider order.
                 const seen = new Set<string>();
                 setModels(flat.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true))));
@@ -510,11 +517,13 @@ export default function AssistantClient({
                             </div>
                         ) : (
                             <div key={i} className="flex gap-3">
-                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi overflow-hidden">
-                                    {activeAgent?.avatar ? <img src={activeAgent.avatar} alt="" className="h-full w-full object-cover" /> : (activeAgent?.name?.[0] ?? "A")}
-                                </div>
+                                {showIdentity && (
+                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi overflow-hidden">
+                                        {activeAgent?.avatar ? <img src={activeAgent.avatar} alt="" className="h-full w-full object-cover" /> : (activeAgent?.name?.[0] ?? "A")}
+                                    </div>
+                                )}
                                 <div className="min-w-0 flex-1">
-                                    {agents.length > 1 && <p className="mb-1 text-xs font-medium text-pulse-muted">{activeAgent?.name ?? "Assistant"}</p>}
+                                    {showIdentity && <p className="mb-1 text-xs font-medium text-pulse-muted">{activeAgent?.name ?? "Assistant"}</p>}
                                     {showThinking && m.thinking && (
                                         <ThinkingPanel text={m.thinking} streaming={!!m.streaming && !m.content} />
                                     )}
@@ -530,7 +539,7 @@ export default function AssistantClient({
 
                         {busy && !messages.some((m) => m.streaming) && (
                             <div className="flex gap-3">
-                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi">{activeAgent?.name?.[0] ?? "A"}</div>
+                                {showIdentity && <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi">{activeAgent?.name?.[0] ?? "A"}</div>}
                                 <div className="flex-1"><TypingDots /></div>
                             </div>
                         )}
@@ -551,21 +560,23 @@ export default function AssistantClient({
                                 disabled={conn !== "online"}
                                 className="block max-h-40 h-9 flex-1 resize-none self-center bg-transparent py-1.5 text-sm leading-6 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
-                            <button
-                                type="button"
-                                onClick={toggleRecording}
-                                disabled={transcribing || conn !== "online"}
-                                title={recording ? "Stop recording" : "Record voice message"}
-                                aria-label={recording ? "Stop recording" : "Record voice message"}
-                                aria-pressed={recording}
-                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
-                                    recording
-                                        ? "text-red-500 animate-pulse hover:bg-red-500/10"
-                                        : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
-                                }`}
-                            >
-                                <MicrophoneIcon className="h-5 w-5" />
-                            </button>
+                            {voiceEnabled && (
+                                <button
+                                    type="button"
+                                    onClick={toggleRecording}
+                                    disabled={transcribing || conn !== "online"}
+                                    title={recording ? "Stop recording" : "Record voice message"}
+                                    aria-label={recording ? "Stop recording" : "Record voice message"}
+                                    aria-pressed={recording}
+                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
+                                        recording
+                                            ? "text-red-500 animate-pulse hover:bg-red-500/10"
+                                            : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
+                                    }`}
+                                >
+                                    <MicrophoneIcon className="h-5 w-5" />
+                                </button>
+                            )}
                             <button type="button" onClick={send} disabled={!input.trim() || busy || conn !== "online"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pulse-accent text-white transition-colors hover:bg-pulse-accent-hi disabled:opacity-40">
                                 <PaperAirplaneIcon className="h-5 w-5" />
                             </button>
@@ -583,15 +594,35 @@ export default function AssistantClient({
                         )}
                         {/* Compact controls */}
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-pulse-faint">
-                            {models.length > 0 && (
-                                <label className="flex items-center gap-1">
-                                    <span>Model</span>
-                                    <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[11rem] rounded border border-pulse-border-subtle bg-pulse-panel px-1 py-0.5 text-[11px] text-pulse-text-soft outline-none focus:ring-1 focus:ring-indigo-500">
-                                        <option value="">Default ({activeAgent?.name ?? "agent"}&apos;s model)</option>
-                                        {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                                    </select>
-                                </label>
-                            )}
+                            {models.length > 0 && (() => {
+                                const freeModels = models.filter((m) => m.free);
+                                const paidModels = models.filter((m) => !m.free);
+                                const shownPaid = freeOnly ? [] : paidModels;
+                                return (
+                                    <label className="flex items-center gap-1">
+                                        <span>Model</span>
+                                        <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[13rem] rounded border border-pulse-border-subtle bg-pulse-panel px-1 py-0.5 text-[11px] text-pulse-text-soft outline-none focus:ring-1 focus:ring-indigo-500">
+                                            <option value="">Default ({activeAgent?.name ?? "agent"}&apos;s model)</option>
+                                            {freeModels.length > 0 && (
+                                                <optgroup label={`✦ Free — no usage cost (${freeModels.length})`}>
+                                                    {freeModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                                </optgroup>
+                                            )}
+                                            {shownPaid.length > 0 && (
+                                                <optgroup label={freeModels.length > 0 ? "All other models" : "Models"}>
+                                                    {shownPaid.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                                </optgroup>
+                                            )}
+                                        </select>
+                                        {freeModels.length > 0 && (
+                                            <label className="ml-1 flex cursor-pointer select-none items-center gap-1" title="Only show models that are free to use">
+                                                <input type="checkbox" checked={freeOnly} onChange={(e) => setFreeOnly(e.target.checked)} className="h-3 w-3 rounded accent-indigo-600" />
+                                                Free only
+                                            </label>
+                                        )}
+                                    </label>
+                                );
+                            })()}
                             <label className="flex items-center gap-1">
                                 <SparklesIcon className="h-3 w-3" />
                                 <span>Reasoning</span>

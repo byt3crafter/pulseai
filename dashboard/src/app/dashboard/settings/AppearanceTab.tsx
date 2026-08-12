@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardHeader, SettingRow } from "../../../components/dashboard/ui";
+import { Card, CardHeader, SettingRow, Toggle } from "../../../components/dashboard/ui";
 import { accentOverrideCss, isValidAccent } from "../../../utils/accent";
-import { saveBrandingSettingsAction, type BrandingConfig } from "./actions";
+import { saveBrandingSettingsAction, saveVoiceSettingsAction, type BrandingConfig } from "./actions";
 
 const MAX_LOGO_BYTES = 200 * 1024;
 
@@ -30,6 +30,7 @@ export default function AppearanceTab({ config }: { config: BrandingConfig }) {
     const [title, setTitle] = useState(config.title);
     const [logo, setLogo] = useState(config.logo);
     const [accent, setAccent] = useState(config.accent);
+    const [showAgentIdentity, setShowAgentIdentity] = useState(config.showAgentIdentity);
     const [pending, startTransition] = useTransition();
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
     const [logoError, setLogoError] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export default function AppearanceTab({ config }: { config: BrandingConfig }) {
     function save() {
         setMsg(null);
         startTransition(async () => {
-            const res = await saveBrandingSettingsAction({ title, logo, accent });
+            const res = await saveBrandingSettingsAction({ title, logo, accent, showAgentIdentity });
             setMsg({ ok: res.success, text: res.message });
             if (res.success) router.refresh();
         });
@@ -215,8 +216,94 @@ export default function AppearanceTab({ config }: { config: BrandingConfig }) {
                             </div>
                         }
                     />
+                    <SettingRow
+                        title="Show agent name & avatar in chat"
+                        description="Off looks like ChatGPT/Claude — just the reply, no avatar. Turns on automatically when you have more than one agent."
+                        control={<Toggle checked={showAgentIdentity} onChange={setShowAgentIdentity} label="Show agent name and avatar in chat" />}
+                    />
                 </div>
             </Card>
+
+            <VoiceCard enabled={config.voiceEnabled} configured={config.voiceConfigured} onSaved={() => router.refresh()} />
         </div>
+    );
+}
+
+/**
+ * Voice dictation setup — one place to turn the composer mic on and drop in an
+ * ElevenLabs API key. Without this, nobody would know the mic needs a key.
+ */
+function VoiceCard({ enabled: initialEnabled, configured, onSaved }: { enabled: boolean; configured: boolean; onSaved: () => void }) {
+    const [enabled, setEnabled] = useState(initialEnabled);
+    const [apiKey, setApiKey] = useState("");
+    const [pending, startTransition] = useTransition();
+    const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+    function save() {
+        setMsg(null);
+        startTransition(async () => {
+            const res = await saveVoiceSettingsAction({ enabled, apiKey });
+            setMsg({ ok: res.success, text: res.message });
+            if (res.success) {
+                setApiKey("");
+                onSaved();
+            }
+        });
+    }
+
+    return (
+        <Card>
+            <CardHeader
+                title="Voice dictation"
+                description="Add a microphone to the assistant so you can talk instead of type."
+                action={
+                    <button
+                        type="button"
+                        onClick={save}
+                        disabled={pending}
+                        className="rounded-lg bg-pulse-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pulse-accent-hi disabled:opacity-60"
+                    >
+                        {pending ? "Saving…" : "Save changes"}
+                    </button>
+                }
+            />
+            {msg && <div className={`px-4 pt-4 text-sm ${msg.ok ? "text-emerald-500" : "text-red-500"}`}>{msg.text}</div>}
+            <div className="divide-y divide-pulse-border-subtle">
+                <SettingRow
+                    title="Enable voice input"
+                    description="Shows a mic button in the chat composer. Needs an ElevenLabs key below to work."
+                    control={<Toggle checked={enabled} onChange={setEnabled} label="Enable voice input" />}
+                />
+                <SettingRow
+                    title="ElevenLabs API key"
+                    description={
+                        configured
+                            ? "A key is saved. Enter a new one to replace it."
+                            : "Get a free key at elevenlabs.io → Profile → API Keys, then paste it here. Stored encrypted."
+                    }
+                    control={
+                        <div className="flex flex-col items-end gap-1.5">
+                            <input
+                                type="password"
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                placeholder={configured ? "•••••••••• (saved)" : "sk_…"}
+                                autoComplete="off"
+                                className="w-64 rounded-lg border border-pulse-border bg-pulse-panel px-3 py-1.5 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            {configured && (
+                                <button
+                                    type="button"
+                                    onClick={() => setApiKey("__clear__")}
+                                    className="text-xs font-medium text-red-500 hover:text-red-400"
+                                >
+                                    {apiKey === "__clear__" ? "Will remove on save" : "Remove key"}
+                                </button>
+                            )}
+                        </div>
+                    }
+                />
+            </div>
+        </Card>
     );
 }
