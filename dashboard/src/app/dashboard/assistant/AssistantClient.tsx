@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
     PaperAirplaneIcon, PlusIcon, ChevronDownIcon, ChevronRightIcon,
     SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
-    ChevronDoubleLeftIcon, ChevronDoubleRightIcon,
+    ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
 import { getLiveModelsAction } from "../agents/actions";
@@ -71,6 +71,14 @@ export default function AssistantClient({
     // Persisted settings (nothing hardcoded).
     const [reasoning, setReasoning] = useState<string>("auto");
     const [showThinking, setShowThinking] = useState<boolean>(true);
+
+    // Voice input — record → POST to /dashboard/assistant/transcribe → append text.
+    const [recording, setRecording] = useState(false);
+    const [transcribing, setTranscribing] = useState(false);
+    const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const audioStreamRef = useRef<MediaStream | null>(null);
 
     const wsRef = useRef<WebSocket | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -212,6 +220,68 @@ export default function AssistantClient({
         });
         scrollToBottom();
     }
+
+    // Stop the recorder (if any) and release the mic tracks.
+    function stopMicStream() {
+        audioStreamRef.current?.getTracks().forEach((t) => t.stop());
+        audioStreamRef.current = null;
+    }
+
+    async function transcribeAndInsert(blob: Blob) {
+        setTranscribing(true);
+        setVoiceNotice(null);
+        try {
+            const form = new FormData();
+            form.append("audio", blob, "audio.webm");
+            const res = await fetch("/dashboard/assistant/transcribe", { method: "POST", body: form });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data?.error) {
+                setVoiceNotice(data?.error || "Couldn't transcribe the audio.");
+                return;
+            }
+            const text = (data?.text || "").trim();
+            if (text) {
+                setInput((prev) => (prev.trim() ? `${prev} ${text}` : text));
+                requestAnimationFrame(() => { inputRef.current?.focus(); autoGrow(); });
+            }
+        } catch {
+            setVoiceNotice("Couldn't transcribe the audio.");
+        } finally {
+            setTranscribing(false);
+        }
+    }
+
+    async function toggleRecording() {
+        if (transcribing) return;
+        if (recording) {
+            mediaRecorderRef.current?.stop();
+            return;
+        }
+        setVoiceNotice(null);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioStreamRef.current = stream;
+            const recorder = new MediaRecorder(stream);
+            audioChunksRef.current = [];
+            recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+            recorder.onstop = () => {
+                stopMicStream();
+                setRecording(false);
+                const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+                audioChunksRef.current = [];
+                if (blob.size > 0) void transcribeAndInsert(blob);
+            };
+            mediaRecorderRef.current = recorder;
+            recorder.start();
+            setRecording(true);
+        } catch {
+            setVoiceNotice("Microphone access denied.");
+            stopMicStream();
+        }
+    }
+
+    // Release the mic if the component unmounts mid-recording.
+    useEffect(() => () => stopMicStream(), []);
 
     function startNewChat() {
         setSessionId(newSessionId());
@@ -481,10 +551,36 @@ export default function AssistantClient({
                                 disabled={conn !== "online"}
                                 className="block max-h-40 h-9 flex-1 resize-none self-center bg-transparent py-1.5 text-sm leading-6 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
+                            <button
+                                type="button"
+                                onClick={toggleRecording}
+                                disabled={transcribing || conn !== "online"}
+                                title={recording ? "Stop recording" : "Record voice message"}
+                                aria-label={recording ? "Stop recording" : "Record voice message"}
+                                aria-pressed={recording}
+                                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
+                                    recording
+                                        ? "text-red-500 animate-pulse hover:bg-red-500/10"
+                                        : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
+                                }`}
+                            >
+                                <MicrophoneIcon className="h-5 w-5" />
+                            </button>
                             <button type="button" onClick={send} disabled={!input.trim() || busy || conn !== "online"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pulse-accent text-white transition-colors hover:bg-pulse-accent-hi disabled:opacity-40">
                                 <PaperAirplaneIcon className="h-5 w-5" />
                             </button>
                         </div>
+                        {(recording || transcribing || voiceNotice) && (
+                            <p className="mt-1 px-1 text-[11px] text-pulse-faint">
+                                {voiceNotice ? (
+                                    <span className="text-red-400">{voiceNotice}</span>
+                                ) : recording ? (
+                                    <span className="text-red-400">Listening…</span>
+                                ) : (
+                                    "Transcribing…"
+                                )}
+                            </p>
+                        )}
                         {/* Compact controls */}
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-pulse-faint">
                             {models.length > 0 && (
