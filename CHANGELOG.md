@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.72] - 2026-08-12
+
+### Features
+- document locker + PDF read & form-fill + receipts
+
 ## [0.14.71] - 2026-08-12
 
 ### Features
