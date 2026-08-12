@@ -283,9 +283,10 @@ const OPENAI_COMPAT_MODEL_BASE: Record<string, string> = {
 
 export async function getLiveModelsAction(
     providerId: string,
-): Promise<{ id: string; provider: string; displayName: string; category: string }[]> {
+): Promise<{ id: string; provider: string; displayName: string; category: string; free?: boolean }[]> {
     const tc = await requireTenant();
-    const staticModels = (PROVIDERS.find((p) => p.id === providerId)?.models || []) as any[];
+    const markFree = (m: any) => ({ ...m, free: typeof m?.id === "string" && m.id.endsWith(":free") });
+    const staticModels = ((PROVIDERS.find((p) => p.id === providerId)?.models || []) as any[]).map(markFree);
     if (!tc.authorized) return staticModels;
 
     const base = OPENAI_COMPAT_MODEL_BASE[providerId];
@@ -305,12 +306,29 @@ export async function getLiveModelsAction(
         const r = await fetch(`${base}/models`, { headers: { Authorization: `Bearer ${decrypt(row.enc)}` } });
         if (!r.ok) return staticModels;
         const j = await r.json();
-        const ids: string[] = (j?.data || []).map((m: any) => m?.id).filter((x: any) => typeof x === "string");
-        if (!ids.length) return staticModels;
+        // Keep the raw entries so we can read pricing (OpenRouter/others expose
+        // `pricing.prompt`/`.completion`) to tell free models apart.
+        const rows: any[] = (j?.data || []).filter((m: any) => typeof m?.id === "string");
+        if (!rows.length) return staticModels;
 
         const byId = new Map(staticModels.map((m) => [m.id, m]));
+        // A model is "free" if its id is a :free variant, or the provider prices
+        // both prompt + completion at 0.
+        const isFree = (m: any): boolean => {
+            if (typeof m.id === "string" && m.id.endsWith(":free")) return true;
+            const p = m?.pricing;
+            if (p && typeof p === "object") {
+                const prompt = Number(p.prompt);
+                const completion = Number(p.completion);
+                if (Number.isFinite(prompt) && Number.isFinite(completion) && prompt === 0 && completion === 0) return true;
+            }
+            return false;
+        };
         // Preserve the provider's own ordering (newest first for MiniMax).
-        return ids.map((id) => byId.get(id) || { id, provider: providerId, displayName: id, category: "flagship" });
+        return rows.map((m) => {
+            const base = byId.get(m.id) || { id: m.id, provider: providerId, displayName: m.id, category: "flagship" };
+            return { ...base, free: isFree(m) };
+        });
     } catch (e) {
         console.error("getLiveModelsAction failed:", e);
         return staticModels;

@@ -5,6 +5,7 @@ import { agentProfiles } from "../../../storage/schema";
 import { eq } from "drizzle-orm";
 import AssistantClient from "./AssistantClient";
 import { listSessionsAction, getSessionHistoryAction } from "./actions";
+import { getBrandingConfig } from "../settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,16 @@ export default async function AssistantPage() {
     const initialSessionId = sessions[0]?.sessionId ?? "";
     const initialHistory = sessions.length ? await getSessionHistoryAction(initialSessionId) : [];
 
+    const branding = await getBrandingConfig();
+
     return (
         <AssistantClient
             agents={activeAgents}
             sessions={sessions}
             initialSessionId={initialSessionId}
             initialHistory={initialHistory}
+            showIdentityPref={branding.showAgentIdentity}
+            voiceEnabled={branding.voiceEnabled && branding.voiceConfigured}
         />
     );
 }
