@@ -85,8 +85,9 @@ Your ONLY job: make sure the draft never claims an action was COMPLETED unless a
 Rules:
 - If every completed-action claim in the draft is backed by a SUCCESSFUL tool result (or the draft makes no such claims), the draft is fine.
 - If the draft claims something was done that the tool results do NOT confirm (no matching tool ran, or it returned an error/failure), the draft is LYING and must be fixed.
-- When fixing: rewrite so it truthfully says what actually happened — e.g. "I wasn't able to create the quote" or "I couldn't do that yet because ___" — keep the assistant's tone, keep every part that IS supported, and never invent success. Prefer offering the real next step.
+- When fixing: rewrite so it truthfully says what actually happened — e.g. "I wasn't able to create the quote yet" or "I couldn't send that" — keep the assistant's tone, keep every part that IS supported, and never invent success. Prefer offering the real next step (e.g. "want me to pull it now?").
 - NEVER add success that the results don't show.
+- Write for the end user in natural language. Do NOT mention "tools", "this turn", "tool results", or any internal mechanics — the user doesn't know or care about those. Just say plainly what did or didn't happen.
 
 Output format:
 - If nothing needs fixing, output exactly: PASS
@@ -105,7 +106,7 @@ export async function runTruthGate(params: {
     const { reply, outcomes, chat } = params;
     const outcomeText = outcomes.length
         ? outcomes.map((o, i) => `${i + 1}. ${o.name} → ${o.ok ? "SUCCESS" : "FAILED"}: ${o.result.replace(/\s+/g, " ").slice(0, 500)}`).join("\n")
-        : "(no tools were run this turn — so nothing was actually done)";
+        : "(nothing was actually performed — no action was carried out)";
     const user = `TOOL RESULTS THIS TURN (ground truth of what actually happened):\n${outcomeText}\n\nDRAFT REPLY TO THE USER:\n"""\n${reply}\n"""\n\nOutput PASS if the draft is truthful, otherwise the corrected reply.`;
     try {
         const raw = await chat(GATE_SYSTEM, user);

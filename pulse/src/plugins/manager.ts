@@ -14,6 +14,17 @@ import { installedPlugins } from "../storage/schema.js";
 import { eq } from "drizzle-orm";
 import { computeManifestHash, summarizeCapabilities, CapabilitySummary } from "./manifest-hash.js";
 import { isPluginEnabledForTenant } from "./tenant-access.js";
+import { resolve } from "path";
+
+// Bundled plugins ship inside the deployed codebase (pulse/plugins or
+// dist/plugins). A capability change to one of these arrives via a code deploy
+// the operator already trusts, so it is auto-re-approved rather than silently
+// deactivated. Genuinely new plugins, and any future non-bundled ones, still
+// require explicit approval.
+const BUNDLED_ROOTS = [resolve(process.cwd(), "plugins"), resolve(process.cwd(), "dist", "plugins")];
+function isBundledPlugin(sourcePath: string): boolean {
+    return !!sourcePath && BUNDLED_ROOTS.some((root) => sourcePath.startsWith(root));
+}
 
 export class PluginManager {
     private loadedPlugins: Map<string, LoadedPlugin> = new Map();
@@ -48,8 +59,19 @@ export class PluginManager {
             let approvedHash = (existing as any)?.approvedHash ?? null;
             let grandfathered = false;
             if (existing && !approvedHash) {
+                // Pre-approval-era plugin — grandfather so nothing breaks.
                 approvedHash = manifestHash;
                 grandfathered = true;
+            } else if (
+                existing && approvedHash && approvedHash !== manifestHash
+                && existing.enabled !== false && isBundledPlugin(loaded.sourcePath)
+            ) {
+                // A bundled vendor plugin's capabilities changed via a code deploy
+                // the operator controls — auto re-approve so vendor updates don't
+                // silently deactivate the plugin (and all its existing tools).
+                approvedHash = manifestHash;
+                grandfathered = true;
+                logger.info({ name: loaded.manifest.name }, "Bundled plugin capability change auto-approved");
             }
 
             const enabled = existing ? existing.enabled !== false : true;

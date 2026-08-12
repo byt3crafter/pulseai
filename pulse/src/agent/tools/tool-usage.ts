@@ -64,6 +64,43 @@ export async function getToolUsageScores(
     return scores;
 }
 
+/**
+ * The last N DISTINCT tools the agent used, most-recent first (pure recency, not
+ * frequency). Keeps the agent's just-used tools loaded — "short-term memory" — so
+ * a tool it reached for one message ago is still instantly available the next,
+ * even if it's not a frequent one. Restricted to a candidate set (deferrable).
+ */
+export async function getRecentToolNames(
+    tenantId: string,
+    agentProfileId: string | undefined,
+    n: number,
+    candidates?: Set<string>,
+): Promise<string[]> {
+    if (!agentProfileId || n <= 0) return [];
+    try {
+        const rows = await db
+            .select({ toolCalls: agentRuns.toolCalls })
+            .from(agentRuns)
+            .where(and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.agentProfileId, agentProfileId)))
+            .orderBy(desc(agentRuns.startedAt))
+            .limit(40);
+        const seen: string[] = [];
+        for (const r of rows) {
+            const calls = Array.isArray(r.toolCalls) ? (r.toolCalls as any[]) : [];
+            for (const c of calls) {
+                const name = c?.name;
+                if (typeof name === "string" && name && !seen.includes(name) && (!candidates || candidates.has(name))) {
+                    seen.push(name);
+                    if (seen.length >= n) return seen;
+                }
+            }
+        }
+        return seen;
+    } catch {
+        return [];
+    }
+}
+
 /** Top-N tool names by usage, restricted to a candidate set (e.g. deferrable tools). */
 export function topToolsByUsage(
     scores: Map<string, number>,
