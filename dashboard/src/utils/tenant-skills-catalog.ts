@@ -187,6 +187,14 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "notifications",
+        title: "Notifications",
+        description: "Let an agent post to your in-app inbox (the bell) so it can reach you proactively.",
+        tools: [
+            { name: "notify", label: "Notify owner", description: "Post a notification to the owner's in-app inbox.", defaultOn: false },
+        ],
+    },
+    {
         key: "followups",
         title: "Follow-ups",
         description: "Let an agent remember what it's waiting on (e.g. a reply to a quotation) and chase it.",

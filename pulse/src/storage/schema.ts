@@ -1062,6 +1062,31 @@ export const bookmarks = pgTable(
     ]
 );
 
+// -- Notifications: the in-app inbox. Agent-initiated (briefings, replies,
+//    overdue chases) and system events land here per tenant; the dashboard bell
+//    shows unread count + a feed. One record, deliverable to many channels. --
+export const notifications = pgTable(
+    "notifications",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        agentId: uuid("agent_id").references(() => agentProfiles.id), // who posted it (NULL = system)
+        title: text("title").notNull(),
+        body: text("body"),
+        kind: varchar("kind", { length: 24 }).default("info"), // info|reply|overdue|briefing|approval|job|system
+        priority: varchar("priority", { length: 12 }).default("normal"), // low|normal|high
+        link: text("link"), // optional dashboard path to open
+        read: boolean("read").default(false),
+        readAt: timestamp("read_at", { withTimezone: true }),
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_notifications_tenant").on(table.tenantId),
+        index("idx_notifications_tenant_read").on(table.tenantId, table.read),
+    ]
+);
+
 // -- Expenses: simple expense/receipt ledger. receiptDocumentId links to a
 //    stored document (Phase 2 file store); NULL until a receipt is attached. --
 export const expenses = pgTable(

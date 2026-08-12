@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bars3Icon, XMarkIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from "@heroicons/react/24/outline";
 import BrandMark from "./BrandMark";
 import ThemeToggle from "./ThemeToggle";
+import NotificationBell from "./notifications/NotificationBell";
 
 /** Desktop sidebar collapse state — consumed by DashboardNav to hide labels. */
 export const SidebarCollapseContext = createContext(false);
@@ -92,14 +93,17 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
                                 <BrandMark size={28} />
                                 <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
                             </Link>
-                            <button
-                                type="button"
-                                onClick={toggleCollapsed}
-                                aria-label="Collapse sidebar"
-                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                            >
-                                <ChevronDoubleLeftIcon className="w-4 h-4" aria-hidden="true" />
-                            </button>
+                            <div className="flex items-center gap-0.5 flex-shrink-0">
+                                <NotificationBell align="left" />
+                                <button
+                                    type="button"
+                                    onClick={toggleCollapsed}
+                                    aria-label="Collapse sidebar"
+                                    className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                >
+                                    <ChevronDoubleLeftIcon className="w-4 h-4" aria-hidden="true" />
+                                </button>
+                            </div>
                         </>
                     )}
                 </div>
@@ -119,6 +123,7 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
                             >
                                 <ChevronDoubleRightIcon className="w-4 h-4" aria-hidden="true" />
                             </button>
+                            <NotificationBell align="left" />
                             <ThemeToggle />
                         </>
                     ) : (
@@ -197,6 +202,7 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children 
                         <Bars3Icon className="w-5 h-5" aria-hidden="true" />
                     </button>
                     <span className="text-sm font-bold text-pulse-text tracking-tight truncate flex-1">{workspaceName}</span>
+                    <NotificationBell />
                     <ThemeToggle />
                 </header>
 
