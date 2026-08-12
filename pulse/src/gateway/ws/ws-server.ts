@@ -148,6 +148,10 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                         },
                         {
                             reasoningEffort: typeof msg.reasoningEffort === "string" ? msg.reasoningEffort : undefined,
+                            // Per-message model override (assistant model picker) — the
+                            // runtime resolves the provider from the model id, so a
+                            // Claude/OpenAI/MiniMax id works if that provider key is set.
+                            modelOverride: typeof msg.model === "string" && msg.model.trim() ? msg.model.trim() : undefined,
                             // Stream every turn's tokens + reasoning live to the browser.
                             forceStream: true,
                             editMessageCallback: async (_tid: string, _cid: string, _mid: string, content: string) => {
