@@ -48,6 +48,11 @@ export default function AssistantClient({
     const [conn, setConn] = useState<ConnState>("connecting");
     const [busy, setBusy] = useState(false);
     const [agentId, setAgentId] = useState<string>(agents[0]?.id ?? "");
+    // Pre-select an agent from ?agent=<id> when opened from a notification.
+    useEffect(() => {
+        const fromUrl = new URLSearchParams(window.location.search).get("agent");
+        if (fromUrl && agents.some((a) => a.id === fromUrl)) setAgentId(fromUrl);
+    }, [agents]);
     const [railOpen, setRailOpen] = useState(true);
     const [renaming, setRenaming] = useState<string | null>(null);
     const [renameText, setRenameText] = useState("");

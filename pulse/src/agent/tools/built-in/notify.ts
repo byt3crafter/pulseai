@@ -34,6 +34,9 @@ export const notifyTool: Tool = {
         const title = String(args?.title ?? "").trim();
         if (!title) return { result: "A notification needs a title." };
         const agentId = typeof args?._agentId === "string" ? args._agentId : null;
+        // Clicking the notification opens the assistant, pre-selecting the agent
+        // that posted it, so the owner can act on it right there.
+        const link = agentId ? `/dashboard/assistant?agent=${agentId}` : "/dashboard/assistant";
         await db.insert(notifications).values({
             tenantId,
             agentId,
@@ -41,6 +44,7 @@ export const notifyTool: Tool = {
             body: args?.body ? String(args.body).slice(0, 4000) : null,
             priority: PRIORITIES.has(String(args?.priority)) ? String(args.priority) : "normal",
             kind: KINDS.has(String(args?.kind)) ? String(args.kind) : "info",
+            link,
         });
         return { result: `Posted to the owner's inbox: "${title}".` };
     },
