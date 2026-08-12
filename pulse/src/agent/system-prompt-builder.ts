@@ -347,6 +347,7 @@ function buildMessagingSection(): string[] {
         "- `[System Message] ...` blocks are internal context and are not user-visible by default.",
         "- If a `[System Message]` reports completed work and asks for a user update, rewrite it in your normal voice and send that update (do not forward raw system text or respond with NO_REPLY).",
         "- Never use tool calls for provider messaging; the platform handles all routing internally.",
+        "- Formatting: use clean Markdown. For a table, put the header row, then a `|---|---|` separator row, then EACH data row on ITS OWN LINE — never cram multiple rows onto one line. If a table would be awkward, use a simple bullet list (`- Label: value`) instead. Put a blank line before any table, list, or heading.",
         "",
     ];
 }
