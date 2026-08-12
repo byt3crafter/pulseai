@@ -18,8 +18,8 @@ describe("Plugin Loading — ERPNext", () => {
         expect(Array.isArray(erpnextPlugin.tools)).toBe(true);
     });
 
-    it("should have exactly 7 tools", () => {
-        expect(erpnextPlugin.tools!.length).toBe(7);
+    it("should have exactly 8 tools", () => {
+        expect(erpnextPlugin.tools!.length).toBe(8);
     });
 
     it("should have all expected tool names", () => {
@@ -31,6 +31,7 @@ describe("Plugin Loading — ERPNext", () => {
         expect(names).toContain("erpnext_delete");
         expect(names).toContain("erpnext_report");
         expect(names).toContain("erpnext_method");
+        expect(names).toContain("erpnext_connect");
     });
 
     it("should have credential schema with required fields", () => {
