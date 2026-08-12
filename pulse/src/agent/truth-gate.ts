@@ -36,6 +36,8 @@ export const CONSEQUENTIAL_TOOLS = new Set<string>([
     "task_create", "task_update", "task_complete", "task_delete",
     // Documents / PDF / vault
     "document_delete", "pdf_fill_form", "login_save",
+    // Config / integrations (state-changing setup)
+    "credential_set", "erpnext_connect", "erpnext_create", "erpnext_update", "erpnext_delete",
     // OneDrive
     "onedrive_upload", "onedrive_create_folder", "onedrive_share", "onedrive_delete",
     // Scheduling / commitments / self-edit / browser side-effects

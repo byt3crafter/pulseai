@@ -38,6 +38,7 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         tools: [
             { name: "get_current_time", label: "Current time", description: "Read the current date and time.", defaultOn: true },
             { name: "calculator", label: "Calculator", description: "Evaluate arithmetic expressions.", defaultOn: true },
+            { name: "pulse_help", label: "Workspace help", description: "Let the agent report what's connected/configured and what still needs setup.", defaultOn: false },
         ],
     },
     {
@@ -126,6 +127,7 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         description: "Let an agent use your saved website logins (it never sees the passwords).",
         tools: [
             { name: "login_list", label: "List logins", description: "See which saved logins are available (labels/usernames only, never passwords).", defaultOn: false },
+            { name: "login_save", label: "Save login", description: "Let the agent save a website login to the vault (password encrypted). Off by default.", defaultOn: false },
         ],
     },
     {
@@ -217,6 +219,7 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
             { name: "script_load", label: "Load script", description: "Load a saved script.", defaultOn: false },
             { name: "script_list", label: "List scripts", description: "List saved scripts.", defaultOn: false },
             { name: "credential_list", label: "List credentials", description: "List available credential names (not values).", defaultOn: false },
+            { name: "credential_set", label: "Set credential", description: "Let the agent store/update a tenant credential or API key to connect an integration (encrypted). Off by default.", defaultOn: false },
         ],
     },
 ];
