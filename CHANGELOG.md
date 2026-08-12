@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.75] - 2026-08-12
+
+### Features
+- stop the agent claiming actions it didn't do
+
 ## [0.14.74] - 2026-08-12
 
 ### Features
