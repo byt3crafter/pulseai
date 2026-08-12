@@ -21,6 +21,7 @@ import {
     erpnextDeleteTool,
     erpnextReportTool,
     erpnextMethodTool,
+    erpnextConnectTool,
 } from "./tools/index.js";
 
 const ERPNEXT_PROMPT_CONTEXT = `
@@ -106,6 +107,7 @@ export default definePlugin({
         erpnextDeleteTool,
         erpnextReportTool,
         erpnextMethodTool,
+        erpnextConnectTool,
     ],
 
     hooks: {

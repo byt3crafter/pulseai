@@ -5,3 +5,4 @@ export { erpnextUpdateTool } from "./update.js";
 export { erpnextDeleteTool } from "./delete.js";
 export { erpnextReportTool } from "./report.js";
 export { erpnextMethodTool } from "./method.js";
+export { erpnextConnectTool } from "./connect.js";
