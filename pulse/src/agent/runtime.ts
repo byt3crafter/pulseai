@@ -997,25 +997,42 @@ export class AgentRuntime {
             // 4.6 Check for silent reply token — suppress empty/ack responses
             const isSilentReply = llmResponse.content.trim() === SILENT_REPLY_TOKEN;
 
-            // 5. Store LLM Assistant response in Database (skip silent replies)
+            // 5. Store LLM Assistant response in Database (skip silent replies).
+            //
+            // NON-FATAL: the reply has already been generated (and, on streaming
+            // surfaces, delivered live to the user). If the conversation row is
+            // gone — e.g. the user deleted this chat/session mid-turn — this
+            // insert hits a FK violation. That must NOT throw into the outer
+            // catch, or the delivered answer gets clobbered by a generic error
+            // bubble and the stream/composer locks up waiting for a completion
+            // that never comes. Log it and carry on to send the final message.
             if (!isSilentReply) {
-                await db.insert(messages).values({
-                    conversationId: conversation.id,
-                    tenantId: inbound.tenantId,
-                    role: "assistant",
-                    content: llmResponse.content,
-                    // Attribute the reply to the responding agent in a shared channel thread
-                    channelId: inbound.channelId ?? null,
-                    senderType: inbound.channelId ? "agent" : null,
-                    senderAgentId: inbound.channelId ? (resolvedAgentProfileId ?? null) : null,
-                });
+                try {
+                    await db.insert(messages).values({
+                        conversationId: conversation.id,
+                        tenantId: inbound.tenantId,
+                        role: "assistant",
+                        content: llmResponse.content,
+                        // Attribute the reply to the responding agent in a shared channel thread
+                        channelId: inbound.channelId ?? null,
+                        senderType: inbound.channelId ? "agent" : null,
+                        senderAgentId: inbound.channelId ? (resolvedAgentProfileId ?? null) : null,
+                    });
+                } catch (persistErr) {
+                    tenantLog.error({ persistErr, conversationId: conversation.id }, "Failed to persist assistant message (reply already produced) — continuing without it");
+                }
             }
 
             // Bump the conversation's updatedAt so "Last Updated" reflects real
-            // activity (not just creation) and threads sort by recency.
-            await db.update(conversations)
-                .set({ updatedAt: new Date() })
-                .where(eq(conversations.id, conversation.id));
+            // activity (not just creation) and threads sort by recency. Also
+            // non-fatal for the same reason.
+            try {
+                await db.update(conversations)
+                    .set({ updatedAt: new Date() })
+                    .where(eq(conversations.id, conversation.id));
+            } catch (bumpErr) {
+                tenantLog.warn({ bumpErr, conversationId: conversation.id }, "Failed to bump conversation updatedAt — continuing");
+            }
 
             // Auto-memory runs in the BACKGROUND (fire-and-forget) so its extra
             // extraction LLM call never delays the user's reply. It bills its own
