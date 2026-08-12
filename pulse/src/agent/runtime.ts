@@ -467,6 +467,12 @@ export class AgentRuntime {
 
             // 3.88 Build the complete system prompt via the builder
             const workspaceTimezone = await getTenantTimezone(inbound.tenantId);
+            // Built-in tools that exist but aren't enabled for this agent — so it
+            // can suggest the owner turn them on (it still can't call them).
+            const enabledToolNames = new Set(enabledTools.map((t) => t.name));
+            const suggestableTools = this.toolRegistry.getAllTools()
+                .filter((t) => !enabledToolNames.has(t.name))
+                .map((t) => ({ name: t.name, description: t.description }));
             let activeSystemPrompt = buildAgentSystemPrompt({
                 basePrompt,
                 enabledTools: enabledTools.map((t) => ({ name: t.name, description: t.description })),
@@ -487,6 +493,7 @@ export class AgentRuntime {
                 groupTitle: inbound.groupTitle,
                 routableChannels,
                 timezone: workspaceTimezone,
+                suggestableTools,
             });
 
             // 3.885 If self-editing is enabled, state it explicitly. Models otherwise

@@ -135,6 +135,13 @@ export interface SystemPromptParams {
 
     /** IANA workspace timezone for the Current Date & Time header (default UTC). */
     timezone?: string;
+
+    /**
+     * Built-in tools that exist but are NOT currently enabled for this agent.
+     * Surfaced so the agent can SUGGEST the owner enable them — it cannot use
+     * them until they're switched on in Workspace Tools.
+     */
+    suggestableTools?: { name: string; description: string }[];
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────
@@ -217,6 +224,46 @@ function buildToolingSection(tools: ToolInfo[]): string[] {
 function buildSkillsSection(skillsContent: string): string[] {
     if (!skillsContent) return [];
     return [skillsContent, ""];
+}
+
+/**
+ * Tools too technical/internal to advertise as "just ask to enable" — they
+ * shouldn't appear in the capability-suggestion list shown to end users.
+ */
+const NON_SUGGESTABLE = new Set([
+    "exec", "process", "python_execute", "script_save", "script_load", "script_list",
+    "credential_list", "route_to_channel", "workspace_update", "sandbox", "bash_sandbox",
+]);
+
+/** Capabilities that exist but are switched off — the agent may suggest enabling them. */
+function buildCapabilityHintsSection(suggestable?: { name: string; description: string }[]): string[] {
+    if (!suggestable || suggestable.length === 0) return [];
+    const items = suggestable.filter((t) => !NON_SUGGESTABLE.has(t.name));
+    if (items.length === 0) return [];
+    const lines = items.map((t) => {
+        const desc = t.description.split(/[.\n]/)[0].slice(0, 90);
+        return `- **${t.name}**: ${desc}`;
+    });
+    return [
+        "## Capabilities you can request (currently OFF)",
+        "These tools exist but are NOT enabled for you right now, so you CANNOT call them yet. " +
+        "If one of them would clearly help with what the user is asking, tell the user it's available and that they can turn it on in " +
+        "**Settings → Workspace Tools** (name the specific tool), then continue with what you can already do. Do not pretend to use a disabled tool.",
+        ...lines,
+        "",
+    ];
+}
+
+/** When the task tracker is enabled, tell the agent to log substantial jobs. */
+function buildTaskTrackingSection(tools: ToolInfo[]): string[] {
+    if (!tools.some((t) => t.name === "task_create")) return [];
+    return [
+        "## Tracking your work",
+        "You have a task tracker. When the user gives you a substantial, multi-step, or long-running job, " +
+        "call `task_create` to open a task (set status 'doing' if you start right away), and `task_update` / `task_complete` as it progresses. " +
+        "This gives the owner a live view of what's pending. Don't create tasks for trivial one-off questions or casual chat — only real work.",
+        "",
+    ];
 }
 
 function buildToolCallStyleSection(): string[] {
@@ -480,6 +527,12 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
     // 5.5. Skills — detailed tool usage guidance (full mode only)
     if (!isMinimal && params.skills) {
         lines.push(...buildSkillsSection(params.skills));
+    }
+
+    // 5.6. Work tracking + capability suggestions — full mode only
+    if (!isMinimal) {
+        lines.push(...buildTaskTrackingSection(params.enabledTools));
+        lines.push(...buildCapabilityHintsSection(params.suggestableTools));
     }
 
     // 6. Tool Call Style — full mode only
