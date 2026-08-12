@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.89] - 2026-08-12
+
+### Features
+- voice input mic — ElevenLabs STT (OpenAI Whisper fallback)
+
 ## [0.14.88] - 2026-08-12
 
 ### Features
