@@ -19,6 +19,8 @@ import { todoAddTool, todoListTool, todoCompleteTool, todoDeleteTool } from "./b
 import { bookmarkSaveTool, bookmarkListTool, bookmarkSearchTool, bookmarkDeleteTool } from "./built-in/bookmarks.js";
 import { expenseAddTool, expenseListTool, expenseSearchTool, expenseDeleteTool } from "./built-in/expenses.js";
 import { taskCreateTool, taskUpdateTool, taskListTool, taskCompleteTool, taskDeleteTool } from "./built-in/tasks.js";
+import { documentListTool, documentSearchTool, documentReadTool, documentDeleteTool } from "./built-in/documents.js";
+import { pdfReadTool, pdfFormFieldsTool, pdfFillFormTool } from "./built-in/pdf.js";
 import {
     emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool, emailDraftTool,
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
@@ -112,6 +114,13 @@ export class ToolRegistry {
         this.builtInTools.set("task_list", taskListTool);
         this.builtInTools.set("task_complete", taskCompleteTool);
         this.builtInTools.set("task_delete", taskDeleteTool);
+        this.builtInTools.set("document_list", documentListTool);
+        this.builtInTools.set("document_search", documentSearchTool);
+        this.builtInTools.set("document_read", documentReadTool);
+        this.builtInTools.set("document_delete", documentDeleteTool);
+        this.builtInTools.set("pdf_read", pdfReadTool);
+        this.builtInTools.set("pdf_form_fields", pdfFormFieldsTool);
+        this.builtInTools.set("pdf_fill_form", pdfFillFormTool);
         this.builtInTools.set("route_to_channel", routeToChannelTool);
         this.builtInTools.set("email_send", emailSendTool);
         this.builtInTools.set("email_draft", emailDraftTool);

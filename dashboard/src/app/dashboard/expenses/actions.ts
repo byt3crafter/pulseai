@@ -3,9 +3,10 @@
 import { and, eq, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
-import { expenses } from "../../../storage/schema";
+import { documents, expenses } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { logAudit } from "../../../utils/audit";
+import { extractDocumentText, MAX_DOCUMENT_BYTES } from "../documents/document-file";
 
 export interface ExpenseRow {
     id: string;
@@ -15,6 +16,7 @@ export interface ExpenseRow {
     category: string | null;
     description: string | null;
     spentAt: Date | null;
+    receiptDocumentId: string | null;
     createdAt: Date | null;
     updatedAt: Date | null;
 }
@@ -34,6 +36,7 @@ export async function getExpenses(): Promise<ExpenseRow[]> {
             category: expenses.category,
             description: expenses.description,
             spentAt: expenses.spentAt,
+            receiptDocumentId: expenses.receiptDocumentId,
             createdAt: expenses.createdAt,
             updatedAt: expenses.updatedAt,
         })
@@ -150,5 +153,69 @@ export async function deleteExpenseAction(id: string) {
     } catch (error) {
         console.error("Failed to delete expense:", error);
         return { success: false, message: "Failed to delete expense." };
+    }
+}
+
+/**
+ * Attach a receipt to an expense: uploads the file into the shared document
+ * locker (source 'receipt') and points the expense's `receiptDocumentId` at
+ * the new row. Both writes are scoped to the caller's tenant.
+ */
+export async function attachReceiptAction(expenseId: string, formData: FormData) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    if (!expenseId) return { success: false, message: "Expense id is required." };
+
+    const file = formData.get("file") as File | null;
+    if (!file || typeof file === "string" || !file.size) {
+        return { success: false, message: "Please choose a receipt file to upload." };
+    }
+
+    try {
+        const [existing] = await db.select({ id: expenses.id, vendor: expenses.vendor })
+            .from(expenses)
+            .where(and(eq(expenses.id, expenseId), eq(expenses.tenantId, tenantId)))
+            .limit(1);
+        if (!existing) return { success: false, message: "Expense not found." };
+
+        const buf = Buffer.from(await file.arrayBuffer());
+        if (buf.length > MAX_DOCUMENT_BYTES) {
+            return { success: false, message: "File is too large. The limit is 10 MB." };
+        }
+
+        const mimeType = file.type || "application/octet-stream";
+        const filename = file.name || "receipt";
+        const extractedText = await extractDocumentText(buf, mimeType, filename);
+
+        const [doc] = await db.insert(documents).values({
+            tenantId,
+            filename,
+            mimeType,
+            sizeBytes: buf.length,
+            content: buf.toString("base64"),
+            extractedText,
+            title: `Receipt: ${existing.vendor || filename}`,
+            source: "receipt",
+        }).returning({ id: documents.id });
+
+        await db.update(expenses)
+            .set({ receiptDocumentId: doc.id, updatedAt: new Date() })
+            .where(and(eq(expenses.id, expenseId), eq(expenses.tenantId, tenantId)));
+
+        await logAudit({
+            action: "expense.receipt",
+            targetType: "expense",
+            targetId: expenseId,
+            tenantId,
+            summary: `Attached receipt to expense${existing.vendor ? `: ${existing.vendor}` : ""}`,
+        });
+
+        revalidatePath("/dashboard/expenses");
+        return { success: true, message: "Receipt attached." };
+    } catch (error) {
+        console.error("Failed to attach receipt:", error);
+        return { success: false, message: "Failed to attach receipt." };
     }
 }

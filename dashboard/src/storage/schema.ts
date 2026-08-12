@@ -1048,6 +1048,33 @@ export const expenses = pgTable(
     ]
 );
 
+// -- Documents: the file store / document locker. Holds uploaded files
+//    (contracts, quotes, receipts) and agent-generated files (filled PDF forms).
+//    `content` is base64 of the raw bytes; `extractedText` powers search + read.
+//    Shared by the locker, expense receipts, and pdf_fill_form output. --
+export const documents = pgTable(
+    "documents",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
+        filename: text("filename").notNull(),
+        mimeType: varchar("mime_type", { length: 128 }),
+        sizeBytes: integer("size_bytes"),
+        content: text("content"),          // base64 of the raw file bytes
+        extractedText: text("extracted_text"), // searchable/readable text (PDF/text)
+        title: text("title"),
+        notes: text("notes"),
+        tags: text("tags"),
+        source: varchar("source", { length: 16 }).default("upload"), // upload|receipt|generated
+        metadata: jsonb("metadata").default({}),
+        createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    },
+    (table) => [
+        index("idx_documents_tenant").on(table.tenantId),
+    ]
+);
+
 // -- Tasks / projects: hybrid work tracker. Agents auto-log real jobs (source
 //    'agent') and update status as they work; users add their own (source
 //    'user'). A "project" is just a task with children (parentId). --
