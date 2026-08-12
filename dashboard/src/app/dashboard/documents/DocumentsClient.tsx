@@ -31,6 +31,17 @@ function displayTitle(doc: DocumentRow): string {
     return (doc.title && doc.title.trim()) || doc.filename;
 }
 
+/** Read a File to base64 via arrayBuffer (chunked, so large files don't blow the call stack). */
+export async function fileToBase64(file: File): Promise<string> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+}
+
 function formatFileSize(bytes: number | null): string {
     if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) return "—";
     if (bytes < 1024) return `${bytes} B`;
@@ -94,11 +105,23 @@ export default function DocumentsClient({ documents }: { documents: DocumentRow[
         }
         setFormSaving(true);
         setFormError(null);
-        const fd = new FormData();
-        fd.set("file", file);
-        fd.set("title", title);
-        fd.set("tags", tags);
+        // Send the file as a base64 string field — multipart File parts fail
+        // through the reverse proxy for server actions.
         startTransition(async () => {
+            let dataBase64: string;
+            try {
+                dataBase64 = await fileToBase64(file);
+            } catch {
+                setFormSaving(false);
+                setFormError("Could not read the file.");
+                return;
+            }
+            const fd = new FormData();
+            fd.set("dataBase64", dataBase64);
+            fd.set("filename", file.name || "untitled");
+            fd.set("mimeType", file.type || "application/octet-stream");
+            fd.set("title", title);
+            fd.set("tags", tags);
             const res = await uploadDocumentAction(fd);
             setFormSaving(false);
             if (res.success) {
