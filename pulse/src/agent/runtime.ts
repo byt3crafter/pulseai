@@ -35,7 +35,7 @@ import {
     formatSearchResult,
     TOOL_SEARCH_NAME,
 } from "./tools/tool-search.js";
-import { getToolUsageScores, topToolsByUsage } from "./tools/tool-usage.js";
+import { getToolUsageScores, topToolsByUsage, getRecentToolNames } from "./tools/tool-usage.js";
 import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
@@ -315,6 +315,31 @@ export class AgentRuntime {
                 toolUsageScores = await getToolUsageScores(inbound.tenantId, resolvedAgentProfileId ?? undefined);
                 const HOT_CACHE = 6;
                 for (const n of topToolsByUsage(toolUsageScores, HOT_CACHE, deferredNames)) revealedNames.add(n);
+                // Recency ("short-term memory"): always keep the last few tools the
+                // agent used loaded, even if they're not its most frequent ones.
+                for (const n of await getRecentToolNames(inbound.tenantId, resolvedAgentProfileId ?? undefined, 5, deferredNames)) {
+                    revealedNames.add(n);
+                }
+
+                // Predictive reveal: surface deferred tools whose name/description
+                // matches what the user just asked, so relevant tools (e.g. erpnext_*
+                // when the message says "invoice on erpnext") are usable immediately —
+                // a weak model can't be relied on to run the tool_search dance first.
+                const tokens = (inbound.content || "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+                if (tokens.length) {
+                    const relevant = deferrableTools
+                        .map((t) => {
+                            const name = t.name.toLowerCase();
+                            const desc = (t.description || "").toLowerCase();
+                            let score = 0;
+                            for (const tok of tokens) { if (name.includes(tok)) score += 3; else if (desc.includes(tok)) score += 1; }
+                            return { name: t.name, score };
+                        })
+                        .filter((x) => x.score > 0)
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, Math.max(toolSearchCfg.maxResults, 6));
+                    for (const r of relevant) revealedNames.add(r.name);
+                }
             }
             const buildActiveDefs = () => {
                 if (!toolSearchActive) return toolDefinitions;
