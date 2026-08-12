@@ -7,6 +7,7 @@ import { credentialListTool } from "./built-in/vault.js";
 import { credentialSetTool } from "./built-in/credential-set.js";
 import { pulseHelpTool } from "./built-in/pulse-help.js";
 import { commitmentCreateTool, commitmentListTool, commitmentCompleteTool } from "./built-in/commitments.js";
+import { notifyTool } from "./built-in/notify.js";
 import { pythonExecuteTool } from "./built-in/python.js";
 import { scriptSaveTool, scriptLoadTool, scriptListTool } from "./built-in/script-store.js";
 import { memoryStoreTool, memorySearchTool, memoryForgetTool } from "./built-in/memory-tools.js";
@@ -80,6 +81,7 @@ export class ToolRegistry {
         this.builtInTools.set("commitment_create", commitmentCreateTool);
         this.builtInTools.set("commitment_list", commitmentListTool);
         this.builtInTools.set("commitment_complete", commitmentCompleteTool);
+        this.builtInTools.set("notify", notifyTool);
         this.builtInTools.set("python_execute", pythonExecuteTool);
         this.builtInTools.set("script_save", scriptSaveTool);
         this.builtInTools.set("script_load", scriptLoadTool);

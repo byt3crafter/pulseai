@@ -43,6 +43,8 @@ export const CONSEQUENTIAL_TOOLS = new Set<string>([
     // Scheduling / commitments / self-edit / browser side-effects
     "schedule_job", "schedule_once", "cancel_job", "commitment_create", "commitment_complete",
     "workspace_update", "browser_login", "browser_fill",
+    // Proactive outreach / follow-ups
+    "notify", "commitment_create", "commitment_complete", "schedule_job", "schedule_once",
 ]);
 
 const COMPLETION_RE = /\b(create[ds]?|sent|send|saved?|configur\w+|set up|updat\w+|delet\w+|remov\w+|booked|schedul\w+|filled(?:\s+(?:in|out))?|attach\w+|added|add|post\w+|submitt\w+|upload\w+|shar\w+|issu\w+|generat\w+|logged|record\w+|assign\w+|moved|flagged|marked|done|complete[ds]?)\b/i;
