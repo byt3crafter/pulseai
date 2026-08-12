@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import SidebarUserMenu from "../../components/SidebarUserMenu";
 import DashboardNav from "../../components/DashboardNav";
 import DashboardShell from "../../components/DashboardShell";
+import { accentOverrideCss } from "../../utils/accent";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,10 @@ export default async function DashboardLayout({
         userId ? db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, userId)).limit(1) : Promise.resolve([]),
     ]);
 
-    const workspaceName = tenantRow[0]?.name ?? "Workspace";
+    // Per-tenant white-label branding (Settings → Appearance): title, logo, accent.
+    const branding = ((tenantRow[0] as any)?.config?.branding ?? {}) as { title?: string; logo?: string; accent?: string };
+    const workspaceName = (branding.title && branding.title.trim()) || tenantRow[0]?.name || "Workspace";
+    const accentCss = accentOverrideCss(branding.accent);
     const userName = userRow[0]?.name ?? userRow[0]?.email ?? "User";
     const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
     const isAdmin = session?.user?.role === "ADMIN";
@@ -32,9 +36,12 @@ export default async function DashboardLayout({
     const showBilling = ((rootRow[0]?.config as any)?.billingMode ?? "credits") !== "unlimited";
 
     return (
-        <DashboardShell
-            workspaceName={workspaceName}
-            nav={<DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />}
+        <>
+            {accentCss && <style dangerouslySetInnerHTML={{ __html: accentCss }} />}
+            <DashboardShell
+                logo={branding.logo}
+                workspaceName={workspaceName}
+                nav={<DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />}
             userMenu={
                 <SidebarUserMenu
                     name={userName}
@@ -46,8 +53,9 @@ export default async function DashboardLayout({
                     settingsHref="/dashboard/settings?tab=account"
                 />
             }
-        >
-            {children}
-        </DashboardShell>
+            >
+                {children}
+            </DashboardShell>
+        </>
     );
 }

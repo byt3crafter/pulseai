@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon, TrashIcon, ChevronDownIcon, SunIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, InformationCircleIcon, KeyIcon, TrashIcon, ChevronDownIcon, SunIcon, SwatchIcon } from "@heroicons/react/24/outline";
 import {
     changePasswordAction,
     updateProfileNameAction,
@@ -38,7 +38,8 @@ import {
 import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import WorkspaceToolsTab from "./WorkspaceToolsTab";
 import BriefingTab from "./BriefingTab";
-import type { BriefingConfig } from "./actions";
+import AppearanceTab from "./AppearanceTab";
+import type { BriefingConfig, BrandingConfig } from "./actions";
 import { PROVIDERS } from "../../../utils/models";
 import { CHANNEL_SETUP_CATALOG, type ChannelSetupDefinition } from "../../../utils/channel-catalog";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../../utils/pkce";
@@ -63,6 +64,7 @@ interface CredentialInfo {
 
 const TABS = [
     { id: "account", label: "Account" },
+    { id: "appearance", label: "Appearance", icon: SwatchIcon },
     { id: "integrations", label: "Integrations" },
     { id: "telegram", label: "Telegram" },
     { id: "providers", label: "AI Providers" },
@@ -163,6 +165,7 @@ interface Props {
         maxResults: number;
     };
     briefingConfig: BriefingConfig;
+    appearanceConfig: BrandingConfig;
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -181,7 +184,7 @@ export default function SettingsClient({
     tab, initialPlugin, timezone, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, appearanceConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -231,6 +234,7 @@ export default function SettingsClient({
                 {/* Tab content */}
                 <div className="flex-1 min-w-0">
                     {tab === "account" && <AccountTab userEmail={userEmail} userName={userName} allowSelfReset={allowSelfReset} timezone={timezone} />}
+                    {tab === "appearance" && <AppearanceTab config={appearanceConfig} />}
                     {tab === "integrations" && <IntegrationsTab telegramConnected={telegramConnected} oauthEnabled={enableThirdPartyCli} channelSetups={channelSetups} />}
                     {tab === "telegram" && (
                         <TelegramTab

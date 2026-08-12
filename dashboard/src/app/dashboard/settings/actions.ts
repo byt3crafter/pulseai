@@ -631,6 +631,101 @@ export async function saveCommitmentsSettingsAction(config: {
     }
 }
 
+export interface BrandingConfig {
+    title: string;
+    logo: string;
+    accent: string;
+}
+
+const LOGO_DATA_URI_RE = /^data:image\/(png|jpeg|jpg|svg\+xml|webp|gif);base64,/;
+const ACCENT_HEX_RE = /^#[0-9a-fA-F]{6}$/;
+const MAX_LOGO_BYTES = 200 * 1024;
+
+/**
+ * White-label branding — a workspace owner's own title/logo/accent color,
+ * stored in tenants.config.branding and applied by the dashboard layout.
+ */
+export async function getBrandingConfig(): Promise<BrandingConfig> {
+    const DEFAULTS: BrandingConfig = { title: "", logo: "", accent: "" };
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return DEFAULTS;
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const [row] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        const branding = (row?.config as Record<string, any>)?.branding;
+        if (!branding || typeof branding !== "object") return DEFAULTS;
+
+        return {
+            title: typeof branding.title === "string" ? branding.title : "",
+            logo: typeof branding.logo === "string" ? branding.logo : "",
+            accent: typeof branding.accent === "string" ? branding.accent : "",
+        };
+    } catch (error) {
+        console.error("Failed to load branding config:", error);
+        return DEFAULTS;
+    }
+}
+
+export async function saveBrandingSettingsAction(config: {
+    title: string;
+    logo: string;
+    accent: string;
+}) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const title = (config.title || "").trim().slice(0, 60);
+
+    const accentRaw = (config.accent || "").trim();
+    if (accentRaw && !ACCENT_HEX_RE.test(accentRaw)) {
+        return { success: false, message: "Accent color must be a valid hex code (e.g. #6470E6)." };
+    }
+    const accent = accentRaw;
+
+    const logoRaw = (config.logo || "").trim();
+    if (logoRaw) {
+        if (!LOGO_DATA_URI_RE.test(logoRaw)) {
+            return { success: false, message: "Logo must be a valid image file." };
+        }
+        // Rough size check on the base64 payload (~4/3 expansion over raw bytes).
+        const base64 = logoRaw.slice(logoRaw.indexOf(",") + 1);
+        const approxBytes = Math.floor(base64.length * 0.75);
+        if (approxBytes > MAX_LOGO_BYTES) {
+            return { success: false, message: "Logo too large — use an image under 200 KB." };
+        }
+    }
+    const logo = logoRaw;
+
+    try {
+        await db.execute(
+            sql`UPDATE tenants
+                SET config = config || ${JSON.stringify({
+                    branding: { title, logo, accent },
+                })}::jsonb,
+                updated_at = now()
+                WHERE id = ${tenantId}::uuid`
+        );
+
+        await logAudit({
+            action: "tenant.branding.update",
+            targetType: "tenant",
+            targetId: tenantId,
+            tenantId,
+            summary: "Updated workspace branding",
+            metadata: { hasTitle: !!title, hasLogo: !!logo, accent: accent || null },
+        });
+
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard");
+        return { success: true, message: "Appearance settings saved." };
+    } catch (error) {
+        console.error("Failed to save branding settings:", error);
+        return { success: false, message: "Failed to save appearance settings." };
+    }
+}
+
 export async function saveToolSearchSettingsAction(config: {
     mode: "off" | "auto" | "on";
     threshold: number;
