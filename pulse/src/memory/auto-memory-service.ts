@@ -6,6 +6,13 @@ const MEMORY_CATEGORIES = new Set(["fact", "preference", "decision", "task", "re
 const DEFAULT_MAX_MEMORIES = 3;
 const MAX_MEMORY_LENGTH = 500;
 
+// Persona rollup (L2/L3): how often to re-distill the long-term profile, and the
+// minimum number of atoms before building a first one. Cooldown keeps the extra
+// LLM call rare (it runs in the same background path as extraction).
+const PERSONA_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h
+const PERSONA_MIN_ATOMS = 5;
+const PERSONA_MAX_LENGTH = 1200;
+
 export interface AutoMemoryUsage {
     inputTokens: number;
     outputTokens: number;
@@ -112,7 +119,91 @@ export class AutoMemoryService {
             }
         }
 
-        return { storedCount, usage: extraction.usage };
+        // L2/L3 rollup: when we captured fresh facts, occasionally re-distill the
+        // long-term persona profile (cooldown-gated so it's rare). Its usage is
+        // folded into the return so the caller bills it with the turn.
+        let rollupUsage: AutoMemoryUsage = { inputTokens: 0, outputTokens: 0 };
+        if (storedCount > 0) {
+            rollupUsage = await this.maybeRollupPersona({ tenantId: input.tenantId, agentId, model: input.model });
+        }
+
+        return {
+            storedCount,
+            usage: {
+                inputTokens: extraction.usage.inputTokens + rollupUsage.inputTokens,
+                outputTokens: extraction.usage.outputTokens + rollupUsage.outputTokens,
+            },
+        };
+    }
+
+    /**
+     * Distill the agent's atom memories into a single long-term PERSONA profile
+     * (stable preferences, constraints, key relationships, recurring context).
+     * Cooldown-gated; runs in the background extraction path. Returns its token
+     * usage so the caller can bill it. Never throws.
+     */
+    async maybeRollupPersona(input: { tenantId: string; agentId: string; model: string }): Promise<AutoMemoryUsage> {
+        const zero: AutoMemoryUsage = { inputTokens: 0, outputTokens: 0 };
+        try {
+            const meta = await memoryService.getPersonaMeta(input.tenantId, input.agentId);
+            if (meta?.createdAt && Date.now() - new Date(meta.createdAt).getTime() < PERSONA_COOLDOWN_MS) {
+                return zero; // profile is still fresh — skip
+            }
+            const atoms = await memoryService.getRecentAtoms(input.tenantId, input.agentId, 40);
+            // Need enough signal for a FIRST profile; once one exists, any new atom warrants a refresh.
+            if (atoms.length < (meta ? 1 : PERSONA_MIN_ATOMS)) return zero;
+
+            const existing = await memoryService.getPersona(input.tenantId, input.agentId, 2000);
+            const distilled = await this.distillPersona({
+                tenantId: input.tenantId,
+                model: input.model,
+                atoms,
+                existing,
+            });
+            const profile = distilled.content.trim().slice(0, PERSONA_MAX_LENGTH);
+            if (profile) {
+                await memoryService.upsertPersona(input.tenantId, input.agentId, profile);
+                logger.info({ tenantId: input.tenantId, agentId: input.agentId, atomCount: atoms.length }, "Persona profile rolled up");
+            }
+            return distilled.usage;
+        } catch (err) {
+            logger.warn({ err, tenantId: input.tenantId, agentId: input.agentId }, "Persona rollup failed");
+            return zero;
+        }
+    }
+
+    private async distillPersona(input: {
+        tenantId: string;
+        model: string;
+        atoms: { content: string; category: string | null }[];
+        existing: string | null;
+    }): Promise<{ content: string; usage: AutoMemoryUsage }> {
+        const systemPrompt =
+            "You maintain a concise long-term PROFILE of the person and workspace this assistant serves. " +
+            "Given the CURRENT profile (may be empty) and a list of RECENT remembered facts, produce an UPDATED profile. " +
+            "Merge and deduplicate; drop anything stale or contradicted by newer facts; keep only durable, useful context: " +
+            "stable preferences, standing constraints, key people/relationships, ongoing goals, and recurring working patterns. " +
+            "Do NOT include one-off requests or transient details. Write plain prose or short bullet lines, at most ~180 words. " +
+            "Output ONLY the profile text — no preamble, no headings, no explanation.";
+
+        const factList = input.atoms.map((a, i) => `${i + 1}. ${a.category ? `[${a.category}] ` : ""}${a.content}`).join("\n");
+        const userText =
+            `CURRENT PROFILE:\n${input.existing || "(none yet)"}\n\n` +
+            `RECENT FACTS:\n${factList}\n\n` +
+            `Output the updated profile.`;
+
+        const response = await this.providerManager.chat({
+            tenantId: input.tenantId,
+            model: input.model,
+            systemPrompt,
+            messages: [{ role: "user", content: userText }],
+        });
+
+        const content = (response.content || "")
+            .replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "")
+            .replace(/<think(?:ing)?>[\s\S]*$/gi, "")
+            .trim();
+        return { content, usage: response.usage };
     }
 
     private async extractWithProvider(input: {
