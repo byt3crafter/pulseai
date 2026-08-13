@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.96] - 2026-08-13
+
+### Features
+- RRF hybrid retrieval, L3 persona rollup, bounded context
+
 ## [0.14.95] - 2026-08-13
 
 ### Performance
