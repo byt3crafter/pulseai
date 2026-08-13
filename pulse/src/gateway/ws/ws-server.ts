@@ -141,7 +141,11 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                 conversationId: outbound.conversationId,
                                 agentProfileId: outbound.agentProfileId,
                                 content: outbound.content,
-                                thinking: outbound.thinking || lastThinking || undefined,
+                                // When the runtime recovered an answer that the model
+                                // buried inside <think>, it moved that text into content —
+                                // so suppress the separately-streamed thinking to avoid
+                                // showing it twice.
+                                thinking: outbound.thinkingSuppressed ? undefined : (outbound.thinking || lastThinking || undefined),
                                 sessionId,
                             }));
                             return { channelMessageId: `web-${Date.now()}` };

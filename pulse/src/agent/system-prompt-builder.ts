@@ -254,6 +254,27 @@ function buildCapabilityHintsSection(suggestable?: { name: string; description: 
     ];
 }
 
+/**
+ * When web search is enabled, force the agent to actually USE it for
+ * current/factual questions instead of answering from memory — weaker models
+ * (e.g. MiniMax) will otherwise fabricate "search results", prices, dates, and
+ * sources rather than call the tool.
+ */
+function buildWebSearchUseSection(tools: ToolInfo[]): string[] {
+    if (!tools.some((t) => t.name === "web_search")) return [];
+    const hasFetch = tools.some((t) => t.name === "web_fetch");
+    return [
+        "## Web search — use it, never invent",
+        "You have `web_search`" + (hasFetch ? " and `web_fetch`" : "") + ". When the user asks for current, real-world, " +
+        "or factual information you are not certain of — news, prices, specs, regulations, dates, company or supplier details — " +
+        "you MUST call `web_search` and base your answer on the results. NEVER fabricate search results, statistics, quotes, " +
+        "URLs, or sources; if you did not call the tool, do not present information as if you looked it up." +
+        (hasFetch ? " Use `web_fetch` to read a specific result URL in full before quoting it." : ""),
+        "If web search returns nothing useful or errors, say so plainly rather than inventing an answer.",
+        "",
+    ];
+}
+
 /** When the task tracker is enabled, tell the agent to log substantial jobs. */
 function buildTaskTrackingSection(tools: ToolInfo[]): string[] {
     if (!tools.some((t) => t.name === "task_create")) return [];
@@ -532,6 +553,7 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
 
     // 5.6. Work tracking + capability suggestions — full mode only
     if (!isMinimal) {
+        lines.push(...buildWebSearchUseSection(params.enabledTools));
         lines.push(...buildTaskTrackingSection(params.enabledTools));
         lines.push(...buildCapabilityHintsSection(params.suggestableTools));
     }
