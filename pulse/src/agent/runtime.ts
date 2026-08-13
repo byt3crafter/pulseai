@@ -957,6 +957,31 @@ export class AgentRuntime {
                 .trim();
             capturedThinking = capturedThinking.trim();
 
+            // 4.55a COLLAPSED-ANSWER RECOVERY — some models (notably MiniMax) sometimes
+            // put the ENTIRE deliverable INSIDE <think>…</think> and leave only a short
+            // trailing sentence (e.g. a follow-up question) outside it. The strip above
+            // would then route the whole answer into the "thinking" panel and show the
+            // user almost nothing. When what's left is short while the captured thinking
+            // is substantial and much larger, the answer was clearly trapped in the
+            // reasoning block — promote it back so nothing is lost.
+            let recoveredIntoContent = false;
+            const strippedAnswer = llmResponse.content;
+            const looksCollapsed =
+                capturedThinking.length > 500 &&
+                strippedAnswer.length < 300 &&
+                capturedThinking.length > strippedAnswer.length * 3;
+            if (looksCollapsed) {
+                llmResponse.content = strippedAnswer
+                    ? `${capturedThinking}\n\n${strippedAnswer}`
+                    : capturedThinking;
+                capturedThinking = "";
+                recoveredIntoContent = true;
+                tenantLog.warn(
+                    { recoveredChars: llmResponse.content.length, trailingChars: strippedAnswer.length },
+                    "Recovered an answer the model emitted inside <think> (would otherwise have shown only the trailing text)"
+                );
+            }
+
             // 4.55b TRUTH GATE — before the user sees the reply, make sure it doesn't
             // claim a consequential action was done when no successful tool backs it.
             // Runs only on the risky path (a completion claim with no successful
@@ -1179,7 +1204,11 @@ export class AgentRuntime {
                     content: llmResponse.content,
                     format: "markdown",
                     thinking: capturedThinking || undefined,
-                };
+                    // Recovery moved the reasoning INTO content — tell streaming
+                    // surfaces to drop any separately-streamed thinking so it
+                    // isn't duplicated in the collapsible panel.
+                    thinkingSuppressed: recoveredIntoContent,
+                } as OutboundMessage & { thinkingSuppressed?: boolean };
 
                 // For group messages, reply in-thread to the original message
                 if (inbound.isGroup && inbound.raw) {
