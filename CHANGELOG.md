@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.93] - 2026-08-13
+
+### Bug Fixes
+- correct Firecrawl NuQ postgres init + document RAM needs
+
 ## [0.14.92] - 2026-08-13
 
 ### Features
