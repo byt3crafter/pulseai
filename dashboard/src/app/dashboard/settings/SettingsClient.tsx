@@ -39,7 +39,8 @@ import { ensureDashboardClientAction } from "../../oauth/authorize/actions";
 import WorkspaceToolsTab from "./WorkspaceToolsTab";
 import BriefingTab from "./BriefingTab";
 import AppearanceTab from "./AppearanceTab";
-import type { BriefingConfig, BrandingConfig } from "./actions";
+import WebSearchTab from "./WebSearchTab";
+import type { BriefingConfig, BrandingConfig, WebSearchSettings } from "./actions";
 import { PROVIDERS } from "../../../utils/models";
 import { CHANNEL_SETUP_CATALOG, type ChannelSetupDefinition } from "../../../utils/channel-catalog";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../../../utils/pkce";
@@ -68,6 +69,7 @@ const TABS = [
     { id: "integrations", label: "Integrations" },
     { id: "telegram", label: "Telegram" },
     { id: "providers", label: "AI Providers" },
+    { id: "websearch", label: "Web Search" },
     { id: "tools", label: "Workspace Tools" },
     { id: "memory", label: "Memory" },
     { id: "briefing", label: "Briefing" },
@@ -166,6 +168,7 @@ interface Props {
     };
     briefingConfig: BriefingConfig;
     appearanceConfig: BrandingConfig;
+    webSearchConfig: WebSearchSettings;
     pendingPairings: PairingInfo[];
     approvedUsers: AllowlistInfo[];
     approvedGroups: AllowlistInfo[];
@@ -184,7 +187,7 @@ export default function SettingsClient({
     tab, initialPlugin, timezone, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, appearanceConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, appearanceConfig, webSearchConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -246,6 +249,7 @@ export default function SettingsClient({
                     )}
                     {tab === "email" && <EmailTab config={emailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
+                    {tab === "websearch" && <WebSearchTab config={webSearchConfig} />}
                     {tab === "tools" && <WorkspaceToolsTab enabledTools={enabledTools} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
                     {tab === "briefing" && <BriefingTab config={briefingConfig} />}

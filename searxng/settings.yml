@@ -1,0 +1,63 @@
+# searxng/settings.yml — template mounted into the searxng container at
+# /etc/searxng/settings.yml (see docker-compose.search.yml).
+#
+# `use_default_settings: true` means every setting NOT listed below still
+# comes from SearXNG's own defaults — this file only overrides what Pulse
+# actually needs. Docs: https://docs.searxng.org/admin/settings/
+#
+# This file is committed to the repo, so it must never contain a real secret.
+# The two secret-shaped values below (secret_key, valkey.url) are placeholders
+# that get overridden at container start by environment variables set in
+# docker-compose.search.yml (SEARXNG_SECRET / SEARXNG_VALKEY_URL), which in
+# turn come from .env — nothing sensitive ever lives in this file.
+
+use_default_settings:
+  engines:
+    # Keep only engines that reliably tolerate being scraped by a self-hosted
+    # instance (no API key requirements, no aggressive bot-blocking). Add more
+    # here if this deployment needs broader coverage.
+    keep_only:
+      - duckduckgo
+      - brave
+      - bing
+      - wikipedia
+
+general:
+  instance_name: "Pulse Search"
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  # JSON output is REQUIRED — Pulse's web_search tool calls
+  # http://searxng:8080/search?q=...&format=json. Without "json" here the
+  # request 403s even though the HTML UI still works fine.
+  formats:
+    - html
+    - json
+
+server:
+  # Placeholder — overridden at runtime by the SEARXNG_SECRET env var
+  # (see docker-compose.search.yml). Never put a real secret here.
+  secret_key: "changeme-overridden-by-SEARXNG_SECRET-env-var"
+  bind_address: "0.0.0.0"
+  # Pulse's own gateway does the rate limiting for its callers; SearXNG is
+  # internal-only (never reachable outside the docker network) so its own
+  # bot-detection limiter would just add friction/false-positives here.
+  limiter: false
+  image_proxy: false
+
+valkey:
+  # Placeholder — overridden at runtime by the SEARXNG_VALKEY_URL env var
+  # (see docker-compose.search.yml), which builds the URL from the existing
+  # Redis service's REDIS_PASSWORD. Never put a real password here.
+  url: false
+
+engines:
+  - name: duckduckgo
+    disabled: false
+  - name: brave
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: wikipedia
+    disabled: false
