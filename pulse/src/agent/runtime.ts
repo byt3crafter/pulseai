@@ -1022,7 +1022,51 @@ export class AgentRuntime {
             // 4.6 Check for silent reply token — suppress empty/ack responses
             const isSilentReply = llmResponse.content.trim() === SILENT_REPLY_TOKEN;
 
-            // 5. Store LLM Assistant response in Database (skip silent replies).
+            // 5. Dispatch the reply to the user FIRST — before persistence, billing,
+            //    and auto-memory. Those are bookkeeping the user shouldn't wait on;
+            //    doing them before the final send left the web "streaming" cursor
+            //    blinking (and the composer locked) for the extra seconds they took.
+            //    Now the cursor stops the instant the answer is ready.
+            if (isSilentReply) {
+                tenantLog.debug("Silent reply token detected — suppressing response");
+            } else if (streamMessageId && options?.editMessageCallback) {
+                // Streaming was active — do final edit with fully formatted content
+                await options.editMessageCallback(
+                    inbound.tenantId,
+                    inbound.channelContactId,
+                    streamMessageId,
+                    llmResponse.content,
+                    "markdown",
+                    resolvedAgentProfileId ?? undefined
+                ).catch((e) => tenantLog.error({ e }, "Failed final streaming edit"));
+            } else {
+                const outbound: OutboundMessage = {
+                    conversationId: conversation.id,
+                    tenantId: inbound.tenantId,
+                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
+                    channelType: inbound.channelType,
+                    channelContactId: inbound.channelContactId,
+                    content: llmResponse.content,
+                    format: "markdown",
+                    thinking: capturedThinking || undefined,
+                    // Recovery moved the reasoning INTO content — tell streaming
+                    // surfaces to drop any separately-streamed thinking so it
+                    // isn't duplicated in the collapsible panel.
+                    thinkingSuppressed: recoveredIntoContent,
+                } as OutboundMessage & { thinkingSuppressed?: boolean };
+
+                // For group messages, reply in-thread to the original message
+                if (inbound.isGroup && inbound.raw) {
+                    const rawMsg = inbound.raw as any;
+                    if (rawMsg.message_id) {
+                        outbound.replyToMessageId = rawMsg.message_id.toString();
+                    }
+                }
+
+                await sendMessageCallback(outbound);
+            }
+
+            // 5b. Persist the assistant message (after dispatch — bookkeeping) (skip silent replies).
             //
             // NON-FATAL: the reply has already been generated (and, on streaming
             // surfaces, delivered live to the user). If the conversation row is
@@ -1181,45 +1225,8 @@ export class AgentRuntime {
                 });
             });
 
-            // 7. Dispatch Response to Channel Adapter (skip silent replies)
-            if (isSilentReply) {
-                tenantLog.debug("Silent reply token detected — suppressing response");
-            } else if (streamMessageId && options?.editMessageCallback) {
-                // Streaming was active — do final edit with fully formatted content
-                await options.editMessageCallback(
-                    inbound.tenantId,
-                    inbound.channelContactId,
-                    streamMessageId,
-                    llmResponse.content,
-                    "markdown",
-                    resolvedAgentProfileId ?? undefined
-                ).catch((e) => tenantLog.error({ e }, "Failed final streaming edit"));
-            } else {
-                const outbound: OutboundMessage = {
-                    conversationId: conversation.id,
-                    tenantId: inbound.tenantId,
-                    agentProfileId: resolvedAgentProfileId ?? inbound.agentProfileId,
-                    channelType: inbound.channelType,
-                    channelContactId: inbound.channelContactId,
-                    content: llmResponse.content,
-                    format: "markdown",
-                    thinking: capturedThinking || undefined,
-                    // Recovery moved the reasoning INTO content — tell streaming
-                    // surfaces to drop any separately-streamed thinking so it
-                    // isn't duplicated in the collapsible panel.
-                    thinkingSuppressed: recoveredIntoContent,
-                } as OutboundMessage & { thinkingSuppressed?: boolean };
-
-                // For group messages, reply in-thread to the original message
-                if (inbound.isGroup && inbound.raw) {
-                    const rawMsg = inbound.raw as any;
-                    if (rawMsg.message_id) {
-                        outbound.replyToMessageId = rawMsg.message_id.toString();
-                    }
-                }
-
-                await sendMessageCallback(outbound);
-            }
+            // 7. Dispatch handled earlier (moved above persistence/billing so the
+            //    user's cursor stops the instant the reply is ready).
 
         } catch (err: any) {
             tenantLog.error({ err }, "Agent Runtime failed to process message");
