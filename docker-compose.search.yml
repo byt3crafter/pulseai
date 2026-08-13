@@ -1,0 +1,210 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-compose.search.yml — Self-hosted web search & scrape (OPT-IN OVERLAY)
+#
+# Adds SearXNG (metasearch) + a self-hosted Firecrawl stack (scrape/extract).
+# This is NOT part of the base stack — nothing here starts unless you
+# explicitly include this file. Nothing in it is client/tenant-specific; any
+# Pulse deployment can turn it on the same way.
+#
+#   Usage:
+#     ./scripts/enable-search.sh
+#     # or manually:
+#     docker compose -f docker-compose.yml -f docker-compose.search.yml up -d
+#
+# Every service below uses `expose:` only — never `ports:` — so nothing here
+# is reachable from outside the docker network. Only pulse-gateway (already
+# on the same compose project/network) can reach them, at:
+#     SearXNG:   http://searxng:8080          (add ?format=json to queries)
+#     Firecrawl: http://firecrawl-api:3002
+# Set those as the defaults in Admin → Web Search.
+#
+# No `networks:` block is declared here on purpose: docker-compose.yml doesn't
+# define one either, so every service across both files joins the same
+# implicit default network for the compose project automatically. Do not add
+# an explicit network name here — it would create a second, disconnected
+# network instead of attaching to the existing one.
+#
+# Firecrawl topology note (read before changing this): current upstream
+# Firecrawl (github.com/firecrawl/firecrawl) moved its job queue from
+# BullMQ+Redis to a "NuQ" backend that requires its own Postgres + RabbitMQ —
+# this is true even with USE_DB_AUTHENTICATION=false, since that flag only
+# disables *API-key* authentication, not the queue backend. There is also no
+# separate "worker" container anymore: the `firecrawl-api` image's harness
+# process (`node dist/src/harness.js --start-docker`) spawns queue workers
+# inside itself. The services below mirror firecrawl/firecrawl's own
+# docker-compose.yaml at the revision this was written against, trimmed to
+# the minimum needed for an unauthenticated, internal-only deployment, and
+# renamed/scoped to fit this repo's conventions. The Firecrawl Postgres is
+# kept fully separate from Pulse's own `postgres` service — a Firecrawl queue
+# problem should never be able to touch tenant data.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # -----------------------------------------------------------------
+  # SearXNG (Metasearch — powers Pulse's web_search tool via JSON API)
+  # -----------------------------------------------------------------
+  searxng:
+    image: searxng/searxng:latest
+    container_name: pulse-searxng
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      # Overrides settings.yml's server.secret_key at runtime — see
+      # searxng/settings.yml for details. Required; no default on purpose.
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+      - SEARXNG_BASE_URL=${SEARXNG_BASE_URL:-http://searxng:8080/}
+      - SEARXNG_BIND_ADDRESS=0.0.0.0
+      - SEARXNG_LIMITER=false
+      # Own cache store, reusing the existing Redis instance on a dedicated
+      # logical DB (index 2) so it never collides with BullMQ (db 0).
+      - SEARXNG_VALKEY_URL=redis://:${REDIS_PASSWORD}@redis:6379/2
+    volumes:
+      - ./searxng:/etc/searxng:rw
+      - pulse-searxng-cache:/var/cache/searxng
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # -----------------------------------------------------------------
+  # Firecrawl — Playwright rendering microservice (internal only, called
+  # by firecrawl-api; nothing else should ever talk to this directly)
+  # -----------------------------------------------------------------
+  firecrawl-playwright:
+    image: ghcr.io/firecrawl/playwright-service:latest
+    container_name: pulse-firecrawl-playwright
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - PORT=3000
+      - MAX_CONCURRENT_PAGES=${FIRECRAWL_CONCURRENT_REQUESTS:-10}
+      - BLOCK_MEDIA=${FIRECRAWL_BLOCK_MEDIA:-true}
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # -----------------------------------------------------------------
+  # Firecrawl — RabbitMQ (job-queue transport for the NuQ backend)
+  # -----------------------------------------------------------------
+  firecrawl-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: pulse-firecrawl-rabbitmq
+    restart: unless-stopped
+    expose:
+      - "5672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # -----------------------------------------------------------------
+  # Firecrawl — dedicated NuQ Postgres (job-queue state ONLY — this is
+  # NOT Pulse's `postgres` service and holds no tenant data)
+  # -----------------------------------------------------------------
+  firecrawl-nuq-postgres:
+    image: ghcr.io/firecrawl/nuq-postgres:latest
+    container_name: pulse-firecrawl-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=firecrawl
+      - POSTGRES_PASSWORD=${FIRECRAWL_POSTGRES_PASSWORD}
+      - POSTGRES_DB=firecrawl
+    expose:
+      - "5432"
+    volumes:
+      - pulse-firecrawl-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firecrawl -d firecrawl"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # -----------------------------------------------------------------
+  # Firecrawl — API + queue workers (the harness spawns workers inside
+  # this same container in --start-docker mode; see topology note above)
+  # -----------------------------------------------------------------
+  firecrawl-api:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    container_name: pulse-firecrawl-api
+    restart: unless-stopped
+    expose:
+      - "3002"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3002
+      - ENV=local
+      # Disables Firecrawl's own Supabase-backed API-key auth. Pulse is the
+      # only caller (over the internal network) so this is fine as-is.
+      - USE_DB_AUTHENTICATION=false
+      # Optional: set to require this key on every Firecrawl call. Leave
+      # blank while Pulse is the sole caller on the internal network.
+      - TEST_API_KEY=${FIRECRAWL_TEST_API_KEY:-}
+      # Locks down Firecrawl's Bull board / admin queue endpoints. Required;
+      # no default on purpose.
+      - BULL_AUTH_KEY=${FIRECRAWL_BULL_AUTH_KEY}
+      # Reuse the existing Redis instance on a dedicated logical DB (index 3).
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/3
+      - REDIS_RATE_LIMIT_URL=redis://:${REDIS_PASSWORD}@redis:6379/3
+      - PLAYWRIGHT_MICROSERVICE_URL=http://firecrawl-playwright:3000/scrape
+      # Firecrawl's own /search and /extract endpoints use this instead of a
+      # paid search API — pointed at our SearXNG instance.
+      - SEARXNG_ENDPOINT=http://searxng:8080
+      - NUQ_RABBITMQ_URL=amqp://firecrawl-rabbitmq:5672
+      - POSTGRES_HOST=firecrawl-nuq-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=firecrawl
+      - POSTGRES_PASSWORD=${FIRECRAWL_POSTGRES_PASSWORD}
+      - POSTGRES_DB=firecrawl
+    command: node dist/src/harness.js --start-docker
+    depends_on:
+      firecrawl-playwright:
+        condition: service_started
+      firecrawl-rabbitmq:
+        condition: service_healthy
+      firecrawl-nuq-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # No stable public health path is guaranteed across Firecrawl versions
+      # (v1's /health/liveness ships commented-out upstream) — this just
+      # confirms the API port is accepting connections.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/').then(() => process.exit(0)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+volumes:
+  pulse-searxng-cache:
+  pulse-firecrawl-db-data:

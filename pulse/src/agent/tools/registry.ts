@@ -31,6 +31,7 @@ import {
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
 } from "./built-in/email.js";
 import { emailConfigureTool } from "./built-in/email-config.js";
+import { webSearchTool, webFetchTool } from "./built-in/web-search.js";
 import { db } from "../../storage/db.js";
 import { tenantSkills, mcpServers, agentProfileMcpBindings, agentProfiles } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
@@ -147,6 +148,8 @@ export class ToolRegistry {
         this.builtInTools.set("email_delete", emailDeleteTool);
         this.builtInTools.set("email_folders", emailFoldersTool);
         this.builtInTools.set("email_configure", emailConfigureTool);
+        this.builtInTools.set("web_search", webSearchTool);
+        this.builtInTools.set("web_fetch", webFetchTool);
 
         logger.info(
             { toolCount: this.builtInTools.size, tools: Array.from(this.builtInTools.keys()) },

@@ -205,6 +205,15 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
         ],
     },
     {
+        key: "web",
+        title: "Web Search",
+        description: "Let an agent search the live web and read pages. Configure the backend (self-hosted or paid) in Settings → Web Search.",
+        tools: [
+            { name: "web_search", label: "Web search", description: "Search the web for current information (events, prices, suppliers, regulations).", defaultOn: false },
+            { name: "web_fetch", label: "Read a page", description: "Fetch a specific URL and return its main content as clean text.", defaultOn: false },
+        ],
+    },
+    {
         key: "documents",
         title: "Documents",
         description: "Let an agent find and read files in your document locker (contracts, quotes, receipts).",

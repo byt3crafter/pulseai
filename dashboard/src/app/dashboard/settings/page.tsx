@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
-import { getEmbeddingStatusAction, getBriefingConfig, getBrandingConfig } from "./actions";
+import { getEmbeddingStatusAction, getBriefingConfig, getBrandingConfig, getWebSearchConfig } from "./actions";
 import { getCredentials, getTenantAgents, addCredential } from "./credentials/actions";
 import { CHANNEL_SETUP_CATALOG } from "../../../utils/channel-catalog";
 import SettingsClient from "./SettingsClient";
@@ -111,6 +111,7 @@ export default async function SettingsPage({
     const embeddingStatus = await getEmbeddingStatusAction();
     const briefingConfig = await getBriefingConfig();
     const appearanceConfig = await getBrandingConfig();
+    const webSearchConfig = await getWebSearchConfig();
 
     const credits = Number(balances[0]?.balance ?? 0);
     const telegramChannel = channels.find(c => c.channelType === "telegram");
@@ -274,6 +275,7 @@ export default async function SettingsPage({
             }}
             briefingConfig={briefingConfig}
             appearanceConfig={appearanceConfig}
+            webSearchConfig={webSearchConfig}
             pendingPairings={pendingPairings.map(p => ({
                 id: p.id,
                 code: p.code,

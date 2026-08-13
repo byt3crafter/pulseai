@@ -2,7 +2,7 @@
 
 import { auth, signIn } from "../../../auth";
 import { db } from "../../../storage/db";
-import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pairingCodes, agentProfiles, apiTokens, scheduledJobs, credentials } from "../../../storage/schema";
+import { users, channelConnections, tenantProviderKeys, tenants, allowlists, pairingCodes, agentProfiles, apiTokens, scheduledJobs, credentials, tenantSkills } from "../../../storage/schema";
 import { eq, and, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -732,6 +732,182 @@ export async function saveVoiceSettingsAction(config: { enabled: boolean; apiKey
         console.error("Failed to save voice settings:", error);
         return { success: false, message: "Failed to save voice settings." };
     }
+}
+
+// ─── Web Search (SearXNG / Firecrawl / Tavily / Brave) ───────────────────────
+
+export interface WebSearchSettings {
+    enabled: boolean;
+    searchProvider: "searxng" | "tavily" | "brave";
+    fetchProvider: "firecrawl" | "basic";
+    searxngUrl: string;
+    firecrawlUrl: string;
+    ratePerMin: number;
+    maxResults: number;
+    // Never return raw keys to the client — only whether one is stored.
+    hasFirecrawlKey: boolean;
+    hasTavilyKey: boolean;
+    hasBraveKey: boolean;
+}
+
+const WEB_SEARCH_DEFAULTS = {
+    searxngUrl: "http://searxng:8080",
+    firecrawlUrl: "http://firecrawl-api:3002",
+    ratePerMin: 30,
+    maxResults: 5,
+};
+
+export async function getWebSearchConfig(): Promise<WebSearchSettings> {
+    const DEFAULTS: WebSearchSettings = {
+        enabled: false,
+        searchProvider: "searxng",
+        fetchProvider: "firecrawl",
+        searxngUrl: WEB_SEARCH_DEFAULTS.searxngUrl,
+        firecrawlUrl: WEB_SEARCH_DEFAULTS.firecrawlUrl,
+        ratePerMin: WEB_SEARCH_DEFAULTS.ratePerMin,
+        maxResults: WEB_SEARCH_DEFAULTS.maxResults,
+        hasFirecrawlKey: false,
+        hasTavilyKey: false,
+        hasBraveKey: false,
+    };
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return DEFAULTS;
+    const tenantId = tenantCheck.tenantId;
+    try {
+        const [row] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        const ws = (row?.config as any)?.webSearch;
+        if (!ws || typeof ws !== "object") return DEFAULTS;
+        return {
+            enabled: ws.enabled === true,
+            searchProvider: ["searxng", "tavily", "brave"].includes(ws.searchProvider) ? ws.searchProvider : "searxng",
+            fetchProvider: ["firecrawl", "basic"].includes(ws.fetchProvider) ? ws.fetchProvider : "firecrawl",
+            searxngUrl: typeof ws.searxngUrl === "string" && ws.searxngUrl ? ws.searxngUrl : WEB_SEARCH_DEFAULTS.searxngUrl,
+            firecrawlUrl: typeof ws.firecrawlUrl === "string" ? ws.firecrawlUrl : WEB_SEARCH_DEFAULTS.firecrawlUrl,
+            ratePerMin: Number(ws.ratePerMin) > 0 ? Number(ws.ratePerMin) : WEB_SEARCH_DEFAULTS.ratePerMin,
+            maxResults: Number(ws.maxResults) > 0 ? Number(ws.maxResults) : WEB_SEARCH_DEFAULTS.maxResults,
+            hasFirecrawlKey: typeof ws.firecrawlApiKeyEnc === "string" && ws.firecrawlApiKeyEnc.length > 0,
+            hasTavilyKey: typeof ws.tavilyApiKeyEnc === "string" && ws.tavilyApiKeyEnc.length > 0,
+            hasBraveKey: typeof ws.braveApiKeyEnc === "string" && ws.braveApiKeyEnc.length > 0,
+        };
+    } catch (error) {
+        console.error("Failed to load web search config:", error);
+        return DEFAULTS;
+    }
+}
+
+/**
+ * Save web search config. Keys: "" leaves the stored key unchanged, "__clear__"
+ * removes it, anything else is encrypted and stored. Turning `enabled` on also
+ * flips the web_search + web_fetch tools on in Workspace Tools, so "enable"
+ * really means "set it up and make it usable".
+ */
+export async function saveWebSearchConfigAction(input: {
+    enabled: boolean;
+    searchProvider: "searxng" | "tavily" | "brave";
+    fetchProvider: "firecrawl" | "basic";
+    searxngUrl: string;
+    firecrawlUrl: string;
+    ratePerMin: number;
+    maxResults: number;
+    firecrawlApiKey?: string;
+    tavilyApiKey?: string;
+    braveApiKey?: string;
+}) {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const cleanUrl = (u: string) => (u || "").trim().replace(/\s/g, "").slice(0, 300);
+    const searxngUrl = cleanUrl(input.searxngUrl) || WEB_SEARCH_DEFAULTS.searxngUrl;
+    const firecrawlUrl = cleanUrl(input.firecrawlUrl);
+    for (const u of [searxngUrl, firecrawlUrl].filter(Boolean)) {
+        if (!/^https?:\/\//i.test(u)) return { success: false, message: "URLs must start with http:// or https://." };
+    }
+
+    try {
+        // Load existing so "" (unchanged) preserves stored keys.
+        const [row] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        const existing = ((row?.config as any)?.webSearch || {}) as Record<string, any>;
+
+        const keyField = (incoming: string | undefined, encField: string): string | undefined => {
+            const v = (incoming ?? "").trim();
+            if (v === "") return existing[encField]; // unchanged
+            if (v === "__clear__") return undefined; // remove
+            return encrypt(v);
+        };
+
+        const webSearch: Record<string, any> = {
+            enabled: !!input.enabled,
+            searchProvider: input.searchProvider,
+            fetchProvider: input.fetchProvider,
+            searxngUrl,
+            firecrawlUrl,
+            ratePerMin: Math.min(Math.max(1, Number(input.ratePerMin) || WEB_SEARCH_DEFAULTS.ratePerMin), 600),
+            maxResults: Math.min(Math.max(1, Number(input.maxResults) || WEB_SEARCH_DEFAULTS.maxResults), 15),
+        };
+        const fcKey = keyField(input.firecrawlApiKey, "firecrawlApiKeyEnc");
+        const tvKey = keyField(input.tavilyApiKey, "tavilyApiKeyEnc");
+        const brKey = keyField(input.braveApiKey, "braveApiKeyEnc");
+        if (fcKey) webSearch.firecrawlApiKeyEnc = fcKey;
+        if (tvKey) webSearch.tavilyApiKeyEnc = tvKey;
+        if (brKey) webSearch.braveApiKeyEnc = brKey;
+
+        await db.execute(
+            sql`UPDATE tenants SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{webSearch}', ${JSON.stringify(webSearch)}::jsonb), updated_at = now() WHERE id = ${tenantId}::uuid`
+        );
+
+        // Enabling the service turns the tools on (and disabling turns them off)
+        // so "enable" is one action, not two.
+        for (const name of ["web_search", "web_fetch"]) {
+            await db
+                .insert(tenantSkills)
+                .values({ tenantId, skillName: name, enabled: !!input.enabled })
+                .onConflictDoUpdate({ target: [tenantSkills.tenantId, tenantSkills.skillName], set: { enabled: !!input.enabled } });
+        }
+
+        await logAudit({
+            action: "tenant.websearch.update",
+            targetType: "tenant",
+            targetId: tenantId,
+            tenantId,
+            summary: input.enabled ? `Configured web search (${input.searchProvider}/${input.fetchProvider})` : "Disabled web search",
+            metadata: { enabled: !!input.enabled, searchProvider: input.searchProvider, fetchProvider: input.fetchProvider },
+        });
+
+        revalidatePath("/dashboard/settings");
+        return { success: true, message: input.enabled ? "Web search saved and enabled." : "Web search saved." };
+    } catch (error) {
+        console.error("Failed to save web search config:", error);
+        return { success: false, message: "Failed to save web search settings." };
+    }
+}
+
+/** Ping the configured SearXNG + Firecrawl services from the server (they're on
+ *  the internal network) so the operator gets a live green/red status. */
+export async function checkWebSearchHealthAction(input: { searxngUrl: string; firecrawlUrl: string }) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { searxng: false, firecrawl: false, message: "Unauthorized" };
+
+    const ping = async (url: string, path: string): Promise<boolean> => {
+        const base = (url || "").trim().replace(/\/+$/, "");
+        if (!base || !/^https?:\/\//i.test(base)) return false;
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 5000);
+        try {
+            const res = await fetch(base + path, { signal: controller.signal });
+            return res.ok || res.status === 400 || res.status === 405; // reachable service
+        } catch {
+            return false;
+        } finally {
+            clearTimeout(t);
+        }
+    };
+
+    const [searxng, firecrawl] = await Promise.all([
+        ping(input.searxngUrl, "/healthz"),
+        ping(input.firecrawlUrl, "/v1/health").then((ok) => ok || ping(input.firecrawlUrl, "/")),
+    ]);
+    return { searxng, firecrawl };
 }
 
 export async function saveBrandingSettingsAction(config: {
