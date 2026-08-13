@@ -5,7 +5,7 @@
 
 import { db } from "../storage/db.js";
 import { memoryEntries, tenantProviderKeys, tenants } from "../storage/schema.js";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 import { generateEmbedding, type EmbeddingConfig } from "./embedding.js";
 import { hybridSearch, HybridResult } from "./hybrid-search.js";
 import { applyTemporalDecay } from "./temporal-decay.js";
@@ -168,28 +168,140 @@ export class MemoryService {
     /**
      * Get relevant memory context for injection into system prompt.
      * Called by runtime.ts before LLM call.
+     *
+     * Bounded on two axes so memory can never blow up the prompt or stall a turn:
+     *  - TIMEOUT: retrieval (which includes an embedding round-trip) is raced
+     *    against a hard deadline; if it's slow, we skip memory rather than make
+     *    the user wait.
+     *  - CHARACTER BUDGET: the joined context is capped, so a pile of long
+     *    memories can't crowd out the conversation or run up tokens.
      */
     async getRelevantContext(
         tenantId: string,
         agentId: string,
         message: string,
-        limit = 5
+        limit = 5,
+        opts?: { maxChars?: number; timeoutMs?: number }
     ): Promise<string | null> {
+        const maxChars = opts?.maxChars ?? 1500;
+        const timeoutMs = opts?.timeoutMs ?? 4000;
         try {
-            const results = await this.search(tenantId, agentId, message, { limit });
-            if (results.length === 0) return null;
+            const results = await withTimeout(
+                this.search(tenantId, agentId, message, { limit }),
+                timeoutMs,
+                [] as MemoryResult[]
+            );
+            // The always-on persona profile is injected separately by the runtime;
+            // don't also surface it here as a "relevant" hit (avoids duplication).
+            const atoms = results.filter((r) => r.category !== PERSONA_CATEGORY);
+            if (atoms.length === 0) return null;
 
-            const lines = results.map((r) => {
+            const out: string[] = [];
+            let used = 0;
+            for (const r of atoms) {
                 const cat = r.category ? `[${r.category}]` : "";
-                return `${cat} ${r.content}`;
-            });
-
-            return lines.join("\n\n");
+                const line = `${cat} ${r.content}`.trim();
+                if (used + line.length > maxChars && out.length > 0) break;
+                out.push(line);
+                used += line.length + 2;
+            }
+            return out.length ? out.join("\n\n") : null;
         } catch (err) {
             logger.error({ err, tenantId, agentId }, "Failed to get relevant memory context");
             return null;
         }
     }
+
+    /**
+     * L3 persona/profile — the single distilled long-term profile for an agent
+     * (stable preferences, constraints, recurring context). Injected on EVERY
+     * turn so the agent always carries who it's working with, independent of
+     * whether a search happened to match. Returns null if none has been rolled
+     * up yet. `maxChars` keeps it compact in the prompt.
+     */
+    async getPersona(tenantId: string, agentId: string, maxChars = 900): Promise<string | null> {
+        try {
+            const [row] = await db
+                .select({ content: memoryEntries.content })
+                .from(memoryEntries)
+                .where(and(
+                    eq(memoryEntries.tenantId, tenantId),
+                    eq(memoryEntries.agentId, agentId),
+                    eq(memoryEntries.category, PERSONA_CATEGORY),
+                ))
+                .orderBy(desc(memoryEntries.createdAt))
+                .limit(1);
+            if (!row?.content) return null;
+            return row.content.length > maxChars ? row.content.slice(0, maxChars) : row.content;
+        } catch (err) {
+            logger.warn({ err, tenantId, agentId }, "Failed to load persona");
+            return null;
+        }
+    }
+
+    /** Metadata about the current persona (for cooldown decisions). */
+    async getPersonaMeta(tenantId: string, agentId: string): Promise<{ createdAt: Date | null } | null> {
+        try {
+            const [row] = await db
+                .select({ createdAt: memoryEntries.createdAt })
+                .from(memoryEntries)
+                .where(and(
+                    eq(memoryEntries.tenantId, tenantId),
+                    eq(memoryEntries.agentId, agentId),
+                    eq(memoryEntries.category, PERSONA_CATEGORY),
+                ))
+                .orderBy(desc(memoryEntries.createdAt))
+                .limit(1);
+            return row ? { createdAt: row.createdAt } : null;
+        } catch {
+            return null;
+        }
+    }
+
+    /** Replace the agent's persona profile with a freshly distilled one. */
+    async upsertPersona(tenantId: string, agentId: string, content: string): Promise<void> {
+        await db.delete(memoryEntries).where(and(
+            eq(memoryEntries.tenantId, tenantId),
+            eq(memoryEntries.agentId, agentId),
+            eq(memoryEntries.category, PERSONA_CATEGORY),
+        ));
+        await this.store(tenantId, agentId, content, {
+            category: PERSONA_CATEGORY,
+            importance: 0.9,
+            metadata: { source: "persona_rollup", layer: "persona" },
+        });
+    }
+
+    /** Recent atom-level memories (excludes the persona) for rollup input. */
+    async getRecentAtoms(tenantId: string, agentId: string, limit = 40): Promise<{ content: string; category: string | null }[]> {
+        try {
+            const rows = await db
+                .select({ content: memoryEntries.content, category: memoryEntries.category })
+                .from(memoryEntries)
+                .where(and(
+                    eq(memoryEntries.tenantId, tenantId),
+                    eq(memoryEntries.agentId, agentId),
+                    sql`${memoryEntries.category} <> ${PERSONA_CATEGORY}`,
+                ))
+                .orderBy(desc(memoryEntries.createdAt))
+                .limit(limit);
+            return rows;
+        } catch (err) {
+            logger.warn({ err, tenantId, agentId }, "Failed to load recent atoms");
+            return [];
+        }
+    }
+}
+
+/** Category tag for the L3 persona/profile memory (one per agent). */
+export const PERSONA_CATEGORY = "persona";
+
+/** Resolve `p`, but if it takes longer than `ms`, resolve `fallback` instead. */
+async function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+    return Promise.race([
+        p,
+        new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+    ]);
 }
 
 export const memoryService = new MemoryService();

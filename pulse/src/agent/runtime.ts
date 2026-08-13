@@ -429,11 +429,18 @@ export class AgentRuntime {
             let relevantMemories: string | undefined;
             if (resolvedAgentProfileId) {
                 try {
-                    const memoryContext = await memoryService.getRelevantContext(
-                        inbound.tenantId, resolvedAgentProfileId, inbound.content, 5
-                    );
-                    if (memoryContext) {
-                        relevantMemories = memoryContext;
+                    // The L3 persona profile is always-on (stable long-term context);
+                    // relevant atoms are retrieved on-demand for this message. Both are
+                    // bounded so they can't crowd the prompt.
+                    const [persona, memoryContext] = await Promise.all([
+                        memoryService.getPersona(inbound.tenantId, resolvedAgentProfileId).catch(() => null),
+                        memoryService.getRelevantContext(inbound.tenantId, resolvedAgentProfileId, inbound.content, 5).catch(() => null),
+                    ]);
+                    const parts: string[] = [];
+                    if (persona) parts.push(`[profile] ${persona}`);
+                    if (memoryContext) parts.push(memoryContext);
+                    if (parts.length) {
+                        relevantMemories = parts.join("\n\n");
                     }
                 } catch (err) {
                     tenantLog.warn({ err }, "Failed to retrieve memory context (non-fatal)");
