@@ -99,9 +99,27 @@ URLs above should already be filled in.
   rendering service still warming up (Chromium cold start) or the target site
   actively blocking headless browsers. Retry once before assuming it's broken.
 
-- **Firecrawl API container restarts in a loop.** Check
+- **Firecrawl API container restarts in a loop (`api ... Killed`, exit 137).**
+  This is the cgroup OOM-killer. Firecrawl's harness runs ~10 Node processes in
+  the one `firecrawl-api` container (the API plus five NuQ workers plus
+  prefetch/reconciler/extract). At startup they collectively spike well past
+  2.5 GB, so the API process gets killed. Firecrawl therefore needs **~3–4 GB
+  of headroom of its own** — do NOT run it on a box that doesn't have that free
+  *on top of* the base stack (~2.7 GB) without pushing the whole machine into
+  OOM. On a tight box, either give `firecrawl-api` a higher `deploy.resources.
+  limits.memory` (only if the host truly has the RAM — never let it starve the
+  live gateway/dashboard) or skip Firecrawl entirely and set the page-reading
+  backend to **Basic** in Admin → Web Search. The built-in Basic fetcher needs
+  no extra services and returns clean text; you lose Firecrawl's richer markdown
+  extraction but keep working `web_fetch`. SearXNG search is unaffected either
+  way and is the cheap, high-value half of this stack (~150 MB).
+
+- **Firecrawl API container restarts in a loop (other causes).** Check
   `docker compose logs firecrawl-nuq-postgres` and `firecrawl-rabbitmq` first
-  — the API's harness process needs both healthy before it will come up.
+  — the API's harness process needs both healthy before it will come up. Note:
+  the NuQ Postgres image must run as its **default `postgres` database** (its
+  `pg_cron` init only works there); do not set `POSTGRES_DB`/`POSTGRES_USER` on
+  that service.
 
 - **Checking things are reachable at all.** Since nothing is published to the
   host, `curl localhost:8080` from your laptop will never work — that's

@@ -126,15 +126,19 @@ services:
     container_name: pulse-firecrawl-postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=firecrawl
+      # IMPORTANT: leave the DB/user at the image defaults (postgres/postgres).
+      # The nuq-postgres image's init scripts create `pg_cron` in the `postgres`
+      # database (pg_cron can only live in the DB named by cron.database_name).
+      # Overriding POSTGRES_DB makes initdb run those scripts against the wrong
+      # database, pg_cron creation fails, the NuQ schema is left incomplete, and
+      # firecrawl-api's queue workers crash on startup. Only set the password.
       - POSTGRES_PASSWORD=${FIRECRAWL_POSTGRES_PASSWORD}
-      - POSTGRES_DB=firecrawl
     expose:
       - "5432"
     volumes:
       - pulse-firecrawl-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U firecrawl -d firecrawl"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -173,12 +177,16 @@ services:
       # Firecrawl's own /search and /extract endpoints use this instead of a
       # paid search API — pointed at our SearXNG instance.
       - SEARXNG_ENDPOINT=http://searxng:8080
+      # Firecrawl's harness runs many Node processes in this one container (api +
+      # worker + several nuq-workers + prefetch/reconciler/extract). Trim the
+      # per-queue worker count to keep the memory footprint sane on a shared box.
+      - NUM_WORKERS_PER_QUEUE=${FIRECRAWL_WORKERS:-2}
       - NUQ_RABBITMQ_URL=amqp://firecrawl-rabbitmq:5672
       - POSTGRES_HOST=firecrawl-nuq-postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=firecrawl
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${FIRECRAWL_POSTGRES_PASSWORD}
-      - POSTGRES_DB=firecrawl
+      - POSTGRES_DB=postgres
     command: node dist/src/harness.js --start-docker
     depends_on:
       firecrawl-playwright:
@@ -201,9 +209,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          # Firecrawl runs ~10 Node processes in-container; they spike past 2.5G
+          # at startup and the cgroup OOM-killer takes the api process (exit
+          # 137). 3G survives startup while still leaving headroom on a ~8G box
+          # for the rest of the stack (base + searxng ≈ 2.7G). Do not exceed ~3G
+          # on an 8G box or you risk OOM-killing the live gateway/dashboard.
+          memory: 3072M
         reservations:
-          memory: 512M
+          memory: 1G
 
 volumes:
   pulse-searxng-cache:
