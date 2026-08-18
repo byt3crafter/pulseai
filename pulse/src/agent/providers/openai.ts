@@ -18,6 +18,84 @@ import { logger } from "../../utils/logger.js";
 
 const CHATGPT_CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
 
+let inlineToolSeq = 0;
+
+/**
+ * MiniMax (and some other OpenAI-compatible models) occasionally emit a tool
+ * call as INLINE TEXT in the `content` field instead of the native `tool_calls`
+ * structure — using their own XML-ish markup, interspersed with a `]<]minimax[>[`
+ * segment delimiter:
+ *
+ *   Let me compute this.]<]minimax[>[<tool_call>]<]minimax[>[<invoke name="python_execute">
+ *   ]<]minimax[>[<code>print(1)</code>]<]minimax[>[</invoke>]<]minimax[>[</tool_call>
+ *
+ * When that happens the parser below (a) extracts the real tool call so it still
+ * executes, and (b) STRIPS the markup from the visible text so the raw script
+ * never leaks into the chat. It is intentionally forgiving: on any parse trouble
+ * it still strips every stray marker so nothing ugly reaches the user. A normal
+ * answer with no such markup passes through untouched.
+ */
+export function extractInlineToolCalls(raw: string): { content: string; toolCalls: ToolCall[] } {
+    // Fast path: nothing that looks like the inline markup → return as-is.
+    if (!raw || (!raw.includes("]<]minimax[>[") && !raw.includes("<tool_call") && !raw.includes("<invoke"))) {
+        return { content: raw, toolCalls: [] };
+    }
+
+    const toolCalls: ToolCall[] = [];
+    // Drop the segment delimiter everywhere — it is pure noise.
+    let s = raw.replace(/\]<\]minimax\[>\[/g, "");
+
+    // Pull out each <tool_call>…</tool_call> block (also tolerate a missing
+    // closing tag by consuming to the end of string as a fallback).
+    const blockRe = /<tool_call>([\s\S]*?)(?:<\/tool_call>|$)/g;
+    s = s.replace(blockRe, (_full, inner: string) => {
+        try {
+            const nameM = inner.match(/<invoke\s+name\s*=\s*["']([^"']+)["']\s*>/i);
+            if (!nameM) return "";
+            const name = nameM[1];
+            const paramsSection = inner
+                .replace(/<invoke[^>]*>/i, "")
+                .replace(/<\/invoke\s*>/i, "");
+            const input: Record<string, any> = {};
+            // Each parameter is a matched <tag>…</tag>. Supports both the
+            // <parameter name="x">v</parameter> form and the bare <x>v</x> form.
+            const paramRe = /<parameter\s+name\s*=\s*["']([^"']+)["']\s*>([\s\S]*?)<\/parameter>|<([a-zA-Z_][\w-]*)>([\s\S]*?)<\/\3>/g;
+            let pm: RegExpExecArray | null;
+            while ((pm = paramRe.exec(paramsSection)) !== null) {
+                const key = pm[1] ?? pm[3];
+                let val: any = (pm[2] ?? pm[4] ?? "").trim();
+                // Coerce obvious JSON scalars/objects so typed params survive.
+                if (/^(true|false|null|-?\d+(\.\d+)?|\[[\s\S]*\]|\{[\s\S]*\})$/.test(val)) {
+                    try { val = JSON.parse(val); } catch { /* keep string */ }
+                }
+                if (key) input[key] = val;
+            }
+            toolCalls.push({ id: `mmx_${inlineToolSeq++}`, name, input });
+        } catch {
+            /* fall through — the block is stripped regardless */
+        }
+        return "";
+    });
+
+    // Sweep up any orphaned markup tags left behind (unmatched/partial blocks).
+    s = s.replace(/<\/?(tool_call|invoke|parameter)[^>]*>/gi, "");
+    return { content: s.replace(/\n{3,}/g, "\n\n").trim(), toolCalls };
+}
+
+/** Longest inline-tool marker prefix — how much stream tail to hold back so a
+ *  marker split across chunks is never flashed before we can suppress it. */
+const INLINE_MARKER_HOLDBACK = 13; // len("]<]minimax[>[")
+
+/** Index of the first inline-tool marker in `s`, or -1 if none. */
+function firstInlineMarkerIndex(s: string): number {
+    let idx = -1;
+    for (const m of ["]<]minimax[>[", "<tool_call", "<invoke"]) {
+        const i = s.indexOf(m);
+        if (i !== -1 && (idx === -1 || i < idx)) idx = i;
+    }
+    return idx;
+}
+
 /**
  * Convert Anthropic-format messages to OpenAI Chat Completions format.
  *
@@ -295,6 +373,12 @@ export class OpenAIProvider {
                 });
 
                 let content = "";
+                // `visible` mirrors the non-<think> content; we forward it to the UI
+                // ourselves (rather than raw deltas) so MiniMax's inline tool-call
+                // markup is never flashed on screen before we can strip it.
+                let visible = "";
+                let emittedVisibleLen = 0;
+                let suppressDisplay = false;
                 const toolCallArgs: Map<number, { id: string; name: string; args: string }> = new Map();
                 let model = "";
                 let finishReason = "";
@@ -323,7 +407,27 @@ export class OpenAIProvider {
                     if (delta.content) {
                         if (thinkOpen) { content += "</think>"; params.stream.onDelta!("</think>"); thinkOpen = false; }
                         content += delta.content;
-                        params.stream.onDelta!(delta.content);
+                        visible += delta.content;
+                        // Forward only the text that precedes any inline tool-call
+                        // marker. Once a marker appears, suppress the rest (it is
+                        // markup we strip anyway). Hold back a short tail so a marker
+                        // split across two chunks is caught before it's shown.
+                        if (!suppressDisplay) {
+                            const markerIdx = firstInlineMarkerIndex(visible);
+                            if (markerIdx === -1) {
+                                const safeEnd = Math.max(emittedVisibleLen, visible.length - INLINE_MARKER_HOLDBACK);
+                                if (safeEnd > emittedVisibleLen) {
+                                    params.stream.onDelta!(visible.slice(emittedVisibleLen, safeEnd));
+                                    emittedVisibleLen = safeEnd;
+                                }
+                            } else {
+                                if (markerIdx > emittedVisibleLen) {
+                                    params.stream.onDelta!(visible.slice(emittedVisibleLen, markerIdx));
+                                }
+                                emittedVisibleLen = markerIdx;
+                                suppressDisplay = true;
+                            }
+                        }
                     }
 
                     // Accumulate tool call deltas
@@ -356,6 +460,13 @@ export class OpenAIProvider {
 
                 if (thinkOpen) { content += "</think>"; params.stream.onDelta!("</think>"); thinkOpen = false; }
 
+                // Flush any held-back tail that turned out NOT to be markup.
+                if (!suppressDisplay && emittedVisibleLen < visible.length) {
+                    const markerIdx = firstInlineMarkerIndex(visible);
+                    const end = markerIdx === -1 ? visible.length : markerIdx;
+                    if (end > emittedVisibleLen) params.stream.onDelta!(visible.slice(emittedVisibleLen, end));
+                }
+
                 params.stream.onComplete?.();
 
                 const toolCalls: ToolCall[] = [];
@@ -366,6 +477,12 @@ export class OpenAIProvider {
                         input: tc.args ? JSON.parse(tc.args) : {},
                     });
                 }
+
+                // Recover any tool call MiniMax streamed as inline text and strip the
+                // raw markup from the persisted answer (keeps <think>…</think> intact).
+                const inlineStream = extractInlineToolCalls(content);
+                content = inlineStream.content;
+                if (inlineStream.toolCalls.length) toolCalls.unshift(...inlineStream.toolCalls);
 
                 return {
                     content,
@@ -389,9 +506,12 @@ export class OpenAIProvider {
             // Fold any separate reasoning_content into <think>…</think> so the runtime
             // can capture it for the web chat's thinking panel (and strip it elsewhere).
             const reasoning = (message as any).reasoning_content || "";
-            const content = (reasoning ? `<think>${reasoning}</think>` : "") + (message.content || "");
+            // Recover any tool call MiniMax emitted as inline text (and strip the
+            // raw markup so it never leaks into the chat).
+            const inline = extractInlineToolCalls(message.content || "");
+            const content = (reasoning ? `<think>${reasoning}</think>` : "") + inline.content;
 
-            const toolCalls: ToolCall[] = [];
+            const toolCalls: ToolCall[] = [...inline.toolCalls];
             if (message.tool_calls) {
                 for (const toolCall of message.tool_calls) {
                     if (toolCall.type === "function") {
