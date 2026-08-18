@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.107] - 2026-08-18
+
+### Features
+- inline charts, send-while-responding + Esc-restore, charitable typo reading
+
 ## [0.14.106] - 2026-08-18
 
 ### Features
