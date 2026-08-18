@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.101] - 2026-08-18
+
+### Features
+- flat black session rail, remove the grey agent header
+
 ## [0.14.100] - 2026-08-18
 
 ### Features
