@@ -39,12 +39,18 @@ function Mark({ size, logo }: { size: number; logo?: string }) {
  */
 export default function DashboardShell({ workspaceName, nav, userMenu, children, logo }: DashboardShellProps) {
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [collapsed, setCollapsed] = useState(false);
+    // Default to the slim labeled rail (icons + micro-labels) — the compact,
+    // reference-style nav. Users can expand to full labels; the preference is
+    // remembered. Only an explicit "0" keeps the wide column.
+    const [collapsed, setCollapsed] = useState(true);
     const pathname = usePathname();
 
-    // Restore collapsed preference.
+    // Restore collapsed preference — default (no stored value) is the slim rail.
     useEffect(() => {
-        try { setCollapsed(localStorage.getItem("pulse_sidebar_collapsed") === "1"); } catch { /* ignore */ }
+        try {
+            const v = localStorage.getItem("pulse_sidebar_collapsed");
+            setCollapsed(v === null ? true : v === "1");
+        } catch { /* ignore */ }
     }, []);
     const toggleCollapsed = () => setCollapsed((v) => {
         const next = !v;
