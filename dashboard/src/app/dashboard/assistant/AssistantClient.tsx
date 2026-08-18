@@ -695,26 +695,66 @@ export default function AssistantClient({
 }
 
 /** Calm live "step" rows: what the agent is doing (searching, reading, …) with a
- *  spinner while running and a check/cross when each step finishes. */
+ *  spinner while running and a check/cross when each step finishes. Consecutive
+ *  identical steps collapse into one row with a ×N count (e.g. running a server
+ *  command four times shows "Running a server command ×4"). */
 function ToolSteps({ steps }: { steps: ToolStep[] }) {
+    type Group = { label: string; count: number; phase: "start" | "done" | "error"; detail?: string };
+    const groups: Group[] = [];
+    for (const s of steps) {
+        const last = groups[groups.length - 1];
+        if (last && last.label === s.label) {
+            last.count += 1;
+            // running wins; else an error sticks; otherwise done.
+            if (s.phase === "start") last.phase = "start";
+            else if (s.phase === "error" && last.phase !== "start") last.phase = "error";
+            else if (last.phase !== "start" && last.phase !== "error") last.phase = "done";
+            if (s.detail) last.detail = s.detail;
+        } else {
+            groups.push({ label: s.label, count: 1, phase: s.phase, detail: s.detail });
+        }
+    }
+    const [open, setOpen] = useState(false);
+    const running = groups.some((g) => g.phase === "start");
+    const anyError = groups.some((g) => g.phase === "error");
+    const total = groups.reduce((n, g) => n + g.count, 0);
+    // While working, show the live rows. Once every step is finished, collapse to
+    // a one-line summary the user can expand.
+    const showRows = running || open;
+    const summary = anyError ? "Some steps didn't complete" : `Worked through ${total} step${total === 1 ? "" : "s"}`;
+
     return (
         <div className="mb-3 flex flex-col overflow-hidden rounded-xl border border-pulse-border-subtle bg-pulse-panel">
-            {steps.map((s, i) => (
+            {!running && (
+                <button
+                    type="button"
+                    onClick={() => setOpen((o) => !o)}
+                    aria-expanded={open}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-pulse-muted transition-colors hover:bg-pulse-hover"
+                >
+                    {anyError
+                        ? <XMarkIcon className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                        : <CheckIcon className="h-3.5 w-3.5 shrink-0 text-emerald-500" strokeWidth={2.5} />}
+                    <span>{summary}</span>
+                    <ChevronRightIcon className={`ml-auto h-3.5 w-3.5 text-pulse-faint transition-transform ${open ? "rotate-90" : ""}`} />
+                </button>
+            )}
+            {showRows && groups.map((g, i) => (
                 <div
                     key={i}
-                    className={`flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] ${i > 0 ? "border-t border-pulse-border-subtle" : ""} ${s.phase === "start" ? "text-pulse-text-soft" : "text-pulse-muted"}`}
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] ${(i > 0 || !running) ? "border-t border-pulse-border-subtle" : ""} ${g.phase === "start" ? "text-pulse-text-soft" : "text-pulse-muted"}`}
                 >
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                        {s.phase === "start" ? (
+                        {g.phase === "start" ? (
                             <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-pulse-border-strong border-t-pulse-accent motion-reduce:animate-none" aria-label="working" />
-                        ) : s.phase === "error" ? (
+                        ) : g.phase === "error" ? (
                             <XMarkIcon className="h-3.5 w-3.5 text-red-400" />
                         ) : (
                             <CheckIcon className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.5} />
                         )}
                     </span>
-                    <span>{s.label}</span>
-                    {s.detail && <span className="text-pulse-faint">— {s.detail}</span>}
+                    <span>{g.label}{g.count > 1 && <span className="text-pulse-faint"> ×{g.count}</span>}</span>
+                    {g.detail && g.count === 1 && <span className="text-pulse-faint">— {g.detail}</span>}
                 </div>
             ))}
         </div>
