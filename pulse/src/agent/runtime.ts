@@ -73,8 +73,12 @@ function toolStepLabel(name: string): string {
         erpnext_create: "Creating in ERPNext", erpnext_update: "Updating ERPNext", erpnext_read: "Reading ERPNext",
         erpnext_list: "Querying ERPNext", erpnext_method: "Calling ERPNext",
         browser_navigate: "Opening a page", browser_click: "Clicking", browser_fill: "Filling a form", browser_extract: "Reading the page",
+        server_exec: "Running a server command", server_list: "Listing servers", server_read: "Checking a server",
+        pulse_help: "Checking what's set up", activity_log: "Checking the activity log",
+        get_current_time: "Checking the time", calculator: "Calculating",
     };
     if (map[name]) return map[name];
+    if (name.startsWith("server")) return "Working on a server";
     if (name.startsWith("erpnext")) return "Working in ERPNext";
     if (name.startsWith("email")) return "Working with email";
     if (name.startsWith("browser")) return "Using the browser";
