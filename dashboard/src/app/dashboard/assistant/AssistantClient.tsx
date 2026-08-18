@@ -544,7 +544,7 @@ export default function AssistantClient({
 
                         {messages.map((m, i) => m.role === "user" ? (
                             <div key={i} className="flex justify-end">
-                                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-sm text-pulse-text">
+                                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text">
                                     <span className="whitespace-pre-wrap break-words">{m.content}</span>
                                 </div>
                             </div>
@@ -591,7 +591,7 @@ export default function AssistantClient({
                                 rows={1}
                                 placeholder={conn === "online" ? "Message your assistant…" : "Connecting…"}
                                 disabled={conn !== "online"}
-                                className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[14px] leading-6 min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
+                                className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
                             {/* bottom control bar — lives inside the box */}
                             <div className="flex items-end gap-2 px-2.5 pb-2.5">
