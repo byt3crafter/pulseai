@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.99] - 2026-08-18
+
+### Features
+- composer as one tall box with controls inside (Creatify-style)
+
 ## [0.14.98] - 2026-08-18
 
 ### Features
