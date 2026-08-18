@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import ChartBlock from "./ChartBlock";
 
 /**
  * Repair the common markdown mistakes weaker models make before rendering, so a
@@ -40,6 +41,18 @@ export default function Markdown({ children }: { children: string }) {
                 remarkPlugins={[remarkGfm]}
                 components={{
                     a: ({ node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />,
+                    // A ```chart fenced block renders as an inline chart instead of a
+                    // code block; everything else stays a normal <pre>.
+                    pre: ({ node, children, ...props }: any) => {
+                        const codeNode = node?.children?.[0];
+                        const cls: string[] = codeNode?.properties?.className || [];
+                        const lang = cls.find((c) => c.startsWith("language-"))?.slice(9);
+                        if (lang === "chart") {
+                            const raw = codeNode?.children?.[0]?.value ?? "";
+                            return <ChartBlock code={raw} />;
+                        }
+                        return <pre {...props}>{children}</pre>;
+                    },
                 }}
             >
                 {repairMarkdown(children)}

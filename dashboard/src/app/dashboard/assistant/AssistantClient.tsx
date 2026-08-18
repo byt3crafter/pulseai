@@ -69,6 +69,9 @@ export default function AssistantClient({
     const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
     const [sessionId, setSessionId] = useState<string>(initialSessionId || newSessionId());
     const [input, setInput] = useState("");
+    // The last message the user sent — Esc in an empty composer restores it (undo
+    // a mistaken send so it can be fixed and re-sent).
+    const [lastSent, setLastSent] = useState("");
     const [conn, setConn] = useState<ConnState>("connecting");
     const [busy, setBusy] = useState(false);
     const [agentId, setAgentId] = useState<string>(agents[0]?.id ?? "");
@@ -253,7 +256,10 @@ export default function AssistantClient({
 
     function send() {
         const text = input.trim();
-        if (!text || busy || conn !== "online") return;
+        // Sending is allowed even while the agent is still responding — the box
+        // is never blocked. Only a dropped connection stops a send.
+        if (!text || conn !== "online") return;
+        setLastSent(text);
         setMessages((prev) => [...prev, { role: "user", content: text }]);
         setInput("");
         setBusy(true);
@@ -615,7 +621,15 @@ export default function AssistantClient({
                                 ref={inputRef}
                                 value={input}
                                 onChange={(e) => { setInput(e.target.value); autoGrow(); }}
-                                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                                    // Esc in an empty box brings back your last sent message to fix + resend.
+                                    else if (e.key === "Escape" && !input.trim() && lastSent) {
+                                        e.preventDefault();
+                                        setInput(lastSent);
+                                        requestAnimationFrame(() => { const el = inputRef.current; if (el) { el.focus(); autoGrow(); } });
+                                    }
+                                }}
                                 rows={1}
                                 placeholder={conn === "online" ? "Message your assistant…" : "Connecting…"}
                                 disabled={conn !== "online"}
@@ -674,8 +688,8 @@ export default function AssistantClient({
                                         <MicrophoneIcon className="h-[18px] w-[18px]" />
                                     </button>
                                 )}
-                                <button type="button" onClick={send} disabled={!input.trim() || busy || conn !== "online"} aria-label="Send message"
-                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${input.trim() && !busy && conn === "online" ? "bg-pulse-accent text-white hover:bg-pulse-accent-hi" : "bg-pulse-hover text-pulse-faint"}`}>
+                                <button type="button" onClick={send} disabled={!input.trim() || conn !== "online"} aria-label="Send message"
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${input.trim() && conn === "online" ? "bg-pulse-accent text-white hover:bg-pulse-accent-hi" : "bg-pulse-hover text-pulse-faint"}`}>
                                     <ArrowUpIcon className="h-[18px] w-[18px]" />
                                 </button>
                             </div>
