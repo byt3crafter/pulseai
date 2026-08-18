@@ -5,7 +5,7 @@ import {
     PlusIcon, ChevronDownIcon, ChevronRightIcon,
     SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
     ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon, LightBulbIcon, ArrowUpIcon,
-    MagnifyingGlassIcon,
+    MagnifyingGlassIcon, CheckIcon, XMarkIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
 import { getLiveModelsAction } from "../agents/actions";
@@ -16,7 +16,8 @@ import {
 } from "./actions";
 
 interface AgentOpt { id: string; name: string; avatar: string | null; title: string | null; }
-type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean };
+type ToolStep = { name: string; label: string; phase: "start" | "done" | "error"; detail?: string };
+type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[] };
 type ConnState = "connecting" | "online" | "offline";
 
 const REASONING_OPTS = [
@@ -172,6 +173,8 @@ export default function AssistantClient({
                 setMessages((prev) => upsertStreaming(prev, { thinking: m.content }));
             } else if (m.type === "agent.streaming") {
                 setMessages((prev) => upsertStreaming(prev, { content: m.content }));
+            } else if (m.type === "agent.tool") {
+                setMessages((prev) => applyToolStep(prev, m as ToolStep));
             } else if (m.type === "agent.message") {
                 setMessages((prev) => {
                     const next = [...prev];
@@ -207,6 +210,30 @@ export default function AssistantClient({
             Object.assign(last, patch);
         } else {
             next.push({ role: "assistant", content: "", streaming: true, ...patch });
+        }
+        return next;
+    }
+
+    // Live tool-step events → the calm "step rows" on the current reply. A "start"
+    // adds a running row; "done"/"error" flips the matching row's state.
+    function applyToolStep(prev: Msg[], step: ToolStep): Msg[] {
+        const next = [...prev];
+        let last = next[next.length - 1];
+        if (!(last && last.role === "assistant" && last.streaming)) {
+            last = { role: "assistant", content: "", streaming: true, steps: [] };
+            next.push(last);
+        }
+        if (!last.steps) last.steps = [];
+        if (step.phase === "start") {
+            last.steps.push({ name: step.name, label: step.label, phase: "start", detail: step.detail });
+        } else {
+            for (let i = last.steps.length - 1; i >= 0; i--) {
+                if (last.steps[i].name === step.name && last.steps[i].phase === "start") {
+                    last.steps[i].phase = step.phase;
+                    if (step.detail) last.steps[i].detail = step.detail;
+                    break;
+                }
+            }
         }
         return next;
     }
@@ -557,6 +584,7 @@ export default function AssistantClient({
                                 )}
                                 <div className="min-w-0 flex-1">
                                     {showIdentity && <p className="mb-1 text-xs font-medium text-pulse-muted">{activeAgent?.name ?? "Assistant"}</p>}
+                                    {m.steps && m.steps.length > 0 && <ToolSteps steps={m.steps} />}
                                     {showThinking && m.thinking && (
                                         <ThinkingPanel text={m.thinking} streaming={!!m.streaming && !m.content} />
                                     )}
@@ -662,6 +690,33 @@ export default function AssistantClient({
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/** Calm live "step" rows: what the agent is doing (searching, reading, …) with a
+ *  spinner while running and a check/cross when each step finishes. */
+function ToolSteps({ steps }: { steps: ToolStep[] }) {
+    return (
+        <div className="mb-3 flex flex-col overflow-hidden rounded-xl border border-pulse-border-subtle bg-pulse-panel">
+            {steps.map((s, i) => (
+                <div
+                    key={i}
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] ${i > 0 ? "border-t border-pulse-border-subtle" : ""} ${s.phase === "start" ? "text-pulse-text-soft" : "text-pulse-muted"}`}
+                >
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                        {s.phase === "start" ? (
+                            <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-pulse-border-strong border-t-pulse-accent motion-reduce:animate-none" aria-label="working" />
+                        ) : s.phase === "error" ? (
+                            <XMarkIcon className="h-3.5 w-3.5 text-red-400" />
+                        ) : (
+                            <CheckIcon className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.5} />
+                        )}
+                    </span>
+                    <span>{s.label}</span>
+                    {s.detail && <span className="text-pulse-faint">— {s.detail}</span>}
+                </div>
+            ))}
         </div>
     );
 }

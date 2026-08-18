@@ -54,6 +54,35 @@ function parseAutoMemoryConfig(config: unknown): AutoMemoryConfig {
     return { enabled, maxMemories };
 }
 
+/** Human, present-tense label for a tool call, shown in the live step rows. */
+function toolStepLabel(name: string): string {
+    const map: Record<string, string> = {
+        web_search: "Searching the web",
+        web_fetch: "Reading a page",
+        email_send: "Sending email", email_reply: "Replying to email", email_draft: "Drafting email",
+        email_search: "Searching email", email_read: "Reading email", email_list: "Checking the inbox",
+        email_fetch_unread: "Checking unread email",
+        contact_lookup: "Looking up a contact", contact_list: "Reading contacts", contact_save: "Saving a contact",
+        calendar_add: "Adding a calendar event", calendar_list: "Checking the calendar", calendar_search: "Searching the calendar",
+        memory_search: "Recalling memory", memory_store: "Saving to memory",
+        note_save: "Saving a note", todo_add: "Adding a to-do", task_create: "Creating a task", task_update: "Updating a task",
+        document_search: "Searching documents", document_read: "Reading a document", pdf_read: "Reading a PDF", pdf_fill_form: "Filling a PDF",
+        expense_add: "Logging an expense", commitment_create: "Setting a follow-up",
+        python_execute: "Running a calculation", exec: "Running a command", bash_sandbox: "Running code",
+        schedule_job: "Scheduling a job", notify: "Sending a notification",
+        erpnext_create: "Creating in ERPNext", erpnext_update: "Updating ERPNext", erpnext_read: "Reading ERPNext",
+        erpnext_list: "Querying ERPNext", erpnext_method: "Calling ERPNext",
+        browser_navigate: "Opening a page", browser_click: "Clicking", browser_fill: "Filling a form", browser_extract: "Reading the page",
+    };
+    if (map[name]) return map[name];
+    if (name.startsWith("erpnext")) return "Working in ERPNext";
+    if (name.startsWith("email")) return "Working with email";
+    if (name.startsWith("browser")) return "Using the browser";
+    // Fallback: "get_current_time" -> "Get current time"
+    const words = name.replace(/_/g, " ");
+    return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export class AgentRuntime {
     private providerManager = new ProviderManager();
     private toolRegistry = new ToolRegistry();
@@ -83,6 +112,10 @@ export class AgentRuntime {
             // the agent's own model. The provider is resolved from the model id, so a
             // Claude/OpenAI/MiniMax id works if that provider's key is configured.
             modelOverride?: string;
+            // Live tool-activity callback — fires when a tool starts and finishes,
+            // so streaming surfaces (web chat) can show calm "step" rows. Fire-soft;
+            // never affects execution.
+            onToolStep?: (step: { name: string; label: string; phase: "start" | "done" | "error"; detail?: string }) => void;
         }
     ): Promise<void> {
         const tenantLog = logger.child({ tenantId: inbound.tenantId, channel: inbound.channelType });
@@ -828,6 +861,8 @@ export class AgentRuntime {
                             result = { result: `Error: Tool '${toolCall.name}' not found` };
                         } else {
                             const toolStart = Date.now();
+                            const stepLabel = toolStepLabel(toolCall.name);
+                            try { options?.onToolStep?.({ name: toolCall.name, label: stepLabel, phase: "start" }); } catch { /* fire-soft */ }
                             try {
                                 // Inject _agentId so tools can identify the calling agent
                                 const toolArgs = { ...(toolCall.input as Record<string, any>) };
@@ -840,10 +875,15 @@ export class AgentRuntime {
                                     args: toolArgs,
                                 });
                                 run.addToolCall(toolCall.name, true, Date.now() - toolStart);
+                                const ok = !isErrorResult(result.result);
+                                const count = (result.metadata as any)?.count;
+                                const detail = typeof count === "number" ? `${count} result${count === 1 ? "" : "s"}` : undefined;
+                                try { options?.onToolStep?.({ name: toolCall.name, label: stepLabel, phase: ok ? "done" : "error", detail }); } catch { /* fire-soft */ }
                             } catch (err: any) {
                                 tenantLog.error({ err, toolName: toolCall.name }, "Tool execution failed");
                                 result = { result: `Error executing tool '${toolCall.name}': ${err.message || "Unknown error"}` };
                                 run.addToolCall(toolCall.name, false, Date.now() - toolStart);
+                                try { options?.onToolStep?.({ name: toolCall.name, label: stepLabel, phase: "error" }); } catch { /* fire-soft */ }
                             }
                         }
 
