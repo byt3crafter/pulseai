@@ -92,7 +92,7 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children,
     return (
         <div className="flex h-dvh bg-pulse-bg w-full font-sans overflow-hidden">
             {/* Desktop sidebar */}
-            <aside className={`hidden md:flex ${collapsed ? "w-16" : "w-60"} bg-pulse-panel flex-shrink-0 flex-col border-r border-pulse-border-subtle h-dvh transition-[width] duration-200 ease-out motion-reduce:transition-none`}>
+            <aside className={`hidden md:flex ${collapsed ? "w-[76px]" : "w-60"} bg-pulse-bg flex-shrink-0 flex-col border-r border-pulse-border-subtle h-dvh transition-[width] duration-200 ease-out motion-reduce:transition-none`}>
                 <div className={`h-14 flex items-center border-b border-pulse-border-subtle flex-shrink-0 ${collapsed ? "justify-center px-0" : "px-5 justify-between"}`}>
                     {collapsed ? (
                         <Link href="/dashboard" aria-label={workspaceName} className="flex items-center justify-center">

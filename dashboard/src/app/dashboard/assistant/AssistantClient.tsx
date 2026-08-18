@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
     PaperAirplaneIcon, PlusIcon, ChevronDownIcon, ChevronRightIcon,
     SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
-    ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon,
+    ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon, LightBulbIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
 import { getLiveModelsAction } from "../agents/actions";
@@ -592,49 +592,51 @@ export default function AssistantClient({
                                 )}
                             </p>
                         )}
-                        {/* Compact controls */}
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-pulse-faint">
+                        {/* Composer controls — segmented pills */}
+                        <div className="mt-2 flex flex-wrap items-center gap-2 px-1 text-[11.5px]">
                             {models.length > 0 && (() => {
                                 const freeModels = models.filter((m) => m.free);
                                 const paidModels = models.filter((m) => !m.free);
                                 const shownPaid = freeOnly ? [] : paidModels;
                                 return (
-                                    <label className="flex items-center gap-1">
-                                        <span>Model</span>
-                                        <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[13rem] rounded border border-pulse-border-subtle bg-pulse-panel px-1 py-0.5 text-[11px] text-pulse-text-soft outline-none focus:ring-1 focus:ring-indigo-500">
-                                            <option value="">Default ({activeAgent?.name ?? "agent"}&apos;s model)</option>
-                                            {freeModels.length > 0 && (
-                                                <optgroup label={`✦ Free — no usage cost (${freeModels.length})`}>
-                                                    {freeModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                                                </optgroup>
-                                            )}
-                                            {shownPaid.length > 0 && (
-                                                <optgroup label={freeModels.length > 0 ? "All other models" : "Models"}>
-                                                    {shownPaid.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                                                </optgroup>
-                                            )}
-                                        </select>
+                                    <>
+                                        <div className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
+                                            <span className="text-pulse-faint">Model</span>
+                                            <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[11rem] bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
+                                                <option value="">Default</option>
+                                                {freeModels.length > 0 && (
+                                                    <optgroup label={`✦ Free — no usage cost (${freeModels.length})`}>
+                                                        {freeModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                                    </optgroup>
+                                                )}
+                                                {shownPaid.length > 0 && (
+                                                    <optgroup label={freeModels.length > 0 ? "All other models" : "Models"}>
+                                                        {shownPaid.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                                    </optgroup>
+                                                )}
+                                            </select>
+                                        </div>
                                         {freeModels.length > 0 && (
-                                            <label className="ml-1 flex cursor-pointer select-none items-center gap-1" title="Only show models that are free to use">
-                                                <input type="checkbox" checked={freeOnly} onChange={(e) => setFreeOnly(e.target.checked)} className="h-3 w-3 rounded accent-indigo-600" />
+                                            <button type="button" onClick={() => setFreeOnly((v) => !v)} aria-pressed={freeOnly} title="Only show models that are free to use"
+                                                className={`h-7 px-2.5 rounded-lg border font-medium transition-colors ${freeOnly ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
                                                 Free only
-                                            </label>
+                                            </button>
                                         )}
-                                    </label>
+                                    </>
                                 );
                             })()}
-                            <label className="flex items-center gap-1">
-                                <SparklesIcon className="h-3 w-3" />
-                                <span>Reasoning</span>
-                                <select value={reasoning} onChange={(e) => setReasoning(e.target.value)} className="rounded border border-pulse-border-subtle bg-pulse-panel px-1 py-0.5 text-[11px] text-pulse-text-soft outline-none focus:ring-1 focus:ring-indigo-500">
+                            <div className="inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
+                                <SparklesIcon className="h-3.5 w-3.5 text-pulse-faint" />
+                                <span className="text-pulse-faint">Reasoning</span>
+                                <select value={reasoning} onChange={(e) => setReasoning(e.target.value)} className="bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
                                     {REASONING_OPTS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
                                 </select>
-                            </label>
-                            <label className="flex cursor-pointer select-none items-center gap-1">
-                                <input type="checkbox" checked={showThinking} onChange={(e) => setShowThinking(e.target.checked)} className="h-3 w-3 rounded accent-indigo-600" />
-                                Show thinking
-                            </label>
-                            <span className="ml-auto hidden sm:inline">Enter to send · Shift+Enter for a new line</span>
+                            </div>
+                            <button type="button" onClick={() => setShowThinking((v) => !v)} aria-pressed={showThinking} title="Show the model's reasoning"
+                                className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border font-medium transition-colors ${showThinking ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
+                                <LightBulbIcon className="h-3.5 w-3.5" /> Thinking
+                            </button>
+                            <span className="ml-auto hidden sm:inline text-pulse-faint">Enter to send · Shift+Enter for a new line</span>
                         </div>
                     </div>
                 </div>
