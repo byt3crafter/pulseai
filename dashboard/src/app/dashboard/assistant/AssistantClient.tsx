@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
-    PaperAirplaneIcon, PlusIcon, ChevronDownIcon, ChevronRightIcon,
+    PlusIcon, ChevronDownIcon, ChevronRightIcon,
     SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
-    ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon, LightBulbIcon,
+    ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon, LightBulbIcon, ArrowUpIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
 import { getLiveModelsAction } from "../agents/actions";
@@ -546,10 +546,10 @@ export default function AssistantClient({
                     </div>
                 </div>
 
-                {/* Composer */}
-                <div className="shrink-0 border-t border-pulse-border-subtle bg-pulse-panel px-4 py-3 sm:px-6">
+                {/* Composer — one tall rounded box with the controls inside it */}
+                <div className="shrink-0 bg-pulse-bg px-4 pb-5 pt-2 sm:px-6">
                     <div className="mx-auto w-full max-w-3xl">
-                        <div className="flex items-end gap-2 rounded-2xl border border-pulse-border bg-pulse-bg px-3 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500">
+                        <div className="rounded-2xl border border-pulse-border bg-pulse-panel-alt transition-colors focus-within:border-pulse-border-strong">
                             <textarea
                                 ref={inputRef}
                                 value={input}
@@ -558,86 +558,74 @@ export default function AssistantClient({
                                 rows={1}
                                 placeholder={conn === "online" ? "Message your assistant…" : "Connecting…"}
                                 disabled={conn !== "online"}
-                                className="block max-h-40 h-9 flex-1 resize-none self-center bg-transparent py-1.5 text-sm leading-6 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
+                                className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[14px] leading-6 min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
-                            {voiceEnabled && (
-                                <button
-                                    type="button"
-                                    onClick={toggleRecording}
-                                    disabled={transcribing || conn !== "online"}
-                                    title={recording ? "Stop recording" : "Record voice message"}
-                                    aria-label={recording ? "Stop recording" : "Record voice message"}
-                                    aria-pressed={recording}
-                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-40 ${
-                                        recording
-                                            ? "text-red-500 animate-pulse hover:bg-red-500/10"
-                                            : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
-                                    }`}
-                                >
-                                    <MicrophoneIcon className="h-5 w-5" />
-                                </button>
-                            )}
-                            <button type="button" onClick={send} disabled={!input.trim() || busy || conn !== "online"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pulse-accent text-white transition-colors hover:bg-pulse-accent-hi disabled:opacity-40">
-                                <PaperAirplaneIcon className="h-5 w-5" />
-                            </button>
-                        </div>
-                        {(recording || transcribing || voiceNotice) && (
-                            <p className="mt-1 px-1 text-[11px] text-pulse-faint">
-                                {voiceNotice ? (
-                                    <span className="text-red-400">{voiceNotice}</span>
-                                ) : recording ? (
-                                    <span className="text-red-400">Listening…</span>
-                                ) : (
-                                    "Transcribing…"
-                                )}
-                            </p>
-                        )}
-                        {/* Composer controls — segmented pills */}
-                        <div className="mt-2 flex flex-wrap items-center gap-2 px-1 text-[11.5px]">
-                            {models.length > 0 && (() => {
-                                const freeModels = models.filter((m) => m.free);
-                                const paidModels = models.filter((m) => !m.free);
-                                const shownPaid = freeOnly ? [] : paidModels;
-                                return (
-                                    <>
-                                        <div className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
-                                            <span className="text-pulse-faint">Model</span>
-                                            <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[11rem] bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
-                                                <option value="">Default</option>
+                            {/* bottom control bar — lives inside the box */}
+                            <div className="flex items-end gap-2 px-2.5 pb-2.5">
+                                <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11.5px]">
+                                    {models.length > 0 && (() => {
+                                        const freeModels = models.filter((m) => m.free);
+                                        const paidModels = models.filter((m) => !m.free);
+                                        const shownPaid = freeOnly ? [] : paidModels;
+                                        return (
+                                            <>
+                                                <div className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
+                                                    <span className="text-pulse-faint">Model</span>
+                                                    <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[9rem] bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
+                                                        <option value="">Default</option>
+                                                        {freeModels.length > 0 && (
+                                                            <optgroup label={`✦ Free — no usage cost (${freeModels.length})`}>
+                                                                {freeModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                                            </optgroup>
+                                                        )}
+                                                        {shownPaid.length > 0 && (
+                                                            <optgroup label={freeModels.length > 0 ? "All other models" : "Models"}>
+                                                                {shownPaid.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                                            </optgroup>
+                                                        )}
+                                                    </select>
+                                                </div>
                                                 {freeModels.length > 0 && (
-                                                    <optgroup label={`✦ Free — no usage cost (${freeModels.length})`}>
-                                                        {freeModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                                                    </optgroup>
+                                                    <button type="button" onClick={() => setFreeOnly((v) => !v)} aria-pressed={freeOnly} title="Only show models that are free to use"
+                                                        className={`h-7 px-2.5 rounded-lg border font-medium transition-colors ${freeOnly ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
+                                                        Free
+                                                    </button>
                                                 )}
-                                                {shownPaid.length > 0 && (
-                                                    <optgroup label={freeModels.length > 0 ? "All other models" : "Models"}>
-                                                        {shownPaid.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                                                    </optgroup>
-                                                )}
-                                            </select>
-                                        </div>
-                                        {freeModels.length > 0 && (
-                                            <button type="button" onClick={() => setFreeOnly((v) => !v)} aria-pressed={freeOnly} title="Only show models that are free to use"
-                                                className={`h-7 px-2.5 rounded-lg border font-medium transition-colors ${freeOnly ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
-                                                Free only
-                                            </button>
-                                        )}
-                                    </>
-                                );
-                            })()}
-                            <div className="inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
-                                <SparklesIcon className="h-3.5 w-3.5 text-pulse-faint" />
-                                <span className="text-pulse-faint">Reasoning</span>
-                                <select value={reasoning} onChange={(e) => setReasoning(e.target.value)} className="bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
-                                    {REASONING_OPTS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-                                </select>
+                                            </>
+                                        );
+                                    })()}
+                                    <div className="inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
+                                        <SparklesIcon className="h-3.5 w-3.5 text-pulse-faint" />
+                                        <select value={reasoning} onChange={(e) => setReasoning(e.target.value)} title="Reasoning effort" className="bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
+                                            {REASONING_OPTS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <button type="button" onClick={() => setShowThinking((v) => !v)} aria-pressed={showThinking} title="Show the model's reasoning"
+                                        className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border font-medium transition-colors ${showThinking ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
+                                        <LightBulbIcon className="h-3.5 w-3.5" /> Thinking
+                                    </button>
+                                </div>
+                                <div className="flex-1" />
+                                {voiceEnabled && (
+                                    <button type="button" onClick={toggleRecording} disabled={transcribing || conn !== "online"}
+                                        title={recording ? "Stop recording" : "Record voice message"} aria-label={recording ? "Stop recording" : "Record voice message"} aria-pressed={recording}
+                                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${recording ? "text-red-500 animate-pulse hover:bg-red-500/10" : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
+                                        <MicrophoneIcon className="h-[18px] w-[18px]" />
+                                    </button>
+                                )}
+                                <button type="button" onClick={send} disabled={!input.trim() || busy || conn !== "online"} aria-label="Send message"
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${input.trim() && !busy && conn === "online" ? "bg-pulse-accent text-white hover:bg-pulse-accent-hi" : "bg-pulse-hover text-pulse-faint"}`}>
+                                    <ArrowUpIcon className="h-[18px] w-[18px]" />
+                                </button>
                             </div>
-                            <button type="button" onClick={() => setShowThinking((v) => !v)} aria-pressed={showThinking} title="Show the model's reasoning"
-                                className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border font-medium transition-colors ${showThinking ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
-                                <LightBulbIcon className="h-3.5 w-3.5" /> Thinking
-                            </button>
-                            <span className="ml-auto hidden sm:inline text-pulse-faint">Enter to send · Shift+Enter for a new line</span>
                         </div>
+                        {(recording || transcribing || voiceNotice) ? (
+                            <p className="mt-1.5 px-1 text-[11px]">
+                                {voiceNotice ? <span className="text-red-400">{voiceNotice}</span> : recording ? <span className="text-red-400">Listening…</span> : <span className="text-pulse-faint">Transcribing…</span>}
+                            </p>
+                        ) : (
+                            <p className="mt-1.5 px-1 text-center text-[11px] text-pulse-faint sm:text-right">Enter to send · Shift+Enter for a new line</p>
+                        )}
                     </div>
                 </div>
             </div>
