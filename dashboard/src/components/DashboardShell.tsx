@@ -142,6 +142,8 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children,
                             </button>
                             <NotificationBell align="left" />
                             <ThemeToggle />
+                            <div className="my-1 h-px w-6 bg-pulse-border-subtle" aria-hidden="true" />
+                            {userMenu}
                         </>
                     ) : (
                         <>

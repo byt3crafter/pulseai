@@ -1,7 +1,8 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useContext } from "react";
+import { SidebarCollapseContext } from "./DashboardShell";
 
 type Variant = "light" | "dark" | "pulse";
 
@@ -59,6 +60,7 @@ export default function SidebarUserMenu({
 }: SidebarUserMenuProps) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const collapsed = useContext(SidebarCollapseContext);
     const v = <K extends keyof typeof V>(k: K) => V[k][variant];
 
     useEffect(() => {
@@ -75,29 +77,35 @@ export default function SidebarUserMenu({
 
     return (
         <div className="relative" ref={menuRef}>
-            {/* Trigger — user row */}
+            {/* Trigger — full user row, or just the avatar in the slim rail */}
             <button
                 onClick={() => setOpen(!open)}
-                className={`flex items-center gap-3 w-full px-2 py-2 rounded-lg transition-colors ${v("triggerHover")}`}
+                title={collapsed ? name : undefined}
+                aria-label={collapsed ? `Account: ${name}` : undefined}
+                className={`flex items-center rounded-lg transition-colors ${v("triggerHover")} ${collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 w-full px-2 py-2"}`}
             >
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${v("avatar")}`}>
                     {initials}
                 </div>
-                <div className="flex-1 min-w-0 text-left">
-                    <p className={`text-xs font-semibold truncate ${v("name")}`}>{name}</p>
-                    <p className={`text-xs truncate ${v("sub")}`}>{email || role}</p>
-                </div>
-                <svg
-                    className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""} ${v("chevron")}`}
-                    fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
-                >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                </svg>
+                {!collapsed && (
+                    <>
+                        <div className="flex-1 min-w-0 text-left">
+                            <p className={`text-xs font-semibold truncate ${v("name")}`}>{name}</p>
+                            <p className={`text-xs truncate ${v("sub")}`}>{email || role}</p>
+                        </div>
+                        <svg
+                            className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""} ${v("chevron")}`}
+                            fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                        </svg>
+                    </>
+                )}
             </button>
 
-            {/* Popover */}
+            {/* Popover — anchored above; widened in the slim rail so it stays readable */}
             {open && (
-                <div className={`absolute bottom-full left-0 right-0 mb-2 rounded-xl shadow-lg border overflow-hidden z-50 ${v("popover")}`}>
+                <div className={`absolute bottom-full mb-2 rounded-xl shadow-lg border overflow-hidden z-50 ${v("popover")} ${collapsed ? "left-0 w-60" : "left-0 right-0"}`}>
                     {/* User info header */}
                     <div className={`px-4 py-4 text-center border-b ${v("divider")}`}>
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold mx-auto mb-2 ${v("avatar")}`}>
