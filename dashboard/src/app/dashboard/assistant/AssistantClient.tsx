@@ -384,7 +384,7 @@ export default function AssistantClient({
             )}
             {/* ── Session rail (docked on desktop, overlay on mobile) ── */}
             {railOpen && (
-                <aside className="flex w-64 shrink-0 flex-col border-r border-pulse-border-subtle bg-pulse-panel max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[82%] max-md:max-w-xs max-md:shadow-xl">
+                <aside className="flex w-64 shrink-0 flex-col border-r border-pulse-border-subtle bg-pulse-bg max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[82%] max-md:max-w-xs max-md:shadow-xl">
                     <div className="flex items-center gap-2 p-2.5">
                         <button
                             onClick={startNewChat}
@@ -465,36 +465,31 @@ export default function AssistantClient({
 
             {/* ── Main ── */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between gap-2 border-b border-pulse-border-subtle bg-pulse-panel px-3 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                        {!railOpen && (
-                            <button onClick={() => setRailOpen(true)} title="Show sidebar" className="rounded-lg border border-pulse-border-subtle bg-pulse-bg p-2 text-pulse-muted hover:bg-pulse-hover">
-                                <ChevronDoubleRightIcon className="h-4 w-4" />
-                            </button>
-                        )}
-                        {!railOpen && (
-                            <button onClick={startNewChat} title="New chat" className="rounded-lg border border-pulse-border-subtle bg-pulse-bg p-2 text-pulse-muted hover:bg-pulse-hover">
-                                <PlusIcon className="h-4 w-4" />
-                            </button>
-                        )}
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi overflow-hidden">
-                            {activeAgent?.avatar ? <img src={activeAgent.avatar} alt="" className="h-full w-full object-cover" /> : (activeAgent?.name?.[0] ?? "A")}
+                {/* Top bar — intentionally minimal + flat (no agent name/status bar).
+                    Only renders when there's something to show: the rail toggle /
+                    new-chat buttons while the rail is closed, or the agent picker
+                    when this workspace has more than one agent. */}
+                {(!railOpen || agents.length > 1) && (
+                    <div className="flex items-center justify-between gap-2 bg-pulse-bg px-3 py-2.5">
+                        <div className="flex min-w-0 items-center gap-2">
+                            {!railOpen && (
+                                <>
+                                    <button onClick={() => setRailOpen(true)} title="Show sidebar" className="rounded-lg border border-pulse-border-subtle bg-pulse-bg p-2 text-pulse-muted hover:bg-pulse-hover">
+                                        <ChevronDoubleRightIcon className="h-4 w-4" />
+                                    </button>
+                                    <button onClick={startNewChat} title="New chat" className="rounded-lg border border-pulse-border-subtle bg-pulse-bg p-2 text-pulse-muted hover:bg-pulse-hover">
+                                        <PlusIcon className="h-4 w-4" />
+                                    </button>
+                                </>
+                            )}
                         </div>
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-pulse-text">{activeAgent?.name ?? "Assistant"}</p>
-                            <p className="flex items-center gap-1.5 text-[11px] text-pulse-muted">
-                                <span className={`inline-block h-1.5 w-1.5 rounded-full ${conn === "online" ? "bg-emerald-500" : conn === "connecting" ? "bg-amber-500 animate-pulse" : "bg-red-500"}`} />
-                                {conn === "online" ? "Online" : conn === "connecting" ? "Connecting…" : "Reconnecting…"}
-                            </p>
-                        </div>
+                        {agents.length > 1 && (
+                            <select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500">
+                                {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                        )}
                     </div>
-                    {agents.length > 1 && (
-                        <select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500">
-                            {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        </select>
-                    )}
-                </div>
+                )}
 
                 {/* Messages */}
                 <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
@@ -549,7 +544,7 @@ export default function AssistantClient({
                 {/* Composer — one tall rounded box with the controls inside it */}
                 <div className="shrink-0 bg-pulse-bg px-4 pb-5 pt-2 sm:px-6">
                     <div className="mx-auto w-full max-w-3xl">
-                        <div className="rounded-2xl border border-pulse-border bg-pulse-panel-alt transition-colors focus-within:border-pulse-border-strong">
+                        <div className="rounded-2xl border border-pulse-border bg-pulse-panel transition-colors focus-within:border-pulse-border-strong">
                             <textarea
                                 ref={inputRef}
                                 value={input}
