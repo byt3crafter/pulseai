@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.110] - 2026-08-18
+
+### Bug Fixes
+- thinking-panel text no longer leaks past the box
+
 ## [0.14.109] - 2026-08-18
 
 ### Features
