@@ -776,14 +776,16 @@ function ToolSteps({ steps }: { steps: ToolStep[] }) {
 }
 
 function ThinkingPanel({ text, streaming }: { text: string; streaming: boolean }) {
+    // Collapsed by default — even while streaming — so the raw reasoning never
+    // dumps itself onto the screen. The user expands it only if they want a peek.
     const [open, setOpen] = useState(false);
-    const isOpen = open || streaming;
+    const isOpen = open;
     return (
         <div className="mb-2 rounded-xl border border-pulse-border-subtle bg-pulse-panel-alt">
             <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs font-medium text-pulse-muted hover:text-pulse-text-soft">
                 {isOpen ? <ChevronDownIcon className="h-3.5 w-3.5" /> : <ChevronRightIcon className="h-3.5 w-3.5" />}
-                <SparklesIcon className="h-3.5 w-3.5" />
-                {streaming ? "Thinking…" : "Thought process"}
+                <SparklesIcon className={`h-3.5 w-3.5 ${streaming ? "animate-pulse motion-reduce:animate-none" : ""}`} />
+                <span className={streaming ? "animate-pulse motion-reduce:animate-none" : ""}>{streaming ? "Thinking…" : "Thought process"}</span>
             </button>
             {isOpen && (
                 <div className="max-h-64 min-w-0 overflow-y-auto overflow-x-hidden border-t border-pulse-border-subtle px-3.5 py-2.5 text-xs leading-relaxed text-pulse-muted">
