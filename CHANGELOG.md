@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.104] - 2026-08-18
+
+### Features
+- bump chat reading size for legibility (keep Inter)
+
 ## [0.14.103] - 2026-08-18
 
 ### Bug Fixes
