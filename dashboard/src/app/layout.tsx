@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-const geistSans = Geist({
+// UI face — Inter: the humanist grotesque the clean-SaaS look is built on.
+// Kept on the existing `--font-geist-sans` CSS variable so nothing else has to
+// change; the variable name is historical, the face is Inter.
+const geistSans = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });

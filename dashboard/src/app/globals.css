@@ -40,24 +40,27 @@ body {
   --pulse-code:          #F1F3F6;
 }
 [data-theme="dark"] {
-  --pulse-bg:            #0A0A0C;
-  --pulse-panel:         #131316;
-  --pulse-panel-alt:     #17171B;
-  --pulse-hover:         #1C1C21;
-  --pulse-tint:          #1B1E33;
-  --pulse-border:        #26262B;
-  --pulse-border-subtle: #1F1F24;
-  --pulse-border-strong: #34343B;
-  --pulse-text:          #F5F5F7;
-  --pulse-text-soft:     #C3C3C9;
-  --pulse-muted:         #9A9AA5;
-  --pulse-faint:         #66666F;
+  /* Palette sampled pixel-for-pixel from the reference dark UI: one flat
+     near-black ground, surfaces that lift only slightly to #131414, structure
+     from hairline borders, and a warm off-white text ramp. */
+  --pulse-bg:            #090A0A;
+  --pulse-panel:         #131414;
+  --pulse-panel-alt:     #191A19;
+  --pulse-hover:         #1E1F1E;
+  --pulse-tint:          #171A2B;
+  --pulse-border:        #212221;
+  --pulse-border-subtle: #171818;
+  --pulse-border-strong: #2E2F2E;
+  --pulse-text:          #ECEDE8;
+  --pulse-text-soft:     #C6C8C1;
+  --pulse-muted:         #8B8D84;
+  --pulse-faint:         #5A5C54;
   --pulse-accent:        #8E96F2;
   --pulse-accent-hi:     #B4BAF8;
   --pulse-profit:        #3FB950;
   --pulse-loss:          #F0503C;
   --pulse-info:          #4F9DF7;
-  --pulse-code:          #08080A;
+  --pulse-code:          #060707;
 }
 
 @theme inline {
