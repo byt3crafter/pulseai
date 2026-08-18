@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.111] - 2026-08-18
+
+### Bug Fixes
+- use the model's real max_tokens, not a hardcoded 2048
+
 ## [0.14.110] - 2026-08-18
 
 ### Bug Fixes
