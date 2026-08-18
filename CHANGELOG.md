@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.102] - 2026-08-18
+
+### Features
+- neutral user bubble, wider column, session search + date groups, user menu in slim rail
+
 ## [0.14.101] - 2026-08-18
 
 ### Features
