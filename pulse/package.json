@@ -1,6 +1,6 @@
 {
   "name": "@runstate/pulse",
-  "version": "0.14.99",
+  "version": "0.14.100",
   "description": "Multi-tenant AI Assistant Gateway for SME clients",
   "main": "dist/src/index.js",
   "type": "module",

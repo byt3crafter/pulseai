@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.100] - 2026-08-18
+
+### Features
+- default the nav to the slim labeled rail
+
 ## [0.14.99] - 2026-08-18
 
 ### Features
