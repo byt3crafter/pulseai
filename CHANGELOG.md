@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.98] - 2026-08-18
+
+### Features
+- slim labeled rail + segmented assistant composer
+
 ## [0.14.97] - 2026-08-18
 
 ### Features
