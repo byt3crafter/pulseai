@@ -275,6 +275,31 @@ function buildWebSearchUseSection(tools: ToolInfo[]): string[] {
     ];
 }
 
+/** Read the user charitably: fix obvious typos of known names, confirm if unsure. */
+function buildInterpretationSection(): string[] {
+    return [
+        "## Understanding the user",
+        "Read charitably. If a message contains an obvious typo, misspelling, or phonetic spelling of a known name, product, tool, or system, interpret the intended meaning instead of taking it literally. When the correct reading is consequential and you're not fully sure, confirm in one short line first — e.g. \"Did you mean the Carbonio email server?\" — then proceed.",
+        "",
+    ];
+}
+
+/**
+ * Every agent can render charts inline. When quantitative data reads better as a
+ * picture, the agent emits a ```chart fenced JSON block and the chat draws it.
+ */
+function buildChartSection(): string[] {
+    return [
+        "## Charts",
+        "When you present quantitative data that's clearer as a picture — a breakdown, a comparison, a trend, or a distribution — render it as a chart by emitting a fenced code block with the language `chart` containing JSON:",
+        "```chart",
+        `{ "type": "pie", "title": "Debtors by age", "labels": ["0–30","30–60","60–90","90+"], "data": [3.4, 1.1, 0.6, 0.2], "unit": "BWP m" }`,
+        "```",
+        "Types: `pie`, `donut`, `bar`, `line`, `area`. `labels` and `data` are equal-length arrays; `title` and `unit` are optional. It renders as a real chart inline. Good for debtor ageing, expense breakdowns, sales-by-month, pipeline stages. Keep labels short. Don't chart one or two trivial numbers — a sentence is better there. You may still describe the data in words alongside the chart.",
+        "",
+    ];
+}
+
 /** When the task tracker is enabled, tell the agent to log substantial jobs. */
 function buildTaskTrackingSection(tools: ToolInfo[]): string[] {
     if (!tools.some((t) => t.name === "task_create")) return [];
@@ -553,7 +578,9 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
 
     // 5.6. Work tracking + capability suggestions — full mode only
     if (!isMinimal) {
+        lines.push(...buildInterpretationSection());
         lines.push(...buildWebSearchUseSection(params.enabledTools));
+        lines.push(...buildChartSection());
         lines.push(...buildTaskTrackingSection(params.enabledTools));
         lines.push(...buildCapabilityHintsSection(params.suggestableTools));
     }
