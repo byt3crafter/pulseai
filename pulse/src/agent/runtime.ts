@@ -1307,6 +1307,8 @@ export class AgentRuntime {
                 userMessage = "AI authentication failed — the API key looks invalid or expired. Update it in Settings → AI Providers.";
             } else if (/timeout|timed out|econnrefused|enotfound|network|fetch failed/.test(cause)) {
                 userMessage = "Couldn't reach the AI provider (network or timeout). Please try again.";
+            } else if (/unterminated|unexpected token|unexpected end|malformed|json|\bparse\b/.test(cause)) {
+                userMessage = "The AI model returned a malformed reply — this usually happens on a very large or complex request. Please try again, ask for a bit less at once, or switch to a more reliable model in the composer.";
             } else if (errMsg.includes("All LLM providers failed") || errMsg.includes("No fallback available")) {
                 userMessage = `AI service error: ${errMsg.substring(0, 180)}. Check your provider keys in Settings → AI Providers.`;
             } else {
