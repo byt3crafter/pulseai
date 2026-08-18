@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.109] - 2026-08-18
+
+### Features
+- compute with python, never dump raw arithmetic; present result + chart
+
 ## [0.14.108] - 2026-08-18
 
 ### Bug Fixes
