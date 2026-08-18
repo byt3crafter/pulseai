@@ -109,6 +109,25 @@ const NAV_GROUPS: { label: string; items: NavItem[]; advanced?: boolean }[] = [
     },
 ];
 
+/** Compact labels for the slim (collapsed) rail — a couple of long names get a
+ *  shorter form so they fit under the icon on one line. */
+const SHORT_LABELS: Record<string, string> = {
+    "Agent Profiles": "Agents",
+    "Departments": "Depts",
+    "Custom Tools": "Tools",
+    "MCP Servers": "MCP",
+    "Task Queue": "Tasks",
+    "Conversations": "Chats",
+    "Usage & Billing": "Billing",
+    "ChatGPT Connect": "ChatGPT",
+    "Documentation": "Docs",
+    "Administration": "Admin",
+    "Admin Panel": "Admin",
+};
+function shortLabel(label: string): string {
+    return SHORT_LABELS[label] ?? label;
+}
+
 export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = true }: { isAdmin?: boolean; chatgptConnect?: boolean; showBilling?: boolean }) {
     const pathname = usePathname();
     const collapsed = useContext(SidebarCollapseContext);
@@ -141,8 +160,9 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 key={href}
                 href={href}
                 aria-current={isActive ? "page" : undefined}
-                title={collapsed ? label : undefined}
-                className={`group relative flex items-center rounded-lg text-[13.5px] font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${collapsed ? "justify-center h-10 mx-auto w-10" : "gap-3 pl-3.5 pr-3 py-2"} ${isActive
+                className={`group relative flex items-center font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${collapsed
+                    ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px]"
+                    : "gap-3 pl-3.5 pr-3 py-2 rounded-lg text-[13.5px]"} ${isActive
                     ? "bg-pulse-tint text-pulse-accent-hi"
                     : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
                     }`}
@@ -158,9 +178,11 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 <Icon
                     aria-hidden="true"
                     className={`flex-shrink-0 transition-colors motion-reduce:transition-none ${isActive ? "text-pulse-accent-hi" : "text-pulse-faint group-hover:text-pulse-text-soft"}`}
-                    style={{ width: 18, height: 18 }}
+                    style={{ width: collapsed ? 20 : 18, height: collapsed ? 20 : 18 }}
                 />
-                {!collapsed && label}
+                {collapsed
+                    ? <span className="leading-none text-center tracking-tight">{shortLabel(label)}</span>
+                    : label}
             </Link>
         );
     };
@@ -202,11 +224,10 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                             )}
                         <Link
                             href="/admin"
-                            title={collapsed ? "Admin Panel" : undefined}
-                            className={`group relative flex items-center rounded-lg text-[13.5px] font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "justify-center h-10 mx-auto w-10" : "gap-3 pl-3.5 pr-3 py-2"}`}
+                            className={`group relative flex items-center font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px]" : "gap-3 pl-3.5 pr-3 py-2 rounded-lg text-[13.5px]"}`}
                         >
-                            <ShieldCheckIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft transition-colors motion-reduce:transition-none" style={{ width: 18, height: 18 }} />
-                            {!collapsed && "Admin Panel"}
+                            <ShieldCheckIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft transition-colors motion-reduce:transition-none" style={{ width: collapsed ? 20 : 18, height: collapsed ? 20 : 18 }} />
+                            {collapsed ? <span className="leading-none">Admin</span> : "Admin Panel"}
                         </Link>
                     </div>
                 )}
@@ -219,10 +240,10 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                         onClick={toggleSimple}
                         title={simple ? "Show all sections" : "Show the simple menu"}
                         aria-pressed={!simple}
-                        className={`group relative flex items-center rounded-lg text-[13px] font-medium text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none ${collapsed ? "justify-center h-10 mx-auto w-10" : "gap-3 w-full pl-3.5 pr-3 py-2"}`}
+                        className={`group relative flex items-center font-medium text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px]" : "gap-3 w-full pl-3.5 pr-3 py-2 rounded-lg text-[13px]"}`}
                     >
-                        <AdjustmentsHorizontalIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft" style={{ width: 18, height: 18 }} />
-                        {!collapsed && (simple ? "Show all sections" : "Simple view")}
+                        <AdjustmentsHorizontalIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft" style={{ width: collapsed ? 20 : 18, height: collapsed ? 20 : 18 }} />
+                        {collapsed ? <span className="leading-none">{simple ? "More" : "Simple"}</span> : (simple ? "Show all sections" : "Simple view")}
                     </button>
                 </div>
             </div>
