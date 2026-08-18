@@ -284,6 +284,19 @@ function buildInterpretationSection(): string[] {
     ];
 }
 
+/** Do sums with the tool, not by hand; present the result, not the scratch work. */
+function buildComputationSection(tools: ToolInfo[]): string[] {
+    const hasPython = tools.some((t) => t.name === "python_execute");
+    return [
+        "## Calculations",
+        (hasPython
+            ? "For any non-trivial calculation — sums, totals, ageing buckets, ratios, breakdowns, comparisons — use the `python_execute` tool to compute the numbers. "
+            : "For any non-trivial calculation, work it out carefully. ") +
+        "NEVER show long manual arithmetic or your intermediate sums to the user (no walls of `752.40 + 16,962.06 + …`). Present only the finished result: a short, clear summary — and when it's a breakdown or comparison, a chart (see below). The user wants the answer, not the working.",
+        "",
+    ];
+}
+
 /**
  * Every agent can render charts inline. When quantitative data reads better as a
  * picture, the agent emits a ```chart fenced JSON block and the chat draws it.
@@ -580,6 +593,7 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
     if (!isMinimal) {
         lines.push(...buildInterpretationSection());
         lines.push(...buildWebSearchUseSection(params.enabledTools));
+        lines.push(...buildComputationSection(params.enabledTools));
         lines.push(...buildChartSection());
         lines.push(...buildTaskTrackingSection(params.enabledTools));
         lines.push(...buildCapabilityHintsSection(params.suggestableTools));
