@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.97] - 2026-08-18
+
+### Features
+- retune dark theme to sampled flat-black palette + switch UI face to Inter
+
 ## [0.14.96] - 2026-08-13
 
 ### Features
