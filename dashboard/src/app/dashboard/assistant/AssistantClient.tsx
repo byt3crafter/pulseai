@@ -786,8 +786,8 @@ function ThinkingPanel({ text, streaming }: { text: string; streaming: boolean }
                 {streaming ? "Thinking…" : "Thought process"}
             </button>
             {isOpen && (
-                <div className="max-h-64 overflow-y-auto border-t border-pulse-border-subtle px-3 py-2 text-xs leading-relaxed text-pulse-muted">
-                    <span className="whitespace-pre-wrap break-words">{text}</span>
+                <div className="max-h-64 min-w-0 overflow-y-auto overflow-x-hidden border-t border-pulse-border-subtle px-3.5 py-2.5 text-xs leading-relaxed text-pulse-muted">
+                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{text}</p>
                 </div>
             )}
         </div>
