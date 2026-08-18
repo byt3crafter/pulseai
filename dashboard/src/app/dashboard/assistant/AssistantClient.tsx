@@ -5,6 +5,7 @@ import {
     PlusIcon, ChevronDownIcon, ChevronRightIcon,
     SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
     ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon, LightBulbIcon, ArrowUpIcon,
+    MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
 import { getLiveModelsAction } from "../agents/actions";
@@ -27,6 +28,20 @@ function newSessionId(): string {
     try { return crypto.randomUUID().replace(/-/g, "").slice(0, 20); }
     catch { return `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`; }
 }
+
+/** Bucket a session by its last-activity date, for the Today / Yesterday / … groups. */
+function dateBucket(iso: string): string {
+    const t = new Date(iso).getTime();
+    if (!Number.isFinite(t)) return "Older";
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (t >= startToday) return "Today";
+    if (t >= startToday - 86_400_000) return "Yesterday";
+    if (t >= startToday - 7 * 86_400_000) return "Previous 7 days";
+    if (t >= startToday - 30 * 86_400_000) return "Previous 30 days";
+    return "Older";
+}
+const BUCKET_ORDER = ["Today", "Yesterday", "Previous 7 days", "Previous 30 days", "Older"];
 
 /**
  * Advanced assistant chat: collapsible session rail on the left, a centered
@@ -69,6 +84,8 @@ export default function AssistantClient({
     const [menu, setMenu] = useState<{ sid: string; pinned: boolean; x: number; y: number } | null>(null);
     // Session pending deletion → shows the in-app confirm modal (no browser popup).
     const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null);
+    // Session list filter (the "Search" box in the rail).
+    const [sessionQuery, setSessionQuery] = useState("");
 
     // Model picker — change the model on the fly. "" = the agent's own model.
     const [model, setModel] = useState<string>("");
@@ -343,8 +360,15 @@ export default function AssistantClient({
         return () => window.removeEventListener("keydown", onKey);
     }, []);
 
-    const pinnedSessions = sessions.filter((s) => s.pinned);
-    const recentSessions = sessions.filter((s) => !s.pinned);
+    const sq = sessionQuery.trim().toLowerCase();
+    const filteredSessions = sq ? sessions.filter((s) => (s.title || "").toLowerCase().includes(sq)) : sessions;
+    const pinnedSessions = filteredSessions.filter((s) => s.pinned);
+    const recentSessions = filteredSessions.filter((s) => !s.pinned);
+    // Group the un-pinned sessions into Today / Yesterday / … buckets (they're
+    // already sorted newest-first, so each bucket stays in order).
+    const recentGroups = BUCKET_ORDER
+        .map((label) => ({ label, items: recentSessions.filter((s) => dateBucket(s.updatedAt) === label) }))
+        .filter((g) => g.items.length > 0);
     const renderRow = (s: ChatSession) => (
         <div key={s.sessionId} className={`mb-0.5 flex items-center gap-1 rounded-lg px-1 ${s.sessionId === sessionId ? "bg-pulse-tint" : menu?.sid === s.sessionId ? "bg-pulse-hover" : "hover:bg-pulse-hover"}`}>
             {renaming === s.sessionId ? (
@@ -385,7 +409,7 @@ export default function AssistantClient({
             {/* ── Session rail (docked on desktop, overlay on mobile) ── */}
             {railOpen && (
                 <aside className="flex w-64 shrink-0 flex-col border-r border-pulse-border-subtle bg-pulse-bg max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[82%] max-md:max-w-xs max-md:shadow-xl">
-                    <div className="flex items-center gap-2 p-2.5">
+                    <div className="flex items-center gap-2 p-2.5 pb-1">
                         <button
                             onClick={startNewChat}
                             className="flex flex-1 items-center gap-2 rounded-lg border border-pulse-border-subtle bg-pulse-bg px-3 py-2 text-sm font-medium text-pulse-text transition-colors hover:bg-pulse-hover"
@@ -400,22 +424,36 @@ export default function AssistantClient({
                             <ChevronDoubleLeftIcon className="h-4 w-4" />
                         </button>
                     </div>
+                    {/* Search box — filters the chat list by title */}
+                    <div className="px-2.5 pb-1.5">
+                        <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-pulse-muted focus-within:text-pulse-text-soft">
+                            <MagnifyingGlassIcon className="h-4 w-4 shrink-0" />
+                            <input
+                                value={sessionQuery}
+                                onChange={(e) => setSessionQuery(e.target.value)}
+                                placeholder="Search"
+                                aria-label="Search chats"
+                                className="w-full bg-transparent text-sm text-pulse-text outline-none placeholder:text-pulse-faint"
+                            />
+                        </div>
+                    </div>
                     <div className="flex-1 overflow-y-auto px-2 pb-2">
                         {sessions.length === 0 && <p className="px-2 py-2 text-xs text-pulse-faint">No chats yet.</p>}
+                        {sessions.length > 0 && filteredSessions.length === 0 && <p className="px-2 py-2 text-xs text-pulse-faint">No chats match &ldquo;{sessionQuery}&rdquo;.</p>}
                         {pinnedSessions.length > 0 && (
                             <>
-                                <p className="flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">
+                                <p className="flex items-center gap-1 px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">
                                     <MapPinIcon className="h-3 w-3" /> Pinned
                                 </p>
                                 {pinnedSessions.map(renderRow)}
                             </>
                         )}
-                        {recentSessions.length > 0 && (
-                            <>
-                                <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">Recent</p>
-                                {recentSessions.map(renderRow)}
-                            </>
-                        )}
+                        {recentGroups.map((group) => (
+                            <div key={group.label}>
+                                <p className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">{group.label}</p>
+                                {group.items.map(renderRow)}
+                            </div>
+                        ))}
                     </div>
                 </aside>
             )}
@@ -493,7 +531,7 @@ export default function AssistantClient({
 
                 {/* Messages */}
                 <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-                    <div className="mx-auto w-full max-w-3xl space-y-6">
+                    <div className="mx-auto w-full max-w-4xl space-y-6">
                         {messages.length === 0 && (
                             <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
                                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-pulse-tint text-xl font-semibold text-pulse-accent-hi overflow-hidden">
@@ -506,7 +544,7 @@ export default function AssistantClient({
 
                         {messages.map((m, i) => m.role === "user" ? (
                             <div key={i} className="flex justify-end">
-                                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-pulse-accent px-4 py-2.5 text-sm text-white">
+                                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-sm text-pulse-text">
                                     <span className="whitespace-pre-wrap break-words">{m.content}</span>
                                 </div>
                             </div>
@@ -543,7 +581,7 @@ export default function AssistantClient({
 
                 {/* Composer — one tall rounded box with the controls inside it */}
                 <div className="shrink-0 bg-pulse-bg px-4 pb-5 pt-2 sm:px-6">
-                    <div className="mx-auto w-full max-w-3xl">
+                    <div className="mx-auto w-full max-w-4xl">
                         <div className="rounded-2xl border border-pulse-border bg-pulse-panel transition-colors focus-within:border-pulse-border-strong">
                             <textarea
                                 ref={inputRef}
