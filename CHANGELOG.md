@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.14.105] - 2026-08-18
+
+### Features
+- live tool-step rows — stream what the agent is doing
+
 ## [0.14.104] - 2026-08-18
 
 ### Features
