@@ -62,32 +62,43 @@ export class ProviderManager {
         const primaryProvider = this.getProviderInstance(providerId);
         const baseURL = this.getBaseURL(providerId);
 
+        const attemptPrimary = () => primaryProvider.chat({
+            model: params.model,
+            tenantId: params.tenantId,
+            agentProfileId: params.agentProfileId,
+            conversationId: params.conversationId,
+            onProgress: params.onProgress,
+            progressVerbosity: params.progressVerbosity,
+            systemPrompt: params.systemPrompt,
+            messages: params.messages,
+            tenantApiKey: apiKey,
+            authMethod,
+            tools: params.tools,
+            stream: params.stream,
+            baseURL,
+            attachments: params.attachments,
+            reasoningEffort: params.reasoningEffort,
+        });
+        const primaryResult = (response: any) => ({ ...response, provider: primaryProvider.name, canonicalModel: params.model, wasFallback: false });
+
         try {
             logger.debug({ provider: providerId, model: params.model }, "Attempting primary provider");
-            const response = await primaryProvider.chat({
-                model: params.model,
-                tenantId: params.tenantId,
-                agentProfileId: params.agentProfileId,
-                conversationId: params.conversationId,
-                onProgress: params.onProgress,
-                progressVerbosity: params.progressVerbosity,
-                systemPrompt: params.systemPrompt,
-                messages: params.messages,
-                tenantApiKey: apiKey,
-                authMethod,
-                tools: params.tools,
-                stream: params.stream,
-                baseURL,
-                attachments: params.attachments,
-                reasoningEffort: params.reasoningEffort,
-            });
-            return {
-                ...response,
-                provider: primaryProvider.name,
-                canonicalModel: params.model,
-                wasFallback: false,
-            };
+            return primaryResult(await attemptPrimary());
         } catch (err: any) {
+            // Retry the SAME provider once on a transient/malformed-response failure
+            // before falling back — MiniMax (and others) occasionally return
+            // truncated or invalid JSON on large tool turns, which usually
+            // succeeds on a second attempt. Auth/quota errors skip the retry.
+            const tmsg = String(err?.message || "").toLowerCase();
+            const retryable = /json|unterminated|unexpected token|unexpected end|malformed|\bparse\b|econnreset|etimedout|timeout|fetch failed|socket hang|502|503|504|overloaded/.test(tmsg);
+            if (retryable) {
+                try {
+                    logger.warn({ err: err.message, provider: providerId, model: params.model }, "Primary provider transient failure — retrying once");
+                    return primaryResult(await attemptPrimary());
+                } catch (retryErr: any) {
+                    err = retryErr;
+                }
+            }
             logger.warn(
                 {
                     err: { message: err.message, status: err.status, type: err.type, code: err.code },
