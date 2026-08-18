@@ -125,36 +125,39 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children,
                     )}
                 </div>
 
+                {/* Provider wraps BOTH the nav and the footer so the account menu in
+                    the footer also learns it's in the slim rail (else its popover
+                    renders full-width and clips off-screen). */}
                 <SidebarCollapseContext.Provider value={collapsed}>
                     {nav}
-                </SidebarCollapseContext.Provider>
 
-                <div className={`border-t border-pulse-border-subtle flex-shrink-0 ${collapsed ? "p-2 space-y-2 flex flex-col items-center" : "p-3 space-y-2"}`}>
-                    {collapsed ? (
-                        <>
-                            <button
-                                type="button"
-                                onClick={toggleCollapsed}
-                                aria-label="Expand sidebar"
-                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                            >
-                                <ChevronDoubleRightIcon className="w-4 h-4" aria-hidden="true" />
-                            </button>
-                            <NotificationBell align="left" />
-                            <ThemeToggle />
-                            <div className="my-1 h-px w-6 bg-pulse-border-subtle" aria-hidden="true" />
-                            {userMenu}
-                        </>
-                    ) : (
-                        <>
-                            <div className="flex items-center justify-between px-1">
-                                <span className="text-[10px] font-semibold uppercase tracking-wider text-pulse-faint">Theme</span>
+                    <div className={`border-t border-pulse-border-subtle flex-shrink-0 ${collapsed ? "p-2 space-y-2 flex flex-col items-center" : "p-3 space-y-2"}`}>
+                        {collapsed ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={toggleCollapsed}
+                                    aria-label="Expand sidebar"
+                                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                >
+                                    <ChevronDoubleRightIcon className="w-4 h-4" aria-hidden="true" />
+                                </button>
+                                <NotificationBell align="left" />
                                 <ThemeToggle />
-                            </div>
-                            {userMenu}
-                        </>
-                    )}
-                </div>
+                                <div className="my-1 h-px w-6 bg-pulse-border-subtle" aria-hidden="true" />
+                                {userMenu}
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center justify-between px-1">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-pulse-faint">Theme</span>
+                                    <ThemeToggle />
+                                </div>
+                                {userMenu}
+                            </>
+                        )}
+                    </div>
+                </SidebarCollapseContext.Provider>
             </aside>
 
             {/* Mobile / tablet off-canvas drawer */}
