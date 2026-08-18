@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { readFile } from "node:fs/promises";
 import { config } from "../../config.js";
 import { ProviderResponse, ToolCall, StreamCallbacks, ProviderAttachment } from "./anthropic.js";
+import { getModelById } from "./model-registry.js";
 import { logger } from "../../utils/logger.js";
 
 /**
@@ -289,7 +290,7 @@ export class OpenAIProvider {
                     messages,
                     tools: tools && tools.length > 0 ? tools : undefined,
                     temperature: 1,
-                    max_tokens: 2048,
+                    max_tokens: getModelById(params.model || "")?.maxTokens ?? 8192,
                     stream: true,
                 });
 
@@ -381,7 +382,7 @@ export class OpenAIProvider {
                 messages,
                 tools: tools && tools.length > 0 ? tools : undefined,
                 temperature: 1,
-                max_tokens: 2048,
+                max_tokens: getModelById(params.model || "")?.maxTokens ?? 8192,
             });
 
             const message = response.choices[0].message;
