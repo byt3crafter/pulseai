@@ -158,6 +158,10 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                             modelOverride: typeof msg.model === "string" && msg.model.trim() ? msg.model.trim() : undefined,
                             // Stream every turn's tokens + reasoning live to the browser.
                             forceStream: true,
+                            // Live tool activity → calm "step" rows in the chat.
+                            onToolStep: (step: { name: string; label: string; phase: "start" | "done" | "error"; detail?: string }) => {
+                                try { socket.send(JSON.stringify({ type: "agent.tool", ...step, sessionId })); } catch { /* socket closed */ }
+                            },
                             editMessageCallback: async (_tid: string, _cid: string, _mid: string, content: string) => {
                                 const { thinking, answer } = splitThinking(content);
                                 if (thinking) {
