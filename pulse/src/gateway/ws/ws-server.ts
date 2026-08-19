@@ -117,88 +117,103 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                         ? msg.sessionId.trim().slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, "")
                         : "";
 
-                    // Resolve which agent answers. An @mention in the text overrides the
-                    // selected agent (reusing the channels' parseMentions/name-match), so
-                    // "@natalie …" routes to Natalie even from another agent's thread.
-                    let agentProfileId: string | undefined = msg.agentProfileId || undefined;
-                    let mentionAgentId: string | undefined;
+                    // Resolve the responder SET. An @mention overrides the selected agent
+                    // (reusing the channels' parseMentions/name-match). In the "shared" team
+                    // room, mentioning several agents fans out to each — a bounded "meeting"
+                    // where each mentioned agent replies once into the one thread. In a
+                    // separate DM there is always exactly one responder.
+                    const shared = msg.shared === true;
+                    const MAX_MEETING_AGENTS = 3; // cap fan-out so a mass-mention can't stampede
                     const tokens = parseMentions(text);
+                    let matched: string[] = [];
                     if (tokens.length > 0) {
                         const roster = await db
                             .select({ id: agentProfiles.id, name: agentProfiles.name })
                             .from(agentProfiles)
                             .where(and(eq(agentProfiles.tenantId, tenantId), eq(agentProfiles.enabled, true)));
-                        const hit = roster.find((a) => tokens.some((t) => agentMatchesToken(a.name, t)));
-                        if (hit) { agentProfileId = hit.id; mentionAgentId = hit.id; }
+                        // Preserve mention order, de-dup, and keep the roster match.
+                        const seen = new Set<string>();
+                        for (const t of tokens) {
+                            const a = roster.find((r) => agentMatchesToken(r.name, t));
+                            if (a && !seen.has(a.id)) { seen.add(a.id); matched.push(a.id); }
+                        }
                     }
+                    const responders: (string | undefined)[] = shared
+                        ? (matched.length ? matched.slice(0, MAX_MEETING_AGENTS) : [msg.agentProfileId || undefined])
+                        : [matched[0] || msg.agentProfileId || undefined];
 
-                    // Scope the conversation (its own memory thread) per agent so chats
-                    // never mix: `web-<tenant>-<agent>-<session>`. In "shared" mode all
-                    // agents share one `web-<tenant>-shared-<session>` thread (team room).
-                    const shared = msg.shared === true;
-                    const agentSeg = shared ? "shared" : (agentProfileId || "default");
+                    // Conversation scope (its own memory thread). Separate → per agent
+                    // (`web-<tenant>-<agent>-<session>`); shared → one team room.
+                    const agentSeg = shared ? "shared" : (responders[0] || "default");
                     const contactId = sessionId
                         ? `web-${tenantId}-${agentSeg}-${sessionId}`
                         : `web-${tenantId}-${agentSeg}`;
-                    const inbound: any = {
-                        id: randomUUID(),
-                        tenantId,
-                        agentProfileId,
-                        channelType: "webapp",
-                        channelContactId: contactId,
-                        content: text,
-                        receivedAt: new Date(),
-                        trigger: "chat",
-                    };
-                    socket.send(JSON.stringify({ type: "chat.accepted", sessionId, agentProfileId, mentionAgentId }));
 
-                    // Reasoning models (e.g. MiniMax) emit <think>…</think> in the
-                    // stream. Split it so the browser can show the answer live and
-                    // the reasoning in a separate, collapsible panel. Web-only — the
-                    // runtime still strips it from the persisted/Telegram content.
-                    let lastThinking = "";
-                    runtime.processMessage(
-                        inbound,
-                        async (outbound: any) => {
-                            socket.send(JSON.stringify({
-                                type: "agent.message",
-                                conversationId: outbound.conversationId,
-                                agentProfileId: outbound.agentProfileId,
-                                content: outbound.content,
-                                // When the runtime recovered an answer that the model
-                                // buried inside <think>, it moved that text into content —
-                                // so suppress the separately-streamed thinking to avoid
-                                // showing it twice.
-                                thinking: outbound.thinkingSuppressed ? undefined : (outbound.thinking || lastThinking || undefined),
-                                sessionId,
-                            }));
-                            return { channelMessageId: `web-${Date.now()}` };
-                        },
-                        {
-                            reasoningEffort: typeof msg.reasoningEffort === "string" ? msg.reasoningEffort : undefined,
-                            // Per-message model override (assistant model picker) — the
-                            // runtime resolves the provider from the model id, so a
-                            // Claude/OpenAI/MiniMax id works if that provider key is set.
-                            modelOverride: typeof msg.model === "string" && msg.model.trim() ? msg.model.trim() : undefined,
-                            // Stream every turn's tokens + reasoning live to the browser.
-                            forceStream: true,
-                            // Live tool activity → calm "step" rows in the chat.
-                            onToolStep: (step: { name: string; label: string; phase: "start" | "done" | "error"; detail?: string }) => {
-                                try { socket.send(JSON.stringify({ type: "agent.tool", ...step, sessionId })); } catch { /* socket closed */ }
-                            },
-                            editMessageCallback: async (_tid: string, _cid: string, _mid: string, content: string) => {
-                                const { thinking, answer } = splitThinking(content);
-                                if (thinking) {
-                                    lastThinking = thinking;
-                                    socket.send(JSON.stringify({ type: "agent.thinking", content: thinking }));
-                                }
-                                socket.send(JSON.stringify({ type: "agent.streaming", content: answer }));
-                            },
+                    socket.send(JSON.stringify({
+                        type: "chat.accepted", sessionId,
+                        agentProfileId: responders[0], mentionAgentId: matched[0],
+                        responders: responders.filter(Boolean),
+                    }));
+
+                    const modelOverride = typeof msg.model === "string" && msg.model.trim() ? msg.model.trim() : undefined;
+                    const reasoningEffort = typeof msg.reasoningEffort === "string" ? msg.reasoningEffort : undefined;
+
+                    // Run each responder in turn (sequentially) so their replies land as
+                    // distinct, attributed messages in the shared thread. Reasoning models
+                    // emit <think>…</think>; split it so the browser shows the answer live
+                    // and the reasoning in its own collapsible panel.
+                    (async () => {
+                        for (const rid of responders) {
+                            let lastThinking = "";
+                            const inbound: any = {
+                                id: randomUUID(),
+                                tenantId,
+                                agentProfileId: rid,
+                                channelType: "webapp",
+                                channelContactId: contactId,
+                                content: text,
+                                receivedAt: new Date(),
+                                trigger: "chat",
+                            };
+                            try {
+                                await runtime.processMessage(
+                                    inbound,
+                                    async (outbound: any) => {
+                                        socket.send(JSON.stringify({
+                                            type: "agent.message",
+                                            conversationId: outbound.conversationId,
+                                            agentProfileId: outbound.agentProfileId ?? rid,
+                                            content: outbound.content,
+                                            thinking: outbound.thinkingSuppressed ? undefined : (outbound.thinking || lastThinking || undefined),
+                                            model: outbound.model,          // which model answered (transparency badge)
+                                            routeReason: outbound.routeReason,
+                                            sessionId,
+                                        }));
+                                        return { channelMessageId: `web-${Date.now()}` };
+                                    },
+                                    {
+                                        reasoningEffort,
+                                        modelOverride,
+                                        forceStream: true,
+                                        onToolStep: (step: { name: string; label: string; phase: "start" | "done" | "error"; detail?: string }) => {
+                                            try { socket.send(JSON.stringify({ type: "agent.tool", ...step, agentProfileId: rid, sessionId })); } catch { /* socket closed */ }
+                                        },
+                                        editMessageCallback: async (_tid: string, _cid: string, _mid: string, content: string) => {
+                                            const { thinking, answer } = splitThinking(content);
+                                            if (thinking) {
+                                                lastThinking = thinking;
+                                                socket.send(JSON.stringify({ type: "agent.thinking", content: thinking, agentProfileId: rid }));
+                                            }
+                                            socket.send(JSON.stringify({ type: "agent.streaming", content: answer, agentProfileId: rid }));
+                                        },
+                                    }
+                                );
+                            } catch (err) {
+                                logger.error({ err, tenantId, agentProfileId: rid }, "web chat processMessage failed");
+                                socket.send(JSON.stringify({ type: "error", message: "The assistant hit an error handling that." }));
+                            }
                         }
-                    ).catch((err: unknown) => {
-                        logger.error({ err, tenantId }, "web chat processMessage failed");
-                        socket.send(JSON.stringify({ type: "error", message: "The assistant hit an error handling that." }));
-                    });
+                    })();
                     return;
                 }
             } catch {

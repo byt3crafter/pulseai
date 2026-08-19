@@ -40,6 +40,33 @@ import { randomUUID } from "crypto";
 
 const defaultSystemPrompt = `You are a helpful AI assistant. Be professional, friendly, and concise. Respect the user's time and keep responses focused. If you don't know something, say so.`;
 
+/**
+ * Smart model routing (industry pattern: cheap heuristic gate, no router-LLM call).
+ * Sends a turn to the agent's FAST model only when it's clearly trivial and tool-free;
+ * anything with tools, attachments, code/URLs, length, or action/complexity intent goes
+ * to the capable model. Biases ambiguous cases UP to capable (safe default) — the top
+ * failure mode is sending a tool-needing turn to a weak model. Returns the model id to
+ * use plus a short human-readable reason (surfaced for transparency).
+ */
+export function routeModel(
+    text: string,
+    opts: { hasTools: boolean; hasAttachments: boolean; capableModel: string; fastModel: string }
+): { modelId: string; reason: string } {
+    const t = (text || "").trim();
+    const cap = (reason: string) => ({ modelId: opts.capableModel, reason: `capable: ${reason}` });
+    if (!t) return cap("empty");
+    if (opts.hasAttachments) return cap("attachment");
+    if (/```|https?:\/\//i.test(t)) return cap("code/url");
+    const words = t.split(/\s+/).filter(Boolean).length;
+    if (words > 50 || t.length > 320) return cap("long message");
+    // Action / complexity intent → capable. Broad on purpose: misrouting a real task to
+    // a weak model costs more (retries, failed tool calls) than an occasional over-route.
+    const complexRe = /\b(analy|compar|plan|debug|refactor|calculat|summar|research|review|draft|translat|schedul|remind|restart|deploy|execut|search|find|fetch|list|show|email|invoice|report|order|book|migrat|configur|troubleshoot|diagnos|investigat|explain|write|create|update|delete|send|run|check|why|how)/i;
+    if (complexRe.test(t)) return cap("action/complex intent");
+    if (opts.hasTools && words > 8) return cap("tools + non-trivial");
+    return { modelId: opts.fastModel, reason: "fast: short tool-free turn" };
+}
+
 interface AutoMemoryConfig {
     enabled: boolean;
     maxMemories: number;
@@ -408,6 +435,7 @@ export class AgentRuntime {
             // 3.75 Resolve per-agent model and system prompt (workspace-first, DB fallback)
             let basePrompt = defaultSystemPrompt;
             let activeModelId = getDefaultModel().id;
+            let routeReason: string | undefined; // set when smart routing picks the model
             let activeAgentName = "Agent";
             // Per-agent progress verbosity: "off" | "progress" (default) | "verbose".
             let activeProgressVerbosity = "progress";
@@ -441,6 +469,20 @@ export class AgentRuntime {
                     // Use per-agent model if set
                     if (profile.modelId) {
                         activeModelId = profile.modelId;
+                    }
+                    // Smart routing: route trivial, tool-free turns to the agent's fast
+                    // model. Guards send anything with tools/attachments/complexity to the
+                    // capable model. A per-message model override (below) still wins.
+                    if ((profile as any).smartRouting && (profile as any).fastModelId) {
+                        const decision = routeModel(inbound.content || "", {
+                            hasTools: enabledTools.length > 0,
+                            hasAttachments: Array.isArray(inbound.attachments) && inbound.attachments.length > 0,
+                            capableModel: activeModelId,
+                            fastModel: (profile as any).fastModelId,
+                        });
+                        activeModelId = decision.modelId;
+                        routeReason = decision.reason;
+                        tenantLog.info({ routedModel: activeModelId, routeReason }, "Smart routing decision");
                     }
                     if (profile.name) activeAgentName = profile.name;
                     if (profile.progressVerbosity) activeProgressVerbosity = profile.progressVerbosity;
@@ -1108,7 +1150,11 @@ export class AgentRuntime {
                     // surfaces to drop any separately-streamed thinking so it
                     // isn't duplicated in the collapsible panel.
                     thinkingSuppressed: recoveredIntoContent,
-                } as OutboundMessage & { thinkingSuppressed?: boolean };
+                    // Which model actually answered (for the "answered by X" transparency
+                    // badge) and why smart routing picked it (undefined = not routed).
+                    model: (llmResponse as any).canonicalModel || activeModelId,
+                    routeReason,
+                } as OutboundMessage & { thinkingSuppressed?: boolean; model?: string; routeReason?: string };
 
                 // For group messages, reply in-thread to the original message
                 if (inbound.isGroup && inbound.raw) {

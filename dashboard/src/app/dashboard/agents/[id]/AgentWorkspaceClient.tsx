@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
     updateWorkspaceFileAction,
     updateAgentModelAction,
+    updateAgentSmartRoutingAction,
     getRevisionsAction,
     restoreRevisionAction,
     deleteAgentAction,
@@ -35,6 +36,8 @@ interface AgentData {
     progressVerbosity?: string | null;
     roiHourlyRate?: string | null;
     modelId: string;
+    smartRouting?: boolean;
+    fastModelId?: string | null;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
     hasWorkspace: boolean;
@@ -495,6 +498,8 @@ function MiniStat({ label, value, tone }: { label: string; value: string; tone?:
 
 function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProviders: string[] }) {
     const [modelId, setModelId] = useState(agent.modelId);
+    const [smartRouting, setSmartRouting] = useState(agent.smartRouting === true);
+    const [fastModelId, setFastModelId] = useState(agent.fastModelId ?? "");
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
         type: "idle",
         message: "",
@@ -528,6 +533,17 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
             type: result.success ? "success" : "error",
             message: result.message ?? "",
         });
+        if (result.success) router.refresh();
+    };
+
+    const handleSmartRoutingSave = async () => {
+        setStatus({ type: "saving", message: "" });
+        const fd = new FormData();
+        fd.set("agentId", agent.id);
+        fd.set("smartRouting", smartRouting ? "1" : "0");
+        fd.set("fastModelId", fastModelId);
+        const result = await updateAgentSmartRoutingAction(fd);
+        setStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
         if (result.success) router.refresh();
     };
 
@@ -611,6 +627,48 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                                 {status.message}
                             </span>
                         )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Smart model routing */}
+            <div className="bg-pulse-panel border border-pulse-border-subtle rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-pulse-border-subtle">
+                    <h2 className="text-sm font-semibold text-pulse-text">Smart model routing</h2>
+                    <p className="text-xs text-pulse-faint mt-0.5">Route trivial, tool-free turns (e.g. &ldquo;hello&rdquo;) to a fast, cheap model and keep the model above for anything needing tools, attachments, or real work. The reply shows which model answered. Off by default.</p>
+                </div>
+                <div className="px-6 py-5 space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked={smartRouting} onChange={(e) => setSmartRouting(e.target.checked)} className="h-4 w-4 rounded border-pulse-border text-indigo-600 focus:ring-indigo-500" />
+                        <span className="text-sm text-pulse-text-soft">Enable smart routing for this agent</span>
+                    </label>
+                    {smartRouting && (
+                        <div>
+                            <label className="block text-xs font-medium text-pulse-muted mb-1">Fast model (for trivial turns)</label>
+                            <select
+                                value={fastModelId}
+                                onChange={(e) => setFastModelId(e.target.value)}
+                                className="w-full max-w-md px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-pulse-text bg-pulse-panel"
+                            >
+                                <option value="">Select a fast model…</option>
+                                {configuredProviders.map((provider) => (
+                                    <optgroup key={provider.id} label={provider.name}>
+                                        {(liveModels[provider.id] ?? provider.models).map((model) => (
+                                            <option key={model.id} value={model.id}>{model.displayName} ({model.category})</option>
+                                        ))}
+                                    </optgroup>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleSmartRoutingSave}
+                            disabled={status.type === "saving" || (smartRouting && !fastModelId)}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        >
+                            Save routing
+                        </button>
                     </div>
                 </div>
             </div>

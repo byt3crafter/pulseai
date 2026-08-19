@@ -16,8 +16,8 @@ import {
 } from "./actions";
 
 interface AgentOpt { id: string; name: string; avatar: string | null; title: string | null; }
-type ToolStep = { name: string; label: string; phase: "start" | "done" | "error"; detail?: string };
-type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[]; agentProfileId?: string | null };
+type ToolStep = { name: string; label: string; phase: "start" | "done" | "error"; detail?: string; agentProfileId?: string };
+type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[]; agentProfileId?: string | null; model?: string; routeReason?: string };
 type ConnState = "connecting" | "online" | "offline";
 
 const REASONING_OPTS = [
@@ -141,6 +141,13 @@ export default function AssistantClient({
     // holds replies from several agents, so attribute each message to the agent that
     // actually sent it; in separate mode the whole thread is the selected agent.
     const senderFor = (m: Msg) => (shared ? (agents.find((a) => a.id === m.agentProfileId) ?? activeAgent) : activeAgent);
+    // Short, friendly label for the model that answered (smart-routing transparency).
+    const modelLabel = (id?: string) => {
+        if (!id) return "";
+        const known = models.find((x) => x.id === id);
+        if (known) return known.label;
+        return id.replace(/^.*\//, "").replace(/-\d{6,8}$/, "");
+    };
 
     useEffect(() => {
         try {
@@ -198,22 +205,25 @@ export default function AssistantClient({
         ws.onmessage = (ev) => {
             let m: any; try { m = JSON.parse(ev.data); } catch { return; }
             if (m.type === "agent.thinking") {
-                setMessages((prev) => upsertStreaming(prev, { thinking: m.content }));
+                setMessages((prev) => upsertStreaming(prev, { thinking: m.content, agentProfileId: m.agentProfileId ?? undefined }));
             } else if (m.type === "agent.streaming") {
-                setMessages((prev) => upsertStreaming(prev, { content: m.content }));
+                setMessages((prev) => upsertStreaming(prev, { content: m.content, agentProfileId: m.agentProfileId ?? undefined }));
             } else if (m.type === "agent.tool") {
                 setMessages((prev) => applyToolStep(prev, m as ToolStep));
             } else if (m.type === "agent.message") {
                 setMessages((prev) => {
                     const next = [...prev];
                     const last = next[next.length - 1];
-                    if (last && last.role === "assistant" && last.streaming) {
+                    const sameAgent = !m.agentProfileId || !last?.agentProfileId || last.agentProfileId === m.agentProfileId;
+                    if (last && last.role === "assistant" && last.streaming && sameAgent) {
                         last.content = m.content;
                         if (m.thinking) last.thinking = m.thinking;
                         if (m.agentProfileId) last.agentProfileId = m.agentProfileId;
+                        if (m.model) last.model = m.model;
+                        if (m.routeReason) last.routeReason = m.routeReason;
                         last.streaming = false;
                     } else {
-                        next.push({ role: "assistant", content: m.content, thinking: m.thinking, agentProfileId: m.agentProfileId ?? null });
+                        next.push({ role: "assistant", content: m.content, thinking: m.thinking, agentProfileId: m.agentProfileId ?? null, model: m.model, routeReason: m.routeReason });
                     }
                     return next;
                 });
@@ -235,7 +245,9 @@ export default function AssistantClient({
     function upsertStreaming(prev: Msg[], patch: Partial<Msg>): Msg[] {
         const next = [...prev];
         const last = next[next.length - 1];
-        if (last && last.role === "assistant" && last.streaming) {
+        // A reply from a DIFFERENT agent (meeting fan-out) starts its own bubble.
+        const sameAgent = !patch.agentProfileId || !last?.agentProfileId || last.agentProfileId === patch.agentProfileId;
+        if (last && last.role === "assistant" && last.streaming && sameAgent) {
             Object.assign(last, patch);
         } else {
             next.push({ role: "assistant", content: "", streaming: true, ...patch });
@@ -248,8 +260,9 @@ export default function AssistantClient({
     function applyToolStep(prev: Msg[], step: ToolStep): Msg[] {
         const next = [...prev];
         let last = next[next.length - 1];
-        if (!(last && last.role === "assistant" && last.streaming)) {
-            last = { role: "assistant", content: "", streaming: true, steps: [] };
+        const sameAgent = !step.agentProfileId || !last?.agentProfileId || last.agentProfileId === step.agentProfileId;
+        if (!(last && last.role === "assistant" && last.streaming && sameAgent)) {
+            last = { role: "assistant", content: "", streaming: true, steps: [], agentProfileId: step.agentProfileId ?? null };
             next.push(last);
         }
         if (!last.steps) last.steps = [];
@@ -656,7 +669,14 @@ export default function AssistantClient({
                                     </div>
                                 ); })()}
                                 <div className="min-w-0 flex-1">
-                                    {showIdentity && <p className="mb-1 text-xs font-medium text-pulse-muted">{senderFor(m)?.name ?? "Assistant"}</p>}
+                                    {(showIdentity || m.routeReason) && (
+                                        <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-pulse-muted">
+                                            {showIdentity && <span>{senderFor(m)?.name ?? "Assistant"}</span>}
+                                            {m.model && m.routeReason && (
+                                                <span title={m.routeReason} className="rounded bg-pulse-tint px-1.5 py-0.5 text-[10px] font-normal text-pulse-faint">{modelLabel(m.model)}</span>
+                                            )}
+                                        </p>
+                                    )}
                                     {m.steps && m.steps.length > 0 && <ToolSteps steps={m.steps} />}
                                     {showThinking && m.thinking && (
                                         <ThinkingPanel text={m.thinking} streaming={!!m.streaming && !m.content} />
