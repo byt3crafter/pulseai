@@ -10,6 +10,7 @@ import { db } from "../../storage/db.js";
 import { apiTokens, agentProfiles } from "../../storage/schema.js";
 import { and, eq } from "drizzle-orm";
 import { parseMentions, agentMatchesToken } from "../channel-service.js";
+import { processAttachments } from "../attachment-extractor.js";
 import { randomUUID } from "node:crypto";
 import { getJobRunnerRuntime } from "../../cron/job-runner.js";
 import type { WebSocket } from "ws";
@@ -46,7 +47,8 @@ function splitThinking(raw: string): { thinking: string; answer: string } {
 }
 
 export async function registerWebSocket(fastify: FastifyInstance): Promise<void> {
-    await fastify.register(websocket);
+    // Raise the frame cap so base64 file attachments (images/PDF/sheets/docs) fit.
+    await fastify.register(websocket, { options: { maxPayload: 40 * 1024 * 1024 } });
 
     fastify.get("/ws", { websocket: true }, (socket, request) => {
         const clientId = `ws-${++clientIdCounter}`;
@@ -104,7 +106,8 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                 // (memory, tools, approvals) as Telegram — just a browser surface.
                 if (msg.type === "chat") {
                     const text = String(msg.text || "").trim();
-                    if (!text) return;
+                    const rawAttachments = Array.isArray(msg.attachments) ? msg.attachments : [];
+                    if (!text && rawAttachments.length === 0) return;
                     const runtime = getJobRunnerRuntime();
                     if (!runtime) {
                         socket.send(JSON.stringify({ type: "error", message: "Assistant is starting up — try again in a moment." }));
@@ -158,6 +161,20 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                     const modelOverride = typeof msg.model === "string" && msg.model.trim() ? msg.model.trim() : undefined;
                     const reasoningEffort = typeof msg.reasoningEffort === "string" ? msg.reasoningEffort : undefined;
 
+                    // Turn any attachments into vision images + extracted-text context.
+                    // Text is prepended so the agent sees file contents alongside the ask.
+                    let imageAttachments: any[] = [];
+                    let effectiveContent = text;
+                    if (rawAttachments.length > 0) {
+                        try {
+                            const processed = await processAttachments(rawAttachments);
+                            imageAttachments = processed.images;
+                            effectiveContent = [processed.contextText, text].filter(Boolean).join("\n\n").trim();
+                        } catch (err) {
+                            logger.warn({ err, tenantId }, "Attachment processing failed");
+                        }
+                    }
+
                     // Run each responder in turn (sequentially) so their replies land as
                     // distinct, attributed messages in the shared thread. Reasoning models
                     // emit <think>…</think>; split it so the browser shows the answer live
@@ -171,7 +188,8 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                 agentProfileId: rid,
                                 channelType: "webapp",
                                 channelContactId: contactId,
-                                content: text,
+                                content: effectiveContent,
+                                attachments: imageAttachments.length ? imageAttachments : undefined,
                                 receivedAt: new Date(),
                                 trigger: "chat",
                             };

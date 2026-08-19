@@ -5,7 +5,7 @@ import {
     PlusIcon, ChevronDownIcon, ChevronRightIcon,
     SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
     ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon, LightBulbIcon, ArrowUpIcon,
-    MagnifyingGlassIcon, CheckIcon, XMarkIcon,
+    MagnifyingGlassIcon, CheckIcon, XMarkIcon, PaperClipIcon, DocumentIcon,
 } from "@heroicons/react/24/outline";
 import Markdown from "../../../components/dashboard/Markdown";
 import { getLiveModelsAction } from "../agents/actions";
@@ -17,7 +17,8 @@ import {
 
 interface AgentOpt { id: string; name: string; avatar: string | null; title: string | null; }
 type ToolStep = { name: string; label: string; phase: "start" | "done" | "error"; detail?: string; agentProfileId?: string };
-type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[]; agentProfileId?: string | null; model?: string; routeReason?: string };
+type Attach = { id: string; name: string; mime: string; size: number; dataBase64: string; preview?: string };
+type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[]; agentProfileId?: string | null; model?: string; routeReason?: string; files?: { name: string; mime: string; preview?: string }[] };
 type ConnState = "connecting" | "online" | "offline";
 
 const REASONING_OPTS = [
@@ -128,6 +129,11 @@ export default function AssistantClient({
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const audioStreamRef = useRef<MediaStream | null>(null);
+
+    // File attachments staged in the composer (base64), sent with the next message.
+    const [pendingFiles, setPendingFiles] = useState<Attach[]>([]);
+    const [dragOver, setDragOver] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const wsRef = useRef<WebSocket | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -293,11 +299,37 @@ export default function AssistantClient({
         el.style.height = Math.min(el.scrollHeight, 160) + "px";
     }, []);
 
+    const MAX_FILE_BYTES = 20 * 1024 * 1024;
+    function fileToBase64(f: File): Promise<string> {
+        return new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => { const s = String(r.result); res(s.slice(s.indexOf(",") + 1)); };
+            r.onerror = () => rej(new Error("read failed"));
+            r.readAsDataURL(f);
+        });
+    }
+    // Stage files for the next message. Audio is transcribed into the box (like the
+    // mic) instead of attached; everything else is sent for the agent to read/see.
+    async function addFiles(files: FileList | File[]) {
+        setVoiceNotice(null);
+        for (const f of Array.from(files)) {
+            if (f.type.startsWith("audio/")) { void transcribeAndInsert(f); continue; }
+            if (f.size > MAX_FILE_BYTES) { setVoiceNotice(`"${f.name}" is over 20 MB — skipped.`); continue; }
+            try {
+                const dataBase64 = await fileToBase64(f);
+                const preview = f.type.startsWith("image/") ? `data:${f.type};base64,${dataBase64}` : undefined;
+                const id = (crypto as any)?.randomUUID?.() ?? `f${Date.now()}${Math.random()}`;
+                setPendingFiles((prev) => [...prev, { id, name: f.name, mime: f.type, size: f.size, dataBase64, preview }]);
+            } catch { setVoiceNotice(`Couldn't read "${f.name}".`); }
+        }
+    }
+    const removeFile = (id: string) => setPendingFiles((prev) => prev.filter((f) => f.id !== id));
+
     async function send() {
         const text = input.trim();
         // Sending is allowed even while the agent is still responding — the box
         // is never blocked. Only a dropped connection stops a send.
-        if (!text || conn !== "online") return;
+        if ((!text && pendingFiles.length === 0) || conn !== "online") return;
 
         const mentioned = matchMentionedAgent(text, agents);
         let targetAgent = agentId;
@@ -315,9 +347,11 @@ export default function AssistantClient({
         // Shared room: the @mentioned agent answers, else the selected one leads.
         const answerAgent = shared ? (mentioned || agentId) : targetAgent;
 
+        const files = pendingFiles;
         setLastSent(text);
-        setMessages((prev) => [...prev, { role: "user", content: text }]);
+        setMessages((prev) => [...prev, { role: "user", content: text, files: files.map((f) => ({ name: f.name, mime: f.mime, preview: f.preview })) }]);
         setInput("");
+        setPendingFiles([]);
         setBusy(true);
         wsRef.current!.send(JSON.stringify({
             type: "chat", text,
@@ -326,6 +360,7 @@ export default function AssistantClient({
             shared,
             reasoningEffort: reasoning,
             model: model || undefined,
+            attachments: files.map((f) => ({ name: f.name, mime: f.mime, dataBase64: f.dataBase64 })),
         }));
         // Reset the box height and keep focus so the user can type again straight away.
         requestAnimationFrame(() => {
@@ -656,10 +691,24 @@ export default function AssistantClient({
                         )}
 
                         {messages.map((m, i) => m.role === "user" ? (
-                            <div key={i} className="flex justify-end">
-                                <div className="max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text">
-                                    <span className="whitespace-pre-wrap break-words">{m.content}</span>
-                                </div>
+                            <div key={i} className="flex flex-col items-end gap-1.5">
+                                {m.files && m.files.length > 0 && (
+                                    <div className="flex max-w-[85%] flex-wrap justify-end gap-2">
+                                        {m.files.map((f, k) => f.preview ? (
+                                            <img key={k} src={f.preview} alt={f.name} className="h-20 w-20 rounded-lg border border-pulse-border-subtle object-cover" />
+                                        ) : (
+                                            <div key={k} className="flex items-center gap-2 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt px-2.5 py-1.5 text-xs text-pulse-text-soft">
+                                                <DocumentIcon className="h-4 w-4 shrink-0 text-pulse-accent-hi" />
+                                                <span className="max-w-[10rem] truncate" title={f.name}>{f.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {m.content && (
+                                    <div className="max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text">
+                                        <span className="whitespace-pre-wrap break-words">{m.content}</span>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div key={i} className="flex gap-3">
@@ -703,7 +752,35 @@ export default function AssistantClient({
                 {/* Composer — one tall rounded box with the controls inside it */}
                 <div className="shrink-0 bg-pulse-bg px-4 pb-5 pt-2 sm:px-6">
                     <div className="mx-auto w-full max-w-4xl">
-                        <div className="rounded-2xl border border-pulse-border bg-pulse-panel transition-colors focus-within:border-pulse-border-strong">
+                        <div
+                            onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
+                            onDragLeave={(e) => { e.preventDefault(); if (e.currentTarget === e.target) setDragOver(false); }}
+                            onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer?.files?.length) void addFiles(e.dataTransfer.files); }}
+                            className={`relative rounded-2xl border bg-pulse-panel transition-colors ${dragOver ? "border-pulse-accent ring-2 ring-pulse-accent/30" : "border-pulse-border focus-within:border-pulse-border-strong"}`}
+                        >
+                            {dragOver && (
+                                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-pulse-panel/85 text-sm font-medium text-pulse-accent-hi">
+                                    Drop files to attach
+                                </div>
+                            )}
+                            <input ref={fileInputRef} type="file" multiple hidden
+                                onChange={(e) => { if (e.target.files?.length) void addFiles(e.target.files); e.target.value = ""; }} />
+                            {pendingFiles.length > 0 && (
+                                <div className="flex flex-wrap gap-2 px-3 pt-3">
+                                    {pendingFiles.map((f) => (
+                                        <div key={f.id} className="group relative flex items-center gap-2 rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt py-1.5 pl-1.5 pr-6 text-xs">
+                                            {f.preview
+                                                ? <img src={f.preview} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                                                : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-pulse-tint text-pulse-accent-hi"><DocumentIcon className="h-4 w-4" /></span>}
+                                            <span className="max-w-[9rem] truncate text-pulse-text-soft" title={f.name}>{f.name}</span>
+                                            <button type="button" onClick={() => removeFile(f.id)} aria-label={`Remove ${f.name}`}
+                                                className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text">
+                                                <XMarkIcon className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             <textarea
                                 ref={inputRef}
                                 value={input}
@@ -717,6 +794,7 @@ export default function AssistantClient({
                                         requestAnimationFrame(() => { const el = inputRef.current; if (el) { el.focus(); autoGrow(); } });
                                     }
                                 }}
+                                onPaste={(e) => { const fs = Array.from(e.clipboardData?.files || []); if (fs.length) { e.preventDefault(); void addFiles(fs); } }}
                                 rows={1}
                                 placeholder={conn === "online" ? "Message your assistant…" : "Connecting…"}
                                 disabled={conn !== "online"}
@@ -768,6 +846,11 @@ export default function AssistantClient({
                                     </button>
                                 </div>
                                 <div className="flex-1" />
+                                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={conn !== "online"}
+                                    title="Attach files (or drag & drop)" aria-label="Attach files"
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-pulse-muted transition-colors hover:bg-pulse-hover hover:text-pulse-text disabled:opacity-40">
+                                    <PaperClipIcon className="h-[18px] w-[18px]" />
+                                </button>
                                 {voiceEnabled && (
                                     <button type="button" onClick={toggleRecording} disabled={transcribing || conn !== "online"}
                                         title={recording ? "Stop recording" : "Record voice message"} aria-label={recording ? "Stop recording" : "Record voice message"} aria-pressed={recording}
@@ -775,8 +858,8 @@ export default function AssistantClient({
                                         <MicrophoneIcon className="h-[18px] w-[18px]" />
                                     </button>
                                 )}
-                                <button type="button" onClick={send} disabled={!input.trim() || conn !== "online"} aria-label="Send message"
-                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${input.trim() && conn === "online" ? "bg-pulse-accent text-white hover:bg-pulse-accent-hi" : "bg-pulse-hover text-pulse-faint"}`}>
+                                <button type="button" onClick={send} disabled={(!input.trim() && pendingFiles.length === 0) || conn !== "online"} aria-label="Send message"
+                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${(input.trim() || pendingFiles.length) && conn === "online" ? "bg-pulse-accent text-white hover:bg-pulse-accent-hi" : "bg-pulse-hover text-pulse-faint"}`}>
                                     <ArrowUpIcon className="h-[18px] w-[18px]" />
                                 </button>
                             </div>
