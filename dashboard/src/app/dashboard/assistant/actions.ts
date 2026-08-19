@@ -51,22 +51,34 @@ export interface ChatSession {
     pinned: boolean;
 }
 
-function contactPrefix(tenantId: string) {
-    return `web-${tenantId}`;
+// Conversations are scoped per agent so chats never mix:
+//   separate mode → `web-<tenant>-<agentId>-<session>`
+//   shared mode   → `web-<tenant>-shared-<session>`  (one team room)
+// The agent segment is always known (from the selected agent / mode), so
+// slicing the prefix off to recover the sessionId is exact even though UUIDs
+// contain hyphens.
+function agentSeg(agentId: string, shared: boolean) {
+    return shared ? "shared" : (agentId || "default");
 }
 
-function sessionIdFromContact(tenantId: string, contactId: string): string {
-    const prefix = `${contactPrefix(tenantId)}-`;
-    if (contactId === contactPrefix(tenantId)) return ""; // legacy
+function scopePrefix(tenantId: string, agentId: string, shared: boolean) {
+    return `web-${tenantId}-${agentSeg(agentId, shared)}`;
+}
+
+function sessionIdFromContact(tenantId: string, agentId: string, shared: boolean, contactId: string): string {
+    const base = scopePrefix(tenantId, agentId, shared);
+    if (contactId === base) return ""; // scope's default (no explicit session)
+    const prefix = `${base}-`;
     return contactId.startsWith(prefix) ? contactId.slice(prefix.length) : "";
 }
 
-function contactFromSession(tenantId: string, sessionId: string): string {
-    return sessionId ? `${contactPrefix(tenantId)}-${sessionId}` : contactPrefix(tenantId);
+function contactFromSession(tenantId: string, agentId: string, shared: boolean, sessionId: string): string {
+    const base = scopePrefix(tenantId, agentId, shared);
+    return sessionId ? `${base}-${sessionId}` : base;
 }
 
-/** List the tenant's web chat sessions, most-recently-active first. */
-export async function listSessionsAction(): Promise<ChatSession[]> {
+/** List a single agent's web chat sessions (or the shared room's), most-recent first. */
+export async function listSessionsAction(agentId: string = "", shared: boolean = false): Promise<ChatSession[]> {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return [];
     const tenantId = tenantCheck.tenantId;
@@ -78,7 +90,7 @@ export async function listSessionsAction(): Promise<ChatSession[]> {
             .where(and(
                 eq(conversations.tenantId, tenantId),
                 eq(conversations.channelType, "webapp"),
-                like(conversations.channelContactId, `${contactPrefix(tenantId)}%`),
+                like(conversations.channelContactId, `${scopePrefix(tenantId, agentId, shared)}%`),
             ))
             .orderBy(desc(conversations.updatedAt))
             .limit(100);
@@ -103,7 +115,7 @@ export async function listSessionsAction(): Promise<ChatSession[]> {
             if (!lastMsg[0]) continue; // empty conversation — don't surface it
             const derived = firstUser[0]?.content?.replace(/\s+/g, " ").slice(0, 60) || "New chat";
             out.push({
-                sessionId: sessionIdFromContact(tenantId, c.contactId),
+                sessionId: sessionIdFromContact(tenantId, agentId, shared, c.contactId),
                 title: (c.title && c.title.trim()) || derived,
                 updatedAt: c.updatedAt?.toISOString() ?? new Date(0).toISOString(),
                 preview: (lastMsg[0]?.content || "").replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "").replace(/<\/?think(?:ing)?>/gi, "").trim().slice(0, 80),
@@ -120,12 +132,12 @@ export async function listSessionsAction(): Promise<ChatSession[]> {
 }
 
 /** Pin or unpin a session (stored on conversations.metadata.pinned). */
-export async function pinSessionAction(sessionId: string, pinned: boolean) {
+export async function pinSessionAction(sessionId: string, pinned: boolean, agentId: string = "", shared: boolean = false) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
     const tenantId = tenantCheck.tenantId;
     try {
-        const contactId = contactFromSession(tenantId, (sessionId || "").slice(0, 64));
+        const contactId = contactFromSession(tenantId, agentId, shared, (sessionId || "").slice(0, 64));
         const [conv] = await db
             .select({ id: conversations.id, metadata: conversations.metadata })
             .from(conversations)
@@ -145,14 +157,15 @@ export async function pinSessionAction(sessionId: string, pinned: boolean) {
     }
 }
 
-/** Load a session's message history (user + assistant only). */
-export async function getSessionHistoryAction(sessionId: string): Promise<{ role: string; content: string }[]> {
+/** Load a session's message history (user + assistant only). Carries the sending
+ *  agent id on each assistant row so the shared-room UI can attribute correctly. */
+export async function getSessionHistoryAction(sessionId: string, agentId: string = "", shared: boolean = false): Promise<{ role: string; content: string; agentProfileId: string | null }[]> {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return [];
     const tenantId = tenantCheck.tenantId;
 
     try {
-        const contactId = contactFromSession(tenantId, (sessionId || "").slice(0, 64));
+        const contactId = contactFromSession(tenantId, agentId, shared, (sessionId || "").slice(0, 64));
         const conv = await db
             .select({ id: conversations.id })
             .from(conversations)
@@ -164,14 +177,14 @@ export async function getSessionHistoryAction(sessionId: string): Promise<{ role
             .limit(1);
         if (!conv[0]) return [];
         const rows = await db
-            .select({ role: messages.role, content: messages.content })
+            .select({ role: messages.role, content: messages.content, senderAgentId: messages.senderAgentId })
             .from(messages)
             .where(eq(messages.conversationId, conv[0].id))
             .orderBy(asc(messages.createdAt))
             .limit(500);
         return rows
             .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({ role: m.role, content: m.content }));
+            .map((m) => ({ role: m.role, content: m.content, agentProfileId: m.senderAgentId ?? null }));
     } catch (e) {
         console.error("Failed to load session history:", e);
         return [];
@@ -179,14 +192,14 @@ export async function getSessionHistoryAction(sessionId: string): Promise<{ role
 }
 
 /** Rename a session (stored on conversations.contactName). */
-export async function renameSessionAction(sessionId: string, title: string) {
+export async function renameSessionAction(sessionId: string, title: string, agentId: string = "", shared: boolean = false) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
     const tenantId = tenantCheck.tenantId;
     const clean = (title || "").trim().slice(0, 120);
     if (!clean) return { success: false as const, message: "Title is required." };
     try {
-        const contactId = contactFromSession(tenantId, (sessionId || "").slice(0, 64));
+        const contactId = contactFromSession(tenantId, agentId, shared, (sessionId || "").slice(0, 64));
         await db.update(conversations)
             .set({ contactName: clean })
             .where(and(
@@ -202,12 +215,12 @@ export async function renameSessionAction(sessionId: string, title: string) {
 }
 
 /** Delete a session and all its messages. */
-export async function deleteSessionAction(sessionId: string) {
+export async function deleteSessionAction(sessionId: string, agentId: string = "", shared: boolean = false) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
     const tenantId = tenantCheck.tenantId;
     try {
-        const contactId = contactFromSession(tenantId, (sessionId || "").slice(0, 64));
+        const contactId = contactFromSession(tenantId, agentId, shared, (sessionId || "").slice(0, 64));
         const conv = await db
             .select({ id: conversations.id })
             .from(conversations)

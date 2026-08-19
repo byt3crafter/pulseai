@@ -641,6 +641,9 @@ export interface BrandingConfig {
     voiceEnabled: boolean;
     /** Whether an ElevenLabs API key is actually stored (voice can't work without it). */
     voiceConfigured: boolean;
+    /** Assistant multi-agent chat model: "separate" = one thread per agent (never
+     *  mixed); "shared" = a single team room where @mention picks who answers. */
+    assistantChatMode: "separate" | "shared";
 }
 
 /** Credential name that voice dictation (ElevenLabs STT) reads for its key. */
@@ -655,7 +658,7 @@ const MAX_LOGO_BYTES = 200 * 1024;
  * stored in tenants.config.branding and applied by the dashboard layout.
  */
 export async function getBrandingConfig(): Promise<BrandingConfig> {
-    const DEFAULTS: BrandingConfig = { title: "", logo: "", accent: "", showAgentIdentity: false, voiceEnabled: false, voiceConfigured: false };
+    const DEFAULTS: BrandingConfig = { title: "", logo: "", accent: "", showAgentIdentity: false, voiceEnabled: false, voiceConfigured: false, assistantChatMode: "separate" };
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return DEFAULTS;
     const tenantId = tenantCheck.tenantId;
@@ -665,6 +668,7 @@ export async function getBrandingConfig(): Promise<BrandingConfig> {
         const cfg = (row?.config as Record<string, any>) || {};
         const branding = cfg.branding && typeof cfg.branding === "object" ? cfg.branding : {};
         const voice = cfg.voice && typeof cfg.voice === "object" ? cfg.voice : {};
+        const assistant = cfg.assistant && typeof cfg.assistant === "object" ? cfg.assistant : {};
 
         // Does an ElevenLabs key actually exist? Voice is useless without it.
         const [keyRow] = await db
@@ -680,6 +684,7 @@ export async function getBrandingConfig(): Promise<BrandingConfig> {
             showAgentIdentity: branding.showAgentIdentity === true,
             voiceEnabled: voice.enabled === true,
             voiceConfigured: !!keyRow,
+            assistantChatMode: assistant.chatMode === "shared" ? "shared" : "separate",
         };
     } catch (error) {
         console.error("Failed to load branding config:", error);
@@ -908,6 +913,29 @@ export async function checkWebSearchHealthAction(input: { searxngUrl: string; fi
         ping(input.firecrawlUrl, "/v1/health").then((ok) => ok || ping(input.firecrawlUrl, "/")),
     ]);
     return { searxng, firecrawl };
+}
+
+/** Set how multi-agent chat works in the browser assistant: "separate" (one thread
+ *  per agent, never mixed) or "shared" (one team room, @mention picks who answers). */
+export async function setAssistantChatModeAction(mode: "separate" | "shared") {
+    const tenantCheck = await requireTenant("tenant.settings.write");
+    if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+    const chatMode = mode === "shared" ? "shared" : "separate";
+    try {
+        await db.execute(
+            sql`UPDATE tenants
+                SET config = config || ${JSON.stringify({ assistant: { chatMode } })}::jsonb,
+                    updated_at = now()
+                WHERE id = ${tenantId}::uuid`
+        );
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard/assistant");
+        return { success: true as const, message: "Assistant chat mode saved." };
+    } catch (error) {
+        console.error("Failed to save assistant chat mode:", error);
+        return { success: false as const, message: "Could not save the chat mode." };
+    }
 }
 
 export async function saveBrandingSettingsAction(config: {

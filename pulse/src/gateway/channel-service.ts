@@ -206,7 +206,7 @@ export function parseMentions(text: string): string[] {
 }
 
 /** Match a mention token to a channel agent by a loose form of its name. */
-function agentMatchesToken(agentName: string, token: string): boolean {
+export function agentMatchesToken(agentName: string, token: string): boolean {
     const norm = agentName.toLowerCase().replace(/[^\w]/g, "");
     const first = agentName.toLowerCase().split(/[\s\-—]/)[0].replace(/[^\w]/g, "");
     const t = token.replace(/[^\w]/g, "");

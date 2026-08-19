@@ -17,7 +17,7 @@ import {
 
 interface AgentOpt { id: string; name: string; avatar: string | null; title: string | null; }
 type ToolStep = { name: string; label: string; phase: "start" | "done" | "error"; detail?: string };
-type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[] };
+type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[]; agentProfileId?: string | null };
 type ConnState = "connecting" | "online" | "offline";
 
 const REASONING_OPTS = [
@@ -28,6 +28,22 @@ const REASONING_OPTS = [
 function newSessionId(): string {
     try { return crypto.randomUUID().replace(/-/g, "").slice(0, 20); }
     catch { return `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`; }
+}
+
+/** If the text @mentions one of the agents (loose name match — "@natalie" →
+ *  "Natalie Harrington"), return that agent's id. Mirrors the gateway's matcher. */
+function matchMentionedAgent(text: string, agents: AgentOpt[]): string | undefined {
+    const tokens: string[] = [];
+    const re = /@([\w-]+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) tokens.push(m[1].toLowerCase());
+    if (!tokens.length) return undefined;
+    for (const a of agents) {
+        const norm = a.name.toLowerCase().replace(/[^\w]/g, "");
+        const first = a.name.toLowerCase().split(/[\s\-—]/)[0].replace(/[^\w]/g, "");
+        if (tokens.some((t) => { const tk = t.replace(/[^\w]/g, ""); return !!tk && (norm === tk || first === tk || norm.startsWith(tk) || first.startsWith(tk)); })) return a.id;
+    }
+    return undefined;
 }
 
 /** Bucket a session by its last-activity date, for the Today / Yesterday / … groups. */
@@ -50,21 +66,25 @@ const BUCKET_ORDER = ["Today", "Yesterday", "Previous 7 days", "Previous 30 days
  * reasoning control. Everything is a saved setting — nothing hardcoded.
  */
 export default function AssistantClient({
-    agents, sessions: initialSessions, initialSessionId, initialHistory, showIdentityPref = false, voiceEnabled = false,
+    agents, sessions: initialSessions, initialSessionId, initialHistory, showIdentityPref = false, voiceEnabled = false, chatMode = "separate",
 }: {
     agents: AgentOpt[];
     sessions: ChatSession[];
     initialSessionId: string;
-    initialHistory: { role: string; content: string }[];
+    initialHistory: { role: string; content: string; agentProfileId?: string | null }[];
     showIdentityPref?: boolean;
     voiceEnabled?: boolean;
+    chatMode?: "separate" | "shared";
 }) {
+    // "separate" = one thread per agent (never mixed); "shared" = a single team
+    // room where @mention picks who answers.
+    const shared = chatMode === "shared";
     // Claude/ChatGPT style: no avatar, no name for a single agent. Auto-show when
     // there's more than one agent (you need to know who's talking), or when the
     // workspace owner turned it on in Appearance settings.
-    const showIdentity = agents.length > 1 || showIdentityPref;
+    const showIdentity = shared || agents.length > 1 || showIdentityPref;
     const [messages, setMessages] = useState<Msg[]>(
-        initialHistory.map((h) => ({ role: h.role as "user" | "assistant", content: h.content }))
+        initialHistory.map((h) => ({ role: h.role as "user" | "assistant", content: h.content, agentProfileId: h.agentProfileId ?? null }))
     );
     const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
     const [sessionId, setSessionId] = useState<string>(initialSessionId || newSessionId());
@@ -78,7 +98,8 @@ export default function AssistantClient({
     // Pre-select an agent from ?agent=<id> when opened from a notification.
     useEffect(() => {
         const fromUrl = new URLSearchParams(window.location.search).get("agent");
-        if (fromUrl && agents.some((a) => a.id === fromUrl)) setAgentId(fromUrl);
+        if (fromUrl && agents.some((a) => a.id === fromUrl) && fromUrl !== agentId) void switchAgent(fromUrl);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [agents]);
     const [railOpen, setRailOpen] = useState(true);
     const [renaming, setRenaming] = useState<string | null>(null);
@@ -116,6 +137,10 @@ export default function AssistantClient({
     sessionRef.current = sessionId;
 
     const activeAgent = agents.find((a) => a.id === agentId) ?? agents[0];
+    // Who to show as the sender of an assistant message. In the shared room a thread
+    // holds replies from several agents, so attribute each message to the agent that
+    // actually sent it; in separate mode the whole thread is the selected agent.
+    const senderFor = (m: Msg) => (shared ? (agents.find((a) => a.id === m.agentProfileId) ?? activeAgent) : activeAgent);
 
     useEffect(() => {
         try {
@@ -185,9 +210,10 @@ export default function AssistantClient({
                     if (last && last.role === "assistant" && last.streaming) {
                         last.content = m.content;
                         if (m.thinking) last.thinking = m.thinking;
+                        if (m.agentProfileId) last.agentProfileId = m.agentProfileId;
                         last.streaming = false;
                     } else {
-                        next.push({ role: "assistant", content: m.content, thinking: m.thinking });
+                        next.push({ role: "assistant", content: m.content, thinking: m.thinking, agentProfileId: m.agentProfileId ?? null });
                     }
                     return next;
                 });
@@ -242,7 +268,7 @@ export default function AssistantClient({
     }
 
     async function refreshSessions() {
-        setSessions(await listSessionsAction());
+        setSessions(await listSessionsAction(agentId, shared));
     }
 
     // Grow the composer with its content, capped — keeps a single line vertically
@@ -254,19 +280,37 @@ export default function AssistantClient({
         el.style.height = Math.min(el.scrollHeight, 160) + "px";
     }, []);
 
-    function send() {
+    async function send() {
         const text = input.trim();
         // Sending is allowed even while the agent is still responding — the box
         // is never blocked. Only a dropped connection stops a send.
         if (!text || conn !== "online") return;
+
+        const mentioned = matchMentionedAgent(text, agents);
+        let targetAgent = agentId;
+        let targetSession = sessionRef.current;
+        // Separate mode: an @mention to a DIFFERENT agent moves the aside into THAT
+        // agent's own thread (a fresh chat there) so conversations never mix.
+        if (!shared && mentioned && mentioned !== agentId) {
+            targetAgent = mentioned;
+            targetSession = newSessionId();
+            setAgentId(mentioned);
+            setSessionId(targetSession);
+            setMessages([]);
+            setSessions(await listSessionsAction(mentioned, false));
+        }
+        // Shared room: the @mentioned agent answers, else the selected one leads.
+        const answerAgent = shared ? (mentioned || agentId) : targetAgent;
+
         setLastSent(text);
         setMessages((prev) => [...prev, { role: "user", content: text }]);
         setInput("");
         setBusy(true);
         wsRef.current!.send(JSON.stringify({
             type: "chat", text,
-            agentProfileId: agentId || undefined,
-            sessionId: sessionRef.current,
+            agentProfileId: answerAgent || undefined,
+            sessionId: targetSession,
+            shared,
             reasoningEffort: reasoning,
             model: model || undefined,
         }));
@@ -347,20 +391,34 @@ export default function AssistantClient({
         if (isMobile()) setRailOpen(false);
     }
 
+    // Switch which agent you're talking to. In "separate" mode each agent has its
+    // OWN chats, so we swap the session list to that agent's and open a fresh chat
+    // (histories never mix). In "shared" mode there's one team thread list — the
+    // selector only changes who answers by default, so the list stays put.
+    async function switchAgent(id: string) {
+        if (!id || id === agentId) return;
+        setAgentId(id);
+        if (shared) return;
+        setMessages([]);
+        setBusy(false);
+        setSessionId(newSessionId());
+        setSessions(await listSessionsAction(id, false));
+    }
+
     async function switchSession(sid: string) {
         if (isMobile()) setRailOpen(false);
         if (sid === sessionId) return;
         setSessionId(sid);
         setBusy(false);
-        const hist = await getSessionHistoryAction(sid);
-        setMessages(hist.map((h) => ({ role: h.role as "user" | "assistant", content: h.content })));
+        const hist = await getSessionHistoryAction(sid, agentId, shared);
+        setMessages(hist.map((h) => ({ role: h.role as "user" | "assistant", content: h.content, agentProfileId: h.agentProfileId ?? null })));
     }
 
     async function doRename(sid: string) {
         const title = renameText.trim();
         setRenaming(null);
         if (!title) return;
-        await renameSessionAction(sid, title);
+        await renameSessionAction(sid, title, agentId, shared);
         refreshSessions();
     }
 
@@ -369,7 +427,7 @@ export default function AssistantClient({
         // Optimistic: reflect immediately, then reconcile from the server.
         setSessions((prev) => prev.map((s) => (s.sessionId === sid ? { ...s, pinned } : s))
             .sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || b.updatedAt.localeCompare(a.updatedAt)));
-        await pinSessionAction(sid, pinned);
+        await pinSessionAction(sid, pinned, agentId, shared);
         refreshSessions();
     }
 
@@ -379,8 +437,8 @@ export default function AssistantClient({
         if (!target) return;
         const sid = target.sessionId;
         setSessions((prev) => prev.filter((s) => s.sessionId !== sid)); // optimistic
-        await deleteSessionAction(sid);
-        setSessions(await listSessionsAction());
+        await deleteSessionAction(sid, agentId, shared);
+        setSessions(await listSessionsAction(agentId, shared));
         if (sid === sessionId) startNewChat();
     }
 
@@ -555,7 +613,7 @@ export default function AssistantClient({
                             )}
                         </div>
                         {agents.length > 1 && (
-                            <select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500">
+                            <select value={agentId} onChange={(e) => switchAgent(e.target.value)} className="rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500">
                                 {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         )}
@@ -583,13 +641,13 @@ export default function AssistantClient({
                             </div>
                         ) : (
                             <div key={i} className="flex gap-3">
-                                {showIdentity && (
+                                {showIdentity && (() => { const sender = senderFor(m); return (
                                     <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi overflow-hidden">
-                                        {activeAgent?.avatar ? <img src={activeAgent.avatar} alt="" className="h-full w-full object-cover" /> : (activeAgent?.name?.[0] ?? "A")}
+                                        {sender?.avatar ? <img src={sender.avatar} alt="" className="h-full w-full object-cover" /> : (sender?.name?.[0] ?? "A")}
                                     </div>
-                                )}
+                                ); })()}
                                 <div className="min-w-0 flex-1">
-                                    {showIdentity && <p className="mb-1 text-xs font-medium text-pulse-muted">{activeAgent?.name ?? "Assistant"}</p>}
+                                    {showIdentity && <p className="mb-1 text-xs font-medium text-pulse-muted">{senderFor(m)?.name ?? "Assistant"}</p>}
                                     {m.steps && m.steps.length > 0 && <ToolSteps steps={m.steps} />}
                                     {showThinking && m.thinking && (
                                         <ThinkingPanel text={m.thinking} streaming={!!m.streaming && !m.content} />

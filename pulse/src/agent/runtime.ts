@@ -245,7 +245,11 @@ export class AgentRuntime {
             // 3.5. Resolve agentProfileId via routing rules (or channel default / tenant fallback).
             // For org-channel messages the responder is pre-resolved (lead or @mentioned agent),
             // so we honor it directly and bypass tenant routing rules.
-            let resolvedAgentProfileId = inbound.channelId && inbound.agentProfileId
+            // Honor an explicitly-chosen agent for org-channel messages (pre-resolved
+            // lead/@mention) AND for the browser assistant (the user picks the agent in
+            // the dropdown / @mentions one) — both bypass tenant routing rules. Everything
+            // else (Telegram, API, …) routes via rules.
+            let resolvedAgentProfileId = (inbound.channelId || inbound.channelType === "webapp") && inbound.agentProfileId
                 ? inbound.agentProfileId
                 : await resolveAgent(inbound);
             if (!resolvedAgentProfileId) {
@@ -1133,10 +1137,12 @@ export class AgentRuntime {
                         tenantId: inbound.tenantId,
                         role: "assistant",
                         content: llmResponse.content,
-                        // Attribute the reply to the responding agent in a shared channel thread
+                        // Attribute the reply to the responding agent — in a shared channel
+                        // thread AND in the browser assistant (so a shared/team room can show
+                        // which agent said what on history reload).
                         channelId: inbound.channelId ?? null,
-                        senderType: inbound.channelId ? "agent" : null,
-                        senderAgentId: inbound.channelId ? (resolvedAgentProfileId ?? null) : null,
+                        senderType: (inbound.channelId || inbound.channelType === "webapp") ? "agent" : null,
+                        senderAgentId: (inbound.channelId || inbound.channelType === "webapp") ? (resolvedAgentProfileId ?? null) : null,
                     });
                 } catch (persistErr) {
                     tenantLog.error({ persistErr, conversationId: conversation.id }, "Failed to persist assistant message (reply already produced) — continuing without it");
