@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.16.0] - 2026-08-19
+
+### Features
+- smart model routing + multi-agent meeting (@mention several agents)
+
 ## [0.15.1] - 2026-08-19
 
 ### Bug Fixes
