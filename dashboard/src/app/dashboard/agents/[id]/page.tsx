@@ -110,6 +110,8 @@ export default async function AgentDetailPage({
                 progressVerbosity: agent.progressVerbosity ?? null,
                 roiHourlyRate: agent.roiHourlyRate ?? null,
                 modelId: agent.modelId ?? "claude-sonnet-4-20250514",
+                smartRouting: agent.smartRouting ?? false,
+                fastModelId: agent.fastModelId ?? null,
                 dockerSandboxEnabled: agent.dockerSandboxEnabled ?? false,
                 selfConfigEnabled: agent.selfConfigEnabled ?? false,
                 hasWorkspace,

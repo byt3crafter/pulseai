@@ -299,6 +299,48 @@ export async function updateAgentModelAction(formData: FormData) {
     return { success: true, message: "Model updated." };
 }
 
+/** Enable/disable per-agent smart model routing and set its fast model. */
+export async function updateAgentSmartRoutingAction(formData: FormData) {
+    const session = await auth();
+    if (!session?.user?.tenantId) {
+        return { success: false, message: "Unauthorized." };
+    }
+
+    const agentId = formData.get("agentId") as string;
+    const smartRouting = formData.get("smartRouting") === "1";
+    const fastModelId = ((formData.get("fastModelId") as string) || "").trim();
+
+    if (!agentId) {
+        return { success: false, message: "Missing required fields." };
+    }
+    if (smartRouting && !fastModelId) {
+        return { success: false, message: "Pick a fast model to enable smart routing." };
+    }
+
+    const agent = await db.query.agentProfiles.findFirst({
+        where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, session.user.tenantId)),
+    });
+    if (!agent) {
+        return { success: false, message: "Agent not found." };
+    }
+
+    await db.update(agentProfiles)
+        .set({ smartRouting, fastModelId: fastModelId || null, updatedAt: new Date() })
+        .where(eq(agentProfiles.id, agentId));
+
+    await logAudit({
+        action: "agent.smartRouting.update",
+        targetType: "agent",
+        targetId: agentId,
+        tenantId: session.user.tenantId,
+        summary: `Smart routing ${smartRouting ? "enabled" : "disabled"} for agent ${agentId}`,
+        metadata: { smartRouting, fastModelId: fastModelId || null },
+    });
+
+    revalidatePath(`/dashboard/agents/${agentId}`);
+    return { success: true, message: "Smart routing saved." };
+}
+
 export async function getRevisionsAction(agentId: string, fileName: string) {
     const session = await auth();
     if (!session?.user?.tenantId) return [];

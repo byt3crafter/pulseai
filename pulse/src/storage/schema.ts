@@ -48,6 +48,10 @@ export const agentProfiles = pgTable("agent_profiles", {
     avatar: text("avatar"), // Profile picture: data URL (data:image/...;base64,...) or an https URL
     systemPrompt: text("system_prompt"), // The specific instructions injected to the LLM
     modelId: varchar("model_id", { length: 100 }).default("claude-sonnet-4-20250514"),
+    // Smart model routing: when enabled, trivial tool-free turns use `fastModelId`
+    // (cheap/fast), everything with tools/attachments/complexity uses `modelId`.
+    smartRouting: boolean("smart_routing").default(false), // off by default
+    fastModelId: varchar("fast_model_id", { length: 100 }), // fast/cheap model for trivial turns; null = no routing
     reasoningEffort: varchar("reasoning_effort", { length: 12 }), // "minimal"|"low"|"medium"|"high"|"xhigh"; null/absent = provider default
     progressVerbosity: varchar("progress_verbosity", { length: 12 }), // "off"|"progress"|"verbose"; null/absent = "progress"
     workspacePath: varchar("workspace_path", { length: 512 }),
