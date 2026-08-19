@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.15.0] - 2026-08-19
+
+### Features
+- per-agent conversations, @mention routing, chat-mode setting
+
 ## [0.14.112] - 2026-08-18
 
 ### Bug Fixes
