@@ -7,8 +7,9 @@ import websocket from "@fastify/websocket";
 import { logger } from "../../utils/logger.js";
 import { hashToken } from "../middleware/api-token-auth.js";
 import { db } from "../../storage/db.js";
-import { apiTokens } from "../../storage/schema.js";
-import { eq } from "drizzle-orm";
+import { apiTokens, agentProfiles } from "../../storage/schema.js";
+import { and, eq } from "drizzle-orm";
+import { parseMentions, agentMatchesToken } from "../channel-service.js";
 import { randomUUID } from "node:crypto";
 import { getJobRunnerRuntime } from "../../cron/job-runner.js";
 import type { WebSocket } from "ws";
@@ -115,18 +116,41 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                     const sessionId = typeof msg.sessionId === "string" && msg.sessionId.trim()
                         ? msg.sessionId.trim().slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, "")
                         : "";
-                    const contactId = sessionId ? `web-${tenantId}-${sessionId}` : `web-${tenantId}`;
+
+                    // Resolve which agent answers. An @mention in the text overrides the
+                    // selected agent (reusing the channels' parseMentions/name-match), so
+                    // "@natalie …" routes to Natalie even from another agent's thread.
+                    let agentProfileId: string | undefined = msg.agentProfileId || undefined;
+                    let mentionAgentId: string | undefined;
+                    const tokens = parseMentions(text);
+                    if (tokens.length > 0) {
+                        const roster = await db
+                            .select({ id: agentProfiles.id, name: agentProfiles.name })
+                            .from(agentProfiles)
+                            .where(and(eq(agentProfiles.tenantId, tenantId), eq(agentProfiles.enabled, true)));
+                        const hit = roster.find((a) => tokens.some((t) => agentMatchesToken(a.name, t)));
+                        if (hit) { agentProfileId = hit.id; mentionAgentId = hit.id; }
+                    }
+
+                    // Scope the conversation (its own memory thread) per agent so chats
+                    // never mix: `web-<tenant>-<agent>-<session>`. In "shared" mode all
+                    // agents share one `web-<tenant>-shared-<session>` thread (team room).
+                    const shared = msg.shared === true;
+                    const agentSeg = shared ? "shared" : (agentProfileId || "default");
+                    const contactId = sessionId
+                        ? `web-${tenantId}-${agentSeg}-${sessionId}`
+                        : `web-${tenantId}-${agentSeg}`;
                     const inbound: any = {
                         id: randomUUID(),
                         tenantId,
-                        agentProfileId: msg.agentProfileId || undefined,
+                        agentProfileId,
                         channelType: "webapp",
                         channelContactId: contactId,
                         content: text,
                         receivedAt: new Date(),
                         trigger: "chat",
                     };
-                    socket.send(JSON.stringify({ type: "chat.accepted", sessionId }));
+                    socket.send(JSON.stringify({ type: "chat.accepted", sessionId, agentProfileId, mentionAgentId }));
 
                     // Reasoning models (e.g. MiniMax) emit <think>…</think> in the
                     // stream. Split it so the browser can show the answer live and

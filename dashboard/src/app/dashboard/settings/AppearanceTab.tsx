@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, SettingRow, Toggle } from "../../../components/dashboard/ui";
 import { accentOverrideCss, isValidAccent } from "../../../utils/accent";
-import { saveBrandingSettingsAction, saveVoiceSettingsAction, type BrandingConfig } from "./actions";
+import { saveBrandingSettingsAction, saveVoiceSettingsAction, setAssistantChatModeAction, type BrandingConfig } from "./actions";
 
 const MAX_LOGO_BYTES = 200 * 1024;
 
@@ -31,6 +31,7 @@ export default function AppearanceTab({ config }: { config: BrandingConfig }) {
     const [logo, setLogo] = useState(config.logo);
     const [accent, setAccent] = useState(config.accent);
     const [showAgentIdentity, setShowAgentIdentity] = useState(config.showAgentIdentity);
+    const [chatMode, setChatMode] = useState<"separate" | "shared">(config.assistantChatMode);
     const [pending, startTransition] = useTransition();
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
     const [logoError, setLogoError] = useState<string | null>(null);
@@ -220,6 +221,29 @@ export default function AppearanceTab({ config }: { config: BrandingConfig }) {
                         title="Show agent name & avatar in chat"
                         description="Off looks like ChatGPT/Claude — just the reply, no avatar. Turns on automatically when you have more than one agent."
                         control={<Toggle checked={showAgentIdentity} onChange={setShowAgentIdentity} label="Show agent name and avatar in chat" />}
+                    />
+                    <SettingRow
+                        title="Multi-agent chat mode"
+                        description="Separate: each agent has its own conversations & memory (never mixed) — the selector switches who you're chatting with. Shared: one team room where you @mention an agent to direct a message. Either way, type @name to route a message."
+                        control={
+                            <select
+                                value={chatMode}
+                                disabled={pending}
+                                onChange={(e) => {
+                                    const mode = e.target.value as "separate" | "shared";
+                                    setChatMode(mode);
+                                    startTransition(async () => {
+                                        const res = await setAssistantChatModeAction(mode);
+                                        setMsg({ ok: res.success, text: res.message });
+                                        if (res.success) router.refresh();
+                                    });
+                                }}
+                                className="rounded-lg border border-pulse-border bg-pulse-panel px-3 py-1.5 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="separate">Separate thread per agent</option>
+                                <option value="shared">Shared team room</option>
+                            </select>
+                        }
                     />
                 </div>
             </Card>

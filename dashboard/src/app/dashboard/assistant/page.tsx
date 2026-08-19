@@ -24,12 +24,16 @@ export default async function AssistantPage() {
         .where(eq(agentProfiles.tenantId, tenantId));
     const activeAgents = agents.filter((a) => a.enabled !== false);
 
-    // Session list + the most-recent session's history (the one the UI opens on).
-    const sessions = await listSessionsAction();
-    const initialSessionId = sessions[0]?.sessionId ?? "";
-    const initialHistory = sessions.length ? await getSessionHistoryAction(initialSessionId) : [];
-
     const branding = await getBrandingConfig();
+    const shared = branding.assistantChatMode === "shared";
+    // The agent the UI opens on: its own chats (separate mode) or the shared room.
+    const initialAgentId = activeAgents[0]?.id ?? "";
+
+    // Session list + the most-recent session's history (the one the UI opens on),
+    // scoped to that agent (or the shared room) so nothing mixes.
+    const sessions = await listSessionsAction(initialAgentId, shared);
+    const initialSessionId = sessions[0]?.sessionId ?? "";
+    const initialHistory = sessions.length ? await getSessionHistoryAction(initialSessionId, initialAgentId, shared) : [];
 
     return (
         <AssistantClient
@@ -39,6 +43,7 @@ export default async function AssistantPage() {
             initialHistory={initialHistory}
             showIdentityPref={branding.showAgentIdentity}
             voiceEnabled={branding.voiceEnabled && branding.voiceConfigured}
+            chatMode={branding.assistantChatMode}
         />
     );
 }
