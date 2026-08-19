@@ -392,17 +392,26 @@ export default function AssistantClient({
     }
 
     // Switch which agent you're talking to. In "separate" mode each agent has its
-    // OWN chats, so we swap the session list to that agent's and open a fresh chat
-    // (histories never mix). In "shared" mode there's one team thread list — the
-    // selector only changes who answers by default, so the list stays put.
+    // OWN chats, so we swap the session list to that agent's and RESUME its most
+    // recent conversation (a fresh chat only if it has none) — histories never mix.
+    // In "shared" mode there's one team thread list — the selector only changes who
+    // answers by default, so the list stays put.
     async function switchAgent(id: string) {
         if (!id || id === agentId) return;
         setAgentId(id);
         if (shared) return;
-        setMessages([]);
         setBusy(false);
-        setSessionId(newSessionId());
-        setSessions(await listSessionsAction(id, false));
+        const sess = await listSessionsAction(id, false);
+        setSessions(sess);
+        if (sess.length > 0) {
+            const sid = sess[0].sessionId;
+            setSessionId(sid);
+            const hist = await getSessionHistoryAction(sid, id, false);
+            setMessages(hist.map((h) => ({ role: h.role as "user" | "assistant", content: h.content, agentProfileId: h.agentProfileId ?? null })));
+        } else {
+            setSessionId(newSessionId());
+            setMessages([]);
+        }
     }
 
     async function switchSession(sid: string) {
