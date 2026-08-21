@@ -15,6 +15,8 @@ export interface ContactRow {
     company: string | null;
     title: string | null;
     notes: string | null;
+    /** Extra labeled fields (VAT, BRN, address, …) stored in metadata.customFields. */
+    customFields: { label: string; value: string }[];
 }
 
 export type ContactsSource = "auto" | "native" | "erpnext";
@@ -35,11 +37,15 @@ export async function getContacts(): Promise<ContactRow[]> {
             company: contacts.company,
             title: contacts.title,
             notes: contacts.notes,
+            metadata: contacts.metadata,
         })
             .from(contacts)
             .where(eq(contacts.tenantId, tenantId))
             .orderBy(asc(contacts.name));
-        return rows;
+        return rows.map(({ metadata, ...r }) => ({
+            ...r,
+            customFields: Object.entries(((metadata as any)?.customFields as Record<string, string>) || {}).map(([label, value]) => ({ label, value: String(value) })),
+        }));
     } catch (error) {
         console.error("Failed to load contacts:", error);
         return [];
@@ -60,10 +66,30 @@ export async function saveContactAction(formData: FormData) {
     const title = ((formData.get("title") as string) || "").trim();
     const notes = ((formData.get("notes") as string) || "").trim();
 
+    // Custom fields arrive as a JSON array of {label, value}; drop blanks + dupes.
+    const customFields: Record<string, string> = {};
+    try {
+        const raw = JSON.parse((formData.get("customFields") as string) || "[]");
+        if (Array.isArray(raw)) {
+            for (const f of raw) {
+                const label = String(f?.label ?? "").trim();
+                const value = String(f?.value ?? "").trim();
+                if (label && value) customFields[label] = value;
+            }
+        }
+    } catch { /* ignore malformed */ }
+
     if (!name) return { success: false, message: "Name is required." };
 
     try {
         if (id) {
+            // Preserve any non-customFields metadata keys.
+            const [existing] = await db.select({ metadata: contacts.metadata }).from(contacts)
+                .where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId))).limit(1);
+            if (!existing) return { success: false, message: "Contact not found." };
+            const prevMeta = (existing.metadata as Record<string, any>) || {};
+            const metadata = { ...prevMeta };
+            if (Object.keys(customFields).length) metadata.customFields = customFields; else delete metadata.customFields;
             const [updated] = await db.update(contacts)
                 .set({
                     name,
@@ -72,6 +98,7 @@ export async function saveContactAction(formData: FormData) {
                     company: company || null,
                     title: title || null,
                     notes: notes || null,
+                    metadata,
                     updatedAt: new Date(),
                 })
                 .where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)))
@@ -87,6 +114,7 @@ export async function saveContactAction(formData: FormData) {
                 company: company || null,
                 title: title || null,
                 notes: notes || null,
+                metadata: Object.keys(customFields).length ? { customFields } : {},
             });
         }
 
