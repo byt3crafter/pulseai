@@ -32,7 +32,7 @@ async function resolveSource(tenantId: string, agentId?: string): Promise<Source
     return creds ? "erpnext" : "native";
 }
 
-type ContactRow = { name: string; email?: string | null; phone?: string | null; company?: string | null; title?: string | null; from: "ERPNext" | "address book" };
+type ContactRow = { name: string; email?: string | null; phone?: string | null; company?: string | null; title?: string | null; custom?: Record<string, string> | null; notes?: string | null; from: "ERPNext" | "address book" };
 
 async function fetchErpNext(tenantId: string, agentId: string | undefined, q: string): Promise<ContactRow[] | null> {
     const creds = await getErpNextCredentials(tenantId, agentId).catch(() => null);
@@ -63,7 +63,7 @@ async function fetchNative(tenantId: string, q: string): Promise<ContactRow[]> {
     const rows = await db.select().from(contacts)
         .where(and(eq(contacts.tenantId, tenantId), or(ilike(contacts.name, like), ilike(contacts.email, like), ilike(contacts.company, like))))
         .orderBy(asc(contacts.name)).limit(10);
-    return rows.map((c) => ({ name: c.name, email: c.email, phone: c.phone, company: c.company, title: c.title, from: "address book" as const }));
+    return rows.map((c) => ({ name: c.name, email: c.email, phone: c.phone, company: c.company, title: c.title, custom: ((c.metadata as any)?.customFields as Record<string, string>) || null, notes: c.notes, from: "address book" as const }));
 }
 
 export const contactLookupTool: Tool = {
@@ -99,6 +99,8 @@ export const contactLookupTool: Tool = {
 
         const lines = uniq.map((r) => {
             const bits = [r.email && `email: ${r.email}`, r.phone && `phone: ${r.phone}`, r.company && `company: ${r.company}`, r.title && `title: ${r.title}`].filter(Boolean);
+            for (const [k, v] of Object.entries(r.custom || {})) bits.push(`${k}: ${v}`);
+            if (r.notes) bits.push(`notes: ${r.notes}`);
             return `- ${r.name}${bits.length ? ` (${bits.join(", ")})` : ""} [${r.from}]`;
         });
         return { result: `Contacts matching "${q}":\n${lines.join("\n")}` };
@@ -122,16 +124,21 @@ export const contactListTool: Tool = {
 export const contactSaveTool: Tool = {
     name: "contact_save",
     source: "builtin",
-    description: "Add or update a contact in the built-in address book. If a contact with the same email (or exact name) exists, it's updated.",
+    description: "Add or update a contact in the built-in address book. If a contact with the same email (or exact name) exists, it's updated. For any structured detail that doesn't fit the standard fields — VAT number, BRN / company registration number, address, alternate email or phone, website, etc. — use `customFields` with a clear label as the key. Do NOT dump such data into `notes`; notes is only for free-form remarks.",
     parameters: {
         type: "object",
         properties: {
             name: { type: "string", description: "Full name (required)." },
-            email: { type: "string", description: "Email address." },
-            phone: { type: "string", description: "Phone number." },
+            email: { type: "string", description: "Primary email address." },
+            phone: { type: "string", description: "Primary phone number." },
             company: { type: "string", description: "Company / organisation." },
             title: { type: "string", description: "Job title / role." },
-            notes: { type: "string", description: "Free-form notes." },
+            notes: { type: "string", description: "Free-form remarks only. Structured data goes in customFields." },
+            customFields: {
+                type: "object",
+                description: "Extra labeled fields, e.g. { \"BRN\": \"C09086781\", \"VAT\": \"20495116\", \"Address\": \"12 Maupin St, Port Louis\", \"Alt email\": \"info@x.com\" }. Keys become field labels. Merged with any existing custom fields on update.",
+                additionalProperties: { type: "string" },
+            },
         },
         required: ["name"],
     },
@@ -146,16 +153,29 @@ export const contactSaveTool: Tool = {
             title: args?.title ? String(args.title).trim() : null,
             notes: args?.notes ? String(args.notes) : null,
         };
+        // Normalise custom fields to a flat { label: string } map.
+        const cf: Record<string, string> = {};
+        if (args?.customFields && typeof args.customFields === "object") {
+            for (const [k, v] of Object.entries(args.customFields as Record<string, unknown>)) {
+                const key = String(k).trim();
+                if (key && v != null && String(v).trim()) cf[key] = String(v).trim();
+            }
+        }
         // Update an existing contact matched by email, else by exact name.
-        const match = await db.select({ id: contacts.id }).from(contacts)
+        const match = await db.select({ id: contacts.id, metadata: contacts.metadata }).from(contacts)
             .where(and(eq(contacts.tenantId, tenantId), vals.email ? eq(contacts.email, vals.email) : eq(contacts.name, name)))
             .limit(1);
         if (match[0]) {
-            await db.update(contacts).set({ ...vals, updatedAt: new Date() }).where(eq(contacts.id, match[0].id));
-            return { result: `Updated contact: ${name}.` };
+            const prevMeta = (match[0].metadata as Record<string, any>) || {};
+            const mergedCf = { ...(prevMeta.customFields || {}), ...cf };
+            const metadata = { ...prevMeta, ...(Object.keys(mergedCf).length ? { customFields: mergedCf } : {}) };
+            await db.update(contacts).set({ ...vals, metadata, updatedAt: new Date() }).where(eq(contacts.id, match[0].id));
+            const added = Object.keys(cf);
+            return { result: `Updated contact: ${name}.${added.length ? ` Fields: ${added.join(", ")}.` : ""}` };
         }
-        await db.insert(contacts).values({ tenantId, ...vals });
-        return { result: `Saved contact: ${name}.` };
+        const metadata = Object.keys(cf).length ? { customFields: cf } : {};
+        await db.insert(contacts).values({ tenantId, ...vals, metadata });
+        return { result: `Saved contact: ${name}.${Object.keys(cf).length ? ` Fields: ${Object.keys(cf).join(", ")}.` : ""}` };
     },
 };
 

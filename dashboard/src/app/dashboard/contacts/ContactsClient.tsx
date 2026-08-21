@@ -27,9 +27,10 @@ type FormState = {
     company: string;
     title: string;
     notes: string;
+    customFields: { label: string; value: string }[];
 };
 
-const EMPTY_FORM: FormState = { id: "", name: "", email: "", phone: "", company: "", title: "", notes: "" };
+const EMPTY_FORM: FormState = { id: "", name: "", email: "", phone: "", company: "", title: "", notes: "", customFields: [] };
 
 export default function ContactsClient({
     contacts,
@@ -92,6 +93,7 @@ export default function ContactsClient({
             company: contact.company ?? "",
             title: contact.title ?? "",
             notes: contact.notes ?? "",
+            customFields: (contact.customFields ?? []).map((f) => ({ ...f })),
         });
         setFormError(null);
         setFormOpen(true);
@@ -118,6 +120,7 @@ export default function ContactsClient({
         fd.set("company", form.company);
         fd.set("title", form.title);
         fd.set("notes", form.notes);
+        fd.set("customFields", JSON.stringify(form.customFields.filter((f) => f.label.trim() && f.value.trim())));
         startTransition(async () => {
             const res = await saveContactAction(fd);
             setFormSaving(false);
@@ -290,6 +293,34 @@ export default function ContactsClient({
                                     className="w-full px-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text outline-none transition-shadow motion-reduce:transition-none hover:border-pulse-border-strong focus-visible:ring-2 focus-visible:ring-indigo-500 resize-none"
                                 />
                             </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs font-medium text-pulse-muted mb-1.5">Additional fields</label>
+                                <p className="text-xs text-pulse-faint mb-2">For anything that doesn&apos;t fit above — VAT, BRN, address, a second email. Your agent adds these automatically when it finds them.</p>
+                                <div className="space-y-2">
+                                    {form.customFields.map((f, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <input
+                                                aria-label="Field name"
+                                                placeholder="Field (e.g. BRN)"
+                                                value={f.label}
+                                                onChange={(e) => setForm((s) => ({ ...s, customFields: s.customFields.map((c, k) => k === i ? { ...c, label: e.target.value } : c) }))}
+                                                className="w-40 shrink-0 px-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                            />
+                                            <input
+                                                aria-label="Field value"
+                                                placeholder="Value"
+                                                value={f.value}
+                                                onChange={(e) => setForm((s) => ({ ...s, customFields: s.customFields.map((c, k) => k === i ? { ...c, value: e.target.value } : c) }))}
+                                                className="flex-1 px-3 py-2 text-sm rounded-lg border border-pulse-border bg-pulse-panel text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                            />
+                                            <button type="button" aria-label="Remove field" onClick={() => setForm((s) => ({ ...s, customFields: s.customFields.filter((_, k) => k !== i) }))}
+                                                className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text">×</button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button type="button" onClick={() => setForm((s) => ({ ...s, customFields: [...s.customFields, { label: "", value: "" }] }))}
+                                    className="mt-2 text-sm font-medium text-pulse-accent hover:text-pulse-accent-hi">+ Add field</button>
+                            </div>
                         </div>
                         {formError && (
                             <div className="px-4 pb-2">
@@ -367,7 +398,18 @@ export default function ContactsClient({
                                     const busy = !!busyRows[contact.id];
                                     return (
                                         <tr key={contact.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
-                                            <td className="px-4 py-3 align-top font-medium text-pulse-text">{contact.name}</td>
+                                            <td className="px-4 py-3 align-top font-medium text-pulse-text">
+                                                {contact.name}
+                                                {contact.customFields.length > 0 && (
+                                                    <div className="mt-1 flex flex-wrap gap-1">
+                                                        {contact.customFields.map((f, i) => (
+                                                            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-pulse-panel-alt border border-pulse-border-subtle px-1.5 py-0.5 text-[11px] font-normal text-pulse-soft">
+                                                                <span className="text-pulse-faint">{f.label}:</span> {f.value}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3 align-top text-pulse-soft">{contact.email || <span className="text-pulse-faint">—</span>}</td>
                                             <td className="px-4 py-3 align-top text-pulse-soft">{contact.phone || <span className="text-pulse-faint">—</span>}</td>
                                             <td className="px-4 py-3 align-top text-pulse-soft">{contact.company || <span className="text-pulse-faint">—</span>}</td>
