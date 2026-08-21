@@ -53,7 +53,7 @@ export const CONSEQUENTIAL_TOOLS = new Set<string>([
 // descriptive prose about third parties ("the Act was updated"), or offers
 // ("want me to save this?"), which are not completion claims and were causing
 // the gate to fire (and rewrite) on ordinary research/advisory answers.
-const COMPLETION_RE = /\bI(?:['’]ve| have| just| already| now)*\s+(?:successfully\s+)?(?:created|sent|saved?|configured|set\s+up|updated?|deleted?|removed?|booked|scheduled?|filled(?:\s+(?:in|out))?|attached?|added|posted?|submitted?|uploaded?|shared?|issued?|generated?|logged|recorded?|assigned?|moved|flagged?|marked?)\b|(?:^|[.!?]\s+)(?:done|all set|all done)\b/i;
+const COMPLETION_RE = /\bI(?:['’]ve| have| just| already| now)*\s+(?:successfully\s+)?(?:created|sent|saved?|configured|set\s+up|updated?|deleted?|removed?|booked|scheduled?|filled(?:\s+(?:in|out))?|attached?|added|posted?|submitted?|uploaded?|shared?|issued?|generated?|logged|recorded?|assigned?|moved|flagged?|marked?)\b|(?:^|[.!?]\s+)(?:done|all set|all done)\b|(?:^|\n|[.!?]\s+)\s*(?:confirmed\s+)?(?:saved|added|created|updated|deleted|removed|sent|scheduled|booked|uploaded|shared|posted|submitted|logged|recorded|assigned|filled)\b/i;
 
 /** Does the reply assert that an action was carried out? (cheap pre-filter) */
 export function claimsCompletion(reply: string): boolean {

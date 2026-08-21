@@ -165,17 +165,39 @@ export const contactSaveTool: Tool = {
         const match = await db.select({ id: contacts.id, metadata: contacts.metadata }).from(contacts)
             .where(and(eq(contacts.tenantId, tenantId), vals.email ? eq(contacts.email, vals.email) : eq(contacts.name, name)))
             .limit(1);
-        if (match[0]) {
-            const prevMeta = (match[0].metadata as Record<string, any>) || {};
-            const mergedCf = { ...(prevMeta.customFields || {}), ...cf };
-            const metadata = { ...prevMeta, ...(Object.keys(mergedCf).length ? { customFields: mergedCf } : {}) };
-            await db.update(contacts).set({ ...vals, metadata, updatedAt: new Date() }).where(eq(contacts.id, match[0].id));
-            const added = Object.keys(cf);
-            return { result: `Updated contact: ${name}.${added.length ? ` Fields: ${added.join(", ")}.` : ""}` };
+        let savedId: string;
+        let verb: string;
+        try {
+            if (match[0]) {
+                const prevMeta = (match[0].metadata as Record<string, any>) || {};
+                const mergedCf = { ...(prevMeta.customFields || {}), ...cf };
+                const metadata = { ...prevMeta, ...(Object.keys(mergedCf).length ? { customFields: mergedCf } : {}) };
+                await db.update(contacts).set({ ...vals, metadata, updatedAt: new Date() }).where(eq(contacts.id, match[0].id));
+                savedId = match[0].id; verb = "Updated";
+            } else {
+                const metadata = Object.keys(cf).length ? { customFields: cf } : {};
+                const [ins] = await db.insert(contacts).values({ tenantId, ...vals, metadata }).returning({ id: contacts.id });
+                savedId = ins.id; verb = "Saved";
+            }
+        } catch (err: any) {
+            return { result: `FAILED to save contact "${name}": ${err?.message || "database error"}. Nothing was stored — tell the user it did NOT save.` };
         }
-        const metadata = Object.keys(cf).length ? { customFields: cf } : {};
-        await db.insert(contacts).values({ tenantId, ...vals, metadata });
-        return { result: `Saved contact: ${name}.${Object.keys(cf).length ? ` Fields: ${Object.keys(cf).join(", ")}.` : ""}` };
+
+        // Read-after-write RECEIPT: re-read the row so "saved" is proven, not assumed.
+        const [row] = await db.select().from(contacts)
+            .where(and(eq(contacts.id, savedId), eq(contacts.tenantId, tenantId))).limit(1);
+        if (!row) {
+            return { result: `FAILED: contact "${name}" did not persist (not found on read-back). Tell the user it did NOT save.` };
+        }
+        const stored: string[] = [];
+        if (row.name) stored.push(`name: ${row.name}`);
+        if (row.email) stored.push(`email: ${row.email}`);
+        if (row.phone) stored.push(`phone: ${row.phone}`);
+        if (row.company) stored.push(`company: ${row.company}`);
+        if (row.title) stored.push(`title: ${row.title}`);
+        for (const [k, v] of Object.entries(((row.metadata as any)?.customFields as Record<string, string>) || {})) stored.push(`${k}: ${v}`);
+        if (row.notes) stored.push(`notes: ${row.notes}`);
+        return { result: `RECEIPT — ${verb} contact (id ${savedId}). Verified stored in the address book:\n${stored.map((s) => "  • " + s).join("\n")}\nThis is confirmed persisted; report exactly these stored values.` };
     },
 };
 

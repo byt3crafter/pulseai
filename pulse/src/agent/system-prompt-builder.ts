@@ -275,6 +275,20 @@ function buildWebSearchUseSection(tools: ToolInfo[]): string[] {
     ];
 }
 
+/** Never claim an action happened without a tool receipt confirming it. */
+function buildToolReceiptsSection(): string[] {
+    return [
+        "## Confirm actions only with a tool receipt",
+        "When you save, create, update, delete, send, book, or otherwise CHANGE something, you must actually call the " +
+        "tool and wait for its result. Only tell the user it succeeded when the tool returns a success/receipt. Many tools " +
+        "return a RECEIPT with the stored values or an id — report exactly what the receipt says, nothing more.",
+        "NEVER say \"Saved\", \"Done\", \"Confirmed\", or show a table of \"saved\" values unless a tool call in THIS turn " +
+        "returned success for it. If you did not call the tool, or it returned an error/FAILED, say plainly that it did NOT " +
+        "happen and try again — do not fabricate success. If a tool result starts with FAILED, tell the user it did not save.",
+        "",
+    ];
+}
+
 /** Read the user charitably: fix obvious typos of known names, confirm if unsure. */
 function buildInterpretationSection(): string[] {
     return [
@@ -591,6 +605,7 @@ export function buildAgentSystemPrompt(params: SystemPromptParams): string {
 
     // 5.6. Work tracking + capability suggestions — full mode only
     if (!isMinimal) {
+        lines.push(...buildToolReceiptsSection());
         lines.push(...buildInterpretationSection());
         lines.push(...buildWebSearchUseSection(params.enabledTools));
         lines.push(...buildComputationSection(params.enabledTools));
