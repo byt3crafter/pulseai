@@ -25,41 +25,44 @@
       <button id="advToggle" class="link">Server settings</button>
       <div id="adv" hidden>
         <label>Gateway URL</label>
-        <input id="server" type="text" placeholder="https://pulse.runstate.mu:8082" />
+        <input id="server" type="text" placeholder="https://pulse.runstate.mu/api/gateway" />
       </div>
     </div>
     <p class="foot">Pulse Desktop <span id="ver"></span></p>
   </div>
 
-  <!-- Chat -->
+  <!-- Assistant -->
   <div id="app" class="app-wrap" hidden>
-    <aside class="sidebar">
-      <div class="brand small"><span class="logo">P</span><span id="brandName2">Pulse</span></div>
-      <div id="channelSection" hidden>
-        <div class="agents-label">Departments</div>
-        <div id="channelList" class="agent-list"></div>
+    <aside class="rail">
+      <button id="newChat" class="new-chat">+ New chat</button>
+      <div id="sessionList" class="session-list"></div>
+      <div class="rail-foot">
+        <span id="userName" class="uname"></span>
+        <button id="logout" class="link">Sign out</button>
       </div>
-      <div id="agentSection" hidden>
-        <div class="agents-label">Direct</div>
-        <div id="agentList" class="agent-list"></div>
-      </div>
-      <div class="spacer"></div>
-      <div class="user-row"><span id="userName" class="uname"></span><button id="logout" class="link">Sign out</button></div>
     </aside>
     <main class="chat">
       <header class="chat-head">
-        <span id="activeAgent">Select a conversation</span>
-        <span id="headSub" class="head-sub"></span>
+        <div id="connDot" class="conn-dot" title="Connecting…"></div>
+        <select id="agentSelect" class="agent-select"></select>
       </header>
       <div id="messages" class="messages"></div>
-      <div id="readonlyBar" class="readonly-bar" hidden>You have read-only access here — you can read but not send messages.</div>
-      <form id="composer" class="composer">
-        <textarea id="input" rows="1" placeholder="Message… (use @Name to address a specific agent)"></textarea>
-        <button id="send" type="submit">Send</button>
-      </form>
+      <div id="composer" class="composer-wrap">
+        <div id="dropHint" class="drop-hint" hidden>Drop files to attach</div>
+        <div id="fileChips" class="file-chips"></div>
+        <textarea id="input" rows="1" placeholder="Message your assistant…  (use @Name to address an agent)"></textarea>
+        <div class="composer-bar">
+          <div class="flex-spacer"></div>
+          <button id="attach" class="icon-btn" title="Attach files (or drag & drop)">📎</button>
+          <input id="fileInput" type="file" multiple hidden />
+          <button id="send" class="send-btn" title="Send">↑</button>
+        </div>
+      </div>
     </main>
   </div>
 
+  <script src="vendor/marked.umd.js"></script>
+  <script src="vendor/purify.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

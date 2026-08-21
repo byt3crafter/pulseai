@@ -8,10 +8,10 @@
  */
 import { FastifyPluginAsync, FastifyRequest } from "fastify";
 import bcrypt from "bcryptjs";
-import { eq, and, desc } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { eq, and, asc, desc, like } from "drizzle-orm";
+import { randomUUID, randomBytes, createHash } from "crypto";
 import { db } from "../../storage/db.js";
-import { users, agentProfiles, conversations, messages } from "../../storage/schema.js";
+import { users, agentProfiles, conversations, messages, apiTokens } from "../../storage/schema.js";
 import { decrypt } from "../../utils/crypto.js";
 import { checkSecondFactor } from "../../utils/totp.js";
 import { signAppToken, verifyAppToken, AppTokenPayload } from "../app-token.js";
@@ -244,5 +244,81 @@ export const appApiRoutes: FastifyPluginAsync = async (fastify) => {
             agent: { id: responder.agentProfileId, name: responder.name },
             viaMention: responder.viaMention,
         });
+    });
+
+    // ── Streaming assistant (desktop client parity with the web assistant) ──
+    // The desktop connects to the gateway /ws for live streaming, but /ws auths
+    // against the apiTokens table, not the app JWT. Mint a short-lived chat token
+    // for the signed-in user (mirrors the dashboard's getChatTokenAction).
+    const WEBCHAT_TOKEN_NAME = "__desktopchat__";
+    fastify.post("/api/app/chat-token", async (request, reply) => {
+        const auth = await requireApp(request, reply); if (!auth) return;
+        try {
+            await db.delete(apiTokens).where(and(eq(apiTokens.tenantId, auth.tid!), eq(apiTokens.name, WEBCHAT_TOKEN_NAME)));
+            const rawToken = `pulse-sk-${randomBytes(32).toString("hex")}`;
+            const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+            await db.insert(apiTokens).values({
+                tenantId: auth.tid!,
+                tokenHash,
+                name: WEBCHAT_TOKEN_NAME,
+                scopes: ["chat"],
+                expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
+            });
+            return reply.send({ token: rawToken });
+        } catch (err) {
+            logger.error({ err, tenantId: auth.tid }, "Failed to mint desktop chat token");
+            return reply.code(500).send({ error: "Could not start the assistant session." });
+        }
+    });
+
+    // Per-agent conversation scoping shared with the web assistant.
+    const scopePrefix = (tid: string, agentId: string, shared: boolean) => `web-${tid}-${shared ? "shared" : (agentId || "default")}`;
+    const contactFromSession = (tid: string, agentId: string, shared: boolean, sessionId: string) => {
+        const base = scopePrefix(tid, agentId, shared);
+        return sessionId ? `${base}-${sessionId}` : base;
+    };
+
+    // List an agent's chat sessions (or the shared room's), most-recent first.
+    fastify.get("/api/app/assistant/sessions", async (request, reply) => {
+        const auth = await requireApp(request, reply); if (!auth) return;
+        const q = (request.query || {}) as { agentId?: string; shared?: string };
+        const shared = q.shared === "1" || q.shared === "true";
+        const agentId = (q.agentId || "").trim();
+        const convs = await db
+            .select({ id: conversations.id, contactId: conversations.channelContactId, title: conversations.contactName, updatedAt: conversations.updatedAt, metadata: conversations.metadata })
+            .from(conversations)
+            .where(and(eq(conversations.tenantId, auth.tid!), eq(conversations.channelType, "webapp"), like(conversations.channelContactId, `${scopePrefix(auth.tid!, agentId, shared)}%`)))
+            .orderBy(desc(conversations.updatedAt)).limit(100);
+        const base = scopePrefix(auth.tid!, agentId, shared);
+        const out: any[] = [];
+        for (const c of convs) {
+            const firstUser = await db.select({ content: messages.content }).from(messages)
+                .where(and(eq(messages.conversationId, c.id), eq(messages.role, "user"))).orderBy(asc(messages.createdAt)).limit(1);
+            const lastMsg = await db.select({ content: messages.content }).from(messages)
+                .where(eq(messages.conversationId, c.id)).orderBy(desc(messages.createdAt)).limit(1);
+            if (!lastMsg[0]) continue;
+            const sessionId = c.contactId === base ? "" : (c.contactId.startsWith(base + "-") ? c.contactId.slice(base.length + 1) : "");
+            out.push({
+                sessionId,
+                title: (c.title && c.title.trim()) || (firstUser[0]?.content || "New chat").replace(/\s+/g, " ").slice(0, 60),
+                updatedAt: c.updatedAt?.toISOString() ?? new Date(0).toISOString(),
+                preview: (lastMsg[0]?.content || "").replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, "").replace(/<\/?think(?:ing)?>/gi, "").trim().slice(0, 80),
+            });
+        }
+        return reply.send({ sessions: out });
+    });
+
+    // Load one session's messages (user + assistant), carrying the sending agent.
+    fastify.get("/api/app/assistant/history", async (request, reply) => {
+        const auth = await requireApp(request, reply); if (!auth) return;
+        const q = (request.query || {}) as { agentId?: string; sessionId?: string; shared?: string };
+        const shared = q.shared === "1" || q.shared === "true";
+        const contactId = contactFromSession(auth.tid!, (q.agentId || "").trim(), shared, (q.sessionId || "").slice(0, 64));
+        const [conv] = await db.select({ id: conversations.id }).from(conversations)
+            .where(and(eq(conversations.tenantId, auth.tid!), eq(conversations.channelType, "webapp"), eq(conversations.channelContactId, contactId))).limit(1);
+        if (!conv) return reply.send({ messages: [] });
+        const rows = await db.select({ role: messages.role, content: messages.content, senderAgentId: messages.senderAgentId })
+            .from(messages).where(eq(messages.conversationId, conv.id)).orderBy(asc(messages.createdAt)).limit(500);
+        return reply.send({ messages: rows.filter((m) => m.role === "user" || m.role === "assistant").map((m) => ({ role: m.role, content: m.content, agentProfileId: m.senderAgentId ?? null })) });
     });
 };
