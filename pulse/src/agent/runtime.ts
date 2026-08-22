@@ -57,14 +57,18 @@ export function routeModel(
     if (!t) return cap("empty");
     if (opts.hasAttachments) return cap("attachment");
     if (/```|https?:\/\//i.test(t)) return cap("code/url");
+    if (t.includes("?")) return cap("a question");
+
+    // WHITELIST routing: only clearly-trivial small talk (any language) goes to the
+    // fast model. Everything else — questions, follow-ups ("Explication", "why"),
+    // tasks, and anything non-English — stays on the capable model, because a weak
+    // model must never handle something that might need tools or prior context.
+    // (A keyword blocklist leaked: short/French/ambiguous turns were misrouted and the
+    // weak model confabulated. Whitelisting is the safe default.)
     const words = t.split(/\s+/).filter(Boolean).length;
-    if (words > 50 || t.length > 320) return cap("long message");
-    // Action / complexity intent → capable. Broad on purpose: misrouting a real task to
-    // a weak model costs more (retries, failed tool calls) than an occasional over-route.
-    const complexRe = /\b(analy|compar|plan|debug|refactor|calculat|summar|research|review|draft|translat|schedul|remind|restart|deploy|execut|search|find|fetch|list|show|email|invoice|report|order|book|migrat|configur|troubleshoot|diagnos|investigat|explain|write|create|update|delete|send|run|check|why|how)/i;
-    if (complexRe.test(t)) return cap("action/complex intent");
-    if (opts.hasTools && words > 8) return cap("tools + non-trivial");
-    return { modelId: opts.fastModel, reason: "fast: short tool-free turn" };
+    const TRIVIAL = /^(hi+|hey+|hello+|yo|sup|hiya|thanks?|thank you|thx|ty|okay?|k|kk|cool|nice|great|awesome|perfect|got it|gotcha|noted|understood|yes|no|yep|nope|yeah|bye|goodbye|good ?(morning|afternoon|evening|night|day)|cheers|salut|bonjour|bonsoir|coucou|merci( beaucoup)?|mersi|correc|nickel|super|bien|ok merci|👍|🙏|😊|🎉)[\s.!…]*$/i;
+    if (words <= 5 && TRIVIAL.test(t)) return { modelId: opts.fastModel, reason: "fast: greeting/ack" };
+    return cap("non-trivial (whitelist)");
 }
 
 interface AutoMemoryConfig {
