@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.2] - 2026-08-22
+
+### Features
+- agent knows WHICH user is talking in browser chat
+
+### Bug Fixes
+- fleet-update actually swaps the version (force-recreate + verify)
+
 ## [0.19.1] - 2026-08-22
 
 ### Features
