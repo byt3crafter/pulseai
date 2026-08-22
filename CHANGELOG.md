@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.4] - 2026-08-22
+
+### Features
+- @-mention autocomplete picker in composer
+
+### Bug Fixes
+- fleet-update retries the restart until the target tag is actually running
+
 ## [0.19.3] - 2026-08-22
 
 ### Features
