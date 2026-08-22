@@ -3,6 +3,15 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.1] - 2026-08-22
+
+### Features
+- point fleet at the private runstate registry (registry.runstate.mu)
+- check for updates against a runstate-hosted manifest (no GitHub token)
+
+### Bug Fixes
+- safe whitelist model routing + no false disavowal of real data
+
 ## [0.19.0] - 2026-08-22
 
 ### Features
