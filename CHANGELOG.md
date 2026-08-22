@@ -3,6 +3,12 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.0] - 2026-08-22
+
+### Features
+- in-app update notification banner
+- fleet update system — build once (GHCR), pull on every client VPS
+
 ## [0.18.3] - 2026-08-22
 
 ### Bug Fixes
