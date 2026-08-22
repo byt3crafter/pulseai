@@ -90,6 +90,9 @@ export default function AssistantClient({
     const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
     const [sessionId, setSessionId] = useState<string>(initialSessionId || newSessionId());
     const [input, setInput] = useState("");
+    // @-mention autocomplete: when the user types "@…", offer the agent list.
+    const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
+    const [mentionIdx, setMentionIdx] = useState(0);
     // The last message the user sent — Esc in an empty composer restores it (undo
     // a mistaken send so it can be fixed and re-sent).
     const [lastSent, setLastSent] = useState("");
@@ -143,6 +146,9 @@ export default function AssistantClient({
     sessionRef.current = sessionId;
 
     const activeAgent = agents.find((a) => a.id === agentId) ?? agents[0];
+    const mentionMatches = mention
+        ? agents.filter((a) => a.name.toLowerCase().includes(mention.query.toLowerCase())).slice(0, 6)
+        : [];
     // Who to show as the sender of an assistant message. In the shared room a thread
     // holds replies from several agents, so attribute each message to the agent that
     // actually sent it; in separate mode the whole thread is the selected agent.
@@ -324,6 +330,29 @@ export default function AssistantClient({
         }
     }
     const removeFile = (id: string) => setPendingFiles((prev) => prev.filter((f) => f.id !== id));
+
+    // Detect an "@partial" token just before the caret and offer matching agents.
+    function refreshMention() {
+        const el = inputRef.current;
+        if (!el || agents.length < 2) { setMention(null); return; }
+        const pos = el.selectionStart ?? el.value.length;
+        const m = /(?:^|\s)@([\w-]*)$/.exec(el.value.slice(0, pos));
+        if (m) { setMention({ query: m[1], start: pos - m[1].length - 1 }); setMentionIdx(0); }
+        else setMention(null);
+    }
+    function pickMention(agent: AgentOpt) {
+        if (!mention) return;
+        const el = inputRef.current;
+        const pos = el?.selectionStart ?? input.length;
+        const before = input.slice(0, mention.start);
+        const inserted = `@${agent.name} `;
+        setInput(before + inserted + input.slice(pos));
+        setMention(null);
+        requestAnimationFrame(() => {
+            const e2 = inputRef.current;
+            if (e2) { const caret = before.length + inserted.length; e2.focus(); e2.setSelectionRange(caret, caret); autoGrow(); }
+        });
+    }
 
     async function send() {
         const text = input.trim();
@@ -781,11 +810,35 @@ export default function AssistantClient({
                                     ))}
                                 </div>
                             )}
+                            {mention && mentionMatches.length > 0 && (
+                                <div className="absolute bottom-full left-3 z-30 mb-2 w-64 overflow-hidden rounded-xl border border-pulse-border bg-pulse-panel shadow-lg">
+                                    <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-pulse-faint">Direct to agent</p>
+                                    {mentionMatches.map((a, i) => (
+                                        <button key={a.id} type="button" onMouseDown={(e) => { e.preventDefault(); pickMention(a); }}
+                                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${i === mentionIdx ? "bg-pulse-tint text-pulse-accent-hi" : "text-pulse-text-soft hover:bg-pulse-hover"}`}>
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi">
+                                                {a.avatar ? <img src={a.avatar} alt="" className="h-full w-full object-cover" /> : (a.name[0] ?? "A")}
+                                            </span>
+                                            <span className="truncate">{a.name}</span>
+                                            {a.title && <span className="ml-auto truncate text-xs text-pulse-faint">{a.title}</span>}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <textarea
                                 ref={inputRef}
                                 value={input}
-                                onChange={(e) => { setInput(e.target.value); autoGrow(); }}
+                                onChange={(e) => { setInput(e.target.value); autoGrow(); refreshMention(); }}
+                                onClick={refreshMention}
+                                onKeyUp={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") refreshMention(); }}
                                 onKeyDown={(e) => {
+                                    // @-mention picker navigation takes priority over send.
+                                    if (mention && mentionMatches.length > 0) {
+                                        if (e.key === "ArrowDown") { e.preventDefault(); setMentionIdx((i) => Math.min(i + 1, mentionMatches.length - 1)); return; }
+                                        if (e.key === "ArrowUp") { e.preventDefault(); setMentionIdx((i) => Math.max(i - 1, 0)); return; }
+                                        if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pickMention(mentionMatches[mentionIdx]); return; }
+                                        if (e.key === "Escape") { e.preventDefault(); setMention(null); return; }
+                                    }
                                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
                                     // Esc in an empty box brings back your last sent message to fix + resend.
                                     else if (e.key === "Escape" && !input.trim() && lastSent) {
