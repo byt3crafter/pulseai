@@ -112,6 +112,8 @@ services:
     build:
       context: .
       dockerfile: ./dashboard/Dockerfile
+      args:
+        BUILD_VERSION: ${PULSE_VERSION:-dev}
     container_name: pulse-dashboard
     restart: always
     depends_on:
