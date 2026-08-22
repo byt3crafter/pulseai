@@ -1,0 +1,19 @@
+# Pulse client fleet — one line per deployment. Used by scripts/fleet-update.sh.
+# Columns (pipe-separated):
+#
+#   name | ssh_host | project_path | compose_override | domain | group
+#
+#   name             short label for logs
+#   ssh_host         SSH target (an ~/.ssh/config alias or user@host)
+#   project_path     where the compose stack lives on that box
+#   compose_override the per-client override file (config differs, image doesn't)
+#   domain           public domain, used for the post-update health check
+#   group            free tag for staged rollout (e.g. canary / prod / eu)
+#
+# Lines starting with # are ignored. Keep this file private — it lists your fleet.
+
+runstate | pulse-vps     | /opt/pulse-ai       | docker-compose.prod.yml     | pulse.runstate.mu | canary
+metcheck | metcheck-vps  | /opt/pulse-metcheck | docker-compose.metcheck.yml | ai.metcheck.co.bw | prod
+
+# Add the other 8 clients here as you onboard them, e.g.:
+# clientx  | clientx-vps  | /opt/pulse-clientx  | docker-compose.clientx.yml  | ai.clientx.com    | prod

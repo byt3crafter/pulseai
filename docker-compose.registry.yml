@@ -1,0 +1,18 @@
+# Registry overlay — makes a box PULL pre-built images instead of compiling from
+# source. Use it in place of building:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml \
+#       -f docker-compose.<client>.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml \
+#       -f docker-compose.<client>.yml up -d
+#
+# PULSE_IMAGE_OWNER + PULSE_VERSION come from the box's .env. Because `image:` is
+# set and we never pass `--build`, the base file's `build:` is ignored.
+services:
+  pulse-gateway:
+    image: ghcr.io/${PULSE_IMAGE_OWNER:-byt3crafter}/pulse-gateway:${PULSE_VERSION:-latest}
+    pull_policy: always
+
+  pulse-dashboard:
+    image: ghcr.io/${PULSE_IMAGE_OWNER:-byt3crafter}/pulse-dashboard:${PULSE_VERSION:-latest}
+    pull_policy: always
