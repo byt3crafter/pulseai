@@ -6,9 +6,10 @@
 
 import { Tool } from "../tool.interface.js";
 import {
-    resolveEmailConfig, sendEmail, readEmails, readUnreadEmails,
+    resolveEmailConfig, sendEmail, readEmails, readUnreadEmails, readEmailAttachments,
     searchEmails, getReplyContext, setMessageFlag, moveMessage, deleteMessage, listFolders, saveDraft,
 } from "../../../channels/email/email-service.js";
+import { processAttachments } from "../../../gateway/attachment-extractor.js";
 
 export const emailSendTool: Tool = {
     name: "email_send",
@@ -163,6 +164,43 @@ export const emailReadTool: Tool = {
             };
         } catch (err: any) {
             return { result: `Error reading emails: ${err.message}` };
+        }
+    },
+};
+
+export const emailReadAttachmentTool: Tool = {
+    name: "email_read_attachment",
+    description:
+        "Open and READ the file attachments on an email (by its uid) and return their extracted text — " +
+        "invoices, quotes, statements as PDF, plus Excel/CSV, Word, and text files. Use this after " +
+        "email_read / email_search / email_fetch_unread when the user wants the CONTENTS of an attached " +
+        "document (e.g. \"read the invoice attached to that email and extract the company details\"). " +
+        "Scanned-image attachments can't be read as text (no OCR) — you'll only get a note that an image is present.",
+    parameters: {
+        type: "object",
+        properties: {
+            uid: { type: "number", description: "The email's uid (from email_read / email_search / email_fetch_unread)." },
+            folder: { type: "string", description: "Mailbox folder the email is in (default: INBOX)." },
+        },
+        required: ["uid"],
+    },
+    async execute(params) {
+        const agentId = params.args._agentId;
+        if (!agentId) return { result: "Error: No agent profile ID available for email config resolution." };
+        const config = await resolveEmailConfig(params.tenantId, agentId);
+        if (!config?.imap) return { result: "Error: No email (IMAP) configuration found. Please configure email in the dashboard settings." };
+        const uid = Number(params.args.uid);
+        if (!Number.isFinite(uid)) return { result: "Provide the email's uid (from a prior email_read/email_search)." };
+        const folder = typeof params.args.folder === "string" && params.args.folder.trim() ? params.args.folder.trim() : "INBOX";
+        try {
+            const atts = await readEmailAttachments(config.imap, uid, folder);
+            if (atts.length === 0) return { result: `That email (uid ${uid}) has no file attachments. If the document is in the email BODY, use email_read to get the text.` };
+            const { contextText } = await processAttachments(
+                atts.map((a) => ({ name: a.filename, mime: a.mime, dataBase64: a.buffer.toString("base64") }))
+            );
+            return { result: `Attachments on email uid ${uid} (${atts.map((a) => a.filename).join(", ")}):\n\n${contextText}` };
+        } catch (err: any) {
+            return { result: `Error reading attachments: ${err.message}` };
         }
     },
 };
