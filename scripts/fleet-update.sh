@@ -131,7 +131,13 @@ if [ "${DO_MIGRATE}" = 1 ]; then
 fi
 
 echo "  restarting…"
-${COMPOSE} up -d --force-recreate pulse-gateway pulse-dashboard
+# Recreate, and retry until the gateway is actually running the target tag — a single
+# up -d occasionally doesn't swap the image (compose reusing the running container).
+for _k in 1 2 3; do
+  ${COMPOSE} up -d --force-recreate pulse-gateway pulse-dashboard
+  case "\$(docker inspect pulse-gateway --format '{{.Config.Image}}' 2>/dev/null)" in *:${IMG_VER}) break ;; esac
+  sleep 4
+done
 REMOTE
     rc=$?
     set -e
