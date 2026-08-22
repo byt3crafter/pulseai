@@ -72,6 +72,20 @@ docker compose -f docker-compose.yml -f docker-compose.registry.yml -f docker-co
    (a fresh box runs **all** migrations automatically — do NOT `--seed`).
 4. Add it to `fleet.hosts`.
 
+## In-app update banner
+
+The admin console shows the running version and an **"Update available"** banner when a
+newer release exists (checked hourly against GitHub Releases, cached, fail-safe). The
+current version is baked into the image at build (`BUILD_VERSION`→`APP_VERSION`). Because
+the repo is private, set a read-only token on each box's `.env` to enable the check:
+
+```
+UPDATE_CHECK_TOKEN=<github PAT with contents:read>   # required to enable the banner
+UPDATE_CHECK_REPO=byt3crafter/pulseai                # default; override if needed
+```
+
+Without the token the check is silently disabled (the version still shows, no banner).
+
 ## Reusing this for Manta and other apps
 
 The pattern is app-agnostic: give each app a `release.yml` (build→GHCR), a registry

@@ -22,6 +22,8 @@ FROM node:20-alpine AS runner
 
 ARG BUILD_VERSION=dev
 LABEL org.opencontainers.image.version=$BUILD_VERSION
+# Expose the build version to the running app (update-notification banner).
+ENV APP_VERSION=$BUILD_VERSION
 
 WORKDIR /app
 ENV NODE_ENV production

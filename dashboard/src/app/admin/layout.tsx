@@ -12,6 +12,8 @@ import { tenants } from "../../storage/schema";
 import { ui } from "../../components/admin/ui";
 import { getBranding, deploymentHost } from "../../utils/branding";
 import { accentOverrideCss } from "../../utils/accent";
+import { checkForUpdate } from "../../utils/version";
+import UpdateBanner from "../../components/admin/UpdateBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +28,11 @@ export default async function AdminLayout({
     const userName = session?.user?.name || "Admin";
     const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
-    const [status, tenantRows, branding] = await Promise.all([
+    const [status, tenantRows, branding, update] = await Promise.all([
         getAdminStatus(),
         db.select({ id: tenants.id, name: tenants.name }).from(tenants).orderBy(tenants.name).limit(200),
         getBranding(),
+        checkForUpdate(),
     ]);
     const envHost = deploymentHost();
 
@@ -65,6 +68,10 @@ export default async function AdminLayout({
                             <span className="text-pulse-text text-xs">PRODUCTION</span>
                         </div>
                         <p className="text-[11px] text-pulse-faint mt-0.5">{envHost}</p>
+                        <p className="text-[11px] text-pulse-faint mt-0.5">
+                            version {update.current}
+                            {update.updateAvailable && <span className="ml-1 text-amber-500">· {update.latest} available</span>}
+                        </p>
                     </div>
 
                     <div className="flex-1 overflow-y-auto mt-2">
@@ -102,6 +109,7 @@ export default async function AdminLayout({
                         </div>
                     </header>
 
+                    {update.updateAvailable && <UpdateBanner current={update.current} latest={update.latest} />}
                     <main className="flex-1 overflow-auto">{children}</main>
                 </div>
             </div>
