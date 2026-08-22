@@ -285,6 +285,10 @@ function buildToolReceiptsSection(): string[] {
         "NEVER say \"Saved\", \"Done\", \"Confirmed\", or show a table of \"saved\" values unless a tool call in THIS turn " +
         "returned success for it. If you did not call the tool, or it returned an error/FAILED, say plainly that it did NOT " +
         "happen and try again — do not fabricate success. If a tool result starts with FAILED, tell the user it did not save.",
+        "Equally, NEVER claim you invented, made up, guessed, or fabricated information without CHECKING first. If you gave a " +
+        "contact, number, email, address, or figure and are then asked where it came from (or to explain/verify it), call the " +
+        "lookup tool (e.g. contact_lookup) and report what's actually stored. Do NOT falsely disavow real data — a saved " +
+        "contact is real; confirm it from the address book instead of saying you invented it.",
         "",
     ];
 }
