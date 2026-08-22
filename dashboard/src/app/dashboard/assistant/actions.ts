@@ -2,7 +2,7 @@
 
 import { db } from "../../../storage/db";
 import { apiTokens, conversations, messages, usageRecords, agentRuns } from "../../../storage/schema";
-import { and, eq, asc, desc, like } from "drizzle-orm";
+import { and, eq, asc, desc, like, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { logAudit } from "../../../utils/audit";
@@ -19,13 +19,21 @@ export async function getChatTokenAction() {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return { ok: false as const, message: tenantCheck.message };
     const tenantId = tenantCheck.tenantId;
+    const userId = tenantCheck.userId;
 
     try {
-        await db.delete(apiTokens).where(and(eq(apiTokens.tenantId, tenantId), eq(apiTokens.name, WEBCHAT_TOKEN_NAME)));
+        // Per-user token so the agent knows exactly who is talking. Only replace THIS
+        // user's own token (don't clobber other signed-in team members'), and sweep any
+        // legacy tenant-level webchat token.
+        await db.delete(apiTokens).where(and(
+            eq(apiTokens.tenantId, tenantId), eq(apiTokens.name, WEBCHAT_TOKEN_NAME),
+            or(eq(apiTokens.userId, userId), isNull(apiTokens.userId)),
+        ));
         const rawToken = `pulse-sk-${crypto.randomBytes(32).toString("hex")}`;
         const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
         await db.insert(apiTokens).values({
             tenantId,
+            userId,
             tokenHash,
             name: WEBCHAT_TOKEN_NAME,
             scopes: ["chat"],
