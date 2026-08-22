@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.3] - 2026-08-22
+
+### Features
+- agent can read email attachments (invoices/quotes) and extract them
+
+### Bug Fixes
+- drop drizzle .references() on api_tokens.user_id (circular inference)
+
 ## [0.19.2] - 2026-08-22
 
 ### Features
