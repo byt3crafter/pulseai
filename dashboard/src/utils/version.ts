@@ -8,6 +8,10 @@
  * banner shows (fail-safe: an update check must never break the dashboard).
  */
 
+// Preferred: a runstate-hosted manifest so client boxes check runstate, not GitHub,
+// and need no GitHub token. The manifest is a tiny public JSON: {"version":"0.19.0"}.
+const MANIFEST_URL = process.env.UPDATE_CHECK_URL || "https://pulse.runstate.mu/pulse-version.json";
+// Fallback: GitHub Releases (private repo → needs a token; usually left unset on boxes).
 const REPO = process.env.UPDATE_CHECK_REPO || "byt3crafter/pulseai";
 const TOKEN = process.env.UPDATE_CHECK_TOKEN || "";
 const TTL_MS = 60 * 60 * 1000; // 1h
@@ -33,9 +37,22 @@ function isNewer(a: string, b: string): boolean {
 
 let cache: { at: number; latest: string } | null = null;
 
+async function fetchFromManifest(): Promise<string> {
+    if (!MANIFEST_URL) return "";
+    try {
+        const res = await fetch(MANIFEST_URL, { cache: "no-store", signal: AbortSignal.timeout(6000) });
+        if (!res.ok) return "";
+        const data = await res.json().catch(() => ({}));
+        return String(data?.version || data?.latest || "").trim();
+    } catch { return ""; }
+}
+
 async function fetchLatest(): Promise<string> {
-    if (!TOKEN) return ""; // check disabled until a read-only token is configured
     if (cache && Date.now() - cache.at < TTL_MS) return cache.latest;
+    // Prefer the runstate manifest; fall back to GitHub only if a token is set.
+    const fromManifest = await fetchFromManifest();
+    if (fromManifest) { cache = { at: Date.now(), latest: fromManifest }; return fromManifest; }
+    if (!TOKEN) { cache = { at: Date.now(), latest: cache?.latest || "" }; return cache.latest; }
     try {
         const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
             headers: { Authorization: `Bearer ${TOKEN}`, Accept: "application/vnd.github+json", "User-Agent": "pulse-update-check" },
