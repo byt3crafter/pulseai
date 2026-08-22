@@ -131,19 +131,25 @@ if [ "${DO_MIGRATE}" = 1 ]; then
 fi
 
 echo "  restarting…"
-${COMPOSE} up -d pulse-gateway pulse-dashboard
+${COMPOSE} up -d --force-recreate pulse-gateway pulse-dashboard
 REMOTE
     rc=$?
     set -e
 
-    # Health check the client's real domain (gateway health via the proxy, then the app).
+    # Verify the box is ACTUALLY running the target version (a domain 2xx alone would
+    # pass on the old version), then health-check the client's real domain.
     ok=0
     if [ $rc -eq 0 ]; then
-        for i in $(seq 1 12); do
-            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 "https://${domain}/dashboard" || echo 000)"
-            case "$code" in 2*|3*) ok=1; break ;; esac
-            sleep 5
-        done
+        running="$(ssh "$host" "docker inspect pulse-gateway --format '{{.Config.Image}}'" 2>/dev/null || echo '')"
+        if [[ "$running" == *":${IMG_VER}" ]]; then
+            for i in $(seq 1 12); do
+                code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 "https://${domain}/dashboard" || echo 000)"
+                case "$code" in 2*|3*) ok=1; break ;; esac
+                sleep 5
+            done
+        else
+            echo "  ✗ still running '${running}', not ${IMG_VER}"
+        fi
     fi
 
     if [ "$ok" = 1 ]; then
