@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.18.3] - 2026-08-22
+
+### Bug Fixes
+- calendar_add returns a write receipt (id) and fails loudly
+
 ## [0.18.2] - 2026-08-21
 
 ### Bug Fixes
