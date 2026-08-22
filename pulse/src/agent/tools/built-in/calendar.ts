@@ -49,14 +49,20 @@ export const calendarAddTool: Tool = {
         const startsAt = parseZonedDate(args?.start, tz);
         if (!startsAt) return { result: "Provide a valid start datetime (ISO 8601, e.g. 2026-08-12T15:00:00 — interpreted in the workspace timezone). Use get_current_time to resolve relative times." };
         const endsAt = parseZonedDate(args?.end, tz);
-        await db.insert(events).values({
-            tenantId, title, startsAt, endsAt: endsAt ?? undefined,
-            allDay: !!args?.all_day,
-            location: args?.location ? String(args.location) : null,
-            attendees: args?.attendees ? String(args.attendees) : null,
-            notes: args?.notes ? String(args.notes) : null,
-        });
-        return { result: `Added to the calendar: "${title}" on ${formatInTz(startsAt, tz)} (${tz}).` };
+        let saved;
+        try {
+            [saved] = await db.insert(events).values({
+                tenantId, title, startsAt, endsAt: endsAt ?? undefined,
+                allDay: !!args?.all_day,
+                location: args?.location ? String(args.location) : null,
+                attendees: args?.attendees ? String(args.attendees) : null,
+                notes: args?.notes ? String(args.notes) : null,
+            }).returning({ id: events.id });
+        } catch (err: any) {
+            return { result: `FAILED to add the event "${title}": ${err?.message || "database error"}. It was NOT added — tell the user.` };
+        }
+        if (!saved?.id) return { result: `FAILED: event "${title}" did not persist. Tell the user it was NOT added.` };
+        return { result: `Added to the calendar: "${title}" on ${formatInTz(startsAt, tz)} (${tz}) [id: ${saved.id}].` };
     },
 };
 
