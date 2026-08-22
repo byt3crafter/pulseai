@@ -27,7 +27,7 @@ import { taskCreateTool, taskUpdateTool, taskListTool, taskCompleteTool, taskDel
 import { documentListTool, documentSearchTool, documentReadTool, documentDeleteTool } from "./built-in/documents.js";
 import { pdfReadTool, pdfFormFieldsTool, pdfFillFormTool } from "./built-in/pdf.js";
 import {
-    emailSendTool, emailReadTool, emailListTool, emailFetchUnreadTool, emailDraftTool,
+    emailSendTool, emailReadTool, emailReadAttachmentTool, emailListTool, emailFetchUnreadTool, emailDraftTool,
     emailReplyTool, emailSearchTool, emailFlagTool, emailMoveTool, emailDeleteTool, emailFoldersTool,
 } from "./built-in/email.js";
 import { emailConfigureTool } from "./built-in/email-config.js";
@@ -139,6 +139,7 @@ export class ToolRegistry {
         this.builtInTools.set("email_send", emailSendTool);
         this.builtInTools.set("email_draft", emailDraftTool);
         this.builtInTools.set("email_read", emailReadTool);
+        this.builtInTools.set("email_read_attachment", emailReadAttachmentTool);
         this.builtInTools.set("email_list", emailListTool);
         this.builtInTools.set("email_fetch_unread", emailFetchUnreadTool);
         this.builtInTools.set("email_reply", emailReplyTool);

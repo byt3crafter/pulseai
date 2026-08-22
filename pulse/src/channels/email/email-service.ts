@@ -345,6 +345,63 @@ export async function readEmails(
     return emails.reverse(); // Most recent first
 }
 
+async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    for await (const c of stream) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c as any));
+    return Buffer.concat(chunks);
+}
+
+/**
+ * Download the file attachments of one email (by uid) so the agent can READ them —
+ * e.g. open an invoice/quote PDF attached to a supplier's email. Walks the message
+ * body structure for attachment parts and pulls each one's bytes. Extraction (PDF →
+ * text, etc.) happens in the caller via the shared attachment-extractor.
+ */
+export async function readEmailAttachments(
+    config: ImapConfig, uid: number, folder: string = "INBOX"
+): Promise<Array<{ filename: string; mime: string; buffer: Buffer }>> {
+    const client = new ImapFlow({
+        host: config.host, port: config.port, secure: config.tls,
+        auth: { user: config.username, pass: config.password }, logger: false,
+    });
+    const out: Array<{ filename: string; mime: string; buffer: Buffer }> = [];
+    try {
+        await client.connect();
+        const lock = await client.getMailboxLock(folder);
+        try {
+            const msg = await client.fetchOne(String(uid), { bodyStructure: true }, { uid: true });
+            const structure = (msg as any)?.bodyStructure;
+            if (!structure) return out;
+            // Collect attachment parts (disposition=attachment or any part with a filename).
+            const parts: Array<{ part: string; filename: string; mime: string }> = [];
+            const walk = (node: any) => {
+                if (!node) return;
+                const disp = String(node.disposition || "").toLowerCase();
+                const filename = node.dispositionParameters?.filename || node.parameters?.name;
+                if (node.part && (disp === "attachment" || (filename && disp !== "inline"))) {
+                    parts.push({ part: String(node.part), filename: String(filename || `part-${node.part}`), mime: String(node.type || "application/octet-stream").toLowerCase() });
+                }
+                (node.childNodes || []).forEach(walk);
+            };
+            walk(structure);
+            for (const p of parts.slice(0, 10)) {
+                try {
+                    const dl = await client.download(String(uid), p.part, { uid: true });
+                    if (dl?.content) {
+                        const buf = await streamToBuffer(dl.content);
+                        if (buf.length) out.push({ filename: p.filename, mime: p.mime, buffer: buf });
+                    }
+                } catch (err) { logger.warn({ err, uid, part: p.part }, "Failed to download email attachment"); }
+            }
+        } finally { lock.release(); }
+        await client.logout();
+    } catch (err) {
+        logger.warn({ err, uid }, "Failed to read email attachments");
+        try { await client.logout(); } catch { /* already closed */ }
+    }
+    return out;
+}
+
 export interface UnreadEmail {
     uid: number;
     from: string;
