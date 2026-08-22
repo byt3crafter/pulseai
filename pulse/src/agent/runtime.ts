@@ -613,6 +613,7 @@ export class AgentRuntime {
                 promptMode,
                 contactName: inbound.contactName,
                 senderUsername: inbound.senderUsername,
+                senderRole: inbound.senderRole,
                 isGroup: inbound.isGroup,
                 groupTitle: inbound.groupTitle,
                 routableChannels,

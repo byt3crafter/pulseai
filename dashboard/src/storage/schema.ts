@@ -1324,6 +1324,9 @@ export const apiTokens = pgTable(
             .notNull(),
         tokenHash: text("token_hash").notNull(),
         name: text("name").notNull().default("API Token"),
+        // Which user this token acts as (browser chat tokens carry the signed-in
+        // user so the agent knows exactly who is talking). Null = tenant-level token.
+        userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
         scopes: text("scopes").array().default(["chat", "responses"]),
         expiresAt: timestamp("expires_at", { withTimezone: true }),
         lastUsedAt: timestamp("last_used_at", { withTimezone: true }),

@@ -7,7 +7,7 @@ import websocket from "@fastify/websocket";
 import { logger } from "../../utils/logger.js";
 import { hashToken } from "../middleware/api-token-auth.js";
 import { db } from "../../storage/db.js";
-import { apiTokens, agentProfiles } from "../../storage/schema.js";
+import { apiTokens, agentProfiles, users } from "../../storage/schema.js";
 import { and, eq } from "drizzle-orm";
 import { parseMentions, agentMatchesToken } from "../channel-service.js";
 import { processAttachments } from "../attachment-extractor.js";
@@ -54,6 +54,7 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
         const clientId = `ws-${++clientIdCounter}`;
         let authenticated = false;
         let tenantId = "";
+        let userId: string | null = null;
 
         // Auth via query param token or first frame
         const urlToken = (request.query as any)?.token;
@@ -62,6 +63,7 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                 if (ctx) {
                     authenticated = true;
                     tenantId = ctx.tenantId;
+                    userId = ctx.userId;
                     clients.set(clientId, { ws: socket, tenantId: ctx.tenantId, role: "api", scopes: ctx.scopes });
                     socket.send(JSON.stringify({ type: "auth.success", clientId }));
                 } else {
@@ -80,6 +82,7 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                     if (ctx) {
                         authenticated = true;
                         tenantId = ctx.tenantId;
+                        userId = ctx.userId;
                         clients.set(clientId, { ws: socket, tenantId: ctx.tenantId, role: "api", scopes: ctx.scopes });
                         socket.send(JSON.stringify({ type: "auth.success", clientId }));
                     } else {
@@ -175,6 +178,22 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                         }
                     }
 
+                    // Resolve WHO is talking so the agent addresses the actual signed-in
+                    // user (not whoever it remembers). The token is per-user; fall back to
+                    // no name (tenant-level tokens) rather than guessing.
+                    let senderName: string | undefined;
+                    let senderRole: string | undefined;
+                    if (userId) {
+                        try {
+                            const [u] = await db.select({ name: users.name, email: users.email, accessRole: users.accessRole })
+                                .from(users).where(eq(users.id, userId)).limit(1);
+                            if (u) {
+                                senderName = (u.name && u.name.trim()) || (u.email ? u.email.split("@")[0] : undefined);
+                                senderRole = u.accessRole || undefined;
+                            }
+                        } catch { /* non-fatal — just no name */ }
+                    }
+
                     // Run each responder in turn (sequentially) so their replies land as
                     // distinct, attributed messages in the shared thread. Reasoning models
                     // emit <think>…</think>; split it so the browser shows the answer live
@@ -190,6 +209,9 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                 channelContactId: contactId,
                                 content: effectiveContent,
                                 attachments: imageAttachments.length ? imageAttachments : undefined,
+                                contactName: senderName,   // "Who you're talking to" in the system prompt
+                                senderUserId: userId ?? undefined,
+                                senderRole,
                                 receivedAt: new Date(),
                                 trigger: "chat",
                             };
@@ -247,7 +269,7 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
     logger.info("WebSocket control plane registered at /ws");
 }
 
-async function authenticateToken(token: string): Promise<{ tenantId: string; scopes: string[] } | null> {
+async function authenticateToken(token: string): Promise<{ tenantId: string; scopes: string[]; userId: string | null } | null> {
     try {
         const tokenHash = hashToken(token);
         const record = await db.query.apiTokens.findFirst({
@@ -255,7 +277,7 @@ async function authenticateToken(token: string): Promise<{ tenantId: string; sco
         });
         if (!record) return null;
         if (record.expiresAt && new Date(record.expiresAt) < new Date()) return null;
-        return { tenantId: record.tenantId, scopes: record.scopes || ["chat", "responses"] };
+        return { tenantId: record.tenantId, scopes: record.scopes || ["chat", "responses"], userId: (record as any).userId ?? null };
     } catch {
         return null;
     }

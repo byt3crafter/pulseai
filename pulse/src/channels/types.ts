@@ -28,6 +28,7 @@ export interface InboundMessage {
   isGroup?: boolean;
   senderUserId?: string;       // The actual user who sent the message in a group
   senderUsername?: string;      // @username of the sender
+  senderRole?: string;          // the sender's role (e.g. workspace access role) — shown in "who you're talking to"
   groupTitle?: string;          // Title of the group chat
   wasMentioned?: boolean;       // Whether the bot was @mentioned
   isReplyToBot?: boolean;       // Whether this is a reply to a bot message
