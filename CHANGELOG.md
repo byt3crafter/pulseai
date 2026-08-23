@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.5] - 2026-08-23
+
+### Features
+- redesigned workspace sign-in
+
 ## [0.19.4] - 2026-08-22
 
 ### Features
