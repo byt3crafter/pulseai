@@ -84,49 +84,104 @@ function LoginForm() {
         }
     };
 
+    const BoltMark = ({ className }: { className?: string }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+            <path d="M13.5 2 4.5 13.2c-.4.5-.05 1.3.6 1.3H11l-1.4 7.1c-.1.7.8 1.1 1.2.5l9-11.2c.4-.5.05-1.3-.6-1.3H13l1.7-6.6c.2-.7-.7-1.1-1.2-.5Z" />
+        </svg>
+    );
+
     return (
-        <div className="min-h-screen bg-slate-50 flex">
-            {/* Left branding panel */}
-            <div className="hidden lg:flex w-1/2 bg-slate-950 flex-col justify-between p-12">
-                <Link href="/" className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-white">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                        </svg>
-                    </div>
-                    <span className="text-lg font-bold text-white tracking-tight">Pulse</span>
+        <div className="relative min-h-screen w-full overflow-hidden bg-[#070711] lg:grid lg:grid-cols-[1.05fr_1fr]">
+            {/* ── Left: brand stage (lg+) ─────────────────────────────── */}
+            <div className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-14">
+                {/* layered background */}
+                <div
+                    aria-hidden="true"
+                    className="absolute inset-0"
+                    style={{ background: "radial-gradient(120% 120% at 15% 10%, #1e1b4b 0%, #0b0b1c 45%, #070711 100%)" }}
+                />
+                <div
+                    aria-hidden="true"
+                    className="absolute -left-24 top-1/3 h-[32rem] w-[32rem] rounded-full opacity-60 blur-3xl"
+                    style={{ background: "radial-gradient(circle, rgba(99,102,241,0.55) 0%, rgba(139,92,246,0.18) 45%, transparent 70%)" }}
+                />
+                <div
+                    aria-hidden="true"
+                    className="absolute -bottom-32 right-0 h-[26rem] w-[26rem] rounded-full opacity-40 blur-3xl"
+                    style={{ background: "radial-gradient(circle, rgba(56,189,248,0.35) 0%, transparent 70%)" }}
+                />
+                <div
+                    aria-hidden="true"
+                    className="absolute inset-0 opacity-[0.14]"
+                    style={{
+                        backgroundImage:
+                            "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
+                        backgroundSize: "56px 56px",
+                        maskImage: "radial-gradient(120% 90% at 20% 20%, black 0%, transparent 75%)",
+                        WebkitMaskImage: "radial-gradient(120% 90% at 20% 20%, black 0%, transparent 75%)",
+                    }}
+                />
+
+                {/* content */}
+                <Link href="/" className="relative z-10 flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-violet-600 shadow-lg shadow-indigo-900/40">
+                        <BoltMark className="h-5 w-5 text-white" />
+                    </span>
+                    <span className="text-lg font-semibold tracking-tight text-white">Pulse</span>
                 </Link>
-                <div>
-                    <p className="text-3xl font-bold text-white leading-tight mb-4">
-                        Your AI workforce,<br />ready to work.
+
+                <div className="relative z-10 max-w-md">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-indigo-200 backdrop-blur">
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" /> AI Workforce Platform
+                    </span>
+                    <h2 className="mt-6 text-[2.6rem] font-bold leading-[1.08] tracking-tight text-white">
+                        Your AI workforce,
+                        <br />
+                        <span className="bg-gradient-to-r from-indigo-300 via-violet-300 to-sky-300 bg-clip-text text-transparent">ready to work.</span>
+                    </h2>
+                    <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-slate-400">
+                        Sign in to orchestrate your agents, departments, and connected tools — all from one workspace.
                     </p>
-                    <p className="text-slate-400 text-sm">
-                        Sign in to manage your agents, departments, and connected tools.
-                    </p>
+
+                    <ul className="mt-9 space-y-4">
+                        {[
+                            "Purpose-built AI agents for every team",
+                            "Departments that route work automatically",
+                            "Secure, tenant-isolated by design",
+                        ].map((line) => (
+                            <li key={line} className="flex items-center gap-3 text-sm text-slate-300">
+                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 ring-1 ring-inset ring-indigo-400/30">
+                                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-indigo-300">
+                                        <path fillRule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.1 3.1 6.8-6.8a1 1 0 0 1 1.4 0Z" clipRule="evenodd" />
+                                    </svg>
+                                </span>
+                                {line}
+                            </li>
+                        ))}
+                    </ul>
                 </div>
-                <p className="text-xs text-slate-700">© {new Date().getFullYear()} Runstate Ltd</p>
+
+                <p className="relative z-10 text-xs text-slate-600">© {new Date().getFullYear()} Runstate Ltd</p>
             </div>
 
-            {/* Right login panel */}
-            <div className="flex-1 flex items-center justify-center p-8">
+            {/* ── Right: form ─────────────────────────────────────────── */}
+            <div className="relative z-10 flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12 lg:min-h-0">
                 <div className="w-full max-w-sm">
-                    <div className="lg:hidden flex items-center gap-2 mb-8">
-                        <div className="w-7 h-7 bg-indigo-500 rounded-lg flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-white">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                            </svg>
-                        </div>
-                        <span className="text-base font-bold text-slate-900">Pulse</span>
+                    <div className="mb-10 flex items-center gap-2.5 lg:hidden">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-violet-600 shadow-lg shadow-indigo-900/20">
+                            <BoltMark className="h-5 w-5 text-white" />
+                        </span>
+                        <span className="text-base font-semibold text-slate-900">Pulse</span>
                     </div>
 
-                    <h1 className="text-2xl font-bold text-slate-900 mb-1">Workspace Login</h1>
-                    <p className="text-sm text-slate-500 mb-8">Enter your credentials to access your dashboard.</p>
+                    <h1 className="text-[1.7rem] font-bold tracking-tight text-slate-900">Welcome back</h1>
+                    <p className="mt-1.5 text-sm text-slate-500">Sign in to your workspace to continue.</p>
 
                     {info && (
-                        <div role="status" className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm mb-6 border border-blue-100">{info}</div>
+                        <div role="status" className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">{info}</div>
                     )}
                     {error && (
-                        <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 border border-red-100">{error}</div>
+                        <div role="alert" className="mt-6 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">{error}</div>
                     )}
 
                     {ssoEnabled && (
@@ -135,36 +190,36 @@ function LoginForm() {
                                 type="button"
                                 onClick={handleSsoSignIn}
                                 disabled={ssoLoading}
-                                className="w-full flex items-center justify-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                                className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
                             >
-                                {ssoLoading ? "Redirecting…" : `Sign in with ${ssoName}`}
+                                {ssoLoading ? "Redirecting…" : `Continue with ${ssoName}`}
                             </button>
-                            <div className="flex items-center gap-3 my-5">
+                            <div className="my-6 flex items-center gap-3">
                                 <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-                                <span className="text-xs text-slate-400">or</span>
+                                <span className="text-xs font-medium text-slate-400">or</span>
                                 <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
                             </div>
                         </>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form onSubmit={handleSubmit} className={`space-y-4 ${ssoEnabled ? "" : "mt-7"}`}>
                         <div>
-                            <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+                            <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-slate-700">Email address</label>
                             <input
                                 id="login-email"
                                 type="email"
                                 required
                                 autoComplete="email"
                                 placeholder="you@yourcompany.com"
-                                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400 bg-white text-sm"
+                                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
                         <div>
-                            <div className="flex items-center justify-between mb-1.5">
+                            <div className="mb-1.5 flex items-center justify-between">
                                 <label htmlFor="login-password" className="block text-sm font-medium text-slate-700">Password</label>
-                                <Link href="/forgot" className="text-xs font-medium text-indigo-600 hover:text-indigo-700">Forgot password?</Link>
+                                <Link href="/forgot" className="text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-700">Forgot password?</Link>
                             </div>
                             <div className="relative">
                                 <input
@@ -173,7 +228,7 @@ function LoginForm() {
                                     required
                                     autoComplete="current-password"
                                     placeholder="••••••••"
-                                    className="w-full px-4 py-2.5 pr-11 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400 bg-white text-sm"
+                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-11 text-sm text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                 />
@@ -183,14 +238,14 @@ function LoginForm() {
                                     aria-label={showPassword ? "Hide password" : "Show password"}
                                     aria-pressed={showPassword}
                                     tabIndex={-1}
-                                    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600 transition-colors"
+                                    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 transition-colors hover:text-slate-600"
                                 >
                                     {showPassword ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.88 9.88" />
                                         </svg>
                                     ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
@@ -200,7 +255,7 @@ function LoginForm() {
                         </div>
                         {totpRequired && (
                             <div>
-                                <label htmlFor="login-totp" className="block text-sm font-medium text-slate-700 mb-1.5">Authentication Code</label>
+                                <label htmlFor="login-totp" className="mb-1.5 block text-sm font-medium text-slate-700">Authentication code</label>
                                 <input
                                     ref={totpInputRef}
                                     id="login-totp"
@@ -211,7 +266,7 @@ function LoginForm() {
                                     maxLength={6}
                                     required
                                     placeholder="123456"
-                                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400 bg-white text-sm font-mono tracking-widest"
+                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center font-mono text-lg tracking-[0.5em] text-slate-900 shadow-sm outline-none transition-all placeholder:tracking-[0.5em] placeholder:text-slate-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
                                     value={totp}
                                     onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                                 />
@@ -220,22 +275,22 @@ function LoginForm() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors mt-2 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:shadow-indigo-600/30 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             {loading ? (
                                 <>
-                                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    Signing in...
+                                    Signing in…
                                 </>
-                            ) : "Sign In"}
+                            ) : "Sign in"}
                         </button>
                     </form>
 
-                    <p className="text-center text-xs text-slate-400 mt-8">
-                        <Link href="/" className="hover:text-slate-600 transition-colors">← Back to Pulse</Link>
+                    <p className="mt-8 text-center text-xs text-slate-400">
+                        <Link href="/" className="transition-colors hover:text-slate-600">← Back to Pulse</Link>
                     </p>
                 </div>
             </div>
