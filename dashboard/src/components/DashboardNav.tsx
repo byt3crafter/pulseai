@@ -55,6 +55,7 @@ const NAV_GROUPS: { label: string; items: NavItem[]; advanced?: boolean }[] = [
         items: [
             { href: "/dashboard", label: "Overview", icon: Squares2X2Icon, exact: true },
             { href: "/dashboard/assistant", label: "Assistant", icon: ChatBubbleOvalLeftEllipsisIcon },
+            { href: "/dashboard/floor", label: "The Floor", icon: BuildingOffice2Icon },
             { href: "/dashboard/contacts", label: "Contacts", icon: IdentificationIcon },
             { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDaysIcon },
             { href: "/dashboard/notes", label: "Notepad", icon: DocumentTextIcon },

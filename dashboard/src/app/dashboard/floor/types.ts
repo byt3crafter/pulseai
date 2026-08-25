@@ -1,0 +1,82 @@
+/** Shared shapes between the floor's server action, page and client renderer. */
+
+/**
+ * The three baked poses for one agent, as data URLs.
+ *
+ * Declared here rather than in sprite-png.ts so client components never import
+ * (even type-only) from the module that pulls in `node:zlib`.
+ */
+export interface AgentSprite {
+    /** Both hands resting — the idle desk pose. */
+    idle: string;
+    /** Left hand raised. Alternated with typeB to animate typing. */
+    typeA: string;
+    /** Right hand raised. */
+    typeB: string;
+}
+
+/**
+ * What a desk is doing. Derived only from real rows — never invented.
+ * `queued`/`blocked` exist in the schema but the runtime never writes them,
+ * so they are deliberately absent here.
+ */
+export type DeskState =
+    | "idle"      // no live run
+    | "thinking"  // running, no tool call yet
+    | "working"   // running, tools firing
+    | "stalled"   // running far longer than any real run should
+    | "needs-you" // an approval is waiting on a human
+    | "done"      // finished a substantial run just now
+    | "failed"    // errored just now
+    | "offline";  // agent disabled
+
+export interface FloorAgent {
+    id: string;
+    name: string;
+    title: string | null;
+    /** Uploaded avatar, used only in HTML chrome — never inside the SVG. */
+    avatar: string | null;
+    enabled: boolean;
+    sprite: AgentSprite;
+}
+
+export interface FloorDepartment {
+    id: string;
+    name: string;
+    agentIds: string[];
+    leadAgentId: string | null;
+}
+
+/** One live-work event: a slip flying from a source to an agent's desk. */
+export interface Handoff {
+    id: string;
+    /** Where the work came from. */
+    from: { kind: "boss" } | { kind: "agent"; agentId: string } | { kind: "schedule" };
+    toAgentId: string;
+    /** Client-side timestamp; used to skip animating stale events. */
+    at: number;
+}
+
+export interface FloorActivity {
+    agentId: string;
+    state: DeskState;
+    /** Present-tense description of the current step, e.g. "Searching the web". */
+    caption: string | null;
+    runId: string | null;
+}
+
+export interface FloorSnapshot {
+    activity: FloorActivity[];
+    handoffs: Handoff[];
+    /** Runs that finished today, for the quiet-floor ribbon. */
+    todayCount: number;
+    /** Server clock, so the client never trusts its own for staleness checks. */
+    serverNow: number;
+}
+
+export interface FloorData {
+    agents: FloorAgent[];
+    departments: FloorDepartment[];
+    unassigned: string[];
+    snapshot: FloorSnapshot;
+}
