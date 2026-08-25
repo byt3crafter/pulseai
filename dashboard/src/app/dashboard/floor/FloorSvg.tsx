@@ -12,11 +12,11 @@
 import { memo } from "react";
 import styles from "./floor.module.css";
 import {
-    VIEW_W, SPRITE_SCALE, DESK_W, DESK_H,
+    VIEW_W, SPRITE_SCALE, HUMAN_SCALE, DESK_W, DESK_H,
     type FloorLayout, type DeskBox,
 } from "./layout-floor";
-import { SPRITE_W, SEAT_H } from "./pixel-avatar";
-import type { FloorAgent, DeskState, Handoff } from "./types";
+import { SPRITE_W, SEAT_H, STAND_H } from "./pixel-avatar";
+import type { FloorAgent, FloorHuman, DeskState, Handoff } from "./types";
 
 const SPR_W = SPRITE_W * SPRITE_SCALE; // 54
 const SPR_H = SEAT_H * SPRITE_SCALE;   // 84
@@ -27,6 +27,7 @@ const DESK_TOP = 74;
 export interface FloorSvgProps {
     layout: FloorLayout;
     agents: Map<string, FloorAgent>;
+    humans: FloorHuman[];
     states: Map<string, DeskState>;
     captions: Map<string, string | null>;
     /** Handoffs currently in flight, already de-duplicated by the client. */
@@ -182,7 +183,7 @@ function Desk({
 }
 
 function FloorSvgImpl({
-    layout, agents, states, captions, flights, onSelectAgent, selectedAgentId,
+    layout, agents, humans, states, captions, flights, onSelectAgent, selectedAgentId,
 }: FloorSvgProps) {
     const deskById = new Map(layout.desks.map((d) => [d.agentId, d]));
 
@@ -222,17 +223,44 @@ function FloorSvgImpl({
                 </g>
             ))}
 
-            {/* the boss — where work comes from */}
-            <g transform={`translate(${layout.boss.x} ${layout.boss.y})`}>
-                <rect x={-46} y={-26} width={92} height={52} rx={10}
-                    fill="var(--pulse-panel)" stroke="var(--pulse-accent)" strokeWidth={1.5} />
-                <text textAnchor="middle" y={-6} fontSize={10} fontWeight={700} letterSpacing={1} fill="var(--pulse-accent-hi)">
-                    YOU
-                </text>
-                <text textAnchor="middle" y={10} fontSize={9.5} fill="var(--pulse-muted)">
-                    give work
-                </text>
-            </g>
+            {/* the people who give work — standing, not seated */}
+            {layout.humans.map((box) => {
+                const person = humans.find((h) => h.id === box.id);
+                if (!person) return null;
+                return (
+                    <g key={box.id}>
+                        {person.isMe && (
+                            <circle
+                                cx={box.cx} cy={box.cy - 6} r={26}
+                                fill="var(--pulse-accent)" opacity={0.09}
+                            />
+                        )}
+                        <g className={styles.agent}>
+                            <image
+                                href={person.sprite}
+                                x={box.x} y={box.y}
+                                width={SPRITE_W * HUMAN_SCALE} height={STAND_H * HUMAN_SCALE}
+                            />
+                        </g>
+                        <text
+                            x={box.cx} y={box.y + STAND_H * HUMAN_SCALE + 11}
+                            textAnchor="middle" fontSize={10} fontWeight={600}
+                            fill={person.isMe ? "var(--pulse-accent-hi)" : "var(--pulse-text-soft)"}
+                        >
+                            {person.name.length > 9 ? `${person.name.slice(0, 8)}…` : person.name}
+                        </text>
+                        {person.isMe && (
+                            <text
+                                x={box.cx} y={box.y - 3}
+                                textAnchor="middle" fontSize={8.5} fontWeight={700} letterSpacing={0.8}
+                                fill="var(--pulse-accent-hi)"
+                            >
+                                YOU
+                            </text>
+                        )}
+                    </g>
+                );
+            })}
 
             {/* desks */}
             {layout.desks.map((desk) => {

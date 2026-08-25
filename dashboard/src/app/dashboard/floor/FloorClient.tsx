@@ -6,7 +6,7 @@ import { getFloorState, getFloorTokenAction } from "./actions";
 import FloorSvg from "./FloorSvg";
 import { layoutFloor, type LayoutRoomInput } from "./layout-floor";
 import { toolStepLabel } from "./tool-labels";
-import type { DeskState, FloorActivity, FloorAgent, FloorDepartment, FloorSnapshot, Handoff } from "./types";
+import type { DeskState, FloorActivity, FloorAgent, FloorDepartment, FloorHuman, FloorSnapshot, Handoff } from "./types";
 
 /**
  * Polling is the floor's safety net, not its heartbeat. It stays on even when
@@ -28,10 +28,11 @@ interface Props {
     agents: FloorAgent[];
     departments: FloorDepartment[];
     unassigned: string[];
+    humans: FloorHuman[];
     initial: FloorSnapshot;
 }
 
-export default function FloorClient({ agents, departments, unassigned, initial }: Props) {
+export default function FloorClient({ agents, departments, unassigned, humans, initial }: Props) {
     const [snapshot, setSnapshot] = useState<FloorSnapshot>(initial);
     const [flights, setFlights] = useState<Handoff[]>([]);
     const [selected, setSelected] = useState<string | null>(null);
@@ -77,8 +78,8 @@ export default function FloorClient({ agents, departments, unassigned, initial }
                     .map((a) => ({ id: a.id, name: a.name, title: a.title, lead: false })),
             });
         }
-        return layoutFloor(rooms);
-    }, [departments, unassigned, agentMap]);
+        return layoutFloor(rooms, humans.map((h) => h.id));
+    }, [departments, unassigned, agentMap, humans]);
 
     /** Spawn slips for handoffs we haven't animated yet. */
     const spawnFlights = useCallback((incoming: Handoff[], now: number) => {
@@ -311,6 +312,7 @@ export default function FloorClient({ agents, departments, unassigned, initial }
                 <FloorSvg
                     layout={layout}
                     agents={agentMap}
+                    humans={humans}
                     states={states}
                     captions={captions}
                     flights={flights}
