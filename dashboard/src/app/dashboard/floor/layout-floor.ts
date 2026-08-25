@@ -73,10 +73,21 @@ export interface RoomBox {
     deskCount: number;
 }
 
+export interface HumanBox {
+    id: string;
+    x: number;
+    y: number;
+    /** Centre of the figure — where a work slip departs from. */
+    cx: number;
+    cy: number;
+}
+
 export interface FloorLayout {
     rooms: RoomBox[];
     desks: DeskBox[];
-    /** Where work originates when the human hands it out. */
+    /** The people standing in the management band. */
+    humans: HumanBox[];
+    /** Where work originates when a human hands it out (the signed-in user). */
     boss: { x: number; y: number };
     /**
      * Total canvas height for the viewBox. Computed from content rather than
@@ -92,16 +103,34 @@ export interface FloorLayout {
 /** Max desks we will render before declaring overflow (legibility, not a hard cap). */
 export const MAX_DESKS = 24;
 
+/** Standing humans are drawn a little smaller than seated agents. */
+export const HUMAN_SCALE = 2;
+const HUMAN_SLOT_W = 68;
+const HUMAN_X0 = 20;
+const HUMAN_Y = 24;
+
+/** Lay the people out left-to-right in the management band. */
+function layoutHumans(ids: string[]): HumanBox[] {
+    return ids.map((id, i) => {
+        const x = HUMAN_X0 + i * HUMAN_SLOT_W;
+        return { id, x, y: HUMAN_Y, cx: x + 18, cy: HUMAN_Y + 34 };
+    });
+}
+
 /**
  * Lay out rooms in a wrapping grid, and desks in a wrapping grid inside each.
  *
  * Rooms are sorted by id (not by name or input order) so renaming a department
  * never moves anyone's desk. Leads sort to seat 0 within their room.
  */
-export function layoutFloor(input: LayoutRoomInput[]): FloorLayout {
+export function layoutFloor(input: LayoutRoomInput[], humanIds: string[] = []): FloorLayout {
     const rooms: RoomBox[] = [];
     const desks: DeskBox[] = [];
     const hiddenAgentIds: string[] = [];
+    const humans = layoutHumans(humanIds);
+    // Work leaves from the signed-in user (sorted first), or a neutral doorway
+    // when there are no humans to draw.
+    const boss = humans[0] ? { x: humans[0].cx, y: humans[0].cy } : { x: 44, y: HEADER_H / 2 };
 
     const ordered = [...input].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
@@ -119,7 +148,7 @@ export function layoutFloor(input: LayoutRoomInput[]): FloorLayout {
     }).filter((r) => r.agents.length > 0);
 
     if (seated.length === 0) {
-        return { rooms: [], desks: [], boss: { x: 60, y: HEADER_H / 2 }, viewH: HEADER_H + 40, overflow: false, hiddenAgentIds };
+        return { rooms: [], desks: [], humans, boss, viewH: HEADER_H + 40, overflow: false, hiddenAgentIds };
     }
 
     // Room grid. Two columns is the sweet spot at this canvas width: it gives
@@ -185,7 +214,8 @@ export function layoutFloor(input: LayoutRoomInput[]): FloorLayout {
     return {
         rooms,
         desks,
-        boss: { x: 64, y: HEADER_H / 2 },
+        humans,
+        boss,
         viewH,
         overflow: hiddenAgentIds.length > 0,
         hiddenAgentIds,

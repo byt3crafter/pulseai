@@ -4,7 +4,7 @@ import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "../../../storage/db";
 import {
-    agentProfiles, agentRuns, agentDelegations, apiTokens, channels, channelAgents, pendingApprovals,
+    agentProfiles, agentRuns, agentDelegations, apiTokens, channels, channelAgents, pendingApprovals, users,
 } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { toolStepLabel } from "./tool-labels";
@@ -220,18 +220,20 @@ export interface FloorOrg {
     agents: { id: string; name: string; title: string | null; avatar: string | null; enabled: boolean }[];
     departments: { id: string; name: string; agentIds: string[]; leadAgentId: string | null }[];
     unassigned: string[];
+    /** The people who give work. */
+    humans: { id: string; name: string; isMe: boolean }[];
 }
 
 /** The tenant's org chart: departments, their agents, and anyone unassigned. */
 export async function getFloorOrg(): Promise<FloorOrg> {
-    const empty: FloorOrg = { agents: [], departments: [], unassigned: [] };
+    const empty: FloorOrg = { agents: [], departments: [], unassigned: [], humans: [] };
 
     const check = await requireTenant();
     if (!check.authorized) return empty;
     const tenantId = check.tenantId;
 
     try {
-        const [agentRows, channelRows] = await Promise.all([
+        const [agentRows, channelRows, userRows] = await Promise.all([
             db.select({
                 id: agentProfiles.id,
                 name: agentProfiles.name,
@@ -249,6 +251,11 @@ export async function getFloorOrg(): Promise<FloorOrg> {
                     eq(channels.kind, "department"),
                     eq(channels.status, "active"),
                 )),
+
+            db.select({ id: users.id, name: users.name, email: users.email })
+                .from(users)
+                .where(eq(users.tenantId, tenantId))
+                .limit(8),
         ]);
 
         // channel_agents has NO tenant_id column, so it must be constrained to
@@ -281,6 +288,14 @@ export async function getFloorOrg(): Promise<FloorOrg> {
             agents: agentRows,
             departments,
             unassigned: agentRows.filter((a) => !assigned.has(a.id)).map((a) => a.id),
+            // Signed-in user first, so "you" always stands nearest the door.
+            humans: userRows
+                .map((u) => ({
+                    id: u.id,
+                    name: (u.name || u.email || "Someone").split("@")[0],
+                    isMe: u.id === check.userId,
+                }))
+                .sort((a, b) => (a.isMe === b.isMe ? a.name.localeCompare(b.name) : a.isMe ? -1 : 1)),
         };
     } catch (error) {
         console.error("Failed to load floor org:", error);

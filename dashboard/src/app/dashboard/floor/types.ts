@@ -40,6 +40,19 @@ export interface FloorAgent {
     sprite: AgentSprite;
 }
 
+/**
+ * A human on the floor. These are the people who give work — they stand in the
+ * management band at the top rather than sitting at a desk.
+ */
+export interface FloorHuman {
+    id: string;
+    name: string;
+    /** The signed-in user, drawn with a "you" marker. */
+    isMe: boolean;
+    /** Standing pose data URL. */
+    sprite: string;
+}
+
 export interface FloorDepartment {
     id: string;
     name: string;

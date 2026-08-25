@@ -77,6 +77,27 @@ function dataUrl(pose: Pose, recipe: ReturnType<typeof recipeForAgent>): string 
     return `data:image/png;base64,${encodePng(buf, w, h).toString("base64")}`;
 }
 
+/**
+ * Standing pose for a human. People who hand out work stand in the management
+ * band; only agents sit at desks, which is what makes the two roles readable at
+ * a glance.
+ */
+const HUMAN_CACHE = new Map<string, string>();
+
+export function spriteForHuman(userId: string, name: string): string {
+    const key = `h:${SEED_VERSION}:${userId || name}`;
+    const hit = HUMAN_CACHE.get(key);
+    if (hit) return hit;
+
+    const url = dataUrl("stand", recipeForAgent(`human:${userId}`, name));
+    HUMAN_CACHE.set(key, url);
+    if (HUMAN_CACHE.size > 128) {
+        const oldest = HUMAN_CACHE.keys().next().value;
+        if (oldest !== undefined) HUMAN_CACHE.delete(oldest);
+    }
+    return url;
+}
+
 /** Stable sprite set for one agent. Cached by id. */
 export function spriteForAgent(agentId: string, name: string): AgentSprite {
     const key = `${SEED_VERSION}:${agentId || name}`;
