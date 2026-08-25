@@ -3,6 +3,12 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.6] - 2026-08-26
+
+### Features
+- live push over WebSocket + give-work composer
+- live pixel office of the AI workforce
+
 ## [0.19.5] - 2026-08-23
 
 ### Features
