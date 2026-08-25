@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.7] - 2026-08-26
+
+### Bug Fixes
+- page padding, and show the real humans who give work
+
 ## [0.19.6] - 2026-08-26
 
 ### Features
