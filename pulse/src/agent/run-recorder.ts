@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../storage/db.js";
 import { agentRuns } from "../storage/schema.js";
 import { logger } from "../utils/logger.js";
+import { emitFloorEvent } from "../utils/floor-bus.js";
 
 export type RunTrigger =
     | "chat" | "api" | "cron" | "heartbeat" | "commitment"
@@ -56,8 +57,12 @@ export class RunHandle {
     private agentProfileId: string | null;
     private finished = false;
 
+    /** Kept so live floor events can be addressed to the right tenant. */
+    private readonly tenantId: string;
+
     constructor(id: string | null, input: StartRunInput) {
         this.id = id;
+        this.tenantId = input.tenantId;
         this.title = input.title ?? null;
         this.agentProfileId = input.agentProfileId ?? null;
     }
@@ -76,6 +81,15 @@ export class RunHandle {
     }
     addToolCall(name: string, ok: boolean, ms: number): void {
         this.toolCalls.push({ name, ok, ms });
+        if (this.id) {
+            emitFloorEvent({
+                type: "run:tool",
+                tenantId: this.tenantId,
+                runId: this.id,
+                agentProfileId: this.agentProfileId,
+                tool: name,
+            });
+        }
     }
     setStatus(status: RunStatus): void { this.status = status; }
     setError(message: string): void {
@@ -126,6 +140,15 @@ export async function startRun(input: StartRunInput): Promise<RunHandle> {
             channelContactId: input.channelContactId ?? null,
             conversationId: input.conversationId ?? null,
         }).returning({ id: agentRuns.id });
+        if (row?.id) {
+            emitFloorEvent({
+                type: "run:start",
+                tenantId: input.tenantId,
+                runId: row.id,
+                agentProfileId: input.agentProfileId ?? null,
+                trigger: input.trigger ?? "chat",
+            });
+        }
         return new RunHandle(row?.id ?? null, input);
     } catch (err) {
         logger.warn({ err, tenantId: input.tenantId }, "run-recorder: failed to open run (continuing)");
@@ -140,6 +163,7 @@ export async function finishRun(handle: RunHandle): Promise<void> {
         id: string | null; startedAt: number; status: RunStatus; model: string | null;
         inputTokens: number; outputTokens: number; costUsd: number; toolCalls: ToolCallEntry[];
         error: string | null; title: string | null; agentProfileId: string | null; finished: boolean;
+        tenantId: string;
     };
     if (!h.id || h.finished) return;
     h.finished = true;
@@ -165,4 +189,13 @@ export async function finishRun(handle: RunHandle): Promise<void> {
     } catch (err) {
         logger.warn({ err, runId: h.id }, "run-recorder: failed to finish run");
     }
+    // Emitted even if the update above failed: the desk must stop animating.
+    emitFloorEvent({
+        type: "run:end",
+        tenantId: h.tenantId,
+        runId: h.id,
+        agentProfileId: h.agentProfileId,
+        status,
+        durationMs,
+    });
 }

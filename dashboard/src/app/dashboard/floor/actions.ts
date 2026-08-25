@@ -1,9 +1,10 @@
 "use server";
 
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import crypto from "crypto";
 import { db } from "../../../storage/db";
 import {
-    agentProfiles, agentRuns, agentDelegations, channels, channelAgents, pendingApprovals,
+    agentProfiles, agentRuns, agentDelegations, apiTokens, channels, channelAgents, pendingApprovals,
 } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { toolStepLabel } from "./tool-labels";
@@ -177,6 +178,41 @@ export async function getFloorState(): Promise<FloorSnapshot> {
     } catch (error) {
         console.error("Failed to load floor state:", error);
         return empty;
+    }
+}
+
+/**
+ * A short-lived token for the floor's own WebSocket connection.
+ *
+ * Deliberately named differently from the assistant's (`__webchat__`): that
+ * action deletes the user's existing token by name every time it runs, so
+ * sharing a name would sign the other page out whenever both are open.
+ */
+const FLOOR_TOKEN_NAME = "__webfloor__";
+
+export async function getFloorTokenAction(): Promise<{ ok: true; token: string } | { ok: false }> {
+    const check = await requireTenant();
+    if (!check.authorized) return { ok: false };
+
+    try {
+        await db.delete(apiTokens).where(and(
+            eq(apiTokens.tenantId, check.tenantId),
+            eq(apiTokens.name, FLOOR_TOKEN_NAME),
+            eq(apiTokens.userId, check.userId),
+        ));
+        const raw = `pulse-sk-${crypto.randomBytes(32).toString("hex")}`;
+        await db.insert(apiTokens).values({
+            tenantId: check.tenantId,
+            userId: check.userId,
+            tokenHash: crypto.createHash("sha256").update(raw).digest("hex"),
+            name: FLOOR_TOKEN_NAME,
+            scopes: ["chat"],
+            expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
+        });
+        return { ok: true, token: raw };
+    } catch (error) {
+        console.error("Failed to mint floor token:", error);
+        return { ok: false };
     }
 }
 
