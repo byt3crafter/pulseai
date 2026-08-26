@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getAgentActivityAction, type AgentActivityDetail } from "./actions";
+import { formatHours } from "./FloorClient";
 
 /** "3m ago", "2h ago", "in 15m" — short enough to sit in a dense list. */
 function rel(ms: number | null): string {
@@ -64,6 +65,27 @@ export default function AgentActivityPanel({ agentId, agentName }: { agentId: st
 
     return (
         <div className="mt-3 border-t border-pulse-border-subtle pt-3">
+            {/* Hours worked — the headline for an agent, above the detail tabs. */}
+            <div className="mb-3 grid grid-cols-3 gap-2">
+                {([
+                    ["Today", data.hours.today],
+                    ["This week", data.hours.week],
+                    ["All time", data.hours.allTime],
+                ] as const).map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt px-3 py-2">
+                        <p className="text-[11px] uppercase tracking-wide text-pulse-faint">{label}</p>
+                        <p className="text-base font-semibold text-pulse-text">{formatHours(value)}</p>
+                    </div>
+                ))}
+            </div>
+
+            {data.valueUsd && (
+                <p className="mb-3 text-xs text-pulse-muted">
+                    Worth about <strong className="text-pulse-text">${data.valueUsd.allTime.toFixed(0)}</strong> of
+                    equivalent human time all-time, at this role&rsquo;s configured hourly rate.
+                </p>
+            )}
+
             {brokenJobs.length > 0 && (
                 <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
                     <strong>{brokenJobs.length}</strong>{" "}

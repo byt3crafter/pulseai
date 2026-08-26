@@ -29,14 +29,17 @@ type ToolCallTrace = { name?: string; ok?: boolean; ms?: number };
 /** Triggers that nobody asked for — the agents' own routine. */
 const AUTONOMOUS_TRIGGERS = new Set(["cron", "heartbeat", "standing_order", "commitment"]);
 
-function summariseToday(rows: { trigger: string | null; count: number }[]): { asked: number; scheduled: number } {
-    let asked = 0, scheduled = 0;
+function summariseToday(
+    rows: { trigger: string | null; count: number; ms: number }[],
+): { asked: number; scheduled: number; hoursWorked: number } {
+    let asked = 0, scheduled = 0, ms = 0;
     for (const row of rows) {
         const n = Number(row.count ?? 0);
+        ms += Number(row.ms ?? 0);
         if (AUTONOMOUS_TRIGGERS.has(row.trigger ?? "")) scheduled += n;
         else asked += n;
     }
-    return { asked, scheduled };
+    return { asked, scheduled, hoursWorked: ms / 3_600_000 };
 }
 
 /**
@@ -46,7 +49,7 @@ function summariseToday(rows: { trigger: string | null; count: number }[]): { as
  * unauthorised, per the house rule for read paths.
  */
 export async function getFloorState(): Promise<FloorSnapshot> {
-    const empty: FloorSnapshot = { activity: [], handoffs: [], today: { asked: 0, scheduled: 0 }, alerts: { failedJobs: [] }, serverNow: Date.now() };
+    const empty: FloorSnapshot = { activity: [], handoffs: [], today: { asked: 0, scheduled: 0, hoursWorked: 0 }, alerts: { failedJobs: [] }, serverNow: Date.now() };
 
     const check = await requireTenant();
     if (!check.authorized) return empty;
@@ -103,7 +106,11 @@ export async function getFloorState(): Promise<FloorSnapshot> {
 
             // Grouped by trigger so the floor can separate "you asked for this"
             // from the agents' own routine.
-            db.select({ trigger: agentRuns.trigger, count: sql<number>`count(*)` })
+            db.select({
+                trigger: agentRuns.trigger,
+                count: sql<number>`count(*)`,
+                ms: sql<number>`coalesce(sum(${agentRuns.durationMs}), 0)`,
+            })
                 .from(agentRuns)
                 .where(and(
                     eq(agentRuns.tenantId, tenantId),
@@ -355,6 +362,14 @@ export async function getFloorOrg(): Promise<FloorOrg> {
 }
 
 export interface AgentActivityDetail {
+    /**
+     * Time this agent has actually spent working, from the recorded duration of
+     * its runs. This is the number that makes an AI workforce legible: not how
+     * many times it ran, but how much work it did.
+     */
+    hours: { today: number; week: number; allTime: number };
+    /** hours x the agent's roiHourlyRate, when a rate is set. */
+    valueUsd: { today: number; allTime: number } | null;
     recentRuns: { id: string; trigger: string; status: string; title: string | null; at: number; durationMs: number; error: string | null }[];
     jobs: { id: string; name: string; schedule: string; enabled: boolean; lastRunAt: number | null; nextRunAt: number | null; lastStatus: string | null; lastError: string | null }[];
     commitments: { id: string; summary: string; dueAt: number; status: string }[];
@@ -369,7 +384,10 @@ export interface AgentActivityDetail {
  * the calm of the floor is never paid for in queries.
  */
 export async function getAgentActivityAction(agentProfileId: string): Promise<AgentActivityDetail> {
-    const empty: AgentActivityDetail = { recentRuns: [], jobs: [], commitments: [] };
+    const empty: AgentActivityDetail = {
+        hours: { today: 0, week: 0, allTime: 0 }, valueUsd: null,
+        recentRuns: [], jobs: [], commitments: [],
+    };
 
     const check = await requireTenant();
     if (!check.authorized) return empty;
@@ -377,7 +395,10 @@ export async function getAgentActivityAction(agentProfileId: string): Promise<Ag
     if (!agentProfileId) return empty;
 
     try {
-        const [runRows, jobRows, commitmentRows] = await Promise.all([
+        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+        const [runRows, jobRows, commitmentRows, hourRows, profileRows] = await Promise.all([
             db.select({
                 id: agentRuns.id,
                 trigger: agentRuns.trigger,
@@ -417,7 +438,30 @@ export async function getAgentActivityAction(agentProfileId: string): Promise<Ag
                 .where(and(eq(commitments.tenantId, tenantId), eq(commitments.agentId, agentProfileId)))
                 .orderBy(desc(commitments.dueAt))
                 .limit(15),
+
+            // Summed in SQL rather than over the fetched page — the recent-runs
+            // list is capped at 15, so totalling that would badly understate it.
+            db.select({
+                today: sql<number>`coalesce(sum(${agentRuns.durationMs}) filter (where ${agentRuns.endedAt} > ${dayAgo}), 0)`,
+                week: sql<number>`coalesce(sum(${agentRuns.durationMs}) filter (where ${agentRuns.endedAt} > ${weekAgo}), 0)`,
+                allTime: sql<number>`coalesce(sum(${agentRuns.durationMs}), 0)`,
+            })
+                .from(agentRuns)
+                .where(and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.agentProfileId, agentProfileId))),
+
+            db.select({ rate: agentProfiles.roiHourlyRate })
+                .from(agentProfiles)
+                .where(and(eq(agentProfiles.tenantId, tenantId), eq(agentProfiles.id, agentProfileId)))
+                .limit(1),
         ]);
+
+        const msToHours = (ms: unknown) => Number(ms ?? 0) / 3_600_000;
+        const hours = {
+            today: msToHours(hourRows[0]?.today),
+            week: msToHours(hourRows[0]?.week),
+            allTime: msToHours(hourRows[0]?.allTime),
+        };
+        const rate = Number(profileRows[0]?.rate ?? 0);
 
         // The latest outcome per job, so a job that has started failing says so
         // instead of just showing a green "enabled" toggle.
@@ -435,6 +479,11 @@ export async function getAgentActivityAction(agentProfileId: string): Promise<Ag
         }
 
         return {
+            hours,
+            // Only when the workspace has said what an hour of this role is worth.
+            valueUsd: rate > 0
+                ? { today: hours.today * rate, allTime: hours.allTime * rate }
+                : null,
             recentRuns: runRows.map((r) => ({
                 id: r.id,
                 trigger: r.trigger,
