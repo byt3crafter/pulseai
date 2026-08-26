@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.0] - 2026-08-26
+
+### Features
+- replace the pixel floor with the 3D office
+
 ## [0.19.18] - 2026-08-26
 
 ### Features
