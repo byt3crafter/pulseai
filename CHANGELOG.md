@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.12] - 2026-08-26
+
+### Bug Fixes
+- stop reasoning leaking into the answer; fix floor layout
+
 ## [0.19.11] - 2026-08-26
 
 ### Features
