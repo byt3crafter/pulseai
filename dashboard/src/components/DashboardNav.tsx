@@ -23,6 +23,7 @@ import {
     UsersIcon,
     UserGroupIcon,
     BookOpenIcon,
+    InformationCircleIcon,
     QueueListIcon,
     ChatBubbleOvalLeftEllipsisIcon,
     ClipboardDocumentListIcon,
@@ -106,6 +107,7 @@ const NAV_GROUPS: { label: string; items: NavItem[]; advanced?: boolean }[] = [
             { href: "/dashboard/team", label: "Team", icon: UserGroupIcon },
             { href: "/dashboard/settings", label: "Settings", icon: Cog6ToothIcon },
             { href: "/dashboard/docs", label: "Documentation", icon: BookOpenIcon },
+            { href: "/dashboard/about", label: "About", icon: InformationCircleIcon },
         ],
     },
 ];
