@@ -11,7 +11,7 @@ import Markdown from "../../../components/dashboard/Markdown";
 import { getLiveModelsAction } from "../agents/actions";
 import { getActiveProvidersAction } from "../agents/[id]/actions";
 import {
-    getChatTokenAction, listSessionsAction, getSessionHistoryAction,
+    getChatTokenAction, listSessionsAction, getSessionHistoryAction, getInFlightRunAction,
     renameSessionAction, deleteSessionAction, pinSessionAction, type ChatSession,
 } from "./actions";
 
@@ -216,6 +216,43 @@ export default function AssistantClient({
         ws.onerror = () => ws.close();
         ws.onmessage = (ev) => {
             let m: any; try { m = JSON.parse(ev.data); } catch { return; }
+
+            // Frames carry the session they belong to. Without this check a reply
+            // that lands after you've switched threads is rendered into whichever
+            // thread happens to be open.
+            if (typeof m.sessionId === "string" && m.sessionId !== sessionRef.current) return;
+
+            // Resumed stream: output republished on the chat bus, which reaches
+            // whatever socket this user currently has. This is what lets a browser
+            // that navigated away (or reloaded) pick its own answer back up.
+            if (m.type === "chat.stream" && m.event) {
+                const e = m.event;
+                // Bus events are keyed by contact id (`web-<tenant>-<agent>-<session>`).
+                // The leading "-" makes the suffix test exact: "…-xabc" does not
+                // match session "abc".
+                const sid = sessionRef.current;
+                if (sid && typeof e.contactId === "string" && !e.contactId.endsWith(`-${sid}`)) return;
+                if (e.type === "chat:delta") {
+                    setMessages((prev) => upsertStreaming(prev, { content: e.content, agentProfileId: e.agentProfileId ?? undefined }));
+                    setBusy(true);
+                } else if (e.type === "chat:final") {
+                    setMessages((prev) => {
+                        const next = [...prev];
+                        const last = next[next.length - 1];
+                        if (last && last.role === "assistant" && last.streaming) {
+                            last.content = e.content;
+                            last.streaming = false;
+                        } else if (!next.some((x) => x.role === "assistant" && x.content === e.content)) {
+                            next.push({ role: "assistant", content: e.content, agentProfileId: e.agentProfileId ?? null });
+                        }
+                        return next;
+                    });
+                    setBusy(false);
+                    void refreshSessions();
+                }
+                return;
+            }
+
             if (m.type === "agent.thinking") {
                 setMessages((prev) => upsertStreaming(prev, { thinking: m.content, agentProfileId: m.agentProfileId ?? undefined }));
             } else if (m.type === "agent.streaming") {
@@ -491,6 +528,46 @@ export default function AssistantClient({
         }
     }
 
+    /**
+     * Re-attach to a run that is still going for this thread.
+     *
+     * The run never stopped when you navigated away — it finished server-side and
+     * the reply was saved. What was missing was any way for the UI to know, so
+     * you came back to an unlocked composer and no sign of life. This restores
+     * the in-progress answer and locks the composer until it lands.
+     */
+    const reattach = useCallback(async (sid: string, agent: string, isShared: boolean) => {
+        const live = await getInFlightRunAction(sid, agent, isShared);
+        if (!live) return false;
+        if (sessionRef.current !== sid) return false; // switched again while awaiting
+        setBusy(true);
+        if (live.partialContent) {
+            setMessages((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last && last.role === "assistant" && last.streaming) {
+                    last.content = live.partialContent;
+                } else {
+                    next.push({
+                        role: "assistant",
+                        content: live.partialContent,
+                        streaming: true,
+                        agentProfileId: live.agentProfileId ?? null,
+                    });
+                }
+                return next;
+            });
+        }
+        return true;
+    }, []);
+
+    // On first mount, pick up anything already running for the open thread.
+    useEffect(() => {
+        void reattach(sessionRef.current, agentId, shared);
+        // Intentionally mount-only: session/agent switches call reattach directly.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     async function switchSession(sid: string) {
         if (isMobile()) setRailOpen(false);
         if (sid === sessionId) return;
@@ -498,6 +575,7 @@ export default function AssistantClient({
         setBusy(false);
         const hist = await getSessionHistoryAction(sid, agentId, shared);
         setMessages(hist.map((h) => ({ role: h.role as "user" | "assistant", content: h.content, agentProfileId: h.agentProfileId ?? null })));
+        void reattach(sid, agentId, shared);
     }
 
     async function doRename(sid: string) {

@@ -64,7 +64,11 @@ export interface FloorDepartment {
 export interface Handoff {
     id: string;
     /** Where the work came from. */
-    from: { kind: "boss" } | { kind: "agent"; agentId: string } | { kind: "schedule" };
+    from:
+        /** A human. `userId` names which one, when it is known. */
+        | { kind: "boss"; userId?: string | null }
+        | { kind: "agent"; agentId: string }
+        | { kind: "schedule" };
     toAgentId: string;
     /** Client-side timestamp; used to skip animating stale events. */
     at: number;

@@ -2,7 +2,7 @@
 
 import { db } from "../../../storage/db";
 import { apiTokens, conversations, messages, usageRecords, agentRuns } from "../../../storage/schema";
-import { and, eq, asc, desc, like, or, isNull } from "drizzle-orm";
+import { and, eq, asc, desc, gt, like, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { logAudit } from "../../../utils/audit";
@@ -259,5 +259,61 @@ export async function deleteSessionAction(sessionId: string, agentId: string = "
     } catch (e) {
         console.error("Failed to delete session:", e);
         return { success: false as const, message: "Could not delete this chat." };
+    }
+}
+
+/**
+ * Is a run still in flight for this chat session?
+ *
+ * The browser used to lose all knowledge of a run the moment it navigated away:
+ * `busy` is component state, and no run id was ever sent to the client. The run
+ * itself kept going and the reply was saved — it just looked like nothing had
+ * happened. This is how the UI re-attaches on the way back.
+ *
+ * No schema lookup gymnastics needed: agent_runs.channelContactId already holds
+ * exactly the `web-<tenant>-<agent>-<session>` key contactFromSession() builds.
+ */
+export async function getInFlightRunAction(
+    sessionId: string,
+    agentId: string = "",
+    shared: boolean = false,
+): Promise<{ runId: string; startedAt: string; partialContent: string; agentProfileId: string | null } | null> {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return null;
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const contactId = contactFromSession(tenantId, agentId, shared, (sessionId || "").slice(0, 64));
+        // Bounded by the same window the stale-run sweeper uses, so a run the
+        // sweeper is about to reap never shows as live.
+        const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+        const rows = await db
+            .select({
+                id: agentRuns.id,
+                startedAt: agentRuns.startedAt,
+                partialContent: agentRuns.partialContent,
+                agentProfileId: agentRuns.agentProfileId,
+            })
+            .from(agentRuns)
+            .where(and(
+                eq(agentRuns.tenantId, tenantId),
+                eq(agentRuns.channelContactId, contactId),
+                eq(agentRuns.status, "running"),
+                gt(agentRuns.startedAt, cutoff),
+            ))
+            .orderBy(desc(agentRuns.startedAt))
+            .limit(1);
+
+        const run = rows[0];
+        if (!run) return null;
+        return {
+            runId: run.id,
+            startedAt: (run.startedAt ?? new Date()).toISOString(),
+            partialContent: run.partialContent ?? "",
+            agentProfileId: run.agentProfileId ?? null,
+        };
+    } catch (e) {
+        console.error("Failed to check for an in-flight run:", e);
+        return null;
     }
 }

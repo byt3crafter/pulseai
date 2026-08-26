@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { people, tenants, agentProfiles, approvalAllowances } from "../../../storage/schema";
+import { people, tenants, agentProfiles, approvalAllowances, users } from "../../../storage/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -154,6 +154,50 @@ export async function updatePersonAllowedAgentsAction(formData: FormData): Promi
     } catch (error) {
         console.error("Failed to update person's allowed agents:", error);
         return { success: false, message: "Could not update allowed agents." };
+    }
+}
+
+/**
+ * Link a Telegram identity to a workspace member.
+ *
+ * Without this, work arriving from Telegram can never be attributed to a person:
+ * the Telegram user id is not a Pulse user id, and guessing from a display name
+ * would put words in the wrong person's mouth. Explicit and nullable — plenty of
+ * Telegram contacts are customers, not members.
+ */
+export async function updatePersonLinkedUserAction(formData: FormData): Promise<Result> {
+    const check = await requireTenant();
+    if (!check.authorized) return { success: false, message: check.message };
+    const tenantId = check.tenantId;
+
+    const personId = (formData.get("personId") as string) || "";
+    if (!personId) return { success: false, message: "Missing person." };
+
+    const raw = ((formData.get("userId") as string) || "").trim();
+    let userId: string | null = raw || null;
+
+    // Only a member of THIS workspace may be linked — never an id from elsewhere.
+    if (userId) {
+        const owned = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+            .limit(1);
+        if (!owned[0]) return { success: false, message: "That member is not in this workspace." };
+    }
+
+    try {
+        const res = await db
+            .update(people)
+            .set({ userId, updatedAt: new Date() })
+            .where(and(eq(people.id, personId), eq(people.tenantId, tenantId)))
+            .returning({ id: people.id });
+        if (res.length === 0) return { success: false, message: "Not found." };
+        revalidatePath(PATH);
+        return { success: true, message: userId ? "Linked to member." : "Unlinked." };
+    } catch (error) {
+        console.error("Failed to link person to a member:", error);
+        return { success: false, message: "Could not update the link." };
     }
 }
 

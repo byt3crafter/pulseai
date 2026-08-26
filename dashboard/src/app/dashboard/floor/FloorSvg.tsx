@@ -286,8 +286,15 @@ function FloorSvgImpl({
                 const from = f.from.kind === "agent"
                     ? deskById.get(f.from.agentId)
                     : null;
-                const ox = from ? from.cx : layout.boss.x;
-                const oy = from ? from.cy - 40 : layout.boss.y;
+                // A human handoff leaves from that person's figure when we know
+                // who asked; otherwise from the management band generally, so we
+                // never put words in a particular person's mouth.
+                const fromUserId = f.from.kind === "boss" ? (f.from.userId ?? null) : null;
+                const humanBox = fromUserId
+                    ? layout.humans.find((h) => h.id === fromUserId)
+                    : undefined;
+                const ox = from ? from.cx : humanBox ? humanBox.cx : layout.boss.x;
+                const oy = from ? from.cy - 40 : humanBox ? humanBox.cy : layout.boss.y;
                 const dx = target.cx - ox;
                 const dy = target.cy - 12 - oy;
                 const dist = Math.hypot(dx, dy);

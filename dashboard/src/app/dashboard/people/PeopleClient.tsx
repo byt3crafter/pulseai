@@ -11,6 +11,7 @@ import {
     updatePersonApproverAction,
     updatePersonApprovalModeAction,
     updatePersonAllowedAgentsAction,
+    updatePersonLinkedUserAction,
     revokeApprovalAllowanceAction,
     deletePersonAction,
 } from "./actions";
@@ -27,7 +28,14 @@ interface PersonRow {
     isApprover: boolean;
     approvalMode: ApprovalMode;
     allowedAgentIds: string[];
+    /** Linked workspace member, so their Telegram messages are attributed. */
+    userId: string | null;
     lastSeenAt: string | null;
+}
+
+interface Member {
+    id: string;
+    name: string;
 }
 
 interface Agent {
@@ -181,11 +189,13 @@ function AllowedAgentsPicker({
 export default function PeopleClient({
     people,
     agents,
+    members,
     defaultAccess,
     allowances,
 }: {
     people: PersonRow[];
     agents: Agent[];
+    members: Member[];
     defaultAccess: Access;
     allowances: AllowanceRow[];
 }) {
@@ -245,6 +255,13 @@ export default function PeopleClient({
         fd.set("personId", person.id);
         fd.set("allowedAgentIdsJson", JSON.stringify(next));
         runAction(person.id, updatePersonAllowedAgentsAction, fd);
+    }
+
+    function handleLinkedUserChange(person: PersonRow, next: string) {
+        const fd = new FormData();
+        fd.set("personId", person.id);
+        fd.set("userId", next);
+        runAction(person.id, updatePersonLinkedUserAction, fd);
     }
 
     function handleDelete(person: PersonRow) {
@@ -330,6 +347,7 @@ export default function PeopleClient({
                                                 </span>
                                             </th>
                                             <th scope="col" className="px-4 py-3 text-left font-medium">Allowed agents</th>
+                                            <th scope="col" className="px-4 py-3 text-left font-medium">Member</th>
                                             <th scope="col" className="px-4 py-3 text-left font-medium">Last seen</th>
                                             <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
                                         </tr>
@@ -395,6 +413,23 @@ export default function PeopleClient({
                                                             onChange={(next) => handleAllowedAgentsChange(person, next)}
                                                             disabled={busy}
                                                         />
+                                                    </td>
+
+                                                    {/* Linked workspace member */}
+                                                    <td className="px-4 py-3 align-top">
+                                                        <select
+                                                            value={person.userId ?? ""}
+                                                            onChange={(e) => handleLinkedUserChange(person, e.target.value)}
+                                                            disabled={busy}
+                                                            aria-label={`Linked workspace member for ${label}`}
+                                                            title="Link this Telegram account to a workspace member so their requests are attributed to them"
+                                                            className="px-2.5 py-1.5 border border-pulse-border rounded-lg text-xs bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors motion-reduce:transition-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <option value="">Not linked</option>
+                                                            {members.map((m) => (
+                                                                <option key={m.id} value={m.id}>{m.name}</option>
+                                                            ))}
+                                                        </select>
                                                     </td>
 
                                                     {/* Last seen */}

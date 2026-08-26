@@ -23,6 +23,8 @@ export interface Person {
     id: string;
     tenantId: string;
     telegramUserId: string;
+    /** Linked workspace member, set on /dashboard/people. Null = not a member. */
+    userId: string | null;
     displayName: string | null;
     username: string | null;
     access: PersonAccess;
@@ -53,6 +55,7 @@ export function toPerson(row: typeof people.$inferSelect): Person {
         id: row.id,
         tenantId: row.tenantId,
         telegramUserId: row.telegramUserId,
+        userId: row.userId ?? null,
         displayName: row.displayName,
         username: row.username,
         access: normalizeAccess(row.access),

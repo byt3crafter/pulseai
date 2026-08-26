@@ -27,6 +27,14 @@ export interface InboundMessage {
   // Group chat fields
   isGroup?: boolean;
   senderUserId?: string;       // The actual user who sent the message in a group
+  /**
+   * The Pulse `users.id` of the human behind this message, when known.
+   *
+   * Deliberately separate from `senderUserId`, which is overloaded: a Telegram
+   * user id in group chats but a Pulse uuid elsewhere. This one is ALWAYS a real
+   * users.id, so it is safe to write into a foreign key.
+   */
+  actorUserId?: string | null;
   senderUsername?: string;      // @username of the sender
   senderRole?: string;          // the sender's role (e.g. workspace access role) — shown in "who you're talking to"
   groupTitle?: string;          // Title of the group chat

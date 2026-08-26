@@ -504,6 +504,10 @@ export class TelegramAdapter implements ChannelAdapter {
             receivedAt: new Date(ctx.message!.date * 1000),
             // Group fields
             isGroup: true,
+            // The workspace member behind this Telegram account, if linked on
+            // /dashboard/people. Attributing work needs a real users.id —
+            // senderUserId below is a Telegram id and must never be used for it.
+            actorUserId: personResult?.person.userId ?? null,
             senderUserId: ctx.from?.id.toString(),
             senderUsername: ctx.from?.username,
             groupTitle: (ctx.chat as any)?.title,
@@ -604,6 +608,7 @@ export class TelegramAdapter implements ChannelAdapter {
             raw: ctx.message,
             receivedAt: new Date(ctx.message!.date * 1000),
             isGroup: false,
+            actorUserId: personResult?.person.userId ?? null,
         };
 
         ctx.replyWithChatAction("typing").catch(() => {});

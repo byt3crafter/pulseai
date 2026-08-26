@@ -13,12 +13,16 @@ import { parseMentions, agentMatchesToken } from "../channel-service.js";
 import { processAttachments } from "../attachment-extractor.js";
 import { randomUUID } from "node:crypto";
 import { onFloorEvent } from "../../utils/floor-bus.js";
+import { onChatEvent } from "../../utils/chat-bus.js";
 import { getJobRunnerRuntime } from "../../cron/job-runner.js";
 import type { WebSocket } from "ws";
 
 interface WsClient {
     ws: WebSocket;
     tenantId: string;
+    /** Which signed-in human this socket belongs to. Chat output is filtered on
+     *  it, so one member never receives another's conversation. */
+    userId: string | null;
     role: string;
     scopes: string[];
 }
@@ -57,6 +61,23 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
         broadcastToTenant(event.tenantId, { type: "floor", event });
     });
 
+    // Live chat output, routed to the asker rather than the one socket that sent
+    // the message — that socket is gone after navigating away, which is why a
+    // resumed browser used to see nothing more of its own answer.
+    //
+    // Scoped to userId on purpose: this carries conversation content, so a
+    // tenant-wide broadcast would leak one member's chat to another.
+    onChatEvent((event) => {
+        if (!event.userId) return;
+        const payload = JSON.stringify({ type: "chat.stream", event });
+        for (const [, client] of clients) {
+            if (client.tenantId !== event.tenantId) continue;
+            if (client.userId !== event.userId) continue;
+            if (client.ws.readyState !== 1) continue;
+            client.ws.send(payload);
+        }
+    });
+
     fastify.get("/ws", { websocket: true }, (socket, request) => {
         const clientId = `ws-${++clientIdCounter}`;
         let authenticated = false;
@@ -71,7 +92,7 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                     authenticated = true;
                     tenantId = ctx.tenantId;
                     userId = ctx.userId;
-                    clients.set(clientId, { ws: socket, tenantId: ctx.tenantId, role: "api", scopes: ctx.scopes });
+                    clients.set(clientId, { ws: socket, tenantId: ctx.tenantId, userId: ctx.userId ?? null, role: "api", scopes: ctx.scopes });
                     socket.send(JSON.stringify({ type: "auth.success", clientId }));
                 } else {
                     socket.send(JSON.stringify({ type: "auth.error", message: "Invalid token" }));
@@ -90,7 +111,7 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                         authenticated = true;
                         tenantId = ctx.tenantId;
                         userId = ctx.userId;
-                        clients.set(clientId, { ws: socket, tenantId: ctx.tenantId, role: "api", scopes: ctx.scopes });
+                        clients.set(clientId, { ws: socket, tenantId: ctx.tenantId, userId: ctx.userId ?? null, role: "api", scopes: ctx.scopes });
                         socket.send(JSON.stringify({ type: "auth.success", clientId }));
                     } else {
                         socket.send(JSON.stringify({ type: "auth.error", message: "Invalid token" }));
@@ -218,6 +239,10 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                 attachments: imageAttachments.length ? imageAttachments : undefined,
                                 contactName: senderName,   // "Who you're talking to" in the system prompt
                                 senderUserId: userId ?? undefined,
+                                // On this surface senderUserId already IS a real
+                                // users.id (the token is per-user), so the run can
+                                // be attributed to whoever is signed in.
+                                actorUserId: userId ?? null,
                                 senderRole,
                                 receivedAt: new Date(),
                                 trigger: "chat",
@@ -249,9 +274,9 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                             const { thinking, answer } = splitThinking(content);
                                             if (thinking) {
                                                 lastThinking = thinking;
-                                                socket.send(JSON.stringify({ type: "agent.thinking", content: thinking, agentProfileId: rid }));
+                                                socket.send(JSON.stringify({ type: "agent.thinking", content: thinking, agentProfileId: rid, sessionId }));
                                             }
-                                            socket.send(JSON.stringify({ type: "agent.streaming", content: answer, agentProfileId: rid }));
+                                            socket.send(JSON.stringify({ type: "agent.streaming", content: answer, agentProfileId: rid, sessionId }));
                                         },
                                     }
                                 );
