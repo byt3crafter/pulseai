@@ -185,6 +185,9 @@ export async function finishRun(handle: RunHandle): Promise<void> {
             costUsd: h.costUsd.toFixed(6),
             toolCallCount: h.toolCalls.length,
             toolCalls: h.toolCalls.slice(0, 100),
+            // The finished answer lives in `messages` now; drop the checkpoint
+            // so a resumed client never renders a stale half-written reply.
+            partialContent: null,
             error: h.error,
             endedAt,
             durationMs,
@@ -201,6 +204,30 @@ export async function finishRun(handle: RunHandle): Promise<void> {
         status,
         durationMs,
     });
+}
+
+/**
+ * How often the in-progress answer is checkpointed to the DB.
+ *
+ * This is a write, not a frame — the live typing effect comes from the chat bus.
+ * This exists only so a FULL PAGE RELOAD mid-answer shows progress instead of a
+ * blank thread, so a couple of seconds of granularity is plenty.
+ */
+export const PARTIAL_PERSIST_MS = 2000;
+
+/**
+ * Checkpoint the answer-so-far. Fail-soft and fire-and-forget: losing a
+ * checkpoint costs a little resume fidelity, never the turn.
+ */
+export async function savePartialContent(handle: RunHandle, content: string): Promise<void> {
+    if (!handle.id || !content) return;
+    try {
+        await db.update(agentRuns)
+            .set({ partialContent: content.slice(0, 20000) })
+            .where(eq(agentRuns.id, handle.id));
+    } catch {
+        /* resume fidelity only — never surface this */
+    }
 }
 
 /**

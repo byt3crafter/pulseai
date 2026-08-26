@@ -23,7 +23,8 @@ import { resolveAgentSkills, formatSkillsForPrompt } from "./skills/skill-loader
 import { db } from "../storage/db.js";
 import { messages, conversations, usageRecords, tenantBalances, ledgerTransactions, agentProfiles, globalSettings, tenants } from "../storage/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { startRun, finishRun, RunHandle, RunTrigger, bindRunToConversation, unbindRunFromConversation } from "./run-recorder.js";
+import { startRun, finishRun, RunHandle, RunTrigger, bindRunToConversation, unbindRunFromConversation, savePartialContent, PARTIAL_PERSIST_MS } from "./run-recorder.js";
+import { emitChatEvent } from "../utils/chat-bus.js";
 import { logger } from "../utils/logger.js";
 import { sanitizeToolSchema } from "./tools/schema-sanitizer.js";
 import {
@@ -711,6 +712,7 @@ export class AgentRuntime {
             let streamMessageId: string | null = null;
             let streamAccumulated = "";
             let lastEditTime = 0;
+            let lastPartialWrite = 0;
             // Web (forceStream) streams over a WebSocket with no rate limit → fast,
             // smooth. Telegram edits are rate-limited so throttle much harder.
             const EDIT_THROTTLE_MS = options?.forceStream ? 120 : 1000;
@@ -735,6 +737,28 @@ export class AgentRuntime {
                                 undefined,
                                 resolvedAgentProfileId ?? undefined
                             ).catch(() => {});
+
+                            // Also publish to the chat bus, so a browser that
+                            // reconnected on a NEW socket still receives the rest
+                            // of its own answer. The callback above only reaches
+                            // the socket that sent the message.
+                            emitChatEvent({
+                                type: "chat:delta",
+                                tenantId: inbound.tenantId,
+                                userId: inbound.actorUserId ?? null,
+                                contactId: inbound.channelContactId,
+                                runId: run.id,
+                                agentProfileId: resolvedAgentProfileId ?? null,
+                                content: streamAccumulated,
+                                thinking: "",
+                            });
+                        }
+                        // Checkpoint to the DB on a slower cadence so a full page
+                        // reload mid-answer shows progress rather than a blank
+                        // thread. Throttled hard: this is a write, not a frame.
+                        if (now - lastPartialWrite >= PARTIAL_PERSIST_MS) {
+                            lastPartialWrite = now;
+                            void savePartialContent(run, streamAccumulated);
                         }
                     },
                     onComplete: () => {
@@ -1171,6 +1195,19 @@ export class AgentRuntime {
                 }
 
                 await sendMessageCallback(outbound);
+
+                // Publish the completed answer to the chat bus too, so a browser
+                // that reconnected on a new socket (or reloaded) sees the reply
+                // land instead of sitting on a half-written checkpoint.
+                emitChatEvent({
+                    type: "chat:final",
+                    tenantId: inbound.tenantId,
+                    userId: inbound.actorUserId ?? null,
+                    contactId: inbound.channelContactId,
+                    runId: run.id,
+                    agentProfileId: resolvedAgentProfileId ?? null,
+                    content: llmResponse.content,
+                });
             }
 
             // 5b. Persist the assistant message (after dispatch — bookkeeping) (skip silent replies).
