@@ -394,6 +394,12 @@ export const agentRuns = pgTable(
         channelType: varchar("channel_type", { length: 50 }),
         channelContactId: varchar("channel_contact_id", { length: 255 }),
         conversationId: uuid("conversation_id"),
+        // The human who triggered this run, when one did. Null for cron,
+        // heartbeats and standing orders — nobody asked for those.
+        userId: uuid("user_id"),
+        // The answer as it is being written, flushed periodically so a browser
+        // that reloads mid-reply sees progress. Cleared when the run finishes.
+        partialContent: text("partial_content"),
         startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
         endedAt: timestamp("ended_at", { withTimezone: true }),
         durationMs: integer("duration_ms"),
@@ -446,6 +452,9 @@ export const people = pgTable(
             .references(() => tenants.id)
             .notNull(),
         telegramUserId: varchar("telegram_user_id", { length: 32 }).notNull(),
+        // Links this Telegram identity to a workspace member, so their messages
+        // are attributed to a real person. Null = not a member (e.g. a customer).
+        userId: uuid("user_id"),
         displayName: varchar("display_name", { length: 255 }),
         username: varchar("username", { length: 255 }),
         access: varchar("access", { length: 12 }).notNull().default("observe"), // 'talk' | 'observe' | 'blocked'

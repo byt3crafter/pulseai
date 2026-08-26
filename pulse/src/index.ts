@@ -15,6 +15,7 @@ import { heartbeatScheduler } from "./infra/heartbeat-scheduler.js";
 import { cronScheduler } from "./cron/scheduler.js";
 import { setJobRunnerDeps } from "./cron/job-runner.js";
 import { setDelegationRuntime } from "./agent/orchestration/agent-delegation.js";
+import { sweepStaleRuns } from "./agent/run-recorder.js";
 import { pluginManager } from "./plugins/manager.js";
 
 async function start() {
@@ -137,6 +138,18 @@ async function start() {
         });
         await cronScheduler.init();
         server.log.info("Cron scheduler initialized");
+
+        // Reap runs orphaned by a previous restart, then keep checking. Without
+        // this a killed gateway leaves rows "running" forever, so desks animate
+        // busy for eternity and every "working now" count is wrong.
+        //
+        // Age-gated (see STALE_RUN_MS) rather than sweeping everything at boot,
+        // so scaling to a second gateway container can never reap a sibling's
+        // live runs.
+        const reaped = await sweepStaleRuns();
+        if (reaped > 0) server.log.warn({ count: reaped }, "Reaped stale runs left by a previous restart");
+        const staleSweep = setInterval(() => { void sweepStaleRuns(); }, 15 * 60 * 1000);
+        staleSweep.unref();
 
         // Initialize Plugin System
         await pluginManager.init();

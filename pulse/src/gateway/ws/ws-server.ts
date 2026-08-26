@@ -218,6 +218,10 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
                                 attachments: imageAttachments.length ? imageAttachments : undefined,
                                 contactName: senderName,   // "Who you're talking to" in the system prompt
                                 senderUserId: userId ?? undefined,
+                                // On this surface senderUserId already IS a real
+                                // users.id (the token is per-user), so the run can
+                                // be attributed to whoever is signed in.
+                                actorUserId: userId ?? null,
                                 senderRole,
                                 receivedAt: new Date(),
                                 trigger: "chat",

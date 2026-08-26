@@ -173,6 +173,7 @@ export class AgentRuntime {
             title: (inbound.content || "").trim().slice(0, 120) || null,
             channelType: inbound.channelType,
             channelContactId: inbound.channelContactId,
+            userId: inbound.actorUserId ?? null,
         });
         let boundConversationId: string | null = null;
 

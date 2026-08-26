@@ -11,7 +11,7 @@
  * DB call is wrapped so a recorder failure only drops the metric, never the turn.
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { db } from "../storage/db.js";
 import { agentRuns } from "../storage/schema.js";
 import { logger } from "../utils/logger.js";
@@ -35,6 +35,8 @@ export interface StartRunInput {
     channelType?: string | null;
     channelContactId?: string | null;
     conversationId?: string | null;
+    /** The human who triggered this run (a real users.id), when known. */
+    userId?: string | null;
 }
 
 interface ToolCallEntry { name: string; ok: boolean; ms: number; }
@@ -139,6 +141,7 @@ export async function startRun(input: StartRunInput): Promise<RunHandle> {
             channelType: input.channelType ?? null,
             channelContactId: input.channelContactId ?? null,
             conversationId: input.conversationId ?? null,
+            userId: input.userId ?? null,
         }).returning({ id: agentRuns.id });
         if (row?.id) {
             emitFloorEvent({
@@ -198,4 +201,51 @@ export async function finishRun(handle: RunHandle): Promise<void> {
         status,
         durationMs,
     });
+}
+
+/**
+ * A run is only ever "running" while the process that opened it is alive. If the
+ * gateway is restarted or killed mid-turn, `finishRun` never fires and the row
+ * stays "running" forever — the desk animates busy for eternity and every
+ * "currently working" count lies.
+ *
+ * Reap anything older than this. It is deliberately NOT zero: a boot-time sweep
+ * of *all* running rows would be correct for a single gateway, but would kill a
+ * sibling container's live runs the moment the deployment is scaled out. Half an
+ * hour is far longer than any real turn, so the sweep is safe either way.
+ *
+ * The floor surfaces `stalled` at 15 minutes — an earlier, softer warning that
+ * something is wrong, before this reaps it.
+ */
+export const STALE_RUN_MS = 30 * 60 * 1000;
+
+/**
+ * Close out runs orphaned by a restart. Fail-soft like everything else here:
+ * a sweep failure is logged and forgotten.
+ *
+ * Returns the number of rows reaped (0 on failure) so callers can log it.
+ */
+export async function sweepStaleRuns(): Promise<number> {
+    const cutoff = new Date(Date.now() - STALE_RUN_MS);
+    try {
+        const reaped = await db
+            .update(agentRuns)
+            .set({
+                status: "failed",
+                error: "Interrupted — the gateway restarted while this run was in flight.",
+                // Charge no duration: we know when it began, not when it died.
+                endedAt: sql`COALESCE(${agentRuns.endedAt}, ${agentRuns.startedAt})`,
+                durationMs: 0,
+            })
+            .where(and(eq(agentRuns.status, "running"), lt(agentRuns.startedAt, cutoff)))
+            .returning({ id: agentRuns.id });
+
+        if (reaped.length > 0) {
+            logger.warn({ count: reaped.length }, "run-recorder: reaped stale runs orphaned by a restart");
+        }
+        return reaped.length;
+    } catch (err) {
+        logger.warn({ err }, "run-recorder: stale-run sweep failed (continuing)");
+        return 0;
+    }
 }
