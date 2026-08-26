@@ -113,6 +113,8 @@ export function spriteForAgent(agentId: string, name: string): AgentSprite {
         idle: dataUrl("seatIdle", recipe),
         typeA: dataUrl("seatTypeA", recipe),
         typeB: dataUrl("seatTypeB", recipe),
+        walkA: dataUrl("walkA", recipe),
+        walkB: dataUrl("walkB", recipe),
     };
 
     CACHE.set(key, sprite);

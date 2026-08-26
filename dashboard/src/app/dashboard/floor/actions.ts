@@ -25,6 +25,19 @@ const RECENT_MS = 30_000;
 
 type ToolCallTrace = { name?: string; ok?: boolean; ms?: number };
 
+/** Triggers that nobody asked for — the agents' own routine. */
+const AUTONOMOUS_TRIGGERS = new Set(["cron", "heartbeat", "standing_order", "commitment"]);
+
+function summariseToday(rows: { trigger: string | null; count: number }[]): { asked: number; scheduled: number } {
+    let asked = 0, scheduled = 0;
+    for (const row of rows) {
+        const n = Number(row.count ?? 0);
+        if (AUTONOMOUS_TRIGGERS.has(row.trigger ?? "")) scheduled += n;
+        else asked += n;
+    }
+    return { asked, scheduled };
+}
+
 /**
  * Live floor state for the signed-in tenant.
  *
@@ -32,7 +45,7 @@ type ToolCallTrace = { name?: string; ok?: boolean; ms?: number };
  * unauthorised, per the house rule for read paths.
  */
 export async function getFloorState(): Promise<FloorSnapshot> {
-    const empty: FloorSnapshot = { activity: [], handoffs: [], todayCount: 0, serverNow: Date.now() };
+    const empty: FloorSnapshot = { activity: [], handoffs: [], today: { asked: 0, scheduled: 0 }, serverNow: Date.now() };
 
     const check = await requireTenant();
     if (!check.authorized) return empty;
@@ -87,13 +100,16 @@ export async function getFloorState(): Promise<FloorSnapshot> {
                 .where(and(eq(pendingApprovals.tenantId, tenantId), eq(pendingApprovals.status, "pending")))
                 .limit(100),
 
-            db.select({ count: sql<number>`count(*)` })
+            // Grouped by trigger so the floor can separate "you asked for this"
+            // from the agents' own routine.
+            db.select({ trigger: agentRuns.trigger, count: sql<number>`count(*)` })
                 .from(agentRuns)
                 .where(and(
                     eq(agentRuns.tenantId, tenantId),
                     eq(agentRuns.status, "completed"),
                     gt(agentRuns.endedAt, dayStart),
-                )),
+                ))
+                .groupBy(agentRuns.trigger),
         ]);
 
         const needsYou = new Set(approvals.map((a) => a.agentProfileId).filter(Boolean) as string[]);
@@ -178,7 +194,7 @@ export async function getFloorState(): Promise<FloorSnapshot> {
         return {
             activity: [...activity.values()],
             handoffs,
-            todayCount: Number(todayRows[0]?.count ?? 0),
+            today: summariseToday(todayRows),
             serverNow: now,
         };
     } catch (error) {
