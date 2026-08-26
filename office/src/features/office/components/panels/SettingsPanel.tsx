@@ -121,116 +121,34 @@ export function SettingsPanel({
           maxLength={48}
           disabled={!officeTitleLoaded}
           onChange={(event) => onOfficeTitleChange(event.target.value)}
-          placeholder="Luke Headquarters"
+          placeholder="Headquarters"
           className="mt-3 w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:opacity-50"
         />
         <div className="mt-2 text-[10px] text-white/50">
           Used in the office scene header.
         </div>
       </div>
+      {/*
+        PULSE PATCH: the backend chooser used to live here.
+
+        It offered Demo / Hermes / Local / Hermes3D / Custom, an upstream URL
+        field, a token field, and Connect / Disconnect — inside the running
+        office, always reachable. One tap on "Hermes" rewrote the deployment's
+        shared server-side settings and disconnected everyone, including other
+        people. Inside Pulse the runtime is not a preference, so this is a
+        read-out, not a control.
+      */}
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-medium text-white">Gateway</div>
+            <div className="text-[11px] font-medium text-white">Runtime</div>
             <div className="mt-1 text-[10px] text-white/75">
-              Switch the active backend and update its saved endpoint details.
+              Your Pulse workspace. Signed in as you — nothing to configure.
             </div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
             {gatewayStateLabel}
           </span>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(
-            [
-              ["demo", "Demo"],
-              ["hermes", "Hermes"],
-              ["local", "Local"],
-              ["hermes3d", "Hermes3D"],
-              ["custom", "Custom"],
-            ] as const
-          ).map(([adapterType, label]) => {
-            const selected = selectedAdapterType === adapterType;
-            return (
-              <button
-                key={adapterType}
-                type="button"
-                onClick={() => onGatewayAdapterTypeChange?.(adapterType)}
-                className={`rounded-md border px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors ${
-                  selected
-                    ? "border-cyan-400/35 bg-cyan-500/12 text-cyan-50"
-                    : "border-cyan-500/10 bg-black/20 text-white/75 hover:border-cyan-400/25 hover:text-cyan-50"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-3 grid gap-3">
-          <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-              Upstream URL
-            </div>
-            <input
-              type="text"
-              value={gatewayUrl ?? ""}
-              onChange={(event) => onGatewayUrlChange?.(event.target.value)}
-              placeholder={
-                selectedAdapterType === "custom" ||
-                selectedAdapterType === "local"
-                  ? "http://localhost:7770"
-                  : selectedAdapterType === "hermes3d"
-                    ? "http://localhost:3000/api/runtime/custom"
-                  : "ws://localhost:18789"
-              }
-              className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 font-mono text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
-            />
-          </div>
-          <div>
-            <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-cyan-100/65">
-              {tokenOptional ? "Upstream token (optional)" : "Upstream token"}
-            </div>
-            <input
-              type="password"
-              value={normalizedGatewayToken}
-              onChange={(event) => onGatewayTokenChange?.(event.target.value)}
-              placeholder={tokenOptional ? "optional token" : "gateway token"}
-              className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
-            />
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-white/60">
-          <span className="font-mono">
-            Selected backend: {selectedAdapterType}
-          </span>
-          <span className="font-mono">
-            Active backend: {activeAdapterType}
-          </span>
-          <span>Each backend keeps its own saved URL and token.</span>
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="text-[10px] text-white/60">
-            Connect to apply the selected backend, or disconnect to return to the connection screen.
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onGatewayConnect?.()}
-              disabled={gatewayConnectDisabled}
-              className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-50 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/15 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {gatewayStatus === "connecting" ? "Connecting..." : "Connect"}
-            </button>
-            <button
-              type="button"
-              onClick={() => onGatewayDisconnect?.()}
-              disabled={gatewayDisconnectDisabled}
-              className="rounded-md border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-rose-100 transition-colors hover:border-rose-400/40 hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Disconnect gateway
-            </button>
-          </div>
         </div>
       </div>
       <div className="mt-3 rounded-lg border border-cyan-500/10 bg-black/20 px-4 py-3">

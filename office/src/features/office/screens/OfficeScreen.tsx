@@ -14,6 +14,7 @@ import { RetroOffice3D } from "@/features/retro-office/RetroOffice3D";
 import type { OfficeAgent } from "@/features/retro-office/core/types";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
+import { readPulseRuntime } from "@/lib/office/pulse-runtime";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
   buildAgentMainSessionKey,
@@ -895,6 +896,8 @@ const inferRunningFromAgentSessions = async (params: {
 type OfficeScreenProps = {
   showHermesConsole?: boolean;
 };
+const PULSE_RUNTIME = readPulseRuntime();
+
 
 export function OfficeScreen({
   showHermesConsole = true,
@@ -4394,13 +4397,30 @@ export function OfficeScreen({
     setShowDelayedGatewayConnectOverlay(false);
   }, [agentsLoaded, didAttemptGatewayConnect, shouldPromptForConnect, status]);
 
+  // PULSE PATCH: "connecting" must be a passing state, never a resting one.
+  //
+  // The first disjunct used to be `!connectPromptReady`, which was false only
+  // once an un-timed fetch resolved — so a stalled request left this overlay up
+  // forever with no retry and nothing else on screen. It is now bounded by the
+  // connection itself, and a failure surfaces the error card below instead of
+  // spinning.
   const showGatewayLoadingOverlay =
     !agentsLoaded &&
+    !gatewayError &&
     (!connectPromptReady ||
       (gatewayUrl.trim().length > 0 &&
         !shouldPromptForConnect &&
         ((!didAttemptGatewayConnect && showDelayedGatewayLoadingOverlay) ||
           (status === "connecting" && showDelayedGatewayLoadingOverlay))));
+
+  // PULSE PATCH: a dead end needs a way out. Shown instead of the chooser when
+  // the workspace cannot be reached — it names the problem and offers a retry,
+  // rather than asking for a URL nobody has.
+  const showRuntimeErrorCard =
+    Boolean(PULSE_RUNTIME) && !agentsLoaded && Boolean(gatewayError) && status !== "connecting";
+  // PULSE PATCH: no chooser. shouldPromptForConnect is hard-false inside Pulse
+  // (GatewayClient.ts), so this is only ever true for an unconfigured
+  // deployment — one with no HERMES3D_GATEWAY_URL at all.
   const showGatewayConnectOverlay =
     connectPromptReady &&
     status === "disconnected" &&
@@ -4444,7 +4464,26 @@ export function OfficeScreen({
           </div>
         </div>
       ) : null}
-      {showGatewayConnectOverlay ? (
+      {showRuntimeErrorCard ? (
+        <div className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center bg-[#120a05]/76 px-4">
+          <div className="w-full max-w-[420px] rounded-2xl border border-amber-900/55 bg-[#120a05]/98 p-6 text-center shadow-2xl">
+            <div className="text-sm font-medium text-amber-100">
+              Can&apos;t reach your Pulse workspace
+            </div>
+            <p className="mt-2 text-xs text-amber-100/70">
+              The office is connected to your workspace automatically — there is
+              nothing to configure. This is usually a network hiccup.
+            </p>
+            <button
+              type="button"
+              onClick={() => void connect()}
+              className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] text-amber-50 transition-colors hover:bg-amber-500/20"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : showGatewayConnectOverlay ? (
         <div className="pointer-events-auto absolute inset-0 z-50 flex items-start justify-center bg-[#120a05]/76 px-4 py-10">
           <div className="w-full max-w-[860px] rounded-2xl border border-amber-900/55 bg-[#120a05]/98 p-3 shadow-2xl">
             <GatewayConnectScreen
@@ -4869,7 +4908,7 @@ export function OfficeScreen({
           initialStep={companyCreatedSignal > 0 ? "complete" : "welcome"}
           initialCompletedSteps={
             companyCreatedSignal > 0
-              ? ["welcome", "prerequisites", "connect", "agents", "company", "complete"]
+              ? ["welcome", "prerequisites", "agents", "company", "complete"]
               : undefined
           }
           createdCompanyName={createdCompanyName}

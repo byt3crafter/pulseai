@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolvePulseRuntime } from "@/lib/office/pulse-runtime";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,7 @@ const isRuntimeUrlAllowed = (runtimeUrl: string): boolean => {
   }
 };
 
-const normalizeRuntimeUrl = (value: string): string => {
+const normalizeRuntimeUrl = (value: string, { allowlisted = true } = {}): string => {
   const trimmed = value.trim();
   if (!trimmed) {
     throw new Error("runtimeUrl is required.");
@@ -47,7 +48,12 @@ const normalizeRuntimeUrl = (value: string): string => {
   parsed.username = "";
   parsed.password = "";
   const normalized = parsed.toString().replace(/\/$/, "");
-  if (!isRuntimeUrlAllowed(normalized)) {
+  // PULSE PATCH: the allowlist exists to stop a BROWSER naming an arbitrary
+  // target. A URL that came from this deployment's own env is not user input,
+  // and checking it against a list the same operator writes is circular — with
+  // no CUSTOM_RUNTIME_ALLOWLIST set this returns false in production, which
+  // would reject our own gateway.
+  if (allowlisted && !isRuntimeUrlAllowed(normalized)) {
     throw new Error("runtimeUrl is not in the allowed hosts list.");
   }
   return normalized;
@@ -125,7 +131,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    const runtimeUrl = normalizeRuntimeUrl(payload.runtimeUrl ?? "");
+    // PULSE PATCH: the server already knows the runtime — don't ask the browser.
+    //
+    // The client used to POST the target `runtimeUrl` and the server merely
+    // allowlisted its hostname, so a client holding a stale endpoint reached the
+    // proxy with the wrong target. Env is authoritative here for the same reason
+    // it is in the settings store. The allowlist path stays for the
+    // unconfigured/dev case, and the cookie -> /api/office/token mint below is
+    // untouched.
+    const pulse = resolvePulseRuntime();
+    const runtimeUrl = pulse
+      ? normalizeRuntimeUrl(pulse.url, { allowlisted: false })
+      : normalizeRuntimeUrl(payload.runtimeUrl ?? "");
     const pathname = normalizePathname(payload.pathname);
     const method = normalizeMethod(payload.method);
     // Propagate the browser abort signal so that cancelling the client-side fetch

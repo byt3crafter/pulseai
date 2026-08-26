@@ -13,6 +13,7 @@ import { FleetSidebar } from "@/features/agents/components/FleetSidebar";
 import { HeaderBar } from "@/features/agents/components/HeaderBar";
 import { ConnectionPanel } from "@/features/agents/components/ConnectionPanel";
 import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
+import { readPulseRuntime } from "@/lib/office/pulse-runtime";
 import { EmptyStatePanel } from "@/features/agents/components/EmptyStatePanel";
 import {
   isHeartbeatPrompt,
@@ -146,6 +147,8 @@ const resolveNextNewAgentName = (agents: AgentState[]) => {
   }
   throw new Error("Unable to allocate a unique agent name.");
 };
+const PULSE_RUNTIME = readPulseRuntime();
+
 
 const AgentsPageScreen = () => {
   const router = useRouter();
@@ -1320,7 +1323,12 @@ const AgentsPageScreen = () => {
     );
   }
 
+  // PULSE PATCH: the agents screen carried its own copy of the backend chooser,
+  // reachable from the office's own nav. `didAttemptGatewayConnect` alone was
+  // enough to show it, so one failed connect dropped you onto a form asking for
+  // a gateway URL. Inside Pulse this whole branch is unreachable.
   if (
+    !PULSE_RUNTIME &&
     connectPromptReady &&
     status !== "connected" &&
     !agentsLoadedOnce &&

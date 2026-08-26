@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import { PULSE_RUNTIME_GLOBAL, resolvePulseRuntime } from "@/lib/office/pulse-runtime";
+
+/*
+  PULSE PATCH: render at request time so the runtime below is the live one.
+
+  Without this Next statically prerenders these routes and bakes process.env at
+  BUILD time — where HERMES3D_GATEWAY_URL does not exist, since it is set by
+  docker-compose at run time. The page would ship a null runtime and fall
+  straight back into the boot state this patch exists to remove.
+*/
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Hermes3D",
@@ -57,6 +68,31 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html:
               "(function(){try{var t=localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var d=t?t==='dark':m;document.documentElement.classList.toggle('dark',d);}catch(e){}})();",
+          }}
+        />
+        {/*
+          PULSE PATCH: hand the browser its runtime in the HTML itself.
+
+          The office is a Pulse client from its first paint, not after a
+          successful round-trip. process.env is server-only, so without this the
+          browser's opening belief is the upstream default — Hermes on
+          ws://localhost:18789 — and the only thing that could correct it was a
+          /api/studio fetch with no timeout and a Hermes fallback. On a slow
+          link that never landed, and the office sat on "Connecting to your
+          runtime…" forever.
+
+          Stamped here in the root layout rather than threaded as a prop so
+          every route gets it — the office, the agents screen, the builder — and
+          no future route can be added without it.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window." +
+              PULSE_RUNTIME_GLOBAL +
+              "=" +
+              JSON.stringify(resolvePulseRuntime()) +
+              ";",
           }}
         />
       </head>

@@ -37,6 +37,7 @@ const gatewayDebugLog = (message: string, details?: Record<string, unknown>) => 
   console.info("[gateway-client]", message);
 };
 import { probeCustomRuntime } from "@/lib/runtime/custom/http";
+import { readPulseRuntime } from "@/lib/office/pulse-runtime";
 
 export type ReqFrame = {
   type: "req";
@@ -116,14 +117,27 @@ const parseConnectFailedCloseReason = (
   return { code, message: message || "connect failed" };
 };
 
+// PULSE PATCH: the runtime the server stamped into the page, read once at
+// module scope so it is available to the very first render.
+const PULSE_RUNTIME = readPulseRuntime();
+
 const DEFAULT_UPSTREAM_GATEWAY_URL =
   process.env.NEXT_PUBLIC_GATEWAY_URL || "ws://localhost:18789";
 const INITIAL_AUTO_CONNECT_DELAY_MS = 900;
 const INITIAL_CONNECT_RETRY_DELAY_MS = 1_200;
 const CONTROL_UI_CLIENT_ID = "hermes3d-control-ui";
 
+// PULSE PATCH: "custom" is Pulse's own adapter and it belongs here.
+//
+// It was excluded, which barred Pulse from every automatic connect and retry
+// path in this file — so the only way to connect was for a human to press a
+// button on a chooser screen. That is the opposite of what a Pulse deployment
+// wants, where the runtime is known before the page is even served.
 const isAutoManagedAdapter = (adapterType: StudioGatewayAdapterType) =>
-  adapterType === "hermes" || adapterType === "hermes-agent" || adapterType === "demo";
+  adapterType === "hermes" ||
+  adapterType === "hermes-agent" ||
+  adapterType === "demo" ||
+  adapterType === "custom";
 
 export const resolveGatewayClientName = () => CONTROL_UI_CLIENT_ID;
 
@@ -717,10 +731,16 @@ export const useGatewayConnection = (
   const autoConnectTimerRef = useRef<number | null>(null);
   const wasManualDisconnectRef = useRef(false);
 
-  const [gatewayUrl, setGatewayUrl] = useState(DEFAULT_UPSTREAM_GATEWAY_URL);
+  // PULSE PATCH: open as a Pulse client, not as a Hermes client hoping to be
+  // corrected. These three defaults were the literal content of the bug report
+  // ("HERMES • DISCONNECTED", agents 0) — they are what the badge renders
+  // before any settings arrive.
+  const [gatewayUrl, setGatewayUrl] = useState(
+    PULSE_RUNTIME?.url ?? DEFAULT_UPSTREAM_GATEWAY_URL
+  );
   const [token, setToken] = useState("");
   const [selectedAdapterType, setSelectedAdapterTypeState] =
-    useState<StudioGatewayAdapterType>("hermes");
+    useState<StudioGatewayAdapterType>(PULSE_RUNTIME ? "custom" : "hermes");
   const [adapterProfiles, setAdapterProfiles] = useState<
     Partial<Record<StudioGatewayAdapterType, { url: string; token: string }>>
   >({});
@@ -732,7 +752,14 @@ export const useGatewayConnection = (
   const [status, setStatus] = useState<GatewayStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
   const [connectErrorCode, setConnectErrorCode] = useState<string | null>(null);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // PULSE PATCH: under Pulse nothing user-facing waits on /api/studio.
+  //
+  // This flag gates the whole office (via connectPromptReady). It used to flip
+  // only in the `finally` of one un-timed fetch, so a request that never
+  // settled left the office pinned on "Connecting to your runtime…" with no
+  // timeout, no retry and no way out. We already know the runtime from the
+  // HTML, so that fetch is now only a hydration detail.
+  const [settingsLoaded, setSettingsLoaded] = useState(Boolean(PULSE_RUNTIME));
   const [hasLastKnownGoodState, setHasLastKnownGoodState] = useState(false);
   const lastScheduledGatewaySnapshotRef = useRef<string | null>(null);
   const setSelectedAdapterType = useCallback(
@@ -819,12 +846,15 @@ export const useGatewayConnection = (
       } finally {
         if (!cancelled) {
           if (!loadedGatewaySettings.current) {
+            // PULSE PATCH: fall back to Pulse, never to Hermes. This branch
+            // runs when /api/studio failed — exactly when guessing a runtime
+            // that is not there does the most damage.
             loadedGatewaySettings.current = {
-              gatewayUrl: DEFAULT_UPSTREAM_GATEWAY_URL.trim(),
+              gatewayUrl: (PULSE_RUNTIME?.url ?? DEFAULT_UPSTREAM_GATEWAY_URL).trim(),
               token: "",
-              adapterType: "hermes",
+              adapterType: PULSE_RUNTIME ? "custom" : "hermes",
               profiles: undefined,
-              hasLastKnownGood: false,
+              hasLastKnownGood: Boolean(PULSE_RUNTIME),
             };
           }
           setSettingsLoaded(true);
@@ -1202,7 +1232,12 @@ export const useGatewayConnection = (
   const connectPromptReady = settingsLoaded;
   const activeAdapterType =
     status === "connected" ? detectedAdapterType ?? selectedAdapterType : selectedAdapterType;
+  // PULSE PATCH: never prompt inside Pulse. There is one runtime, the page was
+  // served knowing it, and the credential comes from the viewer's session — so
+  // a prompt has nothing to ask for. Note the upstream condition below lists
+  // "custom" first: Pulse's own adapter ALWAYS prompted.
   const shouldPromptForConnect =
+    !PULSE_RUNTIME &&
     settingsLoaded &&
     status !== "connected" &&
     (selectedAdapterType === "custom" ||

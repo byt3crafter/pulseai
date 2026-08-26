@@ -9,7 +9,6 @@
 export type OnboardingStepId =
   | "welcome"
   | "prerequisites"
-  | "connect"
   | "agents"
   | "company"
   | "complete";
@@ -33,11 +32,20 @@ export type OnboardingState = {
   agentCount: number;
 };
 
+/*
+  PULSE PATCH: the "Connect Your Gateway" step is gone.
+
+  It was skippable: false and the wizard shows on every browser missing a
+  localStorage flag — so every first-time visitor, a phone above all, was met
+  with a gateway URL and token form it could not get past. Inside Pulse there is
+  no gateway to link: the page already knows the runtime and the viewer is
+  already signed in.
+*/
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "welcome",
-    title: "Welcome to Hermes3D",
-    description: "Your AI office in 3D",
+    title: "Welcome to your office",
+    description: "Your AI team, in 3D",
     skippable: false,
   },
   {
@@ -45,12 +53,6 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     title: "Before You Start",
     description: "What you'll need",
     skippable: true,
-  },
-  {
-    id: "connect",
-    title: "Connect Your Gateway",
-    description: "Link to your runtime instance",
-    skippable: false,
   },
   {
     id: "agents",

@@ -10,6 +10,7 @@ import {
   loadLocalGatewayDefaults,
   loadStudioSettings,
 } from "@/lib/studio/settings-store";
+import { resolvePulseRuntime } from "@/lib/office/pulse-runtime";
 
 export const runtime = "nodejs";
 
@@ -47,7 +48,22 @@ export async function PUT(request: Request) {
     if (!isPatch(body)) {
       return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
     }
-    const settings = applyStudioSettingsPatch(body);
+
+    // PULSE PATCH: nobody gets to move this deployment off Pulse.
+    //
+    // This route has no auth on either verb, and it is reachable from the
+    // internet through the dashboard's origin — so an unauthenticated PUT could
+    // rewrite the one shared, server-side settings.json and repoint every
+    // viewer at a runtime of the caller's choosing. Even authenticated, a stale
+    // client replaying an old selection would do the same by accident.
+    //
+    // The runtime comes from env and is not negotiable, so gateway fields are
+    // dropped from the patch rather than trusted. Everything else — layout,
+    // preferences — still saves normally.
+    const patch = { ...body } as StudioSettingsPatch & { gateway?: unknown };
+    if (resolvePulseRuntime()) delete patch.gateway;
+
+    const settings = applyStudioSettingsPatch(patch);
     return NextResponse.json(
       {
         settings: sanitizeStudioSettings(settings),

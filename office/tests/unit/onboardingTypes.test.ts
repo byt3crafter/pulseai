@@ -38,9 +38,14 @@ describe("getStepIndex", () => {
     expect(getStepIndex("complete")).toBe(ONBOARDING_STEPS.length - 1);
   });
 
-  it("returns correct index for connect", () => {
-    const idx = ONBOARDING_STEPS.findIndex((s) => s.id === "connect");
-    expect(getStepIndex("connect")).toBe(idx);
+  it("has no gateway-connect step — Pulse is the runtime", () => {
+    expect(ONBOARDING_STEPS.some((s) => s.id === ("connect" as string))).toBe(false);
+  });
+
+  it("lets every step be reached without connecting first", () => {
+    expect(ONBOARDING_STEPS.filter((s) => !s.skippable).map((s) => s.id)).not.toContain(
+      "connect" as string
+    );
   });
 
   it("includes the company step before completion", () => {
@@ -78,8 +83,8 @@ describe("getPrevStep", () => {
     expect(getPrevStep("welcome")).toBeNull();
   });
 
-  it("returns prerequisites for connect", () => {
-    expect(getPrevStep("connect")).toBe("prerequisites");
+  it("returns prerequisites for agents", () => {
+    expect(getPrevStep("agents")).toBe("prerequisites");
   });
 
   it("navigates backward through all steps", () => {

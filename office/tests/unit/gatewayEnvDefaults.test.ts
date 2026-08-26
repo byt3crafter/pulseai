@@ -22,9 +22,9 @@ describe("loadLocalGatewayDefaults with HERMES3D_GATEWAY_URL", () => {
     expect(result).toEqual({
       url: "ws://my-gateway:18789",
       token: "my-token",
-      adapterType: "hermes",
+      adapterType: "custom",
       profiles: {
-        hermes: { url: "ws://my-gateway:18789", token: "my-token" },
+        custom: { url: "ws://my-gateway:18789", token: "my-token" },
       },
     });
   });
@@ -40,9 +40,9 @@ describe("loadLocalGatewayDefaults with HERMES3D_GATEWAY_URL", () => {
     expect(result).toEqual({
       url: "ws://my-gateway:18789",
       token: "",
-      adapterType: "hermes",
+      adapterType: "custom",
       profiles: {
-        hermes: { url: "ws://my-gateway:18789", token: "" },
+        custom: { url: "ws://my-gateway:18789", token: "" },
       },
     });
   });
@@ -84,15 +84,22 @@ describe("loadLocalGatewayDefaults with HERMES3D_GATEWAY_URL", () => {
     expect(result).toEqual({
       url: "ws://env-gateway:18789",
       token: "env-token",
-      adapterType: "hermes",
+      adapterType: "custom",
       profiles: {
-        hermes: { url: "ws://env-gateway:18789", token: "env-token" },
+        custom: { url: "ws://env-gateway:18789", token: "env-token" },
+        // The file-backed Hermes profile survives alongside it now: env claims
+        // the "custom" key rather than overwriting "hermes". Only adapterType
+        // decides what is actually used.
+        hermes: { url: "ws://localhost:18791", token: "file-token" },
       },
     });
   });
 
-  it("uses HERMES3D_GATEWAY_ADAPTER_TYPE for Hermes env defaults", async () => {
+  it("ignores HERMES3D_GATEWAY_ADAPTER_TYPE — a configured URL is always the Pulse runtime", async () => {
     process.env.HERMES3D_GATEWAY_URL = "ws://my-hermes:18789";
+    // Asking for hermes must NOT be honoured: it used to be, and an unset value
+    // defaulted to hermes too, which is how a Pulse box booted pointing at a
+    // runtime that was not there.
     process.env.HERMES3D_GATEWAY_ADAPTER_TYPE = "hermes";
     delete process.env.HERMES3D_GATEWAY_TOKEN;
     process.env.HERMES_STATE_DIR = "/tmp/hermes3d-test-nonexistent-" + Date.now();
@@ -103,9 +110,9 @@ describe("loadLocalGatewayDefaults with HERMES3D_GATEWAY_URL", () => {
     expect(result).toEqual({
       url: "ws://my-hermes:18789",
       token: "",
-      adapterType: "hermes",
+      adapterType: "custom",
       profiles: {
-        hermes: { url: "ws://my-hermes:18789", token: "" },
+        custom: { url: "ws://my-hermes:18789", token: "" },
       },
     });
   });
@@ -189,9 +196,13 @@ describe("loadLocalGatewayDefaults with HERMES3D_GATEWAY_URL", () => {
     expect(result).toEqual({
       url: "ws://env-gateway:19999",
       token: "env-token",
-      adapterType: "hermes",
+      adapterType: "custom",
       profiles: {
-        hermes: { url: "ws://env-gateway:19999", token: "env-token" },
+        custom: { url: "ws://env-gateway:19999", token: "env-token" },
+        // The file-backed Hermes profile survives alongside it now: env claims
+        // the "custom" key rather than overwriting "hermes". Only adapterType
+        // decides what is actually used.
+        hermes: { url: "ws://localhost:18789", token: "file-token" },
       },
     });
   });
