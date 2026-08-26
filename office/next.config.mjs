@@ -1,5 +1,18 @@
-import type { NextConfig } from "next";
+// PULSE PATCH: this is next.config.ts ported to plain ESM.
+//
+// Next reads the config at BOOT. With a .ts config and a production-only
+// node_modules, it tries to npm-install typescript at startup to transpile it —
+// which in a container fails ("No lockfile found" -> failed transpile -> crash
+// loop) and, even when it works, means a production image installing packages
+// on boot. Plain JS removes the need entirely.
+//
+// Keep in sync with upstream's next.config.ts when re-syncing (see PATCHES.md).
+
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// __dirname does not exist in ESM.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const securityHeaders = [
   {
@@ -56,13 +69,19 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-const nextConfig: NextConfig = {
-  // PULSE PATCH: serve under /office on the SAME ORIGIN as the Pulse dashboard.
-  // Hermes3D sends X-Frame-Options: SAMEORIGIN and frame-ancestors 'self', so a
-  // subdomain could never be embedded — same-origin is the only way it can run
-  // inside the dashboard rather than beside it. basePath also keeps its /_next
-  // assets from colliding with the dashboard's own.
-  basePath: process.env.HERMES3D_BASE_PATH || undefined,
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // PULSE PATCH: served under /office on the SAME ORIGIN as the dashboard.
+  //
+  // assetPrefix, NOT basePath. basePath rewrites routing, and Next only strips
+  // it inside its own server — behind this app's custom server the prefix
+  // survives, no route matches, and the catch-all /[...invalid] redirects every
+  // API call to /office. assetPrefix touches asset URLs only, so routing stays
+  // exactly as upstream wrote it and nginx strips /office on the way in.
+  //
+  // It still solves the collision that made a prefix necessary: without it the
+  // office and the dashboard both serve /_next/.
+  assetPrefix: process.env.HERMES3D_BASE_PATH || undefined,
   turbopack: {
     root: path.resolve(__dirname),
   },
