@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.16] - 2026-08-26
+
+### Features
+- light the room; fleet-update reclaims disk
+
 ## [0.19.15] - 2026-08-26
 
 ### Features
