@@ -13,6 +13,10 @@ export interface AgentSprite {
     typeA: string;
     /** Right hand raised. */
     typeB: string;
+    /** Standing, mid-stride left — alternated with walkB to walk. */
+    walkA: string;
+    /** Standing, mid-stride right. */
+    walkB: string;
 }
 
 /**
@@ -86,7 +90,16 @@ export interface FloorSnapshot {
     activity: FloorActivity[];
     handoffs: Handoff[];
     /** Runs that finished today, for the quiet-floor ribbon. */
-    todayCount: number;
+    /**
+     * Work in the last 24h, split by who caused it. Counting a recurring inbox
+     * poll the same as something a person asked for makes a quiet day look busy.
+     */
+    today: {
+        /** Triggered by a human — chat, the app, a channel message. */
+        asked: number;
+        /** The agents' own routine: cron, heartbeats, standing orders, commitments. */
+        scheduled: number;
+    };
     /** Server clock, so the client never trusts its own for staleness checks. */
     serverNow: number;
 }

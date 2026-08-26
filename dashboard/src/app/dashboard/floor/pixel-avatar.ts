@@ -452,7 +452,7 @@ function defaultPants(r: Recipe): RGB {
 }
 
 // ─── public API ──────────────────────────────────────────────────────────────
-export type Pose = 'seatIdle' | 'seatTypeA' | 'seatTypeB' | 'stand';
+export type Pose = 'seatIdle' | 'seatTypeA' | 'seatTypeB' | 'stand' | 'walkA' | 'walkB';
 
 export interface Sprite { buf: Buf; w: number; h: number; }
 
@@ -465,11 +465,13 @@ export interface Sprite { buf: Buf; w: number; h: number; }
  * its outline pass ran at H=32, so a slice would have no bottom edge.
  */
 export function composePose(r: Recipe, pose: Pose): Sprite {
-    if (pose === 'stand') {
+    if (pose === 'stand' || pose === 'walkA' || pose === 'walkB') {
+        // Each walk phase lifts one foot; alternating the two IS the gait.
+        const phase = pose === 'walkA' ? 1 : pose === 'walkB' ? 2 : 0;
         CUR_W = SPRITE_W; CUR_H = STAND_H;
         const buf = new Uint8ClampedArray(SPRITE_W * STAND_H * 4);
         drawSceneTorso(buf, r);
-        drawSceneLegs(buf, defaultPants(r), 0);
+        drawSceneLegs(buf, defaultPants(r), phase);
         drawHeadGroup(buf, r);
         outlinePass(buf);
         return { buf, w: SPRITE_W, h: STAND_H };

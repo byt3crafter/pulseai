@@ -232,3 +232,42 @@
     .frameB { opacity: 0; }
     .slip { opacity: 0; }
 }
+
+/* ── people walking ─────────────────────────────────────────────────────── */
+
+/*
+ * A desk-bound floor reads as a diagram. Someone occasionally getting up and
+ * crossing the room is what makes it read as a place with people in it.
+ *
+ * Movement is one transform on a <g>; the gait is the same two-frame opacity
+ * swap the typing pose uses. Still no JavaScript per frame.
+ */
+@keyframes strollOut {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(var(--stroll-dx)); }
+}
+
+.walker {
+    animation: strollOut var(--stroll-dur, 4s) ease-in-out infinite alternate;
+}
+
+/* Feet alternate roughly twice per second — slower reads as a moonwalk. */
+@keyframes stride {
+    0%, 49.9% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+.strideB {
+    animation: stride 460ms steps(1, end) infinite;
+}
+
+/* Mirror the sprite when heading left, so nobody walks backwards. */
+.walkerFlip {
+    animation: strollOut var(--stroll-dur, 4s) ease-in-out infinite alternate;
+    transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .walker, .walkerFlip, .strideB { animation: none !important; }
+    .strideB { opacity: 0; }
+}

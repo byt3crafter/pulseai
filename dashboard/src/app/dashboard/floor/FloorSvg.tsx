@@ -28,6 +28,8 @@ export interface FloorSvgProps {
     layout: FloorLayout;
     agents: Map<string, FloorAgent>;
     humans: FloorHuman[];
+    /** Agents currently up and about, with the room they're pacing. */
+    walkers: { agentId: string; roomId: string }[];
     states: Map<string, DeskState>;
     captions: Map<string, string | null>;
     /** Handoffs currently in flight, already de-duplicated by the client. */
@@ -37,7 +39,7 @@ export interface FloorSvgProps {
 }
 
 function Desk({
-    desk, agent, state, caption, onSelect, selected,
+    desk, agent, state, caption, onSelect, selected, away,
 }: {
     desk: DeskBox;
     agent: FloorAgent;
@@ -45,6 +47,8 @@ function Desk({
     caption: string | null;
     onSelect?: (id: string) => void;
     selected: boolean;
+    /** This agent is up walking, so the chair is empty. */
+    away: boolean;
 }) {
     // The figure sits to the right of its cell, leaving the left third clear for
     // the monitor — otherwise the two overlap and the screen reads as floating.
@@ -78,16 +82,18 @@ function Desk({
             />
 
             {/* the person — one image when still, two alternating when typing */}
-            <g className={styles.agent}>
-                {working ? (
-                    <>
-                        <image href={agent.sprite.typeA} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
-                        <image className={styles.frameB} href={agent.sprite.typeB} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
-                    </>
-                ) : (
-                    <image href={agent.sprite.idle} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
-                )}
-            </g>
+            {!away && (
+                <g className={styles.agent}>
+                    {working ? (
+                        <>
+                            <image href={agent.sprite.typeA} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
+                            <image className={styles.frameB} href={agent.sprite.typeB} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
+                        </>
+                    ) : (
+                        <image href={agent.sprite.idle} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
+                    )}
+                </g>
+            )}
 
             {/* screen glow, pooling on the desk under the monitor */}
             <ellipse
@@ -183,9 +189,10 @@ function Desk({
 }
 
 function FloorSvgImpl({
-    layout, agents, humans, states, captions, flights, onSelectAgent, selectedAgentId,
+    layout, agents, humans, walkers, states, captions, flights, onSelectAgent, selectedAgentId,
 }: FloorSvgProps) {
     const deskById = new Map(layout.desks.map((d) => [d.agentId, d]));
+    const walkingIds = new Set(walkers.map((w) => w.agentId));
 
     return (
         <svg
@@ -275,7 +282,43 @@ function FloorSvgImpl({
                         caption={captions.get(desk.agentId) ?? null}
                         onSelect={onSelectAgent}
                         selected={selectedAgentId === desk.agentId}
+                        away={walkingIds.has(desk.agentId)}
                     />
+                );
+            })}
+
+            {/* people up and about — decorative, but it is what makes the floor
+                read as a place with people in it rather than a wiring diagram */}
+            {walkers.map((w) => {
+                const agent = agents.get(w.agentId);
+                const room = layout.rooms.find((r) => r.id === w.roomId);
+                if (!agent || !room) return null;
+                const startX = room.x + 26;
+                const span = Math.max(40, room.w - 90);
+                const dur = 3200 + (span * 8);
+                return (
+                    <g
+                        key={`walk-${w.agentId}`}
+                        className={styles.walker}
+                        style={{
+                            ["--stroll-dx" as string]: `${span}px`,
+                            ["--stroll-dur" as string]: `${dur}ms`,
+                        }}
+                    >
+                        <g className={styles.agent}>
+                            <image
+                                href={agent.sprite.walkA}
+                                x={startX} y={room.walkY - STAND_H * 2}
+                                width={SPRITE_W * 2} height={STAND_H * 2}
+                            />
+                            <image
+                                className={styles.strideB}
+                                href={agent.sprite.walkB}
+                                x={startX} y={room.walkY - STAND_H * 2}
+                                width={SPRITE_W * 2} height={STAND_H * 2}
+                            />
+                        </g>
+                    </g>
                 );
             })}
 

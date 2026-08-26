@@ -21,7 +21,9 @@ const ROOM_GAP = 16;
 const ROOM_PAD_X = 14;
 /** Room label, plus clearance for a caption pill above the first desk row. */
 const ROOM_PAD_TOP = 48;
-const ROOM_PAD_BOTTOM = 12;
+// Leaves a strip of open floor below the desks for people to walk along, so the
+// room reads as a place rather than a shelf of desks.
+const ROOM_PAD_BOTTOM = 46;
 
 /**
  * One desk cell. Wide enough to seat the 54px figure with a monitor beside it
@@ -71,6 +73,8 @@ export interface RoomBox {
     w: number;
     h: number;
     deskCount: number;
+    /** y of the open floor strip along the bottom, where people walk. */
+    walkY: number;
 }
 
 export interface HumanBox {
@@ -186,7 +190,7 @@ export function layoutFloor(input: LayoutRoomInput[], humanIds: string[] = []): 
         const ry = rowTop(rr);
         const roomH = rowHeights[rr];
 
-        rooms.push({ id: room.id, name: room.name, x: rx, y: ry, w: roomW, h: roomH, deskCount: room.agents.length });
+        rooms.push({ id: room.id, name: room.name, x: rx, y: ry, w: roomW, h: roomH, deskCount: room.agents.length, walkY: ry + roomH - 30 });
 
         // Centre each desk row within the room so short rows don't hug the left edge.
         room.agents.forEach((agent, ai) => {
