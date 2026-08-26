@@ -76,6 +76,8 @@ export interface RunRow {
     id: string;
     agentName: string | null;
     trigger: string;
+    /** For scheduled runs, the scheduled_jobs.id that produced it. */
+    triggerRef: string | null;
     status: string;
     title: string | null;
     model: string | null;
@@ -94,6 +96,9 @@ function selectRunColumns() {
         id: agentRuns.id,
         agentName: agentProfiles.name,
         trigger: agentRuns.trigger,
+        // For scheduled runs this is the scheduled_jobs.id, which lets callers
+        // show the job's NAME rather than the raw prompt it was given.
+        triggerRef: agentRuns.triggerRef,
         status: agentRuns.status,
         title: agentRuns.title,
         model: agentRuns.model,
@@ -113,6 +118,7 @@ function mapRun(r: any): RunRow {
         id: r.id,
         agentName: r.agentName ?? null,
         trigger: r.trigger,
+        triggerRef: r.triggerRef ?? null,
         status: r.status,
         title: r.title ?? null,
         model: r.model ?? null,

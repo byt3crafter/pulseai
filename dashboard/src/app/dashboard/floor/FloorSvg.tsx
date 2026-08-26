@@ -230,6 +230,25 @@ function FloorSvgImpl({
                 </g>
             ))}
 
+            {/* the humans' own office */}
+            {layout.office && (
+                <g>
+                    <rect
+                        x={layout.office.x} y={layout.office.y}
+                        width={layout.office.w} height={layout.office.h} rx={12}
+                        fill="var(--pulse-panel)" fillOpacity={0.9}
+                        stroke="var(--pulse-border-strong)" strokeWidth={1.5}
+                    />
+                    <text
+                        x={layout.office.x + 14} y={layout.office.y + 18}
+                        fontSize={11} fontWeight={700} letterSpacing={1.2}
+                        fill="var(--pulse-muted)"
+                    >
+                        MANAGEMENT
+                    </text>
+                </g>
+            )}
+
             {/* the people who give work — standing, not seated */}
             {layout.humans.map((box) => {
                 const person = humans.find((h) => h.id === box.id);
@@ -256,15 +275,6 @@ function FloorSvgImpl({
                         >
                             {person.name.length > 9 ? `${person.name.slice(0, 8)}…` : person.name}
                         </text>
-                        {person.isMe && (
-                            <text
-                                x={box.cx} y={box.y - 3}
-                                textAnchor="middle" fontSize={8.5} fontWeight={700} letterSpacing={0.8}
-                                fill="var(--pulse-accent-hi)"
-                            >
-                                YOU
-                            </text>
-                        )}
                     </g>
                 );
             })}
