@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.9] - 2026-08-26
+
+### Bug Fixes
+- server + sandbox tools were impossible to enable
+
 ## [0.19.8] - 2026-08-26
 
 ### Features
