@@ -233,7 +233,12 @@ export default function AssistantClient({
                 const sid = sessionRef.current;
                 if (sid && typeof e.contactId === "string" && !e.contactId.endsWith(`-${sid}`)) return;
                 if (e.type === "chat:delta") {
-                    setMessages((prev) => upsertStreaming(prev, { content: e.content, agentProfileId: e.agentProfileId ?? undefined }));
+                    setMessages((prev) => upsertStreaming(prev, {
+                        content: e.content,
+                        // Reasoning goes to the collapsible panel, never the answer.
+                        ...(e.thinking ? { thinking: e.thinking } : {}),
+                        agentProfileId: e.agentProfileId ?? undefined,
+                    }));
                     setBusy(true);
                 } else if (e.type === "chat:final") {
                     setMessages((prev) => {

@@ -1,7 +1,7 @@
 import { auth } from "../../auth";
 import { db } from "../../storage/db";
-import { tenantBalances, channelConnections, oauthClients, globalSettings } from "../../storage/schema";
-import { eq } from "drizzle-orm";
+import { tenantBalances, channelConnections, oauthClients, globalSettings, scheduledJobs } from "../../storage/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { PageHeader, Card, StatTile } from "../../components/dashboard/ui";
 import { getWorkforceStats, getRecentRuns } from "../../utils/run-queries";
@@ -20,6 +20,21 @@ export default async function DashboardOverview() {
         tenantId ? getWorkforceStats(tenantId) : Promise.resolve(null),
         tenantId ? getRecentRuns(tenantId, 10) : Promise.resolve([]),
     ]);
+
+    // Scheduled runs are titled with the whole prompt the job sends, so the feed
+    // reads as ten copies of the same wall of text. Swap in the job's name.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const jobIds = [...new Set(
+        recentRuns.map((r) => r.triggerRef).filter((ref): ref is string => !!ref && UUID_RE.test(ref)),
+    )];
+    const jobNameById = new Map<string, string>();
+    if (tenantId && jobIds.length) {
+        const rows = await db
+            .select({ id: scheduledJobs.id, name: scheduledJobs.name })
+            .from(scheduledJobs)
+            .where(and(eq(scheduledJobs.tenantId, tenantId), inArray(scheduledJobs.id, jobIds)));
+        for (const row of rows) jobNameById.set(row.id, row.name);
+    }
 
     // Billing mode gates all credits/top-up UI. "unlimited" = BYOK / dedicated (no metering).
     const rootSettings = await db.select({ config: globalSettings.config }).from(globalSettings).where(eq(globalSettings.id, "root")).limit(1);
@@ -67,31 +82,6 @@ export default async function DashboardOverview() {
                         />
                     </div>
 
-                    <Card>
-                        <div className="flex items-center justify-between border-b border-pulse-border-subtle px-5 py-3">
-                            <h2 className="text-sm font-semibold text-pulse-text">Recent activity</h2>
-                            <Link href="/dashboard/tasks" className="text-xs font-medium text-pulse-accent hover:text-pulse-accent-hi">View all tasks</Link>
-                        </div>
-                        {recentRuns.length === 0 ? (
-                            <p className="px-5 py-8 text-center text-sm text-pulse-muted">No activity yet. When an agent handles a message or a scheduled job runs, it appears here.</p>
-                        ) : (
-                            <ul className="divide-y divide-pulse-border-subtle">
-                                {recentRuns.map((r) => (
-                                    <li key={r.id} className="flex items-center gap-3 px-5 py-3">
-                                        <RunStatusBadge status={r.status} />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm text-pulse-text">{r.title || "(untitled task)"}</p>
-                                            <p className="truncate text-xs text-pulse-muted">
-                                                {r.agentName || "Unassigned"} · {triggerLabel(r.trigger)}
-                                                {r.durationMs != null && ` · ${formatDuration(r.durationMs)}`}
-                                            </p>
-                                        </div>
-                                        <span className="shrink-0 text-xs text-pulse-faint">{relativeTime(r.startedAt)}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </Card>
                 </section>
             )}
 
@@ -215,6 +205,35 @@ export default async function DashboardOverview() {
                     </div>
                 </Card>
             </div>
+
+
+                <Card>
+                    <div className="flex items-center justify-between border-b border-pulse-border-subtle px-5 py-3">
+                        <h2 className="text-sm font-semibold text-pulse-text">Recent activity</h2>
+                        <Link href="/dashboard/tasks" className="text-xs font-medium text-pulse-accent hover:text-pulse-accent-hi">View all tasks</Link>
+                    </div>
+                    {recentRuns.length === 0 ? (
+                        <p className="px-5 py-8 text-center text-sm text-pulse-muted">No activity yet. When an agent handles a message or a scheduled job runs, it appears here.</p>
+                    ) : (
+                        <ul className="divide-y divide-pulse-border-subtle">
+                            {recentRuns.map((r) => (
+                                <li key={r.id} className="flex items-center gap-3 px-5 py-3">
+                                    <RunStatusBadge status={r.status} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm text-pulse-text">
+                                            {(r.triggerRef && jobNameById.get(r.triggerRef)) || r.title || "(untitled task)"}
+                                        </p>
+                                        <p className="truncate text-xs text-pulse-muted">
+                                            {r.agentName || "Unassigned"} · {triggerLabel(r.trigger)}
+                                            {r.durationMs != null && ` · ${formatDuration(r.durationMs)}`}
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 text-xs text-pulse-faint">{relativeTime(r.startedAt)}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Card>
         </div>
     );
 }

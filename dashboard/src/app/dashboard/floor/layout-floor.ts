@@ -15,15 +15,20 @@ export const VIEW_W = 1000;
 export const SPRITE_SCALE = 3;
 
 /** Reserved band across the top for the boss card. */
-const HEADER_H = 92;
+const HEADER_H = 128;
 
 const ROOM_GAP = 16;
 const ROOM_PAD_X = 14;
 /** Room label, plus clearance for a caption pill above the first desk row. */
 const ROOM_PAD_TOP = 48;
-// Leaves a strip of open floor below the desks for people to walk along, so the
-// room reads as a place rather than a shelf of desks.
-const ROOM_PAD_BOTTOM = 46;
+/**
+ * Open floor below the desks for people to walk along.
+ *
+ * Must clear a whole standing figure (STAND_H x sprite scale, ~64px) or a
+ * walker overlaps the desks above it. That was the original bug: 16px of
+ * walkway and a 64px person.
+ */
+const ROOM_PAD_BOTTOM = 86;
 
 /**
  * One desk cell. Wide enough to seat the 54px figure with a monitor beside it
@@ -88,6 +93,8 @@ export interface HumanBox {
 
 export interface FloorLayout {
     rooms: RoomBox[];
+    /** The humans' own room. Null when there is nobody to put in it. */
+    office: { x: number; y: number; w: number; h: number } | null;
     desks: DeskBox[];
     /** The people standing in the management band. */
     humans: HumanBox[];
@@ -110,8 +117,8 @@ export const MAX_DESKS = 24;
 /** Standing humans are drawn a little smaller than seated agents. */
 export const HUMAN_SCALE = 2;
 const HUMAN_SLOT_W = 68;
-const HUMAN_X0 = 20;
-const HUMAN_Y = 24;
+const HUMAN_X0 = 34;
+const HUMAN_Y = 34;
 
 /** Lay the people out left-to-right in the management band. */
 function layoutHumans(ids: string[]): HumanBox[] {
@@ -132,6 +139,11 @@ export function layoutFloor(input: LayoutRoomInput[], humanIds: string[] = []): 
     const desks: DeskBox[] = [];
     const hiddenAgentIds: string[] = [];
     const humans = layoutHumans(humanIds);
+    // The people who give work get a room of their own rather than standing on
+    // the carpet — otherwise they read as floating labels, not an office.
+    const office = humans.length
+        ? { x: 16, y: 14, w: HUMAN_X0 - 16 + humans.length * HUMAN_SLOT_W + 6, h: 100 }
+        : null;
     // Work leaves from the signed-in user (sorted first), or a neutral doorway
     // when there are no humans to draw.
     const boss = humans[0] ? { x: humans[0].cx, y: humans[0].cy } : { x: 44, y: HEADER_H / 2 };
@@ -152,7 +164,7 @@ export function layoutFloor(input: LayoutRoomInput[], humanIds: string[] = []): 
     }).filter((r) => r.agents.length > 0);
 
     if (seated.length === 0) {
-        return { rooms: [], desks: [], humans, boss, viewH: HEADER_H + 40, overflow: false, hiddenAgentIds };
+        return { rooms: [], desks: [], office, humans, boss, viewH: HEADER_H + 40, overflow: false, hiddenAgentIds };
     }
 
     // Room grid. Two columns is the sweet spot at this canvas width: it gives
@@ -190,7 +202,7 @@ export function layoutFloor(input: LayoutRoomInput[], humanIds: string[] = []): 
         const ry = rowTop(rr);
         const roomH = rowHeights[rr];
 
-        rooms.push({ id: room.id, name: room.name, x: rx, y: ry, w: roomW, h: roomH, deskCount: room.agents.length, walkY: ry + roomH - 30 });
+        rooms.push({ id: room.id, name: room.name, x: rx, y: ry, w: roomW, h: roomH, deskCount: room.agents.length, walkY: ry + roomH - 14 });
 
         // Centre each desk row within the room so short rows don't hug the left edge.
         room.agents.forEach((agent, ai) => {
@@ -218,6 +230,7 @@ export function layoutFloor(input: LayoutRoomInput[], humanIds: string[] = []): 
     return {
         rooms,
         desks,
+        office,
         humans,
         boss,
         viewH,

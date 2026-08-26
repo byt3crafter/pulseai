@@ -69,7 +69,19 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
     // tenant-wide broadcast would leak one member's chat to another.
     onChatEvent((event) => {
         if (!event.userId) return;
-        const payload = JSON.stringify({ type: "chat.stream", event });
+
+        // Reasoning models emit <think>…</think> inline. The direct socket path
+        // splits it out; this one must too, or raw tags (including a half-written
+        // closing tag mid-stream) render straight into the answer bubble.
+        let outgoing = event;
+        if (event.type === "chat:delta" || event.type === "chat:final") {
+            const { thinking, answer } = splitThinking(event.content);
+            outgoing = event.type === "chat:delta"
+                ? { ...event, content: answer, thinking }
+                : { ...event, content: answer };
+        }
+
+        const payload = JSON.stringify({ type: "chat.stream", event: outgoing });
         for (const [, client] of clients) {
             if (client.tenantId !== event.tenantId) continue;
             if (client.userId !== event.userId) continue;
