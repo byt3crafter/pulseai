@@ -7,11 +7,11 @@ export const dynamic = "force-dynamic";
 /**
  * The Floor — the 3D office.
  *
- * The office is a vendored fork of Hermes3D (office/, MIT) running as its own
- * service and proxied to /office on THIS origin. It is embedded rather than
- * ported because its scene reaches across ~310 files of its own app; framing it
- * keeps it an upgradeable dependency instead of a fork of someone's whole
- * codebase.
+ * The office is our own app in office/ — started from Hermes3D (MIT, credited on
+ * /dashboard/about) and developed from there. It runs as its own service and is
+ * proxied to /office on THIS origin. Framed rather than ported because its scene
+ * reaches across ~310 files; see office/README.md for the seams that join it to
+ * Pulse.
  *
  * Same-origin is load-bearing, not cosmetic: the office sends
  * X-Frame-Options: SAMEORIGIN, and it authenticates by forwarding the viewer's

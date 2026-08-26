@@ -26,11 +26,11 @@ export interface Credit {
 
 export const CREDITS: Credit[] = [
     {
-        name: "Procedural pixel avatars",
-        author: "Chaitanya Giri",
+        name: "Hermes3D",
+        author: "Luke The Dev",
         licence: "MIT",
-        url: "https://github.com/runstatemu/munder-difflin",
-        used: "Adapted to draw the pixel people on The Floor. No artwork is used — the figures are drawn in code.",
+        url: "https://github.com/iamlukethedev/Hermes3D",
+        used: "The 3D office on The Floor. We run our own build of it, wired to Pulse and customised from there.",
         required: true,
     },
 ];
