@@ -233,41 +233,48 @@
     .slip { opacity: 0; }
 }
 
-/* ── people walking ─────────────────────────────────────────────────────── */
+/* ── handing work over ─────────────────────────────────────────────────── */
 
 /*
- * A desk-bound floor reads as a diagram. Someone occasionally getting up and
- * crossing the room is what makes it read as a place with people in it.
+ * Someone carries the work to the desk that will do it.
  *
- * Movement is one transform on a <g>; the gait is the same two-frame opacity
- * swap the typing pose uses. Still no JavaScript per frame.
+ * This replaced an ambient "agents pace their room" animation, which was a
+ * mistake: movement that corresponds to nothing reads as broken, not alive.
+ * Every walk on this floor is now a real handoff — out to the desk, a beat to
+ * hand it over, and back.
  */
-@keyframes strollOut {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(var(--stroll-dx)); }
+@keyframes deliver {
+    0%   { transform: translate(0, 0); }
+    42%  { transform: translate(var(--dx), var(--dy)); }
+    58%  { transform: translate(var(--dx), var(--dy)); }
+    100% { transform: translate(0, 0); }
 }
 
-.walker {
-    animation: strollOut var(--stroll-dur, 4s) ease-in-out infinite alternate;
+.courier {
+    animation: deliver var(--dur, 4200ms) ease-in-out forwards;
 }
 
-/* Feet alternate roughly twice per second — slower reads as a moonwalk. */
+/* Feet alternate roughly twice a second; slower reads as a moonwalk. */
 @keyframes stride {
     0%, 49.9% { opacity: 1; }
     50%, 100% { opacity: 0; }
 }
 
 .strideB {
-    animation: stride 460ms steps(1, end) infinite;
+    animation: stride 420ms steps(1, end) infinite;
 }
 
-/* Mirror the sprite when heading left, so nobody walks backwards. */
-.walkerFlip {
-    animation: strollOut var(--stroll-dur, 4s) ease-in-out infinite alternate;
-    transform-origin: center;
+/* The slip is carried out, then left behind at the desk. */
+@keyframes carried {
+    0%, 45%  { opacity: 1; }
+    52%, 100% { opacity: 0; }
+}
+
+.carried {
+    animation: carried var(--dur, 4200ms) linear forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .walker, .walkerFlip, .strideB { animation: none !important; }
-    .strideB { opacity: 0; }
+    .courier, .strideB, .carried { animation: none !important; }
+    .courier, .strideB { opacity: 0; }
 }
