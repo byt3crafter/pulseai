@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.3] - 2026-08-27
+
+### Bug Fixes
+- the office is a Pulse client from its first paint
+
 ## [0.20.2] - 2026-08-26
 
 ### Chores
