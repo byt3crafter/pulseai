@@ -2569,7 +2569,7 @@ export function RetroOffice3D({
   githubSkill = null,
   taskManagerEnabled = false,
   soundhermesEnabled = false,
-  officeTitle = "Luke Headquarters",
+  officeTitle = "Headquarters",
   officeTitleLoaded = false,
   remoteOfficeEnabled = false,
   remoteOfficeSourceKind = "presence_endpoint",

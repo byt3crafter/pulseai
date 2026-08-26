@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveStateDir } from "@/lib/hermes/paths";
+import { resolvePulseRuntime } from "@/lib/office/pulse-runtime";
 import {
   defaultStudioSettings,
   mergeStudioSettings,
@@ -98,8 +99,10 @@ const readPortBasedGatewayProfile = (
 const buildEnvGatewayDefaults = (): StudioGatewaySettings | null => {
   const envUrl = process.env.HERMES3D_GATEWAY_URL?.trim();
   const envToken = process.env.HERMES3D_GATEWAY_TOKEN?.trim() ?? "";
-  const envAdapterType =
-    normalizeAdapterType(process.env.HERMES3D_GATEWAY_ADAPTER_TYPE) ?? "hermes";
+  // PULSE PATCH: the adapter is not a deployment choice. This used to read
+  // HERMES3D_GATEWAY_ADAPTER_TYPE and fall back to "hermes" when unset, which
+  // is how a Pulse box could boot pointed at a runtime that is not running.
+  const envAdapterType: StudioGatewayAdapterType = "custom";
 
   const hermesProfile = readPortBasedGatewayProfile("hermes", "HERMES_ADAPTER_PORT");
   const demoProfile = readPortBasedGatewayProfile("demo", "DEMO_ADAPTER_PORT");
@@ -176,6 +179,32 @@ export const loadStudioSettings = (): StudioSettings => {
   const raw = fs.readFileSync(settingsPath, "utf8");
   const parsed = JSON.parse(raw) as unknown;
   const settings = normalizeStudioSettings(parsed);
+
+  // PULSE PATCH: env outranks the persisted file, not the other way round.
+  //
+  // This used to invert: once settings.json held a non-empty gateway.url, the
+  // persisted url AND adapterType won and env donated only the token. So one
+  // bad write — a stale client, or anyone at all, since /api/studio took
+  // unauthenticated PUTs — pinned the whole deployment to a dead runtime, and
+  // env could not argue. It only ever looked fine because the container has no
+  // volume, so the file is recreated on every boot.
+  //
+  // Inside Pulse there is one runtime and env names it. The persisted file
+  // keeps everything else it holds.
+  const pulse = resolvePulseRuntime();
+  if (pulse) {
+    const envDefaults = loadLocalGatewayDefaults();
+    return {
+      ...settings,
+      gateway: buildGatewaySettings({
+        adapterType: pulse.adapterType,
+        url: pulse.url,
+        token: envDefaults?.token ?? settings.gateway?.token ?? "",
+        profiles: envDefaults?.profiles ?? settings.gateway?.profiles,
+      }),
+    };
+  }
+
   if (!settings.gateway?.token) {
     const gateway = loadLocalGatewayDefaults();
     if (gateway) {
@@ -186,6 +215,7 @@ export const loadStudioSettings = (): StudioSettings => {
               url: settings.gateway.url.trim(),
               token: gateway.token,
               adapterType: settings.gateway.adapterType,
+              profiles: settings.gateway.profiles,
             }
           : gateway,
       };

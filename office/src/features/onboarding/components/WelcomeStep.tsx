@@ -30,14 +30,13 @@ export const WelcomeStep = () => (
   <div className="space-y-5">
     <div className="space-y-2">
       <p className="text-sm leading-relaxed text-white/80">
-        Hermes3D turns your AI automation into a{" "}
-        <span className="font-medium text-white">visual workplace</span> — an
-        office where your AI agents collaborate, code, test, and execute
-        tasks in a shared 3D environment.
+        This is your workspace as a{" "}
+        <span className="font-medium text-white">visual office</span> — the
+        agents you have already set up, at their desks, working where you can
+        watch them.
       </p>
       <p className="text-sm text-white/60">
-        This wizard will help you connect to your runtime gateway and get
-        started in about two minutes.
+        Your workspace is already connected. This is just a quick tour.
       </p>
     </div>
 

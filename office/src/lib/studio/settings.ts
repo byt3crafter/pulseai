@@ -557,7 +557,8 @@ const normalizeTaskBoardPreference = (
   };
 };
 
-const DEFAULT_OFFICE_TITLE = "Luke Headquarters";
+// PULSE PATCH: upstream's placeholder company name shipped to real customers.
+const DEFAULT_OFFICE_TITLE = "Headquarters";
 const DEFAULT_REMOTE_OFFICE_LABEL = "Remote Office";
 const DEFAULT_REMOTE_OFFICE_SOURCE_KIND = "presence_endpoint" as const;
 

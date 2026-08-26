@@ -15,13 +15,25 @@ export default function OfficeFrame() {
     // rather than showing an empty rectangle.
     useEffect(() => {
         const t = window.setTimeout(() => setSlow(true), 6000);
-        return () => window.clearTimeout(t);
+        // The office paints and becomes usable long before every 3D asset has
+        // landed, but `load` waits for all of them — so on a slow link this
+        // overlay outlived the thing it was covering. Clear it on a deadline
+        // too, not only on `load`.
+        const giveUp = window.setTimeout(() => setReady(true), 20000);
+        return () => {
+            window.clearTimeout(t);
+            window.clearTimeout(giveUp);
+        };
     }, []);
 
     return (
-        <div className="relative h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-pulse-bg">
+        // dvh, not vh: on mobile the browser chrome shrinks the visual viewport,
+        // and vh keeps counting the space behind it.
+        <div className="relative h-[calc(100dvh-3.5rem)] w-full overflow-hidden bg-pulse-bg">
             {!ready && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2">
+                // pointer-events-none: this is a progress indicator, not a
+                // modal. It used to sit over the office swallowing every tap.
+                <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-pulse-border border-t-pulse-accent" />
                     <p className="text-sm text-pulse-muted">Opening the office…</p>
                     {slow && (
@@ -37,9 +49,8 @@ export default function OfficeFrame() {
                 title="The Floor — your AI workforce in 3D"
                 onLoad={() => setReady(true)}
                 className="h-full w-full border-0"
-                // The office needs pointer lock for camera control; it is same-origin,
-                // so it already runs with this document's privileges.
-                allow="fullscreen; pointer-lock"
+                // Same-origin, so it already runs with this document's privileges.
+                allow="fullscreen"
             />
         </div>
     );

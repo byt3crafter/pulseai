@@ -101,11 +101,10 @@ export const OnboardingWizard = ({
     if (prev) setCurrentStep(prev);
   }, [currentStep]);
 
-  const canGoNext = useMemo(() => {
-    // Connect step requires gateway connection before proceeding
-    if (currentStep === "connect" && !gatewayConnected) return false;
-    return true;
-  }, [currentStep, gatewayConnected]);
+  // PULSE PATCH: nothing blocks Next any more. The step this guarded — "connect
+  // first" — no longer exists, because the office is already connected to the
+  // workspace of whoever is looking at it.
+  const canGoNext = true;
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -113,19 +112,6 @@ export const OnboardingWizard = ({
         return <WelcomeStep />;
       case "prerequisites":
         return <PrerequisitesStep />;
-      case "connect":
-        return (
-          <ConnectStep
-            gatewayUrl={gatewayUrl}
-            token={token}
-            onGatewayUrlChange={onGatewayUrlChange}
-            onTokenChange={onTokenChange}
-            onConnect={onConnect}
-            connected={gatewayConnected}
-            connecting={connecting}
-            error={connectionError}
-          />
-        );
       case "agents":
         return <AgentsStep agentCount={agentCount} connected={gatewayConnected} />;
       case "company":
@@ -224,9 +210,7 @@ export const OnboardingWizard = ({
                 onClick={goNext}
                 disabled={!canGoNext}
               >
-                {currentStep === "connect" && !gatewayConnected
-                  ? "Connect first"
-                  : "Next"}
+                Next
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             )}
