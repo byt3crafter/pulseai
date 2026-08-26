@@ -5,6 +5,10 @@ services:
     ports:
       - "8082:8080"    # Avoids conflicts with other services on VPS
 
+  pulse-office:
+    ports:
+      - "3004:3000"    # proxied to /office on the dashboard's origin
+
   pulse-dashboard:
     ports:
       - "3003:3000"    # Avoids runstate-web (3000) and postOrbit (3002)

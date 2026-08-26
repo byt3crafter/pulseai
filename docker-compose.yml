@@ -108,6 +108,37 @@ services:
   # Next.js Dashboard (Frontend Admin Panel)
   # NOTE: NEXTAUTH_URL must be changed for production (e.g. https://yourdomain.com)
   # -----------------------------------------------------------------
+  # The 3D office (vendored fork of Hermes3D — see office/PATCHES.md).
+  #
+  # Served under /office on the SAME ORIGIN as the dashboard, which is not a
+  # preference: it sends X-Frame-Options: SAMEORIGIN, and it authenticates by
+  # forwarding the viewer's dashboard session cookie, which a cross-origin
+  # browser would never send.
+  pulse-office:
+    build:
+      context: ./office
+      dockerfile: ./Dockerfile
+      args:
+        HERMES3D_BASE_PATH: /office
+    container_name: pulse-office
+    restart: always
+    depends_on:
+      - pulse-gateway
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Preconfigure the runtime so nobody is ever shown a "pick a backend" screen.
+      - HERMES3D_GATEWAY_ADAPTER_TYPE=custom
+      - HERMES3D_GATEWAY_URL=http://pulse-gateway:8082
+      # Where to exchange a dashboard session cookie for a gateway token.
+      - PULSE_DASHBOARD_URL=http://pulse-dashboard:3000
+      # Internal service names only — the proxy refuses anything else.
+      - CUSTOM_RUNTIME_ALLOWLIST=pulse-gateway,localhost
+    networks:
+      - pulse-net
+
   pulse-dashboard:
     build:
       context: .
