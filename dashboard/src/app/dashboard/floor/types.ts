@@ -53,8 +53,8 @@ export interface FloorHuman {
     name: string;
     /** The signed-in user, drawn with a "you" marker. */
     isMe: boolean;
-    /** Standing pose data URL. */
-    sprite: string;
+    /** Standing + walking poses, so a human can carry work across the floor. */
+    sprite: { stand: string; walkA: string; walkB: string };
 }
 
 export interface FloorDepartment {

@@ -28,8 +28,6 @@ export interface FloorSvgProps {
     layout: FloorLayout;
     agents: Map<string, FloorAgent>;
     humans: FloorHuman[];
-    /** Agents currently up and about, with the room they're pacing. */
-    walkers: { agentId: string; roomId: string }[];
     states: Map<string, DeskState>;
     captions: Map<string, string | null>;
     /** Handoffs currently in flight, already de-duplicated by the client. */
@@ -39,7 +37,7 @@ export interface FloorSvgProps {
 }
 
 function Desk({
-    desk, agent, state, caption, onSelect, selected, away,
+    desk, agent, state, caption, onSelect, selected,
 }: {
     desk: DeskBox;
     agent: FloorAgent;
@@ -47,8 +45,6 @@ function Desk({
     caption: string | null;
     onSelect?: (id: string) => void;
     selected: boolean;
-    /** This agent is up walking, so the chair is empty. */
-    away: boolean;
 }) {
     // The figure sits to the right of its cell, leaving the left third clear for
     // the monitor — otherwise the two overlap and the screen reads as floating.
@@ -82,8 +78,7 @@ function Desk({
             />
 
             {/* the person — one image when still, two alternating when typing */}
-            {!away && (
-                <g className={styles.agent}>
+            <g className={styles.agent}>
                     {working ? (
                         <>
                             <image href={agent.sprite.typeA} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
@@ -91,9 +86,8 @@ function Desk({
                         </>
                     ) : (
                         <image href={agent.sprite.idle} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
-                    )}
-                </g>
-            )}
+                )}
+            </g>
 
             {/* screen glow, pooling on the desk under the monitor */}
             <ellipse
@@ -189,10 +183,9 @@ function Desk({
 }
 
 function FloorSvgImpl({
-    layout, agents, humans, walkers, states, captions, flights, onSelectAgent, selectedAgentId,
+    layout, agents, humans, states, captions, flights, onSelectAgent, selectedAgentId,
 }: FloorSvgProps) {
     const deskById = new Map(layout.desks.map((d) => [d.agentId, d]));
-    const walkingIds = new Set(walkers.map((w) => w.agentId));
 
     return (
         <svg
@@ -263,7 +256,7 @@ function FloorSvgImpl({
                         )}
                         <g className={styles.agent}>
                             <image
-                                href={person.sprite}
+                                href={person.sprite.stand}
                                 x={box.x} y={box.y}
                                 width={SPRITE_W * HUMAN_SCALE} height={STAND_H * HUMAN_SCALE}
                             />
@@ -292,76 +285,48 @@ function FloorSvgImpl({
                         caption={captions.get(desk.agentId) ?? null}
                         onSelect={onSelectAgent}
                         selected={selectedAgentId === desk.agentId}
-                        away={walkingIds.has(desk.agentId)}
                     />
                 );
             })}
 
-            {/* people up and about — decorative, but it is what makes the floor
-                read as a place with people in it rather than a wiring diagram */}
-            {walkers.map((w) => {
-                const agent = agents.get(w.agentId);
-                const room = layout.rooms.find((r) => r.id === w.roomId);
-                if (!agent || !room) return null;
-                const startX = room.x + 26;
-                const span = Math.max(40, room.w - 90);
-                const dur = 3200 + (span * 8);
-                return (
-                    <g
-                        key={`walk-${w.agentId}`}
-                        className={styles.walker}
-                        style={{
-                            ["--stroll-dx" as string]: `${span}px`,
-                            ["--stroll-dur" as string]: `${dur}ms`,
-                        }}
-                    >
-                        <g className={styles.agent}>
-                            <image
-                                href={agent.sprite.walkA}
-                                x={startX} y={room.walkY - STAND_H * 2}
-                                width={SPRITE_W * 2} height={STAND_H * 2}
-                            />
-                            <image
-                                className={styles.strideB}
-                                href={agent.sprite.walkB}
-                                x={startX} y={room.walkY - STAND_H * 2}
-                                width={SPRITE_W * 2} height={STAND_H * 2}
-                            />
-                        </g>
-                    </g>
-                );
-            })}
-
-            {/* work in flight */}
+            {/*
+              * Work being handed over.
+              *
+              * A person carries it: someone leaves the management office, walks
+              * to the desk that will do the work, hands it over, and walks back.
+              * Agent-to-agent delegation is the same beat between two desks.
+              */}
             {flights.map((f) => {
                 const target = deskById.get(f.toAgentId);
                 if (!target) return null;
-                const from = f.from.kind === "agent"
-                    ? deskById.get(f.from.agentId)
-                    : null;
-                // A human handoff leaves from that person's figure when we know
-                // who asked; otherwise from the management band generally, so we
-                // never put words in a particular person's mouth.
+
+                const fromDesk = f.from.kind === "agent" ? deskById.get(f.from.agentId) : null;
                 const fromUserId = f.from.kind === "boss" ? (f.from.userId ?? null) : null;
-                const humanBox = fromUserId
-                    ? layout.humans.find((h) => h.id === fromUserId)
-                    : undefined;
-                const ox = from ? from.cx : humanBox ? humanBox.cx : layout.boss.x;
-                const oy = from ? from.cy - 40 : humanBox ? humanBox.cy : layout.boss.y;
-                const dx = target.cx - ox;
-                const dy = target.cy - 12 - oy;
+                // Whoever asked, when we know; otherwise whoever is nearest the
+                // door — we never name a specific person on a guess.
+                const humanBox = (fromUserId && layout.humans.find((h) => h.id === fromUserId))
+                    || (f.from.kind === "boss" ? layout.humans[0] : undefined);
+
+                const carrier = fromDesk
+                    ? agents.get(fromDesk.agentId)?.sprite
+                    : humanBox
+                        ? humans.find((h) => h.id === humanBox.id)?.sprite
+                        : undefined;
+
+                const ox = fromDesk ? fromDesk.cx - 18 : humanBox ? humanBox.cx - 18 : layout.boss.x - 18;
+                const oy = fromDesk ? fromDesk.y + 10 : humanBox ? humanBox.y : layout.boss.y;
+                // Stop beside the desk, not on top of it.
+                const dx = (target.x + 8) - ox;
+                const dy = (target.y + 30) - oy;
                 const dist = Math.hypot(dx, dy);
-                const dur = Math.min(1400, Math.max(700, (dist / 620) * 1400));
-                const tint = f.from.kind === "agent" ? 0.6 : 1;
+                const dur = Math.round(Math.min(6000, Math.max(2600, dist * 9)));
+
+                if (!carrier) return null;
 
                 return (
                     <g key={f.id}>
-                        {/* the source pulses as the work leaves it */}
-                        <circle className={styles.sourcePulse} cx={ox} cy={oy} r={18}
-                            fill="none" stroke="var(--pulse-accent)" strokeWidth={2} />
-                        {/* the slip */}
                         <g
-                            className={styles.slip}
+                            className={styles.courier}
                             transform={`translate(${ox} ${oy})`}
                             style={{
                                 ["--dx" as string]: `${dx}px`,
@@ -369,18 +334,29 @@ function FloorSvgImpl({
                                 ["--dur" as string]: `${dur}ms`,
                             }}
                         >
-                            <rect x={-9} y={-6} width={18} height={13} rx={2}
-                                fill="var(--pulse-accent)" opacity={tint} />
-                            <rect x={-6} y={-3} width={12} height={1.5} rx={0.75} fill="var(--pulse-panel)" opacity={0.8} />
-                            <rect x={-6} y={0.5} width={8} height={1.5} rx={0.75} fill="var(--pulse-panel)" opacity={0.8} />
+                            <g className={styles.agent}>
+                                <image href={carrier.walkA} x={0} y={0} width={SPRITE_W * 2} height={STAND_H * 2} />
+                                <image className={styles.strideB} href={carrier.walkB} x={0} y={0} width={SPRITE_W * 2} height={STAND_H * 2} />
+                            </g>
+                            {/* the slip they are carrying, dropped at the desk */}
+                            <g className={styles.carried} style={{ ["--dur" as string]: `${dur}ms` }}>
+                                <rect x={SPRITE_W * 2 - 2} y={26} width={15} height={11} rx={2} fill="var(--pulse-accent)" />
+                                <rect x={SPRITE_W * 2 + 1} y={29} width={9} height={1.5} rx={0.75} fill="var(--pulse-panel)" opacity={0.85} />
+                                <rect x={SPRITE_W * 2 + 1} y={32} width={6} height={1.5} rx={0.75} fill="var(--pulse-panel)" opacity={0.85} />
+                            </g>
                         </g>
-                        {/* it lands */}
-                        <circle className={styles.landing} cx={target.cx} cy={target.cy - 12} r={10}
+
+                        {/* it lands on the desk as they arrive */}
+                        <circle
+                            className={styles.landing}
+                            cx={target.cx} cy={target.cy - 10} r={11}
                             fill="none" stroke="var(--pulse-accent)" strokeWidth={2}
-                            style={{ animationDelay: `${dur}ms` }} />
+                            style={{ animationDelay: `${Math.round(dur * 0.44)}ms` }}
+                        />
                     </g>
                 );
             })}
+
         </svg>
     );
 }

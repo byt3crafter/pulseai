@@ -22,8 +22,8 @@ const POLL_FALLBACK_MS = 4000;
 const STALE_MS = 10_000;
 /** A blizzard of slips is worse than none — cap what can fly at once. */
 const MAX_FLIGHTS = 8;
-/** Long enough for the slowest slip plus its landing ring. */
-const FLIGHT_LIFE_MS = 1900;
+/** Long enough for the slowest walk out, the handover, and the walk back. */
+const FLIGHT_LIFE_MS = 7000;
 
 interface Props {
     agents: FloorAgent[];
@@ -46,8 +46,6 @@ export default function FloorClient({ agents, departments, unassigned, humans, i
      * end entirely between two polls and never appear in a snapshot.
      */
     const [pushed, setPushed] = useState<Map<string, FloorActivity>>(new Map());
-    /** Agents currently up and pacing their room. Purely ambient. */
-    const [walkers, setWalkers] = useState<{ agentId: string; roomId: string }[]>([]);
     const [task, setTask] = useState("");
     const [sending, setSending] = useState(false);
     /** The live socket, reused to hand work out from the floor itself. */
@@ -274,36 +272,6 @@ export default function FloorClient({ agents, departments, unassigned, humans, i
         return { states: s, captions: c };
     }, [agents, snapshot, pushed, agentMap]);
 
-    /**
-     * Every so often, send one idle agent for a walk around their room.
-     *
-     * Only ever ONE at a time and never someone mid-run: a desk that is working
-     * must keep reading as working. This is decoration — it is deliberately not
-     * derived from any real event, and nothing depends on it.
-     */
-    useEffect(() => {
-        if (layout.desks.length === 0) return;
-        let cancelled = false;
-
-        const tick = () => {
-            if (cancelled) return;
-            const idle = layout.desks.filter((d) => {
-                const st = states.get(d.agentId);
-                return st === "idle" || st === "done";
-            });
-            if (idle.length === 0) return;
-
-            const pick = idle[Math.floor(Math.random() * idle.length)];
-            setWalkers([{ agentId: pick.agentId, roomId: pick.roomId }]);
-            // Long enough for a there-and-back stroll, then back to the desk.
-            window.setTimeout(() => { if (!cancelled) setWalkers([]); }, 14_000);
-        };
-
-        const first = window.setTimeout(tick, 4000);
-        const id = window.setInterval(tick, 26_000);
-        return () => { cancelled = true; window.clearTimeout(first); window.clearInterval(id); };
-    }, [layout.desks, states]);
-
     const busy = [...states.values()].filter((v) => v === "working" || v === "thinking").length;
     const selectedAgent = selected ? agentMap.get(selected) : null;
 
@@ -372,7 +340,6 @@ export default function FloorClient({ agents, departments, unassigned, humans, i
                     layout={layout}
                     agents={agentMap}
                     humans={humans}
-                    walkers={walkers}
                     states={states}
                     captions={captions}
                     flights={flights}
