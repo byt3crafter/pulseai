@@ -1,13 +1,23 @@
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
-import { PageHeader } from "../../../components/dashboard/ui";
-import { getFloorOrg, getFloorState } from "./actions";
-import { spriteForAgent, spriteForHuman } from "./sprite-png";
-import FloorClient from "./FloorClient";
-import type { FloorAgent, FloorHuman } from "./types";
+import OfficeFrame from "./OfficeFrame";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The Floor — the 3D office.
+ *
+ * The office is a vendored fork of Hermes3D (office/, MIT) running as its own
+ * service and proxied to /office on THIS origin. It is embedded rather than
+ * ported because its scene reaches across ~310 files of its own app; framing it
+ * keeps it an upgradeable dependency instead of a fork of someone's whole
+ * codebase.
+ *
+ * Same-origin is load-bearing, not cosmetic: the office sends
+ * X-Frame-Options: SAMEORIGIN, and it authenticates by forwarding the viewer's
+ * dashboard session cookie to /api/office/token — which a cross-origin browser
+ * would never send. So there is no second login and nothing to configure.
+ */
 export default async function FloorPage() {
     const isNextBuild =
         process.env.npm_lifecycle_event === "build" ||
@@ -17,35 +27,5 @@ export default async function FloorPage() {
     const session = await auth();
     if (!session?.user?.tenantId) redirect("/login");
 
-    const [org, snapshot] = await Promise.all([getFloorOrg(), getFloorState()]);
-
-    // Avatars are generated here, in the Server Component: the pipeline is pure
-    // Node maths and the sprites go down as plain props. That is what keeps the
-    // page free of canvas code, SSR guards and theme-change regeneration.
-    const agents: FloorAgent[] = org.agents.map((a) => ({
-        ...a,
-        sprite: spriteForAgent(a.id, a.name),
-    }));
-
-    const humans: FloorHuman[] = org.humans.map((h) => ({
-        ...h,
-        sprite: spriteForHuman(h.id, h.name),
-    }));
-
-    return (
-        // Page padding is per-page in this app: <main> in DashboardShell has none.
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
-            <PageHeader
-                title="The Floor"
-                description="Your AI workforce at work. Departments are rooms; every agent has a desk. Work arrives as a slip."
-            />
-            <FloorClient
-                agents={agents}
-                departments={org.departments}
-                unassigned={org.unassigned}
-                humans={humans}
-                initial={snapshot}
-            />
-        </div>
-    );
+    return <OfficeFrame />;
 }

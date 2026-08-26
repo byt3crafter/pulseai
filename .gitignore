@@ -31,3 +31,9 @@ info.txt
 
 # Local design reference (marketing landing page mockup — not source)
 Pulse AI Landing Page/
+
+# Vendored office app — its own deps/build artifacts
+office/node_modules/
+office/.next/
+office/.env.example
+office/.env
