@@ -25,6 +25,14 @@ const MAX_FLIGHTS = 8;
 /** Long enough for the slowest walk out, the handover, and the walk back. */
 const FLIGHT_LIFE_MS = 7000;
 
+/** "3.8h", "24m", "48s" — hours only once it is actually hours. */
+export function formatHours(h: number): string {
+    if (!h || h <= 0) return "0";
+    if (h < 1 / 60) return `${Math.round(h * 3600)}s`;
+    if (h < 1) return `${Math.round(h * 60)}m`;
+    return `${h.toFixed(1)}h`;
+}
+
 interface Props {
     agents: FloorAgent[];
     departments: FloorDepartment[];
@@ -307,6 +315,11 @@ export default function FloorClient({ agents, departments, unassigned, humans, i
                 </span>
                 <span className="text-pulse-muted" title="Cron jobs, heartbeats, standing orders and follow-ups the agents run on their own">
                     <strong className="text-pulse-text">{snapshot.today.scheduled}</strong> on their own
+                </span>
+                {/* The number that makes an AI workforce legible: not how often it
+                    ran, but how much work it actually did. */}
+                <span className="text-pulse-muted" title="Time your agents actually spent working in the last 24h">
+                    <strong className="text-pulse-text">{formatHours(snapshot.today.hoursWorked)}</strong> worked
                 </span>
                 {layout.overflow && (
                     <span className="text-pulse-faint">

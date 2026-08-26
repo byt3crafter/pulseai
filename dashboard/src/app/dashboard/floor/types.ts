@@ -99,6 +99,8 @@ export interface FloorSnapshot {
         asked: number;
         /** The agents' own routine: cron, heartbeats, standing orders, commitments. */
         scheduled: number;
+        /** Hours the whole workforce actually spent working in the last 24h. */
+        hoursWorked: number;
     };
     /**
      * Scheduled work that FAILED recently.
