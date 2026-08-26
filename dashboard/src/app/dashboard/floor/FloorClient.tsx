@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { getFloorState, getFloorTokenAction } from "./actions";
+import AgentActivityPanel from "./AgentActivityPanel";
 import FloorSvg from "./FloorSvg";
 import { layoutFloor, type LayoutRoomInput } from "./layout-floor";
 import { toolStepLabel } from "./tool-labels";
@@ -346,6 +347,26 @@ export default function FloorClient({ agents, departments, unassigned, humans, i
                 )}
             </div>
 
+            {/* Routine automation stays silent while it works. When it stops
+                working, that is exactly what you need to be told. */}
+            {snapshot.alerts.failedJobs.length > 0 && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+                    <p className="text-sm font-medium text-red-400">
+                        {snapshot.alerts.failedJobs.length === 1
+                            ? "A scheduled job failed"
+                            : `${snapshot.alerts.failedJobs.length} scheduled jobs failed`}
+                        {" "}in the last 24h
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                        {snapshot.alerts.failedJobs.slice(0, 3).map((f, i) => (
+                            <li key={`${f.jobName}-${i}`} className="truncate text-xs text-red-400/80">
+                                <strong>{f.jobName}</strong> — {f.error}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
             <div className="overflow-hidden rounded-xl border border-pulse-border bg-pulse-bg">
                 <FloorSvg
                     layout={layout}
@@ -409,6 +430,8 @@ export default function FloorClient({ agents, departments, unassigned, humans, i
                             Connecting to the gateway — you can still open the chat above.
                         </p>
                     )}
+
+                    <AgentActivityPanel agentId={selectedAgent.id} agentName={selectedAgent.name} />
                 </div>
             )}
         </div>

@@ -4,7 +4,8 @@ import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "../../../storage/db";
 import {
-    agentProfiles, agentRuns, agentDelegations, apiTokens, channels, channelAgents, pendingApprovals, users,
+    agentProfiles, agentRuns, agentDelegations, apiTokens, channels, channelAgents,
+    commitments, jobRuns, pendingApprovals, scheduledJobs, users,
 } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { toolStepLabel } from "./tool-labels";
@@ -45,7 +46,7 @@ function summariseToday(rows: { trigger: string | null; count: number }[]): { as
  * unauthorised, per the house rule for read paths.
  */
 export async function getFloorState(): Promise<FloorSnapshot> {
-    const empty: FloorSnapshot = { activity: [], handoffs: [], today: { asked: 0, scheduled: 0 }, serverNow: Date.now() };
+    const empty: FloorSnapshot = { activity: [], handoffs: [], today: { asked: 0, scheduled: 0 }, alerts: { failedJobs: [] }, serverNow: Date.now() };
 
     const check = await requireTenant();
     if (!check.authorized) return empty;
@@ -57,7 +58,7 @@ export async function getFloorState(): Promise<FloorSnapshot> {
     const dayStart = new Date(now - 24 * 60 * 60 * 1000);
 
     try {
-        const [running, finished, delegations, approvals, todayRows] = await Promise.all([
+        const [running, finished, delegations, approvals, todayRows, failedJobRows] = await Promise.all([
             db.select({
                 id: agentRuns.id,
                 agentProfileId: agentRuns.agentProfileId,
@@ -110,6 +111,24 @@ export async function getFloorState(): Promise<FloorSnapshot> {
                     gt(agentRuns.endedAt, dayStart),
                 ))
                 .groupBy(agentRuns.trigger),
+
+            // Scheduled jobs that failed in the last 24h — the one piece of
+            // autonomous activity that must not stay quiet.
+            db.select({
+                jobName: scheduledJobs.name,
+                agentId: scheduledJobs.agentId,
+                error: jobRuns.error,
+                startedAt: jobRuns.startedAt,
+            })
+                .from(jobRuns)
+                .innerJoin(scheduledJobs, eq(scheduledJobs.id, jobRuns.jobId))
+                .where(and(
+                    eq(jobRuns.tenantId, tenantId),
+                    eq(jobRuns.status, "failed"),
+                    gt(jobRuns.startedAt, dayStart),
+                ))
+                .orderBy(desc(jobRuns.startedAt))
+                .limit(10),
         ]);
 
         const needsYou = new Set(approvals.map((a) => a.agentProfileId).filter(Boolean) as string[]);
@@ -176,16 +195,18 @@ export async function getFloorState(): Promise<FloorSnapshot> {
             if (run.trigger === "delegation" || run.parentRunId) continue;
             const at = run.startedAt ? new Date(run.startedAt).getTime() : now;
             if (now - at > RECENT_MS) continue;
-            const scheduled = run.trigger === "cron" || run.trigger === "heartbeat"
-                || run.trigger === "standing_order" || run.trigger === "commitment";
+            // Routine autonomous work does NOT get a slip. A cron firing every
+            // 15 minutes would put a paper plane across the floor all day and
+            // drown out the thing you actually care about — someone asking for
+            // something. It still counts in the header, is still visible on the
+            // desk, and still shows in the agent's activity panel.
+            if (AUTONOMOUS_TRIGGERS.has(run.trigger ?? "")) continue;
             handoffs.push({
                 id: `r-${run.id}`,
                 // Attribute to the human who actually asked, when we know. Work
                 // from Telegram is only attributed once that account is linked
                 // to a member on /dashboard/people — we never guess.
-                from: scheduled
-                    ? { kind: "schedule" }
-                    : { kind: "boss", userId: run.userId ?? null },
+                from: { kind: "boss", userId: run.userId ?? null },
                 toAgentId: run.agentProfileId,
                 at,
             });
@@ -195,6 +216,14 @@ export async function getFloorState(): Promise<FloorSnapshot> {
             activity: [...activity.values()],
             handoffs,
             today: summariseToday(todayRows),
+            alerts: {
+                failedJobs: failedJobRows.map((r) => ({
+                    agentId: r.agentId ?? null,
+                    jobName: r.jobName,
+                    error: (r.error || "Failed").slice(0, 200),
+                    at: r.startedAt ? new Date(r.startedAt).getTime() : now,
+                })),
+            },
             serverNow: now,
         };
     } catch (error) {
@@ -321,6 +350,123 @@ export async function getFloorOrg(): Promise<FloorOrg> {
         };
     } catch (error) {
         console.error("Failed to load floor org:", error);
+        return empty;
+    }
+}
+
+export interface AgentActivityDetail {
+    recentRuns: { id: string; trigger: string; status: string; title: string | null; at: number; durationMs: number; error: string | null }[];
+    jobs: { id: string; name: string; schedule: string; enabled: boolean; lastRunAt: number | null; nextRunAt: number | null; lastStatus: string | null; lastError: string | null }[];
+    commitments: { id: string; summary: string; dueAt: number; status: string }[];
+}
+
+/**
+ * What has this agent actually been doing?
+ *
+ * The floor shows the present tense — who is busy right now. This is the rest:
+ * what it has run, what it is scheduled to run, and what it has promised to
+ * follow up on. Deliberately loaded on demand (a desk click), not polled, so
+ * the calm of the floor is never paid for in queries.
+ */
+export async function getAgentActivityAction(agentProfileId: string): Promise<AgentActivityDetail> {
+    const empty: AgentActivityDetail = { recentRuns: [], jobs: [], commitments: [] };
+
+    const check = await requireTenant();
+    if (!check.authorized) return empty;
+    const tenantId = check.tenantId;
+    if (!agentProfileId) return empty;
+
+    try {
+        const [runRows, jobRows, commitmentRows] = await Promise.all([
+            db.select({
+                id: agentRuns.id,
+                trigger: agentRuns.trigger,
+                status: agentRuns.status,
+                title: agentRuns.title,
+                startedAt: agentRuns.startedAt,
+                durationMs: agentRuns.durationMs,
+                error: agentRuns.error,
+            })
+                .from(agentRuns)
+                .where(and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.agentProfileId, agentProfileId)))
+                .orderBy(desc(agentRuns.startedAt))
+                .limit(15),
+
+            db.select({
+                id: scheduledJobs.id,
+                name: scheduledJobs.name,
+                scheduleType: scheduledJobs.scheduleType,
+                cronExpression: scheduledJobs.cronExpression,
+                intervalSeconds: scheduledJobs.intervalSeconds,
+                enabled: scheduledJobs.enabled,
+                lastRunAt: scheduledJobs.lastRunAt,
+                nextRunAt: scheduledJobs.nextRunAt,
+            })
+                .from(scheduledJobs)
+                .where(and(eq(scheduledJobs.tenantId, tenantId), eq(scheduledJobs.agentId, agentProfileId)))
+                .orderBy(desc(scheduledJobs.lastRunAt))
+                .limit(20),
+
+            db.select({
+                id: commitments.id,
+                summary: commitments.summary,
+                dueAt: commitments.dueAt,
+                status: commitments.status,
+            })
+                .from(commitments)
+                .where(and(eq(commitments.tenantId, tenantId), eq(commitments.agentId, agentProfileId)))
+                .orderBy(desc(commitments.dueAt))
+                .limit(15),
+        ]);
+
+        // The latest outcome per job, so a job that has started failing says so
+        // instead of just showing a green "enabled" toggle.
+        const jobIds = jobRows.map((j) => j.id);
+        const lastRuns = jobIds.length
+            ? await db.select({ jobId: jobRuns.jobId, status: jobRuns.status, error: jobRuns.error, startedAt: jobRuns.startedAt })
+                .from(jobRuns)
+                .where(inArray(jobRuns.jobId, jobIds))
+                .orderBy(desc(jobRuns.startedAt))
+                .limit(200)
+            : [];
+        const latestByJob = new Map<string, { status: string; error: string | null }>();
+        for (const r of lastRuns) {
+            if (!latestByJob.has(r.jobId)) latestByJob.set(r.jobId, { status: r.status, error: r.error });
+        }
+
+        return {
+            recentRuns: runRows.map((r) => ({
+                id: r.id,
+                trigger: r.trigger,
+                status: r.status,
+                title: r.title,
+                at: r.startedAt ? new Date(r.startedAt).getTime() : 0,
+                durationMs: r.durationMs ?? 0,
+                error: r.error,
+            })),
+            jobs: jobRows.map((j) => ({
+                id: j.id,
+                name: j.name,
+                schedule: j.scheduleType === "cron"
+                    ? (j.cronExpression || "cron")
+                    : j.scheduleType === "interval"
+                        ? `every ${Math.round((j.intervalSeconds ?? 0) / 60)} min`
+                        : "once",
+                enabled: !!j.enabled,
+                lastRunAt: j.lastRunAt ? new Date(j.lastRunAt).getTime() : null,
+                nextRunAt: j.nextRunAt ? new Date(j.nextRunAt).getTime() : null,
+                lastStatus: latestByJob.get(j.id)?.status ?? null,
+                lastError: latestByJob.get(j.id)?.error ?? null,
+            })),
+            commitments: commitmentRows.map((c) => ({
+                id: c.id,
+                summary: c.summary,
+                dueAt: c.dueAt ? new Date(c.dueAt).getTime() : 0,
+                status: c.status,
+            })),
+        };
+    } catch (error) {
+        console.error("Failed to load agent activity:", error);
         return empty;
     }
 }

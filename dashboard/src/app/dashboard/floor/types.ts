@@ -100,6 +100,16 @@ export interface FloorSnapshot {
         /** The agents' own routine: cron, heartbeats, standing orders, commitments. */
         scheduled: number;
     };
+    /**
+     * Scheduled work that FAILED recently.
+     *
+     * Routine automation is deliberately silent while it succeeds — the whole
+     * point of it is that you don't think about it. The moment it stops working
+     * you need to know, so failures are the one autonomous thing that surfaces.
+     */
+    alerts: {
+        failedJobs: { agentId: string | null; jobName: string; error: string; at: number }[];
+    };
     /** Server clock, so the client never trusts its own for staleness checks. */
     serverNow: number;
 }
