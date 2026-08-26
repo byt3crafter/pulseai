@@ -31,71 +31,119 @@ wired into CI yet.
 
 ## How it connects to Pulse
 
-Four seams, all marked in-source with `PULSE PATCH:` — grep for it. That marker
-is a signpost to the places where our two designs meet, and where a change has
-consequences outside this directory. It is not a fence.
+Marked in-source with `PULSE PATCH:` — grep for it. The marker means "changing
+this has consequences outside this directory". It is not a fence.
 
-### 1. It authenticates as whoever is looking at it
+**The rule underneath all of it: Pulse env is authoritative, everywhere, always.**
+Nothing a browser sends, nothing a file remembers, and nothing a user clicks can
+move a deployment off its own workspace. The office used to be a Hermes client
+that *became* a Pulse client if a network request succeeded — that is what broke,
+and every seam below exists so it can never be true again.
+
+### 1. One resolver owns the runtime
+`src/lib/office/pulse-runtime.ts`
+
+`resolvePulseRuntime()` is the single reader of `HERMES3D_GATEWAY_URL`, and the
+adapter type is a constant. `HERMES3D_GATEWAY_ADAPTER_TYPE` is deliberately not
+read: it let a deployment ask for `hermes`, and its absent-value default was
+`"hermes"` too, so a Pulse box could boot pointed at a runtime that was not
+running.
+
+`readPulseRuntime()` is its browser half — see seam 2.
+
+### 2. The browser is told the runtime in the HTML
+`src/app/layout.tsx` (`force-dynamic` + a `window.__PULSE_RUNTIME__` stamp)
+
+`process.env` is server-only, so without this the browser's opening belief was
+the upstream default: Hermes on `ws://localhost:18789`. That is what the badge
+renders, and the only thing that could correct it was a `/api/studio` fetch with
+no timeout, no retry, and a fallback to *hermes* rather than to env. On a slow
+link it never landed and the office sat on "Connecting to your runtime…" forever.
+
+`force-dynamic` is load-bearing: without it Next prerenders these routes and
+bakes env at **build** time, where the gateway URL does not exist because
+docker-compose sets it at **run** time.
+
+Stamped in the root layout, not threaded as a prop, so every route gets it and a
+new route cannot be added without it.
+
+### 3. Nothing user-facing waits on the network
+`src/lib/gateway/GatewayClient.ts`
+
+Initial state is seeded from the runtime, `settingsLoaded` starts true under
+Pulse, and `"custom"` is in `isAutoManagedAdapter` — it was excluded, which
+barred Pulse from every automatic connect and retry path in the file. The
+`/api/studio` fetch is now only a hydration detail, and `src/lib/http.ts` gives
+every request a default timeout.
+
+### 4. It authenticates as whoever is looking at it
 `src/app/api/runtime/custom/route.ts`
 
-Upstream sends **no `Authorization` header at all** on the custom runtime seam:
-it assumes a single-tenant orchestrator on a trusted network, and there is no
-tenant concept anywhere in its codebase. Pulse is multi-tenant and derives the
-tenant *from* the credential, so unpatched every request 401s — and serving those
-endpoints unauthenticated instead would be a cross-tenant leak.
+Upstream sends **no `Authorization` header at all** here: it assumes a
+single-tenant orchestrator on a trusted network, and has no tenant concept
+anywhere. Pulse derives the tenant *from* the credential, so unpatched every
+request 401s — and serving these endpoints unauthenticated instead would be a
+cross-tenant leak.
 
-Rather than have someone paste a token into Studio settings (a second login, and
-one shared credential for everyone), the proxy forwards the caller's dashboard
+Rather than have someone paste a token into settings (a second login, and one
+shared credential for everyone), the proxy forwards the caller's dashboard
 session cookie to `/api/office/token`, which mints a short-lived per-user token.
-The office can only ever show the workspace of the person looking at it, and
-there is nothing to configure.
+The office can only ever show the workspace of the person looking at it.
 
-`CUSTOM_RUNTIME_TOKEN` still wins if set — useful headless, or against a runtime
-with no dashboard in front of it.
+The same route also ignores the client-supplied `runtimeUrl` and uses env: the
+browser used to name the target and the server merely allowlisted its hostname.
+The allowlist still applies to a browser-supplied URL, and is skipped for the
+operator's own env value — checking that against a list the same operator writes
+is circular, and with no `CUSTOM_RUNTIME_ALLOWLIST` set it rejects in production.
 
-### 2. It connects on its own
-`src/features/agents/components/GatewayConnectScreen.tsx`
+`CUSTOM_RUNTIME_TOKEN` still wins if set — useful headless.
 
-Upstream opens on a chooser: pick a backend, paste a gateway URL, press Connect.
-Inside Pulse all three answers are already known — backend and URL from env, the
-credential from the viewer's session — so the form was asking a question it had
-already been handed the answer to.
+### 5. The runtime cannot be rewritten from outside
+`src/lib/studio/settings-store.ts`, `src/app/api/studio/route.ts`
 
-It now fires `onConnect()` once on mount when a URL is configured and nothing is
-in flight. Deliberately **no retry after an error**, so a real failure still
-lands on this screen with its message instead of looping, and the form stays
-underneath for a deployment where nothing is configured.
+Env overwrites `gateway` on load. It used to be the reverse — once
+`settings.json` held a URL, the persisted url *and* adapterType won and env
+donated only the token — so one bad write pinned the deployment and env could not
+argue. `/api/studio` also drops `gateway` from any PUT: that route has no auth on
+either verb and is internet-reachable through the dashboard's origin, so an
+unauthenticated request could otherwise repoint every viewer's office.
 
-### 3. It lives at `/office` on the dashboard's origin
-`next.config.mjs` (`assetPrefix`), `Dockerfile` (`ARG HERMES3D_BASE_PATH`)
+### 6. There is nothing to choose
+`OfficeScreen.tsx`, `AgentsPageScreen.tsx`, `panels/SettingsPanel.tsx`,
+`features/onboarding/*`
+
+Four surfaces offered a backend picker, and each one could strand a user:
+
+- the connect screen (`shouldPromptForConnect` is hard-false under Pulse),
+- the agents screen's own copy, which `didAttemptGatewayConnect` alone was enough
+  to show — one failed connect dropped you onto a gateway URL form,
+- an always-reachable Gateway block in the in-office settings panel, where one
+  tap on "Hermes" rewrote the **shared** server-side settings and disconnected
+  everyone,
+- a `skippable: false` "Connect Your Gateway" onboarding step, shown to every
+  browser missing a localStorage flag — i.e. every first-time phone.
+
+All gone. A failure shows a named error with a retry, never a form.
+
+### 7. Assets live under `/office` on the dashboard's origin
+`next.config.mjs` (`assetPrefix`), `Dockerfile` (`ARG HERMES3D_BASE_PATH`),
+`src/app/layout.tsx` (a `fetch` prefix wrapper)
 
 The office sends `X-Frame-Options: SAMEORIGIN` and `frame-ancestors 'self'`, so a
-subdomain could **never** be embedded in the dashboard — and a cross-origin
-browser would not send the session cookie seam 1 depends on. Same origin under a
-path is the only arrangement that satisfies both.
+subdomain could never be embedded — and a cross-origin browser would not send the
+cookie seam 4 depends on. Same origin under a path satisfies both.
 
-**`assetPrefix`, not `basePath`.** `basePath` is the obvious choice and it does
-not work here: the office runs behind its own custom server (`server/index.js`,
-needed for the gateway WebSocket proxy), and with a basePath every API route fell
-through the `/[...invalid]` catch-all and 307'd to `/office`. So the prefix
-applies to assets only and the path is stripped in front — by nginx in
-production, by a Next rewrite in development. The trailing slashes in
-`proxy_pass http://localhost:3004/;` are what do the stripping, and are
-load-bearing.
+**`assetPrefix`, not `basePath`.** `basePath` is the obvious choice and does not
+work here: the office runs behind its own custom server (`server/index.js`, for
+the gateway WebSocket proxy), and with a basePath every API route fell through
+the `/[...invalid]` catch-all and 307'd. So the prefix applies to assets only and
+the path is stripped in front — nginx in production, a Next rewrite in
+development. The trailing slashes in `proxy_pass http://localhost:3004/;` do the
+stripping and are load-bearing.
 
-`assetPrefix` is baked in at **build** time, hence the Docker `ARG`.
-
-### 4. Same-origin `fetch()` carries the base path
-`src/app/layout.tsx`
-
-Next prefixes links, the router and assets — but **not** `fetch()`. The office
-calls its own API with root-relative paths (`/api/studio`,
-`/api/runtime/custom`, ~19 of them), so under `/office` every one would land on
-the dashboard at the origin root, 404, and the office would quietly fall back to
-its defaults ("hermes / disconnected / 0 agents").
-
-One inline pre-hydration `fetch` wrapper is smaller than rewriting every call
-site, and unlike a sweep it cannot miss one.
+Next also does not prefix `fetch()`, and the office calls its own API with
+root-relative paths (~19 of them), so a pre-hydration wrapper in `layout.tsx`
+adds the prefix. Smaller than rewriting every call site, and it cannot miss one.
 
 ## Set by env, not by code
 
@@ -111,6 +159,18 @@ site, and unlike a sweep it cannot miss one.
   "Custom runtime does not support config.get" on load. Hydration catches it and
   carries on; what's lost is the model-policy snapshot, which nothing on the
   floor uses today. Implement it against Pulse whenever the floor wants it.
+
+- `StudioGatewayAdapterType` still admits `demo | hermes | hermes-agent | local |
+  hermes3d | custom`. Every path to those is closed, but the states remain
+  *representable* — narrowing the union to `"custom"` and letting the compiler
+  delete `src/lib/runtime/{demo,hermes}/*` and the two adapter scripts in
+  `server/` would make it impossible rather than merely unreachable. Mechanical,
+  and worth doing.
+
+- The scene is heavy on a slow link: ~1.09 MB of blocking JS/CSS, a 1.2 MB
+  uncompressed HDR (`src/features/retro-office/systems/atmosphere.tsx`), and 17
+  GLBs preloaded at module scope (`objects/furniture.tsx`). Agents take ~40 s to
+  appear on a degraded connection — correct, but slow.
 
 ## Taking things from upstream
 

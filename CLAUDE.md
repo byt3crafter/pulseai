@@ -528,9 +528,16 @@ that attribution is permanent — `office/LICENSE`, `dashboard/src/utils/credits
 and `/dashboard/about` — but there is no upstream merge to protect. Edit it
 freely; don't keep a change small for the sake of a future re-sync.
 
-Read `office/README.md` before changing it. The four seams joining it to Pulse
-are marked in-source with `PULSE PATCH:`; that marker means "a change here has
+Read `office/README.md` before changing it. The seams joining it to Pulse are
+marked in-source with `PULSE PATCH:`; that marker means "a change here has
 consequences outside this directory", not "don't touch".
+
+**The rule that governs all of them: Pulse env is authoritative.** The runtime
+comes from `HERMES3D_GATEWAY_URL` via `office/src/lib/office/pulse-runtime.ts`,
+is stamped into the HTML so the browser has it on the first paint, and outranks
+any persisted file or client request. Nothing a browser sends, a file remembers,
+or a user clicks may move a deployment off its own workspace — there is no
+backend to choose, no URL to paste and no Connect button anywhere in the office.
 
 ```bash
 cd office && npm install   # once — heavy 3D deps, not installed by default
