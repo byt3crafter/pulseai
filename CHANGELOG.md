@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.15] - 2026-08-26
+
+### Features
+- show hours each agent has actually worked
+
 ## [0.19.14] - 2026-08-26
 
 ### Features
