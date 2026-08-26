@@ -53,6 +53,7 @@ export async function getFloorState(): Promise<FloorSnapshot> {
                 toolCalls: agentRuns.toolCalls,
                 trigger: agentRuns.trigger,
                 parentRunId: agentRuns.parentRunId,
+                userId: agentRuns.userId,
             })
                 .from(agentRuns)
                 .where(and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.status, "running")))
@@ -163,7 +164,12 @@ export async function getFloorState(): Promise<FloorSnapshot> {
                 || run.trigger === "standing_order" || run.trigger === "commitment";
             handoffs.push({
                 id: `r-${run.id}`,
-                from: scheduled ? { kind: "schedule" } : { kind: "boss" },
+                // Attribute to the human who actually asked, when we know. Work
+                // from Telegram is only attributed once that account is linked
+                // to a member on /dashboard/people — we never guess.
+                from: scheduled
+                    ? { kind: "schedule" }
+                    : { kind: "boss", userId: run.userId ?? null },
                 toAgentId: run.agentProfileId,
                 at,
             });
