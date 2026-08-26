@@ -130,6 +130,16 @@ if [ "${DO_MIGRATE}" = 1 ]; then
   done
 fi
 
+# Reclaim disk BEFORE pulling, so a nearly-full box doesn't fail mid-update.
+# Client boxes PULL images and never build, yet they accumulate build cache from
+# whenever they last built from source — Metcheck was sitting on 120GB of it,
+# at 88% disk, for an app with a 16MB database. Nothing else ever cleans it.
+echo "  reclaiming disk…"
+docker builder prune -af >/dev/null 2>&1 || true
+# Keep a week of images so a rollback still has something to roll back to.
+docker image prune -af --filter 'until=168h' >/dev/null 2>&1 || true
+df -h / | tail -1 | awk '{print "  disk: " \$3 " used, " \$4 " free (" \$5 ")"}'
+
 echo "  restarting…"
 # Recreate, and retry until the gateway is actually running the target tag — a single
 # up -d occasionally doesn't swap the image (compose reusing the running container).
