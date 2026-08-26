@@ -88,6 +88,7 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
             { name: "email_send", label: "Send email", description: "Compose and send a new email.", defaultOn: true },
             { name: "email_reply", label: "Reply to email", description: "Reply within an email thread.", defaultOn: true },
             { name: "email_read", label: "Read email", description: "Read a specific message.", defaultOn: true },
+            { name: "email_read_attachment", label: "Read attachments", description: "Open a PDF, invoice or spreadsheet attached to an email and pull the details out of it.", defaultOn: true },
             { name: "email_list", label: "List email", description: "List messages in a folder.", defaultOn: true },
             { name: "email_fetch_unread", label: "Fetch unread", description: "Pull unread messages.", defaultOn: true },
             { name: "email_search", label: "Search email", description: "Search the mailbox.", defaultOn: true },
@@ -247,6 +248,17 @@ export const TOOL_CATALOG: ToolCatalogGroup[] = [
             { name: "script_list", label: "List scripts", description: "List saved scripts.", defaultOn: false },
             { name: "credential_list", label: "List credentials", description: "List available credential names (not values).", defaultOn: false },
             { name: "credential_set", label: "Set credential", description: "Let the agent store/update a tenant credential or API key to connect an integration (encrypted). Off by default.", defaultOn: false },
+            { name: "bash_sandbox", label: "Run code (sandbox)", description: "Run code in a throwaway, network-isolated container. Safer than shell exec — nothing it does touches the host.", defaultOn: false },
+        ],
+    },
+    {
+        key: "servers",
+        title: "Servers (SSH)",
+        description:
+            "Let an agent inspect and operate the servers in Servers. These tools only work on servers you have added, enabled, AND explicitly granted to that agent — this switch just makes the tools visible to the workspace at all.",
+        tools: [
+            { name: "server_list", label: "List servers", description: "See which servers this agent has been granted, and their safety mode.", defaultOn: false },
+            { name: "server_exec", label: "Run server command", description: "Run a command over SSH on a granted server. Still bound by that server's safety mode (observe/safe/full) and approval settings.", defaultOn: false },
         ],
     },
 ];
