@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.18] - 2026-08-26
+
+### Features
+- mint the 3D office a token from the dashboard session
+
 ## [0.19.17] - 2026-08-26
 
 ### Features
