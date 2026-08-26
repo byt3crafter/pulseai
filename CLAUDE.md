@@ -518,6 +518,35 @@ loop/hierarchy risk is isolated to Phases 4–5 so the flat model proves out fir
 
 ---
 
+## The office (`office/`)
+
+The 3D floor at `/dashboard/floor`. Its own Next app, its own container, embedded
+in the dashboard as an iframe on the same origin.
+
+**Treat it as ours, not as a vendored dependency.** It began as Hermes3D (MIT) and
+that attribution is permanent — `office/LICENSE`, `dashboard/src/utils/credits.ts`,
+and `/dashboard/about` — but there is no upstream merge to protect. Edit it
+freely; don't keep a change small for the sake of a future re-sync.
+
+Read `office/README.md` before changing it. The four seams joining it to Pulse
+are marked in-source with `PULSE PATCH:`; that marker means "a change here has
+consequences outside this directory", not "don't touch".
+
+```bash
+cd office && npm install   # once — heavy 3D deps, not installed by default
+./start-dev.sh             # office joins on :3004 once its deps exist
+```
+
+The dashboard rewrites `/office/*` to `localhost:3004` in dev, standing in for
+nginx in prod, so the iframe path is identical in both. Pre-commit typechecks
+`office/` whenever you stage a `.ts`/`.tsx` there.
+
+**Third-party credits:** anything shipped whose licence requires attribution goes
+in `dashboard/src/utils/credits.ts`. Keep it honest in both directions — a credit
+for something removed is as wrong as a missing one.
+
+---
+
 ## Testing
 
 ```bash

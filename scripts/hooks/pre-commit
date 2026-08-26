@@ -52,6 +52,22 @@ echo -e "${YELLOW}[pre-commit] TypeScript check — dashboard/${NC}"
     exit 1
 }
 
+# Office only when it is actually being touched — it is a separate app with its
+# own deps, and most commits never go near it. Silently skipped when its
+# node_modules are absent, so nobody is forced to install it to commit.
+STAGED_OFFICE=$(git diff --cached --name-only | grep -E '^office/.*\.(ts|tsx)$' || true)
+if [[ -n "$STAGED_OFFICE" ]]; then
+    if [[ -d "$ROOT_DIR/office/node_modules" ]]; then
+        echo -e "${YELLOW}[pre-commit] TypeScript check — office/${NC}"
+        (cd "$ROOT_DIR/office" && npx tsc --noEmit) || {
+            echo -e "${RED}TypeScript errors in office/. Commit blocked.${NC}"
+            exit 1
+        }
+    else
+        echo -e "${YELLOW}[pre-commit] office/ changed but deps missing — skipping typecheck (cd office && npm install)${NC}"
+    fi
+fi
+
 # ─── .env check ──────────────────────────────────────────────────────────────
 STAGED_ENV=$(git diff --cached --name-only | grep -E '\.env' || true)
 if [[ -n "$STAGED_ENV" ]]; then
