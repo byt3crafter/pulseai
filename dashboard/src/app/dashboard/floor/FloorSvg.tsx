@@ -77,6 +77,12 @@ function Desk({
                 fill="var(--pulse-panel-alt)" stroke="var(--pulse-border)" strokeWidth={1}
             />
 
+            {/* grounds the figure — without it a sprite floats above the floor */}
+            <ellipse
+                className={styles.contact}
+                cx={sx + SPR_W / 2} cy={desk.y + SPR_H - 6} rx={20} ry={5}
+            />
+
             {/* the person — one image when still, two alternating when typing */}
             <g className={styles.agent}>
                     {working ? (
@@ -88,6 +94,13 @@ function Desk({
                         <image href={agent.sprite.idle} x={sx} y={desk.y} width={SPR_W} height={SPR_H} />
                 )}
             </g>
+
+            {/* light from the screen falling on whoever is sitting at it */}
+            <ellipse
+                className={styles.rimLight}
+                cx={desk.x + 24} cy={desk.y + DESK_TOP - 14} rx={34} ry={26}
+                fill="url(#floorScreenLight)"
+            />
 
             {/* screen glow, pooling on the desk under the monitor */}
             <ellipse
@@ -118,6 +131,11 @@ function Desk({
                     fill="var(--pulse-panel-alt)" stroke="var(--pulse-border-strong)" strokeWidth={1.25}
                 />
                 <rect className={styles.screen} x={desk.x + 5} y={desk.y + DESK_TOP - 20} width={22} height={14} rx={1} />
+                <rect
+                    className={styles.bloom}
+                    x={desk.x} y={desk.y + DESK_TOP - 25} width={32} height={24} rx={6}
+                    fill="var(--pulse-accent)" filter="url(#floorBloom)"
+                />
             </g>
 
             {/* status marks */}
@@ -195,7 +213,32 @@ function FloorSvgImpl({
             aria-label="Office floor showing your AI agents at work"
         >
             {/* floor */}
+            <defs>
+                {/* One blur, reused by every screen — cheaper than a filter per desk. */}
+                <filter id="floorBloom" x="-60%" y="-60%" width="220%" height="220%">
+                    <feGaussianBlur stdDeviation="5" />
+                </filter>
+                {/* Light has to FALL OFF. A flat-filled ellipse reads as a purple
+                    blob painted over the sprite, not as a lit room. */}
+                <radialGradient id="floorAmbient" cx="50%" cy="-5%" r="115%">
+                    <stop offset="0%" stopColor="var(--floor-amb-near)" />
+                    <stop offset="52%" stopColor="var(--floor-amb-mid)" />
+                    <stop offset="100%" stopColor="var(--floor-amb-far)" />
+                </radialGradient>
+                <radialGradient id="floorVignette" cx="50%" cy="42%" r="118%">
+                    <stop offset="var(--floor-vig-stop)" stopColor="var(--floor-vig-edge)" stopOpacity="0" />
+                    <stop offset="100%" stopColor="var(--floor-vig-edge)" />
+                </radialGradient>
+                <radialGradient id="floorScreenLight">
+                    <stop offset="0%" stopColor="var(--pulse-accent)" stopOpacity="0.85" />
+                    <stop offset="45%" stopColor="var(--pulse-accent)" stopOpacity="0.28" />
+                    <stop offset="100%" stopColor="var(--pulse-accent)" stopOpacity="0" />
+                </radialGradient>
+            </defs>
+
             <rect width={VIEW_W} height={layout.viewH} fill="var(--floor-carpet)" />
+            {/* Ambient light across the room, brighter at the back. */}
+            <rect width={VIEW_W} height={layout.viewH} fill="url(#floorAmbient)" />
             <g>
                 {Array.from({ length: Math.ceil(VIEW_W / 40) }, (_, i) => (
                     <line key={`v${i}`} x1={i * 40} y1={0} x2={i * 40} y2={layout.viewH} stroke="var(--floor-carpet-line)" strokeWidth={1} />
@@ -357,6 +400,12 @@ function FloorSvgImpl({
                 );
             })}
 
+            {/* Vignette sits above everything: it is the frame, not a surface. */}
+            <rect
+                width={VIEW_W} height={layout.viewH}
+                fill="url(#floorVignette)"
+                pointerEvents="none"
+            />
         </svg>
     );
 }
