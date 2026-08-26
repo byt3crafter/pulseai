@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import type { GatewayStatus } from "@/lib/gateway/GatewayClient";
 import { isLocalGatewayUrl } from "@/lib/gateway/local-gateway";
@@ -44,6 +44,28 @@ export const GatewayConnectScreen = ({
   onUseLocalDefaults,
   onConnect,
 }: GatewayConnectScreenProps) => {
+  /*
+   * PULSE PATCH: connect automatically when the runtime is already configured.
+   *
+   * Inside Pulse the backend and URL come from env (HERMES3D_GATEWAY_*) and the
+   * credential comes from the viewer's dashboard session — so there is nothing
+   * for anyone to choose or paste, and showing a "pick a backend, then connect"
+   * form is asking a question that is already answered.
+   *
+   * Fires once per mount, and only from a resting state, so a genuine failure
+   * still lands on this screen (with its error) instead of retry-looping. The
+   * form stays available underneath for the case where nothing is configured.
+   */
+  const autoConnected = useRef(false);
+  useEffect(() => {
+    if (autoConnected.current) return;
+    if (!gatewayUrl.trim()) return;
+    if (status === "connecting" || status === "connected") return;
+    if (error) return;
+    autoConnected.current = true;
+    onConnect();
+  }, [gatewayUrl, status, error, onConnect]);
+
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [showToken, setShowToken] = useState(false);
   const tokenOptional =

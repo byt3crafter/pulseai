@@ -124,20 +124,24 @@ services:
     restart: always
     depends_on:
       - pulse-gateway
-    expose:
-      - "3000"
+    # Host networking, deliberately. The office refuses to bind a non-loopback
+    # address unless STUDIO_ACCESS_TOKEN is set, and setting that turns on its
+    # own cookie-based access gate — a second login wall in front of a page the
+    # dashboard already authenticated. On the host network it binds loopback,
+    # nginx reaches it directly, and the only way in is still /office behind the
+    # dashboard's own session.
+    network_mode: host
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=3004
+      # Also needed at RUNTIME so the server can strip it before Next sees it.
+      - HERMES3D_BASE_PATH=/office
       # Preconfigure the runtime so nobody is ever shown a "pick a backend" screen.
       - HERMES3D_GATEWAY_ADAPTER_TYPE=custom
-      - HERMES3D_GATEWAY_URL=http://pulse-gateway:8082
+      - HERMES3D_GATEWAY_URL=http://localhost:8082
       # Where to exchange a dashboard session cookie for a gateway token.
-      - PULSE_DASHBOARD_URL=http://pulse-dashboard:3000
-      # Internal service names only — the proxy refuses anything else.
-      - CUSTOM_RUNTIME_ALLOWLIST=pulse-gateway,localhost
-    networks:
-      - pulse-net
+      - PULSE_DASHBOARD_URL=http://localhost:3003
+      - CUSTOM_RUNTIME_ALLOWLIST=localhost
 
   pulse-dashboard:
     build:

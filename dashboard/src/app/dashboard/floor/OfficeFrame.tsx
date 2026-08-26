@@ -33,7 +33,7 @@ export default function OfficeFrame() {
             )}
             <iframe
                 ref={ref}
-                src="/office"
+                src="/office/office"
                 title="The Floor — your AI workforce in 3D"
                 onLoad={() => setReady(true)}
                 className="h-full w-full border-0"

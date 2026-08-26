@@ -33,6 +33,26 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/*
+          PULSE PATCH: prefix same-origin /api calls with the basePath.
+
+          Next's basePath rewrites links, the router and assets — but NOT
+          fetch(). The office calls its own API with root-relative paths
+          ("/api/studio", "/api/runtime/custom", ~19 of them), so under
+          /office every one of those lands on the Pulse dashboard at the
+          origin root instead, 404s, and the office silently falls back to
+          its defaults ("hermes / disconnected / 0 agents").
+
+          Patching fetch once here is far smaller than rewriting every call
+          site, and it cannot miss one. Runs before hydration so no request
+          escapes it.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var b=" + JSON.stringify(process.env.HERMES3D_BASE_PATH || "") + ";if(!b)return;var f=window.fetch;window.fetch=function(i,o){try{if(typeof i==='string'&&i.charAt(0)==='/'&&i.indexOf(b+'/')!==0){i=b+i;}else if(i&&i.url&&typeof i.url==='string'){var u=new URL(i.url,location.origin);if(u.origin===location.origin&&u.pathname.charAt(0)==='/'&&u.pathname.indexOf(b+'/')!==0){u.pathname=b+u.pathname;i=new Request(u.toString(),i);}}}catch(e){}return f.call(this,i,o);};}catch(e){}})();",
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html:
