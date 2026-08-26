@@ -3,6 +3,13 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.19.8] - 2026-08-26
+
+### Features
+- link a Telegram account to a workspace member
+- resumable chat — re-attach to a run in flight
+- reap stale runs, and record which human triggered them
+
 ## [0.19.7] - 2026-08-26
 
 ### Bug Fixes
