@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.2] - 2026-08-26
+
+### Chores
+- treat the office as our code, not a vendored fork
+
 ## [0.20.1] - 2026-08-26
 
 ### Bug Fixes
