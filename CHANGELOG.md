@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.13] - 2026-08-27
+
+### Features
+- v4 light theme, and dark by default
+
+### Bug Fixes
+- nav details the artboard actually specifies
+
 ## [0.20.12] - 2026-08-27
 
 ### Features
