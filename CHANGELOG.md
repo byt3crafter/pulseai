@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.25] - 2026-08-27
+
+### Features
+- Phase 2 — chats, notes, to-dos and bookmarks become private
+
 ## [0.20.24] - 2026-08-27
 
 ### Features
