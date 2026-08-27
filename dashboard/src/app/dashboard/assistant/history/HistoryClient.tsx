@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PlusIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
-type Row = { sessionId: string; title: string; updatedAt: string; preview?: string; agentName?: string };
+type Row = { sessionId: string; title: string; updatedAt: string; preview?: string; agentName?: string | null; agentId?: string };
 
 function when(iso: string) {
     const d = new Date(iso);
@@ -66,7 +66,7 @@ export default function HistoryClient({ sessions }: { sessions: Row[] }) {
                     {rows.map((r) => (
                         <Link
                             key={r.sessionId}
-                            href={`/dashboard/assistant?session=${encodeURIComponent(r.sessionId)}`}
+                            href={`/dashboard/assistant?session=${encodeURIComponent(r.sessionId)}${r.agentId ? `&agent=${encodeURIComponent(r.agentId)}` : ""}`}
                             className="grid cursor-pointer grid-cols-[1fr_130px_130px] items-center border-b border-pulse-border-subtle px-3 py-3.5 text-[13.5px] transition-colors motion-reduce:transition-none hover:bg-pulse-hover outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pulse-accent/50"
                         >
                             <span className="truncate pr-4 text-pulse-text">{r.title || "New chat"}</span>

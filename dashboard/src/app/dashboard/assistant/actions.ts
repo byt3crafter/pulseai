@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { apiTokens, conversations, messages, usageRecords, agentRuns } from "../../../storage/schema";
+import { apiTokens, conversations, messages, usageRecords, agentRuns, agentProfiles } from "../../../storage/schema";
 import { and, eq, asc, desc, gt, like, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -315,5 +315,79 @@ export async function getInFlightRunAction(
     } catch (e) {
         console.error("Failed to check for an in-flight run:", e);
         return null;
+    }
+}
+
+/**
+ * Every web chat in the workspace, for the History page.
+ *
+ * listSessionsAction filters by a per-agent contact-id prefix
+ * (`web-<tenant>-<agent>-…`), which is right for the composer's own scope and
+ * wrong here: chats created before per-agent scoping existed use the older
+ * `web-<tenant>-…` shape, so History showed one row out of forty-six. This
+ * matches every web conversation for the tenant and resolves the agent from
+ * the contact id where it is present.
+ */
+export async function listAllWebSessionsAction(): Promise<
+    (ChatSession & { agentName: string | null; agentId: string })[]
+> {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return [];
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const convs = await db
+            .select({
+                id: conversations.id,
+                contactId: conversations.channelContactId,
+                updatedAt: conversations.updatedAt,
+                metadata: conversations.metadata,
+            })
+            .from(conversations)
+            .where(and(
+                eq(conversations.tenantId, tenantId),
+                eq(conversations.channelType, "webapp"),
+                like(conversations.channelContactId, `web-${tenantId}%`),
+            ))
+            .orderBy(desc(conversations.updatedAt))
+            .limit(300);
+
+        const profiles = await db
+            .select({ id: agentProfiles.id, name: agentProfiles.name })
+            .from(agentProfiles)
+            .where(eq(agentProfiles.tenantId, tenantId));
+        const nameById = new Map(profiles.map((p) => [p.id, p.name]));
+
+        const out: (ChatSession & { agentName: string | null; agentId: string })[] = [];
+        for (const c of convs) {
+            const firstUser = await db
+                .select({ content: messages.content })
+                .from(messages)
+                .where(and(eq(messages.conversationId, c.id), eq(messages.role, "user")))
+                .orderBy(asc(messages.createdAt))
+                .limit(1);
+            if (!firstUser[0]) continue; // a chat nobody ever typed in is not history
+
+            // `web-<tenant>-<agent>-<session>`: the segment after the tenant is the
+            // agent when it matches one, and part of the session id when it does not.
+            const rest = (c.contactId || "").slice(`web-${tenantId}-`.length);
+            const firstSeg = rest.split("-").slice(0, 5).join("-");
+            const agentId = nameById.has(firstSeg) ? firstSeg : "";
+            const sessionId = agentId ? rest.slice(agentId.length + 1) : rest;
+
+            out.push({
+                sessionId,
+                agentId,
+                agentName: agentId ? nameById.get(agentId) ?? null : null,
+                title: firstUser[0].content.replace(/\s+/g, " ").slice(0, 80) || "New chat",
+                updatedAt: c.updatedAt?.toISOString() ?? new Date(0).toISOString(),
+                preview: "",
+                pinned: (c.metadata as any)?.pinned === true,
+            });
+        }
+        return out;
+    } catch (err) {
+        console.error("Failed to list web sessions:", err);
+        return [];
     }
 }
