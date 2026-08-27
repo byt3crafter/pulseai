@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AssistantPage({
     searchParams,
 }: {
-    searchParams: Promise<{ session?: string; agent?: string }>;
+    searchParams: Promise<{ session?: string; agent?: string; shared?: string }>;
 }) {
     const isNextBuild = process.env.npm_lifecycle_event === "build" || process.env.NEXT_PHASE === "phase-production-build";
     if (isNextBuild) return <div>Building Component</div>;
@@ -29,7 +29,12 @@ export default async function AssistantPage({
     const activeAgents = agents.filter((a) => a.enabled !== false);
 
     const branding = await getBrandingConfig();
-    const shared = branding.assistantChatMode === "shared";
+    /*
+     * A History link says which room a thread lives in. Without honouring it,
+     * a shared-room thread opened under the workspace's CURRENT chat mode — so
+     * flipping that setting made old threads unreachable.
+     */
+    const shared = (await searchParams)?.shared === "1" || branding.assistantChatMode === "shared";
     // The agent the UI opens on: its own chats (separate mode) or the shared room.
     const sp = await searchParams;
     /*
