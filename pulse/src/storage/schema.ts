@@ -116,6 +116,12 @@ export const channelConnections = pgTable("channel_connections", {
 export const conversations = pgTable(
     "conversations",
     {
+        // Multi-user Phase 0. NULL owner = workspace-owned (legacy rows, or created
+        // by an automation with no human asker). ON DELETE SET NULL, never
+        // CASCADE: removing a person must not delete company data.
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+        // private | shared | workspace. Everything is workspace until Phase 2.
+        visibility: varchar("visibility", { length: 16 }).notNull().default("workspace"),
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id")
             .references(() => tenants.id)
@@ -961,6 +967,12 @@ export const credentials = pgTable(
 export const contacts = pgTable(
     "contacts",
     {
+        // Multi-user Phase 0. NULL owner = workspace-owned (legacy rows, or created
+        // by an automation with no human asker). ON DELETE SET NULL, never
+        // CASCADE: removing a person must not delete company data.
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+        // private | shared | workspace. Everything is workspace until Phase 2.
+        visibility: varchar("visibility", { length: 16 }).notNull().default("workspace"),
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
         name: text("name").notNull(),
@@ -1032,6 +1044,12 @@ export const siteLogins = pgTable(
 export const notes = pgTable(
     "notes",
     {
+        // Multi-user Phase 0. NULL owner = workspace-owned (legacy rows, or created
+        // by an automation with no human asker). ON DELETE SET NULL, never
+        // CASCADE: removing a person must not delete company data.
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+        // private | shared | workspace. Everything is workspace until Phase 2.
+        visibility: varchar("visibility", { length: 16 }).notNull().default("workspace"),
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
         title: text("title"),
@@ -1051,6 +1069,12 @@ export const notes = pgTable(
 export const todos = pgTable(
     "todos",
     {
+        // Multi-user Phase 0. NULL owner = workspace-owned (legacy rows, or created
+        // by an automation with no human asker). ON DELETE SET NULL, never
+        // CASCADE: removing a person must not delete company data.
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+        // private | shared | workspace. Everything is workspace until Phase 2.
+        visibility: varchar("visibility", { length: 16 }).notNull().default("workspace"),
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
         text: text("text").notNull(),
@@ -1072,6 +1096,12 @@ export const todos = pgTable(
 export const bookmarks = pgTable(
     "bookmarks",
     {
+        // Multi-user Phase 0. NULL owner = workspace-owned (legacy rows, or created
+        // by an automation with no human asker). ON DELETE SET NULL, never
+        // CASCADE: removing a person must not delete company data.
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+        // private | shared | workspace. Everything is workspace until Phase 2.
+        visibility: varchar("visibility", { length: 16 }).notNull().default("workspace"),
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
         url: text("url").notNull(),
@@ -1118,6 +1148,12 @@ export const notifications = pgTable(
 export const expenses = pgTable(
     "expenses",
     {
+        // Multi-user Phase 0. NULL owner = workspace-owned (legacy rows, or created
+        // by an automation with no human asker). ON DELETE SET NULL, never
+        // CASCADE: removing a person must not delete company data.
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+        // private | shared | workspace. Everything is workspace until Phase 2.
+        visibility: varchar("visibility", { length: 16 }).notNull().default("workspace"),
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
         amount: decimal("amount", { precision: 14, scale: 2 }).notNull(),
@@ -1144,6 +1180,12 @@ export const expenses = pgTable(
 export const documents = pgTable(
     "documents",
     {
+        // Multi-user Phase 0. NULL owner = workspace-owned (legacy rows, or created
+        // by an automation with no human asker). ON DELETE SET NULL, never
+        // CASCADE: removing a person must not delete company data.
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+        // private | shared | workspace. Everything is workspace until Phase 2.
+        visibility: varchar("visibility", { length: 16 }).notNull().default("workspace"),
         id: uuid("id").primaryKey().defaultRandom(),
         tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
         filename: text("filename").notNull(),

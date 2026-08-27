@@ -183,23 +183,44 @@ flipping the default back.
   workspace".
 - Shared-with-me appears in History with an owner column.
 
-### Phase 4 — Agent identity (the correctness fix)
+### Phase 4 — Email identity (the correctness fix)
+
+Two layers, decided:
+
+1. **Each agent has its own mailbox.** That is the agent's identity — Natalie
+   writes from Natalie's address. This already exists (`agentProfiles.emailConfig`).
+2. **Any user can add their own mailbox**, so an agent can read and write mail
+   *on that person's behalf*. New.
+
+Which one is used depends on whose behalf the agent is acting:
+
+| Situation | Mailbox |
+|---|---|
+| Agent acting as itself (scheduled job, its own follow-up) | the agent's |
+| Agent doing something *for* a person who has connected mail | that person's |
+| Agent doing something for a person who has **not** connected mail | the agent's, and it says so |
 
 - `InboundMessage` already carries `actorUserId`. Thread it into
   `resolveEmailConfig(tenantId, agentProfileId, actorUserId)`.
-- Per-user mailbox config, falling back to the agent's, then the tenant's.
-- Same for credentials the agent uses on someone's behalf.
-- **Explicit rule, stated in the UI:** an agent acts as the person who asked. If
-  no personal mailbox is configured, it says so rather than silently using
-  someone else's.
+- New `user_email_accounts` table: per-user IMAP/SMTP, encrypted with the same
+  AES-256-GCM path as every other credential.
+- **It must never fall back silently.** Sending from the wrong account is worse
+  than not sending: if a person asked and has no mailbox connected, the agent
+  says which address it is about to use.
 
-### Phase 5 — Memory scoping
+### Phase 5 — Memory, per user
 
-- `memory_entries` gains `owner_user_id` + `visibility`.
-- Personal memories default private; facts about the company stay workspace.
-- Retrieval filters by the asking user.
-- Backfill: existing entries → workspace (they were written under shared
-  assumptions; making them private would silently break recall).
+Decided: **memory belongs to the person, the way it does in ChatGPT and Claude.**
+Simpler than the split I first proposed, and it matches what people already
+expect from an assistant — what it remembers about you is yours.
+
+- `memory_entries` gains `owner_user_id`.
+- Writes record the asking user; retrieval filters to that user.
+- Entries written by a scheduled job or an API call (no human asker) stay
+  workspace-owned — an automation's memory is the workspace's, not a person's.
+- Backfill: existing entries → workspace-owned. They were written under shared
+  assumptions, and assigning them to a person would be a guess that silently
+  breaks recall for everyone else.
 
 ---
 

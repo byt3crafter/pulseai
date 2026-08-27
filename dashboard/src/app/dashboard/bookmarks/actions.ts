@@ -87,7 +87,10 @@ export async function saveBookmarkAction(formData: FormData) {
             if (!updated) return { success: false, message: "Bookmark not found." };
         } else {
             await db.insert(bookmarks).values({
+                // Phase 0: record who made this. Nothing is hidden yet — the row is
+                // still workspace-visible; this is what makes Phase 2 possible.
                 tenantId,
+                ownerUserId: tenantCheck.userId,
                 url,
                 title: title || null,
                 notes: notes || null,

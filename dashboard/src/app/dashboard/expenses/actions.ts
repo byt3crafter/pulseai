@@ -98,7 +98,10 @@ export async function saveExpenseAction(formData: FormData) {
             if (!updated) return { success: false, message: "Expense not found." };
         } else {
             await db.insert(expenses).values({
+                // Phase 0: record who made this. Nothing is hidden yet — the row is
+                // still workspace-visible; this is what makes Phase 2 possible.
                 tenantId,
+                ownerUserId: tenantCheck.userId,
                 amount: amountNum.toFixed(2),
                 currency: currency || null,
                 vendor: vendor || null,
