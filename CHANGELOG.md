@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.17] - 2026-08-27
+
+### Bug Fixes
+- composer row — the pill, and the hint that should have gone
+
 ## [0.20.16] - 2026-08-27
 
 ### Bug Fixes
