@@ -228,6 +228,13 @@ export class AgentRuntime {
                         channelType: inbound.channelType,
                         channelContactId: inbound.channelContactId,
                         contactName: inbound.contactName,
+                        // Phase 0: the human this thread belongs to, when there is
+                        // one. A scheduled job or an API call has no asker, so the
+                        // thread stays workspace-owned — which is correct: an
+                        // automation's conversation is the workspace's, not a
+                        // person's. Nothing is hidden yet; see
+                        // docs/MULTI_USER_PLAN.md.
+                        ownerUserId: inbound.actorUserId ?? null,
                     })
                     .returning();
                 conversation = insert;

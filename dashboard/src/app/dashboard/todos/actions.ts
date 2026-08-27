@@ -71,7 +71,10 @@ export async function saveTodoAction(formData: FormData) {
 
     try {
         await db.insert(todos).values({
+                // Phase 0: record who made this. Nothing is hidden yet — the row is
+                // still workspace-visible; this is what makes Phase 2 possible.
             tenantId,
+            ownerUserId: tenantCheck.userId,
             text,
             dueAt,
             priority,
