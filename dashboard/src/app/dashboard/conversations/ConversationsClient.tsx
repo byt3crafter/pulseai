@@ -142,7 +142,7 @@ export default function ConversationsClient({
     const allSystemHidden = !showSystem && scoped.length === 0 && conversations.length > 0;
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
             <PageHeader
                 title="Conversations"
                 description="Every conversation thread with your contacts, across every channel."
@@ -150,6 +150,26 @@ export default function ConversationsClient({
 
             {notice && (
                 <p className="mb-3 text-sm text-pulse-muted">{notice}</p>
+            )}
+
+            {/*
+                Select-all acts on what is FILTERED, not on everything in the
+                workspace — selecting rows you cannot see is how people delete
+                six months by accident. The count says exactly what is going.
+            */}
+            {filtered.length > 0 && (
+                <label className="mb-2 flex w-fit cursor-pointer items-center gap-2 px-1 text-sm text-pulse-muted hover:text-pulse-text">
+                    <input
+                        type="checkbox"
+                        aria-label="Select all shown conversations"
+                        checked={filtered.length > 0 && filtered.every((c) => selected.has(c.id))}
+                        onChange={(e) =>
+                            setSelected(e.target.checked ? new Set(filtered.map((c) => c.id)) : new Set())
+                        }
+                        className="h-4 w-4 rounded border-pulse-border bg-pulse-panel accent-indigo-600 cursor-pointer"
+                    />
+                    Select all {filtered.length} shown
+                </label>
             )}
 
             {selected.size > 0 && (

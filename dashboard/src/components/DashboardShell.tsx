@@ -96,6 +96,27 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children,
         isFirstRender.current = false;
     }, [drawerOpen]);
 
+    /*
+     * Stop the DOCUMENT scrolling behind the shell.
+     *
+     * The shell is h-dvh and its <main> scrolls internally, but nothing pinned
+     * the page itself — so a long list gave two scrollbars, and scrolling the
+     * outer one dragged the whole sidebar off-screen and left a tall empty
+     * band below the content. Scoped to the dashboard by living here, and
+     * released on unmount so marketing and login pages still scroll normally.
+     */
+    useEffect(() => {
+        const html = document.documentElement;
+        const prevHtml = html.style.overflow;
+        const prevBody = document.body.style.overflow;
+        html.style.overflow = "hidden";
+        document.body.style.overflow = "hidden";
+        return () => {
+            html.style.overflow = prevHtml;
+            document.body.style.overflow = prevBody;
+        };
+    }, []);
+
     return (
         <div className="flex h-dvh bg-pulse-bg w-full font-sans overflow-hidden">
             {/* Desktop sidebar */}
