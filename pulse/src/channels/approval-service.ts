@@ -212,11 +212,34 @@ function buildApprovalKeyboard(approvalId: string): InlineKeyboard {
         .text("♾️ Allow always", buildCallbackData(approvalId, "allowall"));
 }
 
-function cardText(summary: string): string {
-    return `${summary}\n\n⏱ Expires in 2 minutes if nobody responds.`;
+/**
+ * How long an approver actually has, in words.
+ *
+ * The card used to say "2 minutes" unconditionally while the real window came
+ * from `input.timeoutMs` — a tool-policy approval gets TWO HOURS
+ * (approval-gate.ts APPROVAL_TTL_MS). Understating it is not a harmless
+ * cosmetic bug: an approver who reads "2 minutes", sees the message an hour
+ * later and assumes it lapsed will leave real work blocked until it genuinely
+ * expires. The docs had resorted to telling people not to trust the countdown.
+ */
+export function humanWindow(ms: number): string {
+    // Floor, never round: rounding 30s up to "1 minute" would overstate the
+    // window, which is the same mistake in the opposite direction — telling an
+    // approver they have more time than they do.
+    const mins = Math.floor(ms / 60_000);
+    if (mins < 1) return "under a minute";
+    if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"}`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"}`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? "" : "s"}`;
 }
 
-async function postApprovalCard(tenantId: string, telegramUserId: string, summary: string, approvalId: string, agentProfileId?: string | null): Promise<string | null> {
+function cardText(summary: string, timeoutMs: number): string {
+    return `${summary}\n\n⏱ Expires in ${humanWindow(timeoutMs)} if nobody responds.`;
+}
+
+async function postApprovalCard(tenantId: string, telegramUserId: string, summary: string, approvalId: string, timeoutMs: number, agentProfileId?: string | null): Promise<string | null> {
     // Deliver via the SAME agent's bot when known, so the card appears in the DM
     // the user already associates with that agent (a tenant may run several bots).
     const bot = getTenantBot(tenantId, agentProfileId);
@@ -225,7 +248,7 @@ async function postApprovalCard(tenantId: string, telegramUserId: string, summar
         return null;
     }
     try {
-        const sent = await bot.api.sendMessage(telegramUserId, cardText(summary), {
+        const sent = await bot.api.sendMessage(telegramUserId, cardText(summary, timeoutMs), {
             reply_markup: buildApprovalKeyboard(approvalId),
         });
         return sent.message_id.toString();
@@ -299,7 +322,7 @@ export async function createApproval(input: CreateApprovalInput): Promise<{ id: 
 
     const messageIds: Record<string, string> = {};
     for (const approver of approvers) {
-        const messageId = await postApprovalCard(input.tenantId, approver.telegramUserId, input.summary, id, input.agentProfileId);
+        const messageId = await postApprovalCard(input.tenantId, approver.telegramUserId, input.summary, id, timeoutMs, input.agentProfileId);
         if (messageId) messageIds[approver.telegramUserId] = messageId;
     }
 
