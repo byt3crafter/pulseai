@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bars3Icon, XMarkIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import BrandMark from "./BrandMark";
 import ThemeToggle from "./ThemeToggle";
+import CommandPalette from "./dashboard/CommandPalette";
 import NotificationBell from "./notifications/NotificationBell";
 
 /** Desktop sidebar collapse state — consumed by DashboardNav to hide labels. */
@@ -157,9 +158,11 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children,
                                     once-a-year setting taking the most valuable strip
                                     of the sidebar. Here it is one square among peers.
                                 */}
+                                {/* v4 footer row: bell, theme, search, settings. */}
                                 <div className="flex items-center gap-1.5 px-0.5">
                                     <NotificationBell align="left" />
                                     <ThemeToggle />
+                                    <CommandPalette icon />
                                     <Link
                                         href="/dashboard/settings"
                                         aria-label="Settings"

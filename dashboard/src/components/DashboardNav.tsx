@@ -38,7 +38,6 @@ import {
     RectangleStackIcon,
     FolderIcon,
 } from "@heroicons/react/24/outline";
-import CommandPalette from "./dashboard/CommandPalette";
 import { SidebarCollapseContext } from "./DashboardShell";
 
 type NavItem = {
@@ -214,20 +213,16 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
 
     return (
         <nav className={`flex-1 overflow-y-auto overflow-x-hidden ${collapsed ? "px-2 py-3" : "px-3 py-4"}`}>
-            {!collapsed && (
-                <div className="mb-4 px-0.5">
-                    <CommandPalette isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />
-                </div>
-            )}
-
-            <div className={collapsed ? "space-y-1" : "space-y-5"}>
+            {/* No space-y here: the group label's own pt-4 is the rhythm.
+                Stacking space-y-5 on top of it doubled every gap. */}
+            <div className={collapsed ? "space-y-1" : ""}>
                 {NAV_GROUPS.map((group, gi) => {
                     const items = group.items.filter(isVisible);
                     if (items.length === 0) return null;
                     // The section you are standing in is never collapsed.
                     const holdsCurrentPage = items.some((i) =>
                         i.exact ? pathname === i.href : pathname.startsWith(i.href));
-                    const isOpen = openGroups[group.label] ?? (holdsCurrentPage || !group.advanced);
+                    const isOpen = openGroups[group.label] ?? true;
                     return (
                         <div key={group.label} className={collapsed ? "space-y-1" : "space-y-0.5"}>
                             {collapsed
