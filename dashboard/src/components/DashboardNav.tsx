@@ -13,6 +13,8 @@ import {
     Cog6ToothIcon,
     ShieldCheckIcon,
     ChevronRightIcon,
+    PlusIcon,
+    ClockIcon,
     ArrowsRightLeftIcon,
     BuildingOffice2Icon,
     WrenchScrewdriverIcon,
@@ -52,10 +54,19 @@ type NavItem = {
 // users) — Workspace + Account always show; agent/infra/activity config is opt-in.
 const NAV_GROUPS: { label: string; items: NavItem[]; advanced?: boolean }[] = [
     {
+        // v4 leads with the assistant: starting work and finding past work are the
+        // two things you do most, so they sit above the workspace rather than
+        // inside it as one "Assistant" entry.
+        label: "Assistant",
+        items: [
+            { href: "/dashboard/assistant", label: "New chat", icon: PlusIcon, exact: true },
+            { href: "/dashboard/assistant/history", label: "History", icon: ClockIcon },
+        ],
+    },
+    {
         label: "Workspace",
         items: [
             { href: "/dashboard", label: "Overview", icon: Squares2X2Icon, exact: true },
-            { href: "/dashboard/assistant", label: "Assistant", icon: ChatBubbleOvalLeftEllipsisIcon },
             { href: "/dashboard/contacts", label: "Contacts", icon: IdentificationIcon },
             { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDaysIcon },
             { href: "/dashboard/notes", label: "Notepad", icon: DocumentTextIcon },
