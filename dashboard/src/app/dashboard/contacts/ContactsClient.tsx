@@ -44,6 +44,8 @@ export default function ContactsClient({
 
     const [search, setSearch] = useState("");
     const [sourcePending, setSourcePending] = useState(false);
+    // The contact whose full record is open. Null = the list.
+    const [detail, setDetail] = useState<ContactRow | null>(null);
     const [currentSource, setCurrentSource] = useState<ContactsSource>(source);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -145,7 +147,59 @@ export default function ContactsClient({
         });
     }
 
+    /*
+     * The full record, on demand.
+     *
+     * A contact can carry a dozen extra fields from ERPNext — BRN, VAT,
+     * addresses, parent company, where the record came from. Printing them in
+     * the row destroyed the table; hiding them entirely would lose data people
+     * imported on purpose. A panel is the standard answer: list to scan, detail
+     * to read.
+     */
+    const detailPanel = detail && (
+        <>
+            <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setDetail(null)} aria-hidden="true" />
+            <aside
+                role="dialog"
+                aria-label={`${detail.name} details`}
+                className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col overflow-y-auto border-l border-pulse-border bg-pulse-panel shadow-2xl"
+            >
+                <div className="flex items-start gap-3 border-b border-pulse-border-subtle px-5 py-4">
+                    <div className="min-w-0 flex-1">
+                        <h2 className="truncate text-base font-semibold text-pulse-text">{detail.name}</h2>
+                        {detail.title && <p className="truncate text-sm text-pulse-muted">{detail.title}</p>}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setDetail(null)}
+                        aria-label="Close"
+                        className="rounded-lg p-1.5 text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                    >
+                        <XMarkIcon className="h-5 w-5" />
+                    </button>
+                </div>
+                <dl className="divide-y divide-pulse-border-subtle px-5">
+                    {([
+                        ["Company", detail.company],
+                        ["Email", detail.email],
+                        ["Phone", detail.phone],
+                        ...detail.customFields.map((f) => [f.label, f.value] as [string, string]),
+                        ["Notes", detail.notes],
+                    ] as [string, string | null][])
+                        .filter(([, v]) => v && v.trim())
+                        .map(([label, value]) => (
+                            <div key={label} className="py-3">
+                                <dt className="text-[11px] font-medium uppercase tracking-wide text-pulse-dim">{label}</dt>
+                                <dd className="mt-1 text-sm break-words text-pulse-text">{value}</dd>
+                            </div>
+                        ))}
+                </dl>
+            </aside>
+        </>
+    );
+
     return (
+        <>
         <div>
             {message && (
                 <div
@@ -389,7 +443,7 @@ export default function ContactsClient({
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Email</th>
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Phone</th>
                                     <th scope="col" className="px-4 py-3 text-left font-medium">Company</th>
-                                    <th scope="col" className="px-4 py-3 text-left font-medium">Title</th>
+                                    <th scope="col" className="hidden px-4 py-3 text-left font-medium lg:table-cell">Title</th>
                                     <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
                                 </tr>
                             </thead>
@@ -397,24 +451,34 @@ export default function ContactsClient({
                                 {filtered.map((contact) => {
                                     const busy = !!busyRows[contact.id];
                                     return (
-                                        <tr key={contact.id} className="border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover">
-                                            <td className="px-4 py-3 align-top font-medium text-pulse-text">
+                                        /*
+                                         * One line per contact, always.
+                                         *
+                                         * Every extra field (BRN, VAT, address, website, alt phone,
+                                         * parent company…) used to be printed as chips inside the NAME
+                                         * cell, so rows ranged from ~60px to over 200px and the table
+                                         * could not be scanned at all — the eye had no baseline to
+                                         * follow. They live in the detail panel now; the row keeps a
+                                         * count so you can see there is more without it costing height.
+                                         */
+                                        <tr
+                                            key={contact.id}
+                                            onClick={() => setDetail(contact)}
+                                            className="cursor-pointer border-b border-pulse-border-subtle last:border-b-0 hover:bg-pulse-hover"
+                                        >
+                                            <td className="max-w-[220px] truncate px-4 py-2.5 font-medium text-pulse-text">
                                                 {contact.name}
                                                 {contact.customFields.length > 0 && (
-                                                    <div className="mt-1 flex flex-wrap gap-1">
-                                                        {contact.customFields.map((f, i) => (
-                                                            <span key={i} className="inline-flex items-center gap-1 rounded-md bg-pulse-panel-alt border border-pulse-border-subtle px-1.5 py-0.5 text-[11px] font-normal text-pulse-soft">
-                                                                <span className="text-pulse-faint">{f.label}:</span> {f.value}
-                                                            </span>
-                                                        ))}
-                                                    </div>
+                                                    <span className="ml-2 rounded-md bg-pulse-panel-alt px-1.5 py-0.5 text-[11px] font-normal text-pulse-faint">
+                                                        +{contact.customFields.length}
+                                                    </span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 align-top text-pulse-soft">{contact.email || <span className="text-pulse-faint">—</span>}</td>
-                                            <td className="px-4 py-3 align-top text-pulse-soft">{contact.phone || <span className="text-pulse-faint">—</span>}</td>
-                                            <td className="px-4 py-3 align-top text-pulse-soft">{contact.company || <span className="text-pulse-faint">—</span>}</td>
-                                            <td className="px-4 py-3 align-top text-pulse-soft">{contact.title || <span className="text-pulse-faint">—</span>}</td>
-                                            <td className="px-4 py-3 align-top text-right">
+                                            <td className="max-w-[240px] truncate px-4 py-2.5 text-pulse-soft">{contact.email || <span className="text-pulse-faint">—</span>}</td>
+                                            <td className="max-w-[150px] truncate px-4 py-2.5 text-pulse-soft">{contact.phone || <span className="text-pulse-faint">—</span>}</td>
+                                            <td className="max-w-[180px] truncate px-4 py-2.5 text-pulse-soft">{contact.company || <span className="text-pulse-faint">—</span>}</td>
+                                            <td className="hidden max-w-[160px] truncate px-4 py-2.5 text-pulse-soft lg:table-cell">{contact.title || <span className="text-pulse-faint">—</span>}</td>
+                                            <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex items-center justify-end gap-3">
                                                     <button
                                                         type="button"
@@ -444,5 +508,7 @@ export default function ContactsClient({
                 )}
             </Card>
         </div>
+        {detailPanel}
+        </>
     );
 }
