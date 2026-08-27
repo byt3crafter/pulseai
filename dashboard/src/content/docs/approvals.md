@@ -17,7 +17,7 @@ Subject: Re: Q3 invoice
 —
 Hi Chipo, following up on the invoice we discussed...
 
-⏱ Expires in 2 minutes if nobody responds.
+⏱ Expires in 2 hours if nobody responds.
 ```
 
 For any other tool, the card shows a short preview of the arguments instead:
@@ -27,7 +27,7 @@ For any other tool, the card shows a short preview of the arguments instead:
 command: systemctl restart nginx
 ```
 
-> **The countdown on the card is wrong — don't trust it.** It always reads "Expires in 2 minutes," no matter what. For a Tool Policy approval like the ones above, the real window is about **two hours**. The card just understates how long an approver actually has to respond.
+> **The countdown tells you the real window.** A Tool Policy approval like the ones above gives an approver about **two hours**; other kinds are shorter. The card shows whichever applies, so you can act on what it says.
 
 > The card is sent through that agent's own Telegram bot if it has one, or your workspace's default bot otherwise. If neither exists, nobody is notified and the request simply expires unanswered. An approver also has to have messaged that bot at least once before Telegram will let it DM them — which is exactly what puts someone on the [People](/dashboard/docs/people) list to begin with.
 

@@ -4,6 +4,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { buildApprovalSummary } from "../agent/tools/approval-gate.js";
+import { humanWindow, DEFAULT_APPROVAL_TIMEOUT_MS } from "../channels/approval-service.js";
 
 describe("buildApprovalSummary", () => {
     it("renders an email draft with to/subject/body", () => {
@@ -40,5 +41,31 @@ describe("buildApprovalSummary", () => {
         expect(s).toContain('"erpnext_create"');
         expect(s).toContain("doctype: Payment Entry");
         expect(s).not.toContain("_agentId");
+    });
+});
+
+/*
+ * The countdown on the card used to be a hardcoded "2 minutes" while the real
+ * window came from `input.timeoutMs` — two HOURS for a tool-policy approval.
+ * Understating it is not cosmetic: an approver who reads "2 minutes", sees the
+ * message an hour later and assumes it lapsed leaves real work blocked. The
+ * customer docs had resorted to telling people not to trust the number.
+ */
+describe("the approval card states the real window", () => {
+    it("reports the tool-policy window in hours, not minutes", () => {
+        // APPROVAL_TTL_MS in approval-gate.ts
+        expect(humanWindow(2 * 60 * 60 * 1000)).toBe("2 hours");
+    });
+
+    it("reports the default short window", () => {
+        expect(humanWindow(DEFAULT_APPROVAL_TIMEOUT_MS)).toBe("2 minutes");
+    });
+
+    it("reads naturally at the boundaries rather than saying '1 minutes'", () => {
+        expect(humanWindow(60_000)).toBe("1 minute");
+        expect(humanWindow(60 * 60 * 1000)).toBe("1 hour");
+        expect(humanWindow(30_000)).toBe("under a minute");
+        expect(humanWindow(45 * 60 * 1000)).toBe("45 minutes");
+        expect(humanWindow(48 * 60 * 60 * 1000)).toBe("2 days");
     });
 });
