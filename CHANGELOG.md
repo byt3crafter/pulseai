@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.5] - 2026-08-27
+
+### Bug Fixes
+- caption tools by their real names
+
 ## [0.20.4] - 2026-08-27
 
 ### Features
