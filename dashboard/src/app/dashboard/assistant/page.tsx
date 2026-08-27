@@ -9,7 +9,11 @@ import { getBrandingConfig } from "../settings/actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function AssistantPage() {
+export default async function AssistantPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ session?: string }>;
+}) {
     const isNextBuild = process.env.npm_lifecycle_event === "build" || process.env.NEXT_PHASE === "phase-production-build";
     if (isNextBuild) return <div>Building Component</div>;
 
@@ -29,11 +33,22 @@ export default async function AssistantPage() {
     // The agent the UI opens on: its own chats (separate mode) or the shared room.
     const initialAgentId = activeAgents[0]?.id ?? "";
 
-    // Session list + the most-recent session's history (the one the UI opens on),
-    // scoped to that agent (or the shared room) so nothing mixes.
+    /*
+     * The assistant opens on a NEW chat, not on the last one.
+     *
+     * It used to resume the most recent conversation, which was fine when a rail
+     * listed every chat beside it. With history moved to its own page, that
+     * behaviour meant "New chat" in the nav dropped you back into an old thread
+     * and the greeting could never appear. A past chat is opened deliberately,
+     * from History, via ?session=.
+     */
     const sessions = await listSessionsAction(initialAgentId, shared);
-    const initialSessionId = sessions[0]?.sessionId ?? "";
-    const initialHistory = sessions.length ? await getSessionHistoryAction(initialSessionId, initialAgentId, shared) : [];
+    const sp = await searchParams;
+    const wanted = typeof sp?.session === "string" ? sp.session : "";
+    const initialSessionId = wanted && sessions.some((s) => s.sessionId === wanted) ? wanted : "";
+    const initialHistory = initialSessionId
+        ? await getSessionHistoryAction(initialSessionId, initialAgentId, shared)
+        : [];
 
     return (
         <AssistantClient
