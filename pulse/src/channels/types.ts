@@ -9,6 +9,13 @@ export interface InboundMessage {
   // inbound it sets this; otherwise the runtime derives it from the channel.
   trigger?: "chat" | "api" | "cron" | "heartbeat" | "commitment" | "standing_order" | "delegation" | "approval" | "channel";
   triggerRef?: string;   // Optional id of the triggering entity (jobId, parent run, …)
+  /**
+   * Restrict this invocation to these tool names. Undefined/empty = every tool
+   * the agent normally has. Set by scheduled jobs that know exactly what they
+   * need: a workspace with 105 tools enabled ships all 105 schemas on every
+   * run, which is most of what a small recurring job actually costs.
+   */
+  allowedTools?: string[] | null;
   parentRunId?: string;  // For delegated sub-tasks: the run that spawned this one
   // Org-channel context (Company→Dept→Group). When set, the message belongs to a
   // shared channel thread and agentProfileId is the pre-resolved responder (lead or @mentioned).
