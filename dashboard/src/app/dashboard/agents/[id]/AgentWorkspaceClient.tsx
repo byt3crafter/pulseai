@@ -164,7 +164,7 @@ export default function AgentWorkspaceClient({
         toolsGuidanceRevisionCount + userPrefsRevisionCount + bootstrapRevisionCount + agentsRevisionCount;
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px]">
             {/* Header */}
             <div className="mb-6">
                 <Link

@@ -25,6 +25,35 @@ import Link from "next/link";
  * Card, CardHeader, SettingRow) have no interactivity and cost nothing extra.
  */
 
+/**
+ * The one content column every page sits in.
+ *
+ * 1060px, centred, with the v4 artboard's 36/40 padding. Pages used to be a
+ * mix — 49 full-width against 22 at max-w-6xl — so the header, filters and
+ * first row started at a different x position depending on where you had
+ * navigated from, and a table on a wide monitor made you track a row across
+ * half the screen to match a label to its value.
+ *
+ * `wide` (1400px) exists for genuinely dense tables — audit log, analytics —
+ * where columns earn the room. It is a wider column, not full bleed: the point
+ * is that every page still has a measured edge.
+ */
+export function PageContainer({
+    children,
+    wide = false,
+    className = "",
+}: {
+    children: React.ReactNode;
+    wide?: boolean;
+    className?: string;
+}) {
+    return (
+        <div className={`mx-auto w-full ${wide ? "max-w-[1400px]" : "max-w-[1060px]"} px-6 py-7 sm:px-10 sm:py-9 ${className}`}>
+            {children}
+        </div>
+    );
+}
+
 export function PageHeader({
     title,
     description,

@@ -64,7 +64,7 @@ export default function ServersTableClient({ servers }: { servers: ServerRow[] }
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader
                 title="Servers"
                 description="Give agents controlled SSH access to your infrastructure — with guardrails."

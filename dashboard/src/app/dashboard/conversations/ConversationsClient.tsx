@@ -142,7 +142,7 @@ export default function ConversationsClient({
     const allSystemHidden = !showSystem && scoped.length === 0 && conversations.length > 0;
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader
                 title="Conversations"
                 description="Every conversation thread with your contacts, across every channel."

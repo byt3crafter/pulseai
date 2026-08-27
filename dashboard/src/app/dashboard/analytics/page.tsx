@@ -30,7 +30,7 @@ export default async function AnalyticsPage() {
     const maxTrend = Math.max(1, ...a.trend.map((t) => t.tasks));
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 space-y-6">
+        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9 space-y-6">
             <PageHeader
                 title="Analytics"
                 description={`Your AI workforce over the last ${a.windowDays} days. Operational figures are measured; hours and money saved are estimates you control.`}
