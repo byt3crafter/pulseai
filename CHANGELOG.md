@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.10] - 2026-08-27
+
+### Features
+- you can actually delete them now
+
 ## [0.20.9] - 2026-08-27
 
 ### Features
