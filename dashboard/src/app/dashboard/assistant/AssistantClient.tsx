@@ -72,10 +72,10 @@ const BUCKET_ORDER = ["Today", "Yesterday", "Previous 7 days", "Previous 30 days
  * than no chip, because it reads as a promise.
  */
 const SUGGESTIONS: { label: string; prompt: string; icon: typeof SparklesIcon }[] = [
-    { label: "Check my email", prompt: "Check my inbox for anything unread and summarise what needs me.", icon: EnvelopeIcon },
-    { label: "What happened today?", prompt: "Summarise what the agents have done today.", icon: SparklesIcon },
-    { label: "Draft a follow-up", prompt: "Draft a follow-up email to the last customer I spoke to.", icon: PencilSquareIcon },
-    { label: "What can you do?", prompt: "What tools do you have, and what can you actually do for me?", icon: MapPinIcon },
+    { label: "Check server health", prompt: "Check the health of my servers and tell me if anything needs attention.", icon: MapPinIcon },
+    { label: "Draft a follow-up", prompt: "Draft a follow-up email to the last customer I spoke to.", icon: EnvelopeIcon },
+    { label: "Summarize activity", prompt: "Summarise what the agents have done today.", icon: SparklesIcon },
+    { label: "Check my inbox", prompt: "Check my inbox for anything unread and summarise what needs me.", icon: PencilSquareIcon },
 ];
 
 export default function AssistantClient({
@@ -679,61 +679,6 @@ export default function AssistantClient({
 
     return (
         <div className="flex h-full min-h-0 overflow-hidden bg-pulse-bg">
-            {/* Mobile backdrop when the rail is open as an overlay */}
-            {railOpen && (
-                <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setRailOpen(false)} aria-hidden="true" />
-            )}
-            {/* ── Session rail (docked on desktop, overlay on mobile) ── */}
-            {railOpen && (
-                <aside className="flex w-64 shrink-0 flex-col border-r border-pulse-border-subtle bg-pulse-bg max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-[82%] max-md:max-w-xs max-md:shadow-xl">
-                    <div className="flex items-center gap-2 p-2.5 pb-1">
-                        <button
-                            onClick={startNewChat}
-                            className="flex flex-1 items-center gap-2 rounded-lg border border-pulse-border-subtle bg-pulse-bg px-3 py-2 text-sm font-medium text-pulse-text transition-colors hover:bg-pulse-hover"
-                        >
-                            <PlusIcon className="h-4 w-4" /> New chat
-                        </button>
-                        <button
-                            onClick={() => setRailOpen(false)}
-                            title="Hide sidebar"
-                            className="rounded-lg border border-pulse-border-subtle bg-pulse-bg p-2 text-pulse-muted hover:bg-pulse-hover"
-                        >
-                            <ChevronDoubleLeftIcon className="h-4 w-4" />
-                        </button>
-                    </div>
-                    {/* Search box — filters the chat list by title */}
-                    <div className="px-2.5 pb-1.5">
-                        <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-pulse-muted focus-within:text-pulse-text-soft">
-                            <MagnifyingGlassIcon className="h-4 w-4 shrink-0" />
-                            <input
-                                value={sessionQuery}
-                                onChange={(e) => setSessionQuery(e.target.value)}
-                                placeholder="Search"
-                                aria-label="Search chats"
-                                className="w-full bg-transparent text-sm text-pulse-text outline-none placeholder:text-pulse-faint"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto px-2 pb-2">
-                        {sessions.length === 0 && <p className="px-2 py-2 text-xs text-pulse-faint">No chats yet.</p>}
-                        {sessions.length > 0 && filteredSessions.length === 0 && <p className="px-2 py-2 text-xs text-pulse-faint">No chats match &ldquo;{sessionQuery}&rdquo;.</p>}
-                        {pinnedSessions.length > 0 && (
-                            <>
-                                <p className="flex items-center gap-1 px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">
-                                    <MapPinIcon className="h-3 w-3" /> Pinned
-                                </p>
-                                {pinnedSessions.map(renderRow)}
-                            </>
-                        )}
-                        {recentGroups.map((group) => (
-                            <div key={group.label}>
-                                <p className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-pulse-faint">{group.label}</p>
-                                {group.items.map(renderRow)}
-                            </div>
-                        ))}
-                    </div>
-                </aside>
-            )}
 
             {/* Session row context menu — fixed-position so the rail's overflow can't clip it */}
             {menu && (
@@ -784,29 +729,11 @@ export default function AssistantClient({
                     Only renders when there's something to show: the rail toggle /
                     new-chat buttons while the rail is closed, or the agent picker
                     when this workspace has more than one agent. */}
-                {(!railOpen || agents.length > 1) && (
-                    <div className="flex items-center justify-between gap-2 bg-pulse-bg px-3 py-2.5">
-                        <div className="flex min-w-0 items-center gap-2">
-                            {!railOpen && (
-                                <>
-                                    <button onClick={() => setRailOpen(true)} title="Show sidebar" className="rounded-lg border border-pulse-border-subtle bg-pulse-bg p-2 text-pulse-muted hover:bg-pulse-hover">
-                                        <ChevronDoubleRightIcon className="h-4 w-4" />
-                                    </button>
-                                    <button onClick={startNewChat} title="New chat" className="rounded-lg border border-pulse-border-subtle bg-pulse-bg p-2 text-pulse-muted hover:bg-pulse-hover">
-                                        <PlusIcon className="h-4 w-4" />
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                        {agents.length > 1 && (
-                            <select value={agentId} onChange={(e) => switchAgent(e.target.value)} className="rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-sm text-pulse-text outline-none focus:ring-2 focus:ring-indigo-500">
-                                {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                            </select>
-                        )}
-                    </div>
-                )}
-
-                {/* Messages */}
+                {/*
+                    No top bar. v4 puts the agent and model in the composer pill,
+                    where the choice is made, instead of parking a dropdown in a
+                    corner of an otherwise empty canvas.
+                */}
                 <div ref={scrollRef} className={`min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 ${messages.length === 0 ? "hidden" : ""}`}>
                     <div className="mx-auto w-full max-w-4xl space-y-6">
                         {messages.map((m, i) => m.role === "user" ? (
@@ -957,12 +884,25 @@ export default function AssistantClient({
                                 }}
                                 onPaste={(e) => { const fs = Array.from(e.clipboardData?.files || []); if (fs.length) { e.preventDefault(); void addFiles(fs); } }}
                                 rows={1}
-                                placeholder={conn === "online" ? "Message your assistant…" : "Connecting…"}
+                                placeholder={conn === "online" ? "Describe a task and let your agents do the rest" : "Connecting…"}
                                 disabled={conn !== "online"}
                                 className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
                             {/* bottom control bar — lives inside the box */}
-                            <div className="flex items-end gap-2 px-2.5 pb-2.5">
+                            <div className="flex items-center gap-2 px-3.5 pb-3.5">
+                                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={conn !== "online"}
+                                    title="Attach files (or drag & drop)" aria-label="Attach files"
+                                    className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full text-pulse-muted transition-colors hover:bg-pulse-hover hover:text-pulse-text disabled:opacity-40">
+                                    <PaperClipIcon className="h-[18px] w-[18px]" />
+                                </button>
+                                {voiceEnabled && (
+                                    <button type="button" onClick={toggleRecording} disabled={transcribing || conn !== "online"}
+                                        title={recording ? "Stop recording" : "Record voice message"} aria-label={recording ? "Stop recording" : "Record voice message"} aria-pressed={recording}
+                                        className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${recording ? "text-red-500 animate-pulse hover:bg-red-500/10" : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
+                                        <MicrophoneIcon className="h-[18px] w-[18px]" />
+                                    </button>
+                                )}
+                                <div className="flex-1" />
                                 <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11.5px]">
                                     {models.length > 0 && (() => {
                                         const freeModels = models.filter((m) => m.free);
@@ -1006,22 +946,11 @@ export default function AssistantClient({
                                         <LightBulbIcon className="h-3.5 w-3.5" /> Thinking
                                     </button>
                                 </div>
-                                <div className="flex-1" />
-                                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={conn !== "online"}
-                                    title="Attach files (or drag & drop)" aria-label="Attach files"
-                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-pulse-muted transition-colors hover:bg-pulse-hover hover:text-pulse-text disabled:opacity-40">
-                                    <PaperClipIcon className="h-[18px] w-[18px]" />
-                                </button>
-                                {voiceEnabled && (
-                                    <button type="button" onClick={toggleRecording} disabled={transcribing || conn !== "online"}
-                                        title={recording ? "Stop recording" : "Record voice message"} aria-label={recording ? "Stop recording" : "Record voice message"} aria-pressed={recording}
-                                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${recording ? "text-red-500 animate-pulse hover:bg-red-500/10" : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
-                                        <MicrophoneIcon className="h-[18px] w-[18px]" />
-                                    </button>
-                                )}
-                                <button type="button" onClick={send} disabled={(!input.trim() && pendingFiles.length === 0) || conn !== "online"} aria-label="Send message"
-                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${(input.trim() || pendingFiles.length) && conn === "online" ? "bg-pulse-accent text-white hover:bg-pulse-accent-hi" : "bg-pulse-hover text-pulse-faint"}`}>
-                                    <ArrowUpIcon className="h-[18px] w-[18px]" />
+                                {/* v4 primary: a light pill, the brightest thing on the screen. */}
+                                <button type="button" onClick={send} disabled={(!input.trim() && pendingFiles.length === 0) || conn !== "online"}
+                                    className="flex shrink-0 items-center gap-[7px] rounded-full bg-pulse-primary px-4 py-2 text-[13px] font-semibold text-pulse-primary-fg transition-colors motion-reduce:transition-none hover:bg-pulse-primary-hover disabled:opacity-40 disabled:hover:bg-pulse-primary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50">
+                                    <ArrowUpIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Send
                                 </button>
                             </div>
                         </div>
