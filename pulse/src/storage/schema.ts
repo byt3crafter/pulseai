@@ -894,6 +894,12 @@ export const memoryEntries = pgTable(
         agentId: uuid("agent_id")
             .references(() => agentProfiles.id)
             .notNull(),
+        /**
+         * The person this memory is about. NULL = workspace memory: written by a
+         * scheduled job or an API call with no human asker, or predating
+         * per-user memory. Those stay readable by everyone.
+         */
+        ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
         content: text("content").notNull(),
         embedding: text("embedding"), // DB type is pgvector vector(1536) (migration 0015); typed text for the driver — inserts cast with ::vector, reads return the text repr
         category: varchar("category", { length: 50 }).default("general"),

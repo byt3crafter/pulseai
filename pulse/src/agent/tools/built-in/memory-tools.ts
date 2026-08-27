@@ -32,6 +32,9 @@ export const memoryStoreTool: Tool = {
         const memoryId = await memoryService.store(tenantId, agentId, content, {
             category: category || "general",
             importance: importance ?? 0.5,
+            // Whose memory this is. Absent on automation runs, which produce
+            // workspace memory everyone can recall.
+            ownerUserId: (args as any)._actorUserId ?? null,
         });
 
         return { result: `Memory stored (id: ${memoryId}).` };
@@ -59,6 +62,8 @@ export const memorySearchTool: Tool = {
         const results = await memoryService.search(tenantId, agentId, query, {
             limit: limit || 5,
             category,
+            // Search my memories and the workspace's — never another person's.
+            ownerUserId: (args as any)._actorUserId ?? null,
         });
 
         if (results.length === 0) {
