@@ -4,6 +4,7 @@ import { db } from "../../../storage/db";
 import { apiTokens, conversations, messages, usageRecords, agentRuns, agentProfiles } from "../../../storage/schema";
 import { and, eq, asc, desc, gt, like, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
+import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
 import { visibleTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
@@ -414,5 +415,58 @@ export async function listAllWebSessionsAction(): Promise<
     } catch (err) {
         console.error("Failed to list web sessions:", err);
         return [];
+    }
+}
+
+/**
+ * Delete several chats at once, from the History page.
+ *
+ * Each id is re-resolved through the same per-agent contact-id path a single
+ * delete uses, and every conversation is re-checked against the caller's tenant
+ * AND row visibility before anything is removed — a session id is guessable and
+ * this destroys messages.
+ */
+export async function deleteSessionsAction(
+    items: { sessionId: string; agentId: string }[],
+    shared: boolean = false,
+) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    const wanted = (items || []).filter((i) => i && typeof i.sessionId === "string").slice(0, 200);
+    if (wanted.length === 0) return { success: false as const, message: "Nothing selected." };
+
+    let removed = 0;
+    try {
+        for (const { sessionId, agentId } of wanted) {
+            const contactId = contactFromSession(tenantId, agentId || "", shared, sessionId.slice(0, 64));
+            const conv = await db
+                .select({ id: conversations.id })
+                .from(conversations)
+                .where(and(
+                    eq(conversations.tenantId, tenantId),
+                    eq(conversations.channelType, "webapp"),
+                    eq(conversations.channelContactId, contactId),
+                    visibleTo(conversations, tenantCheck.userId),
+                ))
+                .limit(1);
+            if (!conv[0]) continue;
+
+            const cid = conv[0].id;
+            // Same order as the single delete: rows that reference the
+            // conversation go first, or the delete throws on a foreign key.
+            await db.delete(usageRecords).where(eq(usageRecords.conversationId, cid));
+            await db.update(agentRuns).set({ conversationId: null }).where(eq(agentRuns.conversationId, cid));
+            await db.delete(messages).where(eq(messages.conversationId, cid));
+            await db.delete(conversations).where(eq(conversations.id, cid));
+            removed++;
+        }
+
+        revalidatePath("/dashboard/assistant/history");
+        return { success: true as const, message: `Deleted ${removed} chat${removed === 1 ? "" : "s"}.` };
+    } catch (err) {
+        console.error("Failed to delete chats:", err);
+        return { success: false as const, message: "Failed to delete." };
     }
 }

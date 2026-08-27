@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AssistantPage({
     searchParams,
 }: {
-    searchParams: Promise<{ session?: string }>;
+    searchParams: Promise<{ session?: string; agent?: string }>;
 }) {
     const isNextBuild = process.env.npm_lifecycle_event === "build" || process.env.NEXT_PHASE === "phase-production-build";
     if (isNextBuild) return <div>Building Component</div>;
@@ -31,7 +31,19 @@ export default async function AssistantPage({
     const branding = await getBrandingConfig();
     const shared = branding.assistantChatMode === "shared";
     // The agent the UI opens on: its own chats (separate mode) or the shared room.
-    const initialAgentId = activeAgents[0]?.id ?? "";
+    const sp = await searchParams;
+    /*
+     * Honour ?agent= before falling back to the first agent.
+     *
+     * History links carry both the session and the agent it belongs to. Without
+     * this, initialAgentId was always activeAgents[0], so opening a chat with
+     * any OTHER agent looked up the session under the wrong agent, found
+     * nothing, and silently showed an empty conversation.
+     */
+    const wantedAgent = typeof sp?.agent === "string" ? sp.agent : "";
+    const initialAgentId = activeAgents.some((a) => a.id === wantedAgent)
+        ? wantedAgent
+        : activeAgents[0]?.id ?? "";
 
     /*
      * The assistant opens on a NEW chat, not on the last one.
@@ -43,7 +55,6 @@ export default async function AssistantPage({
      * from History, via ?session=.
      */
     const sessions = await listSessionsAction(initialAgentId, shared);
-    const sp = await searchParams;
     const wanted = typeof sp?.session === "string" ? sp.session : "";
     const initialSessionId = wanted && sessions.some((s) => s.sessionId === wanted) ? wanted : "";
     const initialHistory = initialSessionId
