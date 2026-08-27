@@ -24,7 +24,7 @@ export default async function CalendarPage() {
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader
                 title="Calendar"
                 description="Your schedule — meetings and events. The assistant can read and add to this."

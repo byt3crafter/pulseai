@@ -37,7 +37,7 @@ export default async function OrchestrationOverviewPage() {
     const failedCount = recentDelegations.filter((d) => d.status === "failed").length;
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6">
+        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
             <div className="mb-8">
                 <a href="/dashboard/agents" className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                     &larr; Back to Agents

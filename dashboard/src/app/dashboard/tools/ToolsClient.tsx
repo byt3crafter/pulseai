@@ -29,7 +29,7 @@ export default function ToolsClient({ tools, agents }: { tools: Tool[]; agents: 
     };
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader
                 title="Custom Tools"
                 description="Connect your own API or software. Each tool becomes an action your agents can call — define the request once, and the AI fills in the parameters. Secrets (auth headers) are encrypted at rest."

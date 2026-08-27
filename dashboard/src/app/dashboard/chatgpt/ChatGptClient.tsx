@@ -16,7 +16,7 @@ export default function ChatGptClient({ enabled, connected, accountId, expiresAt
 
     if (!enabled) {
         return (
-            <div className="p-4 sm:p-5 lg:p-6 max-w-2xl mx-auto">
+            <div className="mx-auto w-full max-w-2xl px-6 py-7 sm:px-10 sm:py-9">
                 <h1 className="text-2xl font-bold text-pulse-text flex items-center gap-2">
                     <SparklesIcon className="h-7 w-7 text-indigo-500" /> ChatGPT Connect
                 </h1>
@@ -61,7 +61,7 @@ export default function ChatGptClient({ enabled, connected, accountId, expiresAt
     };
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-2xl mx-auto">
+        <div className="mx-auto w-full max-w-2xl px-6 py-7 sm:px-10 sm:py-9">
             <h1 className="text-2xl font-bold text-pulse-text flex items-center gap-2">
                 <SparklesIcon className="h-7 w-7 text-indigo-500" /> ChatGPT Connect
             </h1>

@@ -68,7 +68,7 @@ export default function ToolEditor({ agents, tool }: { agents: Agent[]; tool?: T
     };
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-3xl mx-auto">
+        <div className="mx-auto w-full max-w-3xl px-6 py-7 sm:px-10 sm:py-9">
             <Link href="/dashboard/tools" className="inline-flex items-center gap-1.5 text-sm text-pulse-muted hover:text-pulse-text transition-colors motion-reduce:transition-none mb-4">
                 <ArrowLeftIcon className="w-4 h-4" aria-hidden="true" /> Custom Tools
             </Link>

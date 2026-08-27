@@ -67,7 +67,7 @@ export default function DepartmentsClient(props: Props) {
     };
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader
                 title="Departments"
                 description="Organize your company into departments and groups. Add agents (with a lead that answers & routes) and people (talk or read-only). The persona lives on each agent."

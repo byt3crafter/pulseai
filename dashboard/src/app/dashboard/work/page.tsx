@@ -22,7 +22,7 @@ export default async function WorkPage() {
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader
                 title="Tasks & Projects"
                 description="A work board for you and your agents — track what's in flight and what's done."

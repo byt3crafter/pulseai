@@ -84,7 +84,7 @@ export default function TenantPluginsClient({
     };
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6">
+        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
             <div className="mb-8">
                 <a href="/dashboard/settings" className="text-sm text-indigo-500 hover:text-indigo-400 mb-2 inline-block transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">&larr; Back to Settings</a>
                 <div className="flex items-center gap-3 mb-2">

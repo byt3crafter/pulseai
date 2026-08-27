@@ -27,7 +27,7 @@ export default async function LoginsPage() {
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader
                 title="Passwords"
                 description="Saved website logins. Your agents can use these to sign in on your behalf — they never see the actual passwords."

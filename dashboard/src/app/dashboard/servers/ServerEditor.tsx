@@ -110,7 +110,7 @@ export default function ServerEditor({ agents, server }: { agents: Agent[]; serv
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-3xl mx-auto">
+        <div className="mx-auto w-full max-w-3xl px-6 py-7 sm:px-10 sm:py-9">
             <Link href="/dashboard/servers" className="inline-flex items-center gap-1.5 text-sm text-pulse-muted hover:text-pulse-text transition-colors motion-reduce:transition-none mb-4 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
                 <ArrowLeftIcon className="w-4 h-4" aria-hidden="true" /> Servers
             </Link>

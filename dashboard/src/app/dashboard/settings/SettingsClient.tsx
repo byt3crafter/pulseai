@@ -200,7 +200,7 @@ export default function SettingsClient({
     const router = useRouter();
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-6xl mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
             <PageHeader title="Settings" description="Manage your workspace, account, integrations, and API access." />
 
             <div className="flex flex-col md:flex-row gap-6 md:gap-8">

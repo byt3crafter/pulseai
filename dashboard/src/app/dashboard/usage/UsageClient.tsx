@@ -72,7 +72,7 @@ export default function UsageClient({
     );
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6">
+        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-pulse-text tracking-tight">
                     Usage & Billing
