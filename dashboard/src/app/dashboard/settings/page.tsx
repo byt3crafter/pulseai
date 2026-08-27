@@ -9,6 +9,7 @@ import { requireTenant } from "../../../utils/tenant-auth";
 import { getEmbeddingStatusAction, getBriefingConfig, getBrandingConfig, getWebSearchConfig } from "./actions";
 import { getCredentials, getTenantAgents, addCredential } from "./credentials/actions";
 import { CHANNEL_SETUP_CATALOG } from "../../../utils/channel-catalog";
+import { getMyEmailAction } from "./my-email-actions";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage({
@@ -110,6 +111,7 @@ export default async function SettingsPage({
 
     const embeddingStatus = await getEmbeddingStatusAction();
     const briefingConfig = await getBriefingConfig();
+    const myEmailConfig = await getMyEmailAction();
     const appearanceConfig = await getBrandingConfig();
     const webSearchConfig = await getWebSearchConfig();
 
@@ -274,6 +276,7 @@ export default async function SettingsPage({
                 maxResults: Math.max(1, Math.min(25, Math.floor(Number(tenantConfig.toolSearch?.maxResults ?? 6)))),
             }}
             briefingConfig={briefingConfig}
+            myEmailConfig={myEmailConfig}
             appearanceConfig={appearanceConfig}
             webSearchConfig={webSearchConfig}
             pendingPairings={pendingPairings.map(p => ({

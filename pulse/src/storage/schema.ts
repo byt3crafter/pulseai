@@ -1415,3 +1415,40 @@ export const tenantProviderKeys = pgTable(
         index("idx_tenant_provider_keys_tenant").on(table.tenantId),
     ]
 );
+
+/**
+ * A person's own mailbox, so an agent can read and write mail on their behalf.
+ *
+ * Distinct from agentProfiles.emailConfig, which is the AGENT's identity — the
+ * address it writes from as itself. This is delegation: the agent acting FOR a
+ * named human. Which one is used depends on whose behalf it is acting, and it
+ * must never fall back silently between them.
+ *
+ * ON DELETE CASCADE on the user, unlike workspace data: a personal mailbox has
+ * no meaning without the person and must not outlive them.
+ */
+export const userEmailAccounts = pgTable("user_email_accounts", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+
+    emailAddress: varchar("email_address", { length: 320 }).notNull(),
+    displayName: varchar("display_name", { length: 255 }),
+
+    smtpHost: varchar("smtp_host", { length: 255 }),
+    smtpPort: integer("smtp_port"),
+    smtpSecure: boolean("smtp_secure").notNull().default(true),
+    smtpUsername: varchar("smtp_username", { length: 255 }),
+    /** AES-256-GCM, same envelope as every other secret. Never stored plain. */
+    smtpPassword: text("smtp_password"),
+    imapHost: varchar("imap_host", { length: 255 }),
+    imapPort: integer("imap_port"),
+    imapSecure: boolean("imap_secure").notNull().default(true),
+    imapUsername: varchar("imap_username", { length: 255 }),
+    imapPassword: text("imap_password"),
+
+    enabled: boolean("enabled").notNull().default(true),
+    lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

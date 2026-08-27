@@ -11,7 +11,7 @@
 import nodemailer from "nodemailer";
 import { ImapFlow } from "imapflow";
 import { db } from "../../storage/db.js";
-import { agentProfiles, channelConnections } from "../../storage/schema.js";
+import { agentProfiles, channelConnections, userEmailAccounts } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
 import { decrypt } from "../../utils/crypto.js";
 import { logger } from "../../utils/logger.js";
@@ -57,9 +57,66 @@ export interface EmailConfig {
  */
 export async function resolveEmailConfig(
     tenantId: string,
-    agentProfileId: string
+    agentProfileId: string,
+    /**
+     * The human this run is acting for, when there is one.
+     *
+     * Without it every mailbox lookup resolved to the agent's or the
+     * workspace's, so in a team "check my email" opened somebody else's inbox —
+     * and a reply went out from an address the asker never chose. A scheduled
+     * job or an API call has no asker and correctly leaves this undefined: the
+     * agent is then acting as itself.
+     */
+    actorUserId?: string | null,
 ): Promise<EmailConfig | null> {
     let transport: EmailConfig | null = null;
+
+    /*
+     * 0. The asking person's own mailbox wins.
+     *
+     * Deliberately ahead of the agent and the workspace: if you connected your
+     * mail and asked an agent to work on it, any other answer is wrong. If you
+     * have not connected one this falls through, and the caller is expected to
+     * tell you which address it used rather than send quietly.
+     */
+    if (actorUserId) {
+        try {
+            const [personal] = await db
+                .select()
+                .from(userEmailAccounts)
+                .where(and(eq(userEmailAccounts.userId, actorUserId), eq(userEmailAccounts.enabled, true)))
+                .limit(1);
+            if (personal?.smtpHost || personal?.imapHost) {
+                transport = {
+                    smtp: personal.smtpHost
+                        ? {
+                            host: personal.smtpHost,
+                            port: personal.smtpPort ?? 587,
+                            secure: personal.smtpSecure,
+                            username: personal.smtpUsername ?? personal.emailAddress,
+                            password: personal.smtpPassword ? decrypt(personal.smtpPassword) : "",
+                            from: personal.emailAddress,
+                            fromName: personal.displayName ?? undefined,
+                        }
+                        : undefined,
+                    imap: personal.imapHost
+                        ? {
+                            host: personal.imapHost,
+                            port: personal.imapPort ?? 993,
+                            tls: personal.imapSecure,
+                            username: personal.imapUsername ?? personal.emailAddress,
+                            password: personal.imapPassword ? decrypt(personal.imapPassword) : "",
+                        }
+                        : undefined,
+                } as EmailConfig;
+            }
+        } catch (err) {
+            // A broken personal mailbox must not stop the agent working — but it
+            // must not silently become someone else's mailbox either. Fall
+            // through, and the caller reports which address it ended up using.
+            logger.warn({ err, actorUserId }, "email: personal mailbox lookup failed");
+        }
+    }
     let agentSignature: SignatureConfig | undefined;
     let tenantSignature: SignatureConfig | undefined;
 

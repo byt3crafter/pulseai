@@ -69,7 +69,7 @@ export const emailSendTool: Tool = {
             return { result: "Error: No agent profile ID available for email config resolution." };
         }
 
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.smtp) {
             return { result: "Error: No email (SMTP) configuration found. Please configure email in the dashboard settings." };
         }
@@ -117,7 +117,7 @@ export const emailDraftTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available for email config resolution." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.smtp) return { result: "Error: No SMTP configuration found — configure email in the dashboard settings." };
         if (!config?.imap) return { result: "Error: No IMAP configuration found — a draft is saved to your mailbox over IMAP, which isn't configured." };
         try {
@@ -147,7 +147,7 @@ export const emailReadTool: Tool = {
             return { result: "Error: No agent profile ID available for email config resolution." };
         }
 
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) {
             return { result: "Error: No email (IMAP) configuration found. Please configure email in the dashboard settings." };
         }
@@ -187,7 +187,7 @@ export const emailReadAttachmentTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available for email config resolution." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) return { result: "Error: No email (IMAP) configuration found. Please configure email in the dashboard settings." };
         const uid = Number(params.args.uid);
         if (!Number.isFinite(uid)) return { result: "Provide the email's uid (from a prior email_read/email_search)." };
@@ -222,7 +222,7 @@ export const emailFetchUnreadTool: Tool = {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available for email config resolution." };
 
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) {
             return { result: "Error: No email (IMAP) configuration found. Configure email in the dashboard settings." };
         }
@@ -258,7 +258,7 @@ export const emailReplyTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap || !config?.smtp) return { result: "Error: Email (IMAP+SMTP) not fully configured." };
 
         try {
@@ -298,7 +298,7 @@ export const emailSearchTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
         try {
             const rows = await searchEmails(config.imap, {
@@ -331,7 +331,7 @@ export const emailFlagTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
         const map: Record<string, { flag: string; add: boolean }> = {
             read: { flag: "\\Seen", add: true },
@@ -365,7 +365,7 @@ export const emailMoveTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
         try {
             await moveMessage(config.imap, Number(params.args.uid), String(params.args.to_folder), params.args.from_folder || "INBOX");
@@ -390,7 +390,7 @@ export const emailDeleteTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
         try {
             await deleteMessage(config.imap, Number(params.args.uid), params.args.folder || "INBOX");
@@ -408,7 +408,7 @@ export const emailFoldersTool: Tool = {
     async execute(params) {
         const agentId = params.args._agentId;
         if (!agentId) return { result: "Error: No agent profile ID available." };
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) return { result: "Error: No email (IMAP) configuration found." };
         try {
             const folders = await listFolders(config.imap);
@@ -437,7 +437,7 @@ export const emailListTool: Tool = {
             return { result: "Error: No agent profile ID available for email config resolution." };
         }
 
-        const config = await resolveEmailConfig(params.tenantId, agentId);
+        const config = await resolveEmailConfig(params.tenantId, agentId, params.args._actorUserId);
         if (!config?.imap) {
             return { result: "Error: No email (IMAP) configuration found. Please configure email in the dashboard settings." };
         }
