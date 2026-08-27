@@ -186,18 +186,13 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                     : "text-pulse-muted font-normal hover:bg-pulse-hover hover:text-pulse-text"
                     }`}
             >
-                {/* Active left accent bar (expanded only) */}
-                {!collapsed && (
-                    <span
-                        aria-hidden="true"
-                        className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-full bg-pulse-accent transition-opacity motion-reduce:transition-none ${isActive ? "opacity-100" : "opacity-0"}`}
-                        style={{ height: 18 }}
-                    />
-                )}
+                {/* No active accent bar: v4 marks the current item by lifting its
+                    surface, and a coloured rule would put the loudest element on
+                    screen in the quietest part of the layout. */}
                 <Icon
                     aria-hidden="true"
-                    className={`flex-shrink-0 transition-colors motion-reduce:transition-none ${isActive ? "text-pulse-accent-hi" : "text-pulse-faint group-hover:text-pulse-text-soft"}`}
-                    style={{ width: collapsed ? 20 : 18, height: collapsed ? 20 : 18 }}
+                    className={`flex-shrink-0 opacity-80 transition-colors motion-reduce:transition-none ${isActive ? "text-pulse-text" : "text-pulse-faint group-hover:text-pulse-text-soft"}`}
+                    style={{ width: collapsed ? 20 : 15, height: collapsed ? 20 : 15 }}
                 />
                 {collapsed
                     ? <span className="leading-none text-center tracking-tight">{shortLabel(label)}</span>
@@ -260,7 +255,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                             href="/admin"
                             className={`group relative flex items-center transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px] font-medium" : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px]"}`}
                         >
-                            <ShieldCheckIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft transition-colors motion-reduce:transition-none" style={{ width: collapsed ? 20 : 18, height: collapsed ? 20 : 18 }} />
+                            <ShieldCheckIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft transition-colors motion-reduce:transition-none" style={{ width: collapsed ? 20 : 15, height: collapsed ? 20 : 15 }} />
                             {collapsed ? <span className="leading-none">Admin</span> : "Admin Panel"}
                         </Link>
                     </div>
