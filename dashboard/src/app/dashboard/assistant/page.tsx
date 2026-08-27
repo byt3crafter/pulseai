@@ -37,6 +37,7 @@ export default async function AssistantPage() {
 
     return (
         <AssistantClient
+            userName={((session.user as any).name || session.user.email || "").toString()}
             agents={activeAgents}
             sessions={sessions}
             initialSessionId={initialSessionId}

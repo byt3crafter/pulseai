@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
     PlusIcon, ChevronDownIcon, ChevronRightIcon,
-    SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon,
+    SparklesIcon, TrashIcon, PencilSquareIcon, EllipsisVerticalIcon, MapPinIcon, EnvelopeIcon,
     ChevronDoubleLeftIcon, ChevronDoubleRightIcon, MicrophoneIcon, LightBulbIcon, ArrowUpIcon,
     MagnifyingGlassIcon, CheckIcon, XMarkIcon, PaperClipIcon, DocumentIcon,
 } from "@heroicons/react/24/outline";
@@ -66,10 +66,23 @@ const BUCKET_ORDER = ["Today", "Yesterday", "Previous 7 days", "Previous 30 days
  * reading column, live token + reasoning streaming, and compact per-message
  * reasoning control. Everything is a saved setting — nothing hardcoded.
  */
+/**
+ * Openers for an empty conversation. Deliberately things this workspace can
+ * actually do — a chip that suggests something the agent cannot do is worse
+ * than no chip, because it reads as a promise.
+ */
+const SUGGESTIONS: { label: string; prompt: string; icon: typeof SparklesIcon }[] = [
+    { label: "Check my email", prompt: "Check my inbox for anything unread and summarise what needs me.", icon: EnvelopeIcon },
+    { label: "What happened today?", prompt: "Summarise what the agents have done today.", icon: SparklesIcon },
+    { label: "Draft a follow-up", prompt: "Draft a follow-up email to the last customer I spoke to.", icon: PencilSquareIcon },
+    { label: "What can you do?", prompt: "What tools do you have, and what can you actually do for me?", icon: MapPinIcon },
+];
+
 export default function AssistantClient({
-    agents, sessions: initialSessions, initialSessionId, initialHistory, showIdentityPref = false, voiceEnabled = false, chatMode = "separate",
+    agents, sessions: initialSessions, initialSessionId, initialHistory, showIdentityPref = false, voiceEnabled = false, chatMode = "separate", userName = "",
 }: {
     agents: AgentOpt[];
+    userName?: string;
     sessions: ChatSession[];
     initialSessionId: string;
     initialHistory: { role: string; content: string; agentProfileId?: string | null }[];
@@ -80,6 +93,10 @@ export default function AssistantClient({
     // "separate" = one thread per agent (never mixed); "shared" = a single team
     // room where @mention picks who answers.
     const shared = chatMode === "shared";
+    // "Dovik Admin" / "dovik@runstate.mu" -> "Dovik". The greeting uses a first
+    // name or nothing; "What should we get done, dovik@runstate.mu?" is worse
+    // than no name at all.
+    const firstName = (userName || "").trim().split(/[\s@.]+/)[0]?.replace(/^./, (c) => c.toUpperCase()) || "";
     // Claude/ChatGPT style: no avatar, no name for a single agent. Auto-show when
     // there's more than one agent (you need to know who's talking), or when the
     // workspace owner turned it on in Appearance settings.
@@ -790,18 +807,8 @@ export default function AssistantClient({
                 )}
 
                 {/* Messages */}
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                <div ref={scrollRef} className={`min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 ${messages.length === 0 ? "hidden" : ""}`}>
                     <div className="mx-auto w-full max-w-4xl space-y-6">
-                        {messages.length === 0 && (
-                            <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-                                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-pulse-tint text-xl font-semibold text-pulse-accent-hi overflow-hidden">
-                                    {activeAgent?.avatar ? <img src={activeAgent.avatar} alt="" className="h-full w-full object-cover" /> : (activeAgent?.name?.[0] ?? "A")}
-                                </div>
-                                <p className="text-lg font-semibold text-pulse-text">Chat with {activeAgent?.name ?? "your assistant"}</p>
-                                <p className="mt-1 max-w-sm text-sm text-pulse-muted">Same tools, memory and approvals as Telegram — right here in your browser.</p>
-                            </div>
-                        )}
-
                         {messages.map((m, i) => m.role === "user" ? (
                             <div key={i} className="flex flex-col items-end gap-1.5">
                                 {m.files && m.files.length > 0 && (
@@ -861,14 +868,32 @@ export default function AssistantClient({
                     </div>
                 </div>
 
-                {/* Composer — one tall rounded box with the controls inside it */}
-                <div className="shrink-0 bg-pulse-bg px-4 pb-5 pt-2 sm:px-6">
-                    <div className="mx-auto w-full max-w-4xl">
+                {/*
+                    Composer. On an empty conversation it sits in the middle of the
+                    canvas under the greeting, and only drops to the bottom edge once
+                    there is a conversation to sit under — which is the difference
+                    between a page that invites you to start and one that looks like
+                    an empty transcript.
+                */}
+                <div className={messages.length === 0
+                    ? "flex min-h-0 flex-1 flex-col items-center justify-center px-4 sm:px-10"
+                    : "shrink-0 bg-pulse-bg px-4 pb-5 pt-2 sm:px-6"}>
+                    <div className={messages.length === 0
+                        ? "-mt-12 flex w-full max-w-[760px] flex-col gap-[26px]"
+                        : "mx-auto w-full max-w-4xl"}>
+                        {messages.length === 0 && (
+                            <div className="flex items-center justify-center gap-4">
+                                <h1 className="text-center text-[32px] font-medium leading-tight tracking-[-0.02em] text-pulse-text">
+                                    What should we get done{firstName ? `, ${firstName}` : ""}?
+                                </h1>
+                                <SparklesIcon aria-hidden="true" className="hidden h-[34px] w-[34px] shrink-0 text-pulse-border-strong sm:block" />
+                            </div>
+                        )}
                         <div
                             onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
                             onDragLeave={(e) => { e.preventDefault(); if (e.currentTarget === e.target) setDragOver(false); }}
                             onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer?.files?.length) void addFiles(e.dataTransfer.files); }}
-                            className={`relative rounded-2xl border bg-pulse-panel transition-colors ${dragOver ? "border-pulse-accent ring-2 ring-pulse-accent/30" : "border-pulse-border focus-within:border-pulse-border-strong"}`}
+                            className={`relative rounded-[18px] border bg-pulse-hover transition-colors ${dragOver ? "border-pulse-accent ring-2 ring-pulse-accent/30" : "border-pulse-border-strong focus-within:border-pulse-border-strong"}`}
                         >
                             {dragOver && (
                                 <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-pulse-panel/85 text-sm font-medium text-pulse-accent-hi">
@@ -1006,6 +1031,28 @@ export default function AssistantClient({
                             </p>
                         ) : (
                             <p className="mt-1.5 px-1 text-center text-[11px] text-pulse-faint sm:text-right">Enter to send · Shift+Enter for a new line</p>
+                        )}
+
+                        {/*
+                            Suggestion chips. Only on an empty conversation — once you
+                            are talking they are noise, and they exist to answer "what
+                            can I even ask this thing?", which stops being a question
+                            after the first message.
+                        */}
+                        {messages.length === 0 && (
+                            <div className="flex flex-wrap justify-center gap-2">
+                                {SUGGESTIONS.map((sug) => (
+                                    <button
+                                        key={sug.label}
+                                        type="button"
+                                        onClick={() => { setInput(sug.prompt); requestAnimationFrame(() => { inputRef.current?.focus(); autoGrow(); }); }}
+                                        className="flex cursor-pointer items-center gap-[7px] rounded-full bg-pulse-hover px-3.5 py-2 text-[13px] text-pulse-text-soft transition-colors motion-reduce:transition-none hover:bg-pulse-panel-alt hover:text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                                    >
+                                        <sug.icon aria-hidden="true" className="h-[15px] w-[15px] shrink-0 text-pulse-faint" />
+                                        {sug.label}
+                                    </button>
+                                ))}
+                            </div>
                         )}
                     </div>
                 </div>
