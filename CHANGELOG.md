@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.6] - 2026-08-27
+
+### Bug Fixes
+- it's Pulse, not Hermes
+
+### Documentation
+- record the live work seam
+
 ## [0.20.5] - 2026-08-27
 
 ### Bug Fixes
