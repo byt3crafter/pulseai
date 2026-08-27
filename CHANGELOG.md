@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.32] - 2026-08-27
+
+### Features
+- Phase 5 — memory belongs to the person
+
 ## [0.20.31] - 2026-08-27
 
 ### Features
