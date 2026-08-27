@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.19] - 2026-08-27
+
+### Bug Fixes
+- nav rows to the artboard's 32px
+
 ## [0.20.18] - 2026-08-27
 
 ### Bug Fixes
