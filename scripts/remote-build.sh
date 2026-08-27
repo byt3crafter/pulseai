@@ -53,3 +53,9 @@ REMOTE_EOF
 ssh "$HOST" "cat > /tmp/pulse-remote-build.sh" <<< "$REMOTE"
 ssh "$HOST" "chmod +x /tmp/pulse-remote-build.sh && systemd-run --unit=pulse-build-${VERSION//./-} --collect bash -c '/tmp/pulse-remote-build.sh > /tmp/build-${VERSION}.log 2>&1'"
 echo "started — tail with: ssh $HOST 'tail -f /tmp/build-${VERSION}.log'"
+echo
+echo "NOTE: this builds ONLY the services you named: ${SERVICES[*]}"
+echo "      Any service you did not name keeps whatever image that version tag"
+echo "      already points at. Re-tagging an OLD image as a NEW version is how"
+echo "      the gateway silently ran pre-Phase-0 code while labelled 0.20.29."
+echo "      If a change touches pulse/src, name 'gateway' here."

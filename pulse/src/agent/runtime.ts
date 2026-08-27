@@ -228,13 +228,23 @@ export class AgentRuntime {
                         channelType: inbound.channelType,
                         channelContactId: inbound.channelContactId,
                         contactName: inbound.contactName,
-                        // Phase 0: the human this thread belongs to, when there is
-                        // one. A scheduled job or an API call has no asker, so the
-                        // thread stays workspace-owned — which is correct: an
-                        // automation's conversation is the workspace's, not a
-                        // person's. Nothing is hidden yet; see
-                        // docs/MULTI_USER_PLAN.md.
+                        /*
+                         * Owner and visibility are set TOGETHER, and that pairing
+                         * is load-bearing.
+                         *
+                         * The column default is 'private'. If a row is inserted
+                         * with no owner it inherits that default and becomes
+                         * private-with-no-owner — readable by nobody, including
+                         * the person who just wrote it. That is exactly what
+                         * happened in production: chats were saved and instantly
+                         * invisible.
+                         *
+                         * So a thread with a human asker is private to them; a
+                         * thread with no asker (cron, API) is the workspace's.
+                         * Never the impossible third state.
+                         */
                         ownerUserId: inbound.actorUserId ?? null,
+                        visibility: inbound.actorUserId ? "private" : "workspace",
                     })
                     .returning();
                 conversation = insert;
