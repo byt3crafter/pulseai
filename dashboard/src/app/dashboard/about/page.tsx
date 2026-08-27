@@ -49,6 +49,12 @@ export default async function AboutPage() {
                 </dl>
             </Card>
 
+            {/*
+                Hidden entirely when there is nothing to credit — a "Credits"
+                heading over an empty list reads as a page that failed to load.
+                The card comes back on its own the moment something is added.
+            */}
+            {CREDITS.length > 0 && (
             <div className="mt-5">
                 <Card>
                     <CardHeader
@@ -80,7 +86,7 @@ export default async function AboutPage() {
                         ))}
                     </ul>
                 </Card>
-            </div>
+            </div>)}
         </div>
     );
 }

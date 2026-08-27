@@ -58,6 +58,8 @@ export class RunHandle {
     private agentProfileId: string | null;
     private finished = false;
 
+    /** Not read today. Kept because a run without its tenant is unattributable,
+     *  and every consumer added so far has needed it. */
     private readonly tenantId: string;
 
     constructor(id: string | null, input: StartRunInput) {
@@ -81,8 +83,6 @@ export class RunHandle {
     }
     addToolCall(name: string, ok: boolean, ms: number): void {
         this.toolCalls.push({ name, ok, ms });
-        if (this.id) {
-        }
     }
     setStatus(status: RunStatus): void { this.status = status; }
     setError(message: string): void {
@@ -134,8 +134,6 @@ export async function startRun(input: StartRunInput): Promise<RunHandle> {
             conversationId: input.conversationId ?? null,
             userId: input.userId ?? null,
         }).returning({ id: agentRuns.id });
-        if (row?.id) {
-        }
         return new RunHandle(row?.id ?? null, input);
     } catch (err) {
         logger.warn({ err, tenantId: input.tenantId }, "run-recorder: failed to open run (continuing)");
@@ -179,7 +177,6 @@ export async function finishRun(handle: RunHandle): Promise<void> {
     } catch (err) {
         logger.warn({ err, runId: h.id }, "run-recorder: failed to finish run");
     }
-    // Emitted even if the update above failed: the desk must stop animating.
 }
 
 /**

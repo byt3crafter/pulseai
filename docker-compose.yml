@@ -108,12 +108,6 @@ services:
   # Next.js Dashboard (Frontend Admin Panel)
   # NOTE: NEXTAUTH_URL must be changed for production (e.g. https://yourdomain.com)
   # -----------------------------------------------------------------
-  # The 3D office (vendored fork of Hermes3D — see office/PATCHES.md).
-  #
-  # Served under /office on the SAME ORIGIN as the dashboard, which is not a
-  # preference: it sends X-Frame-Options: SAMEORIGIN, and it authenticates by
-  # forwarding the viewer's dashboard session cookie, which a cross-origin
-  # browser would never send.
   pulse-dashboard:
     build:
       context: .

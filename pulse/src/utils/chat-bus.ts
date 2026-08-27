@@ -3,7 +3,7 @@
  *
  * The runtime streams an answer as it is generated; the WebSocket server
  * delivers it to browsers. Neither imports the other, so both import this —
- * same decoupling as `floor-bus.ts`.
+ * same decoupling the run recorder uses for the agent runtime.
  *
  * WHY THIS EXISTS AT ALL: the runtime used to write deltas straight to the one
  * socket that sent the message. Navigate away and back and that socket is gone,
@@ -17,7 +17,7 @@
  * member's conversation to another. Every event therefore carries the owning
  * user, and the relay in ws-server filters on it.
  *
- * Scope note: per-process, like floor-bus. With more than one gateway container
+ * Scope note: per-process. With more than one gateway container
  * a browser only hears streams from the one it is connected to; the final answer
  * is always persisted to `messages` regardless, so nothing is ever lost — only
  * the live typing effect degrades.
