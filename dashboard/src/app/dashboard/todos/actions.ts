@@ -38,7 +38,7 @@ export async function getTodos(): Promise<TodoRow[]> {
             createdAt: todos.createdAt,
         })
             .from(todos)
-            .where(scopedTo(todos, tenantId, tenantCheck.userId))
+            .where(scopedTo(todos, tenantId, tenantCheck.userId, "todo"))
             .orderBy(asc(todos.done), asc(todos.dueAt), asc(todos.createdAt));
         return rows.map((r) => ({
             ...r,

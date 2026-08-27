@@ -30,7 +30,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             content: documents.content,
         })
             .from(documents)
-            .where(and(eq(documents.id, id), scopedTo(documents, tenantId, (session.user as any).id)))
+            .where(and(eq(documents.id, id), scopedTo(documents, tenantId, (session.user as any).id, "document")))
             .limit(1);
 
         if (!doc || !doc.content) {

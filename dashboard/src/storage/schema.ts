@@ -1441,3 +1441,49 @@ export const userEmailAccounts = pgTable("user_email_accounts", {
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Explicit per-person sharing (multi-user Phase 3, migration 0046).
+ *
+ * Phase 2 made conversations, notes, to-dos and bookmarks private by default.
+ * Without this table the only way to show a colleague one conversation is to
+ * make it visible to the whole workspace — which is exactly how people end up
+ * over-sharing in order to get work done.
+ *
+ * A row here means: `userId` may see this resource. The resource itself also
+ * carries `visibility = 'shared'`; the two are set together, and `visibleTo()`
+ * in dashboard/src/utils/visibility.ts is the only place that reads them.
+ */
+export const resourceShares = pgTable(
+    "resource_shares",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id")
+            .references(() => tenants.id, { onDelete: "cascade" })
+            .notNull(),
+        /** conversation | note | todo | bookmark | document */
+        resourceType: varchar("resource_type", { length: 32 }).notNull(),
+        resourceId: uuid("resource_id").notNull(),
+        /** Who it is shared WITH. CASCADE — a share is meaningless once they are gone. */
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        /** Who shared it. SET NULL — the share outlives the sharer leaving. */
+        sharedBy: uuid("shared_by").references(() => users.id, { onDelete: "set null" }),
+        /** read | write */
+        access: varchar("access", { length: 16 }).notNull().default("read"),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => ({
+        uniqueShare: unique("resource_shares_unique").on(
+            table.resourceType,
+            table.resourceId,
+            table.userId,
+        ),
+        byUser: index("idx_resource_shares_user").on(
+            table.userId,
+            table.resourceType,
+            table.resourceId,
+        ),
+    }),
+);

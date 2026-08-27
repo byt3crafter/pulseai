@@ -1,4 +1,4 @@
-import { and, eq, or, type SQL } from "drizzle-orm";
+import { and, eq, or, sql, type SQL } from "drizzle-orm";
 
 /**
  * Row-level visibility — the one place the rule lives.
@@ -20,10 +20,17 @@ import { and, eq, or, type SQL } from "drizzle-orm";
 
 /** The two columns every scoped table carries (migration 0042). */
 export interface ScopedTable {
+    id: any;
     ownerUserId: any;
     visibility: any;
     tenantId: any;
 }
+
+/**
+ * What can be shared. A string union rather than free text: `resource_type` is
+ * half of the key a share is found by, so a typo silently shares with nobody.
+ */
+export type ShareableType = "conversation" | "note" | "todo" | "bookmark" | "document";
 
 export type Visibility = "private" | "shared" | "workspace";
 
@@ -38,19 +45,47 @@ export type Visibility = "private" | "shared" | "workspace";
  * While every row is still `workspace` (Phase 0/1) this predicate matches
  * everything, so behaviour is unchanged until Phase 2 flips a default.
  */
-export function visibleTo(table: ScopedTable, userId: string): SQL | undefined {
-    return or(
+export function visibleTo(
+    table: ScopedTable,
+    userId: string,
+    resourceType?: ShareableType,
+): SQL | undefined {
+    const clauses: (SQL | undefined)[] = [
         eq(table.visibility, "workspace"),
         eq(table.ownerUserId, userId),
-        // 'shared' resolves through resource_shares in Phase 3. Until that table
-        // exists a shared row is visible only to its owner, which is the safe
-        // direction to be wrong in.
-    );
+    ];
+
+    // A row marked `shared` is visible to whoever appears in resource_shares.
+    //
+    // EXISTS rather than a join: a join would multiply rows when something is
+    // shared with several people, and the caller would silently get duplicates
+    // in a list they thought was distinct.
+    //
+    // Callers that omit `resourceType` still get the owner/workspace rule, so
+    // forgetting the argument narrows what you see rather than widening it —
+    // the direction a mistake here has to fail in.
+    if (resourceType) {
+        clauses.push(
+            sql`EXISTS (
+                SELECT 1 FROM resource_shares rs
+                WHERE rs.resource_type = ${resourceType}
+                  AND rs.resource_id = ${table.id}
+                  AND rs.user_id = ${userId}::uuid
+            )`,
+        );
+    }
+
+    return or(...clauses);
 }
 
 /** Tenant scope AND row scope — what a list query almost always wants. */
-export function scopedTo(table: ScopedTable, tenantId: string, userId: string): SQL | undefined {
-    return and(eq(table.tenantId, tenantId), visibleTo(table, userId));
+export function scopedTo(
+    table: ScopedTable,
+    tenantId: string,
+    userId: string,
+    resourceType?: ShareableType,
+): SQL | undefined {
+    return and(eq(table.tenantId, tenantId), visibleTo(table, userId, resourceType));
 }
 
 /** Whether a row already in hand may be read. Mirrors `visibleTo` exactly. */

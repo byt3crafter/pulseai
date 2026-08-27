@@ -26,7 +26,7 @@ export default async function ConversationDetailPage({
             eq(conversations.id, id),
             // Tenant AND row scope: a conversation id is guessable, so the URL
             // must not be a way around visibility once threads become private.
-            scopedTo(conversations, session.user.tenantId, (session.user as any).id)
+            scopedTo(conversations, session.user.tenantId, (session.user as any).id, "conversation")
         ),
     });
 
