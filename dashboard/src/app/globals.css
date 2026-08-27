@@ -34,33 +34,49 @@ body {
   --pulse-faint:         #929AA4;
   --pulse-accent:        #6470E6;
   --pulse-accent-hi:     #4F5AD6;
+  /* Light's counterpart to the dark light-pill: an inked primary on a pale
+     ground. Same role, inverted, so a component written once works in both. */
+  --pulse-primary:       #1F2328;
+  --pulse-primary-hover: #33383F;
+  --pulse-primary-fg:    #FFFFFF;
   --pulse-profit:        #0F8A4F;
   --pulse-loss:          #CC2F26;
   --pulse-info:          #1A73E8;
   --pulse-code:          #F1F3F6;
 }
 [data-theme="dark"] {
-  /* Palette sampled pixel-for-pixel from the reference dark UI: one flat
-     near-black ground, surfaces that lift only slightly to #131414, structure
-     from hairline borders, and a warm off-white text ramp. */
-  --pulse-bg:            #090A0A;
-  --pulse-panel:         #131414;
-  --pulse-panel-alt:     #191A19;
-  --pulse-hover:         #1E1F1E;
-  --pulse-tint:          #171A2B;
-  --pulse-border:        #212221;
-  --pulse-border-subtle: #171818;
-  --pulse-border-strong: #2E2F2E;
-  --pulse-text:          #ECEDE8;
-  --pulse-text-soft:     #C6C8C1;
-  --pulse-muted:         #8B8D84;
-  --pulse-faint:         #5A5C54;
-  --pulse-accent:        #8E96F2;
-  --pulse-accent-hi:     #B4BAF8;
+  /* Pulse v4 Studio. Sampled from the design, not approximated: a graphite
+     ground at #101012, the sidebar one step up, and raised surfaces (cards,
+     inputs, chips, the composer) at #242428 — that last one is the workhorse
+     and is why the UI reads as panels floating on a dark field rather than as
+     boxes drawn with borders.
+
+     Structure comes from three hairlines, not shadows. The accent is a light
+     Google-blue used for links and state, never as a button fill: the primary
+     action is a light pill (--pulse-primary), which is what makes "Send" the
+     brightest thing on the screen. */
+  --pulse-bg:            #101012;
+  --pulse-panel:         #1C1C1F;
+  --pulse-panel-alt:     #242428;
+  --pulse-hover:         #1D1D20;
+  --pulse-tint:          #1B1C24;
+  --pulse-border-subtle: #1F1F22;
+  --pulse-border:        #232327;
+  --pulse-border-strong: #2C2C31;
+  --pulse-text:          #E8E8EA;
+  --pulse-text-soft:     #C9C9CE;
+  --pulse-muted:         #A9A9AE;
+  --pulse-faint:         #77777D;
+  --pulse-accent:        #8AB4F8;
+  --pulse-accent-hi:     #AECBFA;
+  /* The primary action: a light pill on dark, text inverted. */
+  --pulse-primary:       #E4E4E7;
+  --pulse-primary-hover: #D4D4D8;
+  --pulse-primary-fg:    #131316;
   --pulse-profit:        #3FB950;
   --pulse-loss:          #F0503C;
-  --pulse-info:          #4F9DF7;
-  --pulse-code:          #060707;
+  --pulse-info:          #8AB4F8;
+  --pulse-code:          #1A1A1D;
 }
 
 @theme inline {
@@ -122,6 +138,9 @@ body {
   --color-pulse-faint:         var(--pulse-faint);
   --color-pulse-accent:        var(--pulse-accent);
   --color-pulse-accent-hi:     var(--pulse-accent-hi);
+  --color-pulse-primary:       var(--pulse-primary);
+  --color-pulse-primary-hover: var(--pulse-primary-hover);
+  --color-pulse-primary-fg:    var(--pulse-primary-fg);
   --color-pulse-profit:        var(--pulse-profit);
   --color-pulse-loss:          var(--pulse-loss);
   --color-pulse-info:          var(--pulse-info);
