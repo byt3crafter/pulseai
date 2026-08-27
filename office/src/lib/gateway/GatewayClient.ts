@@ -38,6 +38,7 @@ const gatewayDebugLog = (message: string, details?: Record<string, unknown>) => 
 };
 import { probeCustomRuntime } from "@/lib/runtime/custom/http";
 import { readPulseRuntime } from "@/lib/office/pulse-runtime";
+import { startPulseEventStream } from "@/lib/gateway/pulseEventStream";
 
 export type ReqFrame = {
   type: "req";
@@ -275,6 +276,28 @@ export class GatewayClient {
     return () => {
       this.eventHandlers.delete(handler);
     };
+  }
+
+  /**
+   * PULSE PATCH: push a frame in from outside the socket.
+   *
+   * The custom runtime is HTTP request/response and never opens a socket, so
+   * nothing could ever reach onEvent — the office only knew about work it had
+   * started itself. Pulse streams its runs over SSE instead (see
+   * startPulseEventStream), and they arrive already in this shape, so feeding
+   * them here lets every existing consumer — office animation, the run log,
+   * approval metrics — work without knowing where the frame came from.
+   *
+   * A throwing handler must not take the stream down with it.
+   */
+  emitLocalEvent(event: EventFrame) {
+    this.eventHandlers.forEach((handler) => {
+      try {
+        handler(event);
+      } catch {
+        /* one bad consumer is not the stream's problem */
+      }
+    });
   }
 
   onGap(handler: GapHandler) {
@@ -730,6 +753,8 @@ export const useGatewayConnection = (
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoConnectTimerRef = useRef<number | null>(null);
   const wasManualDisconnectRef = useRef(false);
+  // PULSE PATCH: teardown for the live work stream (see startPulseEventStream).
+  const pulseStreamStopRef = useRef<(() => void) | null>(null);
 
   // PULSE PATCH: open as a Pulse client, not as a Hermes client hoping to be
   // corrected. These three defaults were the literal content of the bug report
@@ -783,6 +808,15 @@ export const useGatewayConnection = (
       setConnectErrorCode(null);
     },
     [adapterProfiles, localGatewayDefaults]
+  );
+
+  // PULSE PATCH: never leave the work stream running after unmount.
+  useEffect(
+    () => () => {
+      pulseStreamStopRef.current?.();
+      pulseStreamStopRef.current = null;
+    },
+    []
   );
 
   useEffect(() => {
@@ -926,6 +960,13 @@ export const useGatewayConnection = (
         setDetectedAdapterType(selectedAdapterType);
         setStatus("connected");
         setConnectErrorCode(null);
+        // PULSE PATCH: this adapter opens no socket, so without this the office
+        // would only ever see work it started itself. Start the live stream of
+        // runs happening anywhere in Pulse.
+        if (PULSE_RUNTIME) {
+          pulseStreamStopRef.current?.();
+          pulseStreamStopRef.current = startPulseEventStream(client);
+        }
         gatewayDebugLog("connect:runtime-success", {
           selectedAdapterType,
           gatewayUrl,
@@ -1199,6 +1240,11 @@ export const useGatewayConnection = (
 
   const disconnect = useCallback(() => {
     gatewayDebugLog("disconnect", { selectedAdapterType, status });
+    // PULSE PATCH: the live work stream is not the WebSocket and is not closed
+    // by client.disconnect() — it would otherwise outlive the connection and
+    // keep reconnecting on its own.
+    pulseStreamStopRef.current?.();
+    pulseStreamStopRef.current = null;
     setError(null);
     setConnectErrorCode(null);
     wasManualDisconnectRef.current = true;
