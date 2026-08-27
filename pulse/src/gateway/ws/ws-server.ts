@@ -12,7 +12,6 @@ import { and, eq } from "drizzle-orm";
 import { parseMentions, agentMatchesToken } from "../channel-service.js";
 import { processAttachments } from "../attachment-extractor.js";
 import { randomUUID } from "node:crypto";
-import { onFloorEvent } from "../../utils/floor-bus.js";
 import { onChatEvent } from "../../utils/chat-bus.js";
 import { getJobRunnerRuntime } from "../../cron/job-runner.js";
 import type { WebSocket } from "ws";
@@ -55,11 +54,6 @@ export async function registerWebSocket(fastify: FastifyInstance): Promise<void>
     // Raise the frame cap so base64 file attachments (images/PDF/sheets/docs) fit.
     await fastify.register(websocket, { options: { maxPayload: 40 * 1024 * 1024 } });
 
-    // Live office-floor updates. Clients are registered at auth, so a dashboard
-    // socket that only observes (never chats) still receives these.
-    onFloorEvent((event) => {
-        broadcastToTenant(event.tenantId, { type: "floor", event });
-    });
 
     // Live chat output, routed to the asker rather than the one socket that sent
     // the message — that socket is gone after navigating away, which is why a

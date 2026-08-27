@@ -14,10 +14,6 @@ services:
     image: ${PULSE_REGISTRY:-registry.runstate.mu}/pulse-gateway:${PULSE_VERSION:-latest}
     pull_policy: always
 
-  pulse-office:
-    image: ${PULSE_REGISTRY:-registry.runstate.mu}/pulse-office:${PULSE_VERSION:-latest}
-    pull_policy: always
-
   pulse-dashboard:
     image: ${PULSE_REGISTRY:-registry.runstate.mu}/pulse-dashboard:${PULSE_VERSION:-latest}
     pull_policy: always

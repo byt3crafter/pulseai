@@ -32,8 +32,6 @@ export default async function DashboardLayout({
     const initials = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
     const isAdmin = session?.user?.role === "ADMIN";
     const chatgptConnect = !!(tenantRow[0] as any)?.config?.chatgptConnectEnabled;
-    // The Floor is beta and hidden until this workspace opts in.
-    const floorEnabled = !!(tenantRow[0] as any)?.config?.features?.floor;
     const rootRow = await db.select({ config: globalSettings.config }).from(globalSettings).where(eq(globalSettings.id, "root")).limit(1);
     const showBilling = ((rootRow[0]?.config as any)?.billingMode ?? "credits") !== "unlimited";
 
@@ -43,7 +41,7 @@ export default async function DashboardLayout({
             <DashboardShell
                 logo={branding.logo}
                 workspaceName={workspaceName}
-                nav={<DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} floor={floorEnabled} />}
+                nav={<DashboardNav isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />}
             userMenu={
                 <SidebarUserMenu
                     name={userName}

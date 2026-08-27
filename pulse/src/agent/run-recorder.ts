@@ -15,7 +15,6 @@ import { and, eq, lt, sql } from "drizzle-orm";
 import { db } from "../storage/db.js";
 import { agentRuns } from "../storage/schema.js";
 import { logger } from "../utils/logger.js";
-import { emitFloorEvent } from "../utils/floor-bus.js";
 
 export type RunTrigger =
     | "chat" | "api" | "cron" | "heartbeat" | "commitment"
@@ -59,7 +58,6 @@ export class RunHandle {
     private agentProfileId: string | null;
     private finished = false;
 
-    /** Kept so live floor events can be addressed to the right tenant. */
     private readonly tenantId: string;
 
     constructor(id: string | null, input: StartRunInput) {
@@ -84,13 +82,6 @@ export class RunHandle {
     addToolCall(name: string, ok: boolean, ms: number): void {
         this.toolCalls.push({ name, ok, ms });
         if (this.id) {
-            emitFloorEvent({
-                type: "run:tool",
-                tenantId: this.tenantId,
-                runId: this.id,
-                agentProfileId: this.agentProfileId,
-                tool: name,
-            });
         }
     }
     setStatus(status: RunStatus): void { this.status = status; }
@@ -144,13 +135,6 @@ export async function startRun(input: StartRunInput): Promise<RunHandle> {
             userId: input.userId ?? null,
         }).returning({ id: agentRuns.id });
         if (row?.id) {
-            emitFloorEvent({
-                type: "run:start",
-                tenantId: input.tenantId,
-                runId: row.id,
-                agentProfileId: input.agentProfileId ?? null,
-                trigger: input.trigger ?? "chat",
-            });
         }
         return new RunHandle(row?.id ?? null, input);
     } catch (err) {
@@ -196,14 +180,6 @@ export async function finishRun(handle: RunHandle): Promise<void> {
         logger.warn({ err, runId: h.id }, "run-recorder: failed to finish run");
     }
     // Emitted even if the update above failed: the desk must stop animating.
-    emitFloorEvent({
-        type: "run:end",
-        tenantId: h.tenantId,
-        runId: h.id,
-        agentProfileId: h.agentProfileId,
-        status,
-        durationMs,
-    });
 }
 
 /**
@@ -240,9 +216,6 @@ export async function savePartialContent(handle: RunHandle, content: string): Pr
  * of *all* running rows would be correct for a single gateway, but would kill a
  * sibling container's live runs the moment the deployment is scaled out. Half an
  * hour is far longer than any real turn, so the sweep is safe either way.
- *
- * The floor surfaces `stalled` at 15 minutes — an earlier, softer warning that
- * something is wrong, before this reaps it.
  */
 export const STALE_RUN_MS = 30 * 60 * 1000;
 
