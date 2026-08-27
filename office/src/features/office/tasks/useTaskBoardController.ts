@@ -939,7 +939,7 @@ export const useTaskBoardController = ({
       setGatewayTasksError(
         error instanceof Error
           ? error.message
-          : "Failed to load tasks from Hermes.",
+          : "Failed to load tasks.",
       );
     } finally {
       setGatewayTasksLoading(false);
@@ -1100,7 +1100,7 @@ export const useTaskBoardController = ({
         setGatewayTasksError(
           error instanceof Error
             ? error.message
-            : "Failed to update the Hermes kanban task.",
+            : "Failed to update the task.",
         );
       }
     },

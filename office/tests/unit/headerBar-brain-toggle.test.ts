@@ -39,9 +39,12 @@ describe("HeaderBar controls", () => {
   it("opens_menu_and_calls_connection_settings_handler", () => {
     const onConnectionSettings = vi.fn();
 
+    // PULSE PATCH: the gateway menu is off by default now — there is one
+    // workspace and it is not a setting — so this has to opt in to test it.
     render(
       createElement(HeaderBar, {
         status: "disconnected",
+        showConnectionSettings: true,
         onConnectionSettings,
       })
     );

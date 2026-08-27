@@ -14,8 +14,8 @@ import { PULSE_RUNTIME_GLOBAL, resolvePulseRuntime } from "@/lib/office/pulse-ru
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Hermes3D",
-  description: "Focused operator studio for the Hermes gateway.",
+  title: "The Floor — Pulse AI",
+  description: "Your Pulse workspace as a 3D office.",
 };
 
 const display = Bebas_Neue({

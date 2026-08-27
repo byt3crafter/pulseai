@@ -206,7 +206,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
           <div>
             <div className="flex items-center gap-3 text-[12px] uppercase tracking-[0.32em] text-[#83fff0]/70">
               <Landmark className="h-4 w-4" />
-              Hermes Treasury ATM
+              Treasury
             </div>
             <div className="mt-3 text-[13px] uppercase tracking-[0.24em] text-[#7ddfd2]/62">
               Token Usage Ledger
@@ -265,7 +265,7 @@ export function AtmImmersiveScreen(props: OfficeUsageAnalyticsParams) {
         <div className="mt-7 space-y-6">
           <SectionCard
             title="Usage Overview"
-            subtitle="Expanded Hermes expense data for the selected ledger window."
+            subtitle="Expense detail for the selected period."
             action={
               <button
                 type="button"

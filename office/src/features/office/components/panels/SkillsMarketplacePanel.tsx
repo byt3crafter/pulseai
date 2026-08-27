@@ -22,7 +22,7 @@ import { buildAgentSkillsAllowlistSet, deriveAgentSkillsAccessMode } from "@/lib
 type MarketplaceFilter = "all" | SkillMarketplaceCollectionId;
 
 const FILTER_LABELS: Record<MarketplaceFilter, string> = {
-  hermes3d: "Hermes3D",
+  hermes3d: "Office",
   all: "All",
   featured: "Featured",
   installed: "Installed",

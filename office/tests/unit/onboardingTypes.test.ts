@@ -48,17 +48,21 @@ describe("getStepIndex", () => {
     );
   });
 
-  it("includes the company step before completion", () => {
-    const companyIndex = getStepIndex("company");
-    const completeIndex = getStepIndex("complete");
-    expect(companyIndex).toBeGreaterThan(getStepIndex("agents"));
-    expect(companyIndex).toBe(completeIndex - 1);
+  it("is a tour, not a setup wizard", () => {
+    // Every step upstream used to walk someone through standing up their own
+    // runtime is gone: two asked for things a hosted workspace has no concept
+    // of, and one offered a button that could only throw against Pulse.
+    const ids = ONBOARDING_STEPS.map((s) => s.id as string);
+    expect(ids).toEqual(["welcome", "agents", "complete"]);
+    for (const removed of ["connect", "prerequisites", "company"]) {
+      expect(ids).not.toContain(removed);
+    }
   });
 });
 
 describe("getNextStep", () => {
-  it("returns prerequisites after welcome", () => {
-    expect(getNextStep("welcome")).toBe("prerequisites");
+  it("returns agents after welcome", () => {
+    expect(getNextStep("welcome")).toBe("agents");
   });
 
   it("returns null after complete", () => {
@@ -83,8 +87,8 @@ describe("getPrevStep", () => {
     expect(getPrevStep("welcome")).toBeNull();
   });
 
-  it("returns prerequisites for agents", () => {
-    expect(getPrevStep("agents")).toBe("prerequisites");
+  it("returns welcome for agents", () => {
+    expect(getPrevStep("agents")).toBe("welcome");
   });
 
   it("navigates backward through all steps", () => {

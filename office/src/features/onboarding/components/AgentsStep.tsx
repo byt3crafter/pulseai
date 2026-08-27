@@ -14,7 +14,8 @@ export const AgentsStep = ({ agentCount, connected }: AgentsStepProps) => {
       <div className="flex flex-col items-center justify-center gap-3 py-8">
         <WifiOff className="h-8 w-8 text-white/30" />
         <p className="text-sm text-white/60">
-          Connect to your gateway first to discover agents.
+          Can&apos;t reach your workspace right now, so your team isn&apos;t
+          loaded yet.
         </p>
       </div>
     );
@@ -29,19 +30,24 @@ export const AgentsStep = ({ agentCount, connected }: AgentsStepProps) => {
           </div>
           <p className="text-sm font-medium text-white">No agents found</p>
           <p className="max-w-xs text-center text-xs text-white/55">
-            Your gateway is connected, but no agents are configured yet.
-            You can create agents from the Hermes3D fleet sidebar after
-            completing this wizard.
+            Your workspace doesn&apos;t have any agents yet, so the office is
+            empty.
           </p>
         </div>
 
+        {/*
+          PULSE PATCH: agents are created in the Pulse dashboard, not here.
+          Upstream pointed at a fleet sidebar and a + button that create agents
+          through the runtime's own config APIs — which this runtime does not
+          implement, so following those steps could only fail.
+        */}
         <div className="rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3">
-          <p className="text-xs font-medium text-white/80">Quick start:</p>
+          <p className="text-xs font-medium text-white/80">To add one:</p>
           <ol className="mt-2 space-y-1.5 text-[11px] text-white/55">
-            <li>1. Click the + button in the fleet sidebar</li>
-            <li>2. Choose a name and model for your agent</li>
-            <li>3. Configure skills and personality</li>
-            <li>4. Watch your agent appear at their desk!</li>
+            <li>1. Open Agent Profiles in the Pulse sidebar</li>
+            <li>2. Create an agent and give it a name and a model</li>
+            <li>3. Turn on the tools it should be allowed to use</li>
+            <li>4. Come back here and it will be at its desk</li>
           </ol>
         </div>
       </div>

@@ -6,14 +6,16 @@ import { resolveGatewayStatusBadgeClass } from "./colorSemantics";
 
 type HeaderBarProps = {
   status: GatewayStatus;
-  onConnectionSettings: () => void;
+  onConnectionSettings?: () => void;
   showConnectionSettings?: boolean;
 };
 
 export const HeaderBar = ({
   status,
   onConnectionSettings,
-  showConnectionSettings = true,
+  // PULSE PATCH: no "Gateway connection" menu — there is one workspace and it
+  // is not a setting. Opt in explicitly if a deployment ever needs it again.
+  showConnectionSettings = false,
 }: HeaderBarProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -40,7 +42,7 @@ export const HeaderBar = ({
     <div className="ui-topbar relative z-[180]">
       <div className="grid h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 sm:px-4 md:px-5">
         <div aria-hidden="true" />
-        <p className="truncate text-sm font-semibold tracking-[0.01em] text-foreground">Hermes3D</p>
+        <p className="truncate text-sm font-semibold tracking-[0.01em] text-foreground">The Floor</p>
         <div className="flex items-center justify-end gap-1">
           {status !== "disconnected" ? (
             <span
@@ -72,7 +74,7 @@ export const HeaderBar = ({
                     className="ui-btn-ghost w-full justify-start border-transparent px-3 py-2 text-left text-xs font-medium tracking-normal text-foreground"
                     type="button"
                     onClick={() => {
-                      onConnectionSettings();
+                      onConnectionSettings?.();
                       setMenuOpen(false);
                     }}
                     data-testid="gateway-settings-toggle"

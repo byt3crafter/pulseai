@@ -156,7 +156,7 @@ export function SettingsPanel({
           <div>
             <div className="text-[11px] font-medium text-white">Remote office</div>
             <div className="mt-1 text-[10px] text-white/75">
-              Attach a second read-only office from either another Hermes3D or a remote Hermes gateway.
+              Attach a second read-only office from another workspace.
             </div>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/70">
@@ -200,11 +200,11 @@ export function SettingsPanel({
               }
               className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors focus:border-cyan-400/30"
             >
-              <option value="presence_endpoint">Remote Hermes3D presence endpoint</option>
+              <option value="presence_endpoint">Remote presence endpoint</option>
               <option value="hermes_gateway">Remote Hermes gateway</option>
             </select>
             <div className="mt-1 text-[10px] text-white/50">
-              Use a presence endpoint when the other machine runs Hermes3D. Use gateway mode when the other machine only runs Hermes.
+              Use a presence endpoint when the other machine runs an office. Use gateway mode when it only exposes a gateway.
             </div>
           </div>
           <div>
@@ -234,7 +234,7 @@ export function SettingsPanel({
                   className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
                 />
                 <div className="mt-1 text-[10px] text-white/50">
-                  Studio polls this endpoint server-side when the other machine is also running Hermes3D.
+                  This endpoint is polled server-side when the other machine also runs an office.
                 </div>
               </div>
               <div>
@@ -288,7 +288,7 @@ export function SettingsPanel({
                   className="w-full rounded-md border border-cyan-500/10 bg-black/25 px-3 py-2 text-[11px] text-cyan-100 outline-none transition-colors placeholder:text-cyan-100/30 focus:border-cyan-400/30"
                 />
                 <div className="mt-1 text-[10px] text-white/50">
-                  Hermes3D connects from the browser directly to the remote Hermes gateway and derives a read-only presence snapshot.
+                  The browser connects directly to the remote gateway and derives a read-only presence snapshot.
                 </div>
               </div>
               <div>

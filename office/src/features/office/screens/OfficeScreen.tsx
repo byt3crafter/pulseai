@@ -13,7 +13,6 @@ import { MessageSquare, ChevronDown, ChevronLeft, ChevronRight, Mic } from "luci
 import { RetroOffice3D } from "@/features/retro-office/RetroOffice3D";
 import type { OfficeAgent } from "@/features/retro-office/core/types";
 import { RunningAvatarLoader } from "@/features/agents/components/RunningAvatarLoader";
-import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { readPulseRuntime } from "@/lib/office/pulse-runtime";
 import { useAgentStore, type AgentState } from "@/features/agents/state/store";
 import {
@@ -2112,7 +2111,7 @@ export function OfficeScreen({
       );
       if (!agent) return;
       const confirmed = window.confirm(
-        `Delete ${agent.name}? This removes the agent record from Hermes and clears its scheduled automations. Hermes3D will not touch workspace files.`,
+        `Delete ${agent.name}? This removes the agent record and clears its scheduled automations. Hermes3D will not touch workspace files.`,
       );
       if (!confirmed) return;
 
@@ -4484,22 +4483,13 @@ export function OfficeScreen({
           </div>
         </div>
       ) : showGatewayConnectOverlay ? (
-        <div className="pointer-events-auto absolute inset-0 z-50 flex items-start justify-center bg-[#120a05]/76 px-4 py-10">
-          <div className="w-full max-w-[860px] rounded-2xl border border-amber-900/55 bg-[#120a05]/98 p-3 shadow-2xl">
-            <GatewayConnectScreen
-              gatewayUrl={gatewayUrl}
-              token={token}
-              selectedAdapterType={selectedAdapterType}
-              activeAdapterType={activeAdapterType}
-              localGatewayDefaults={localGatewayDefaults}
-              status={status}
-              error={gatewayError}
-              onGatewayUrlChange={setGatewayUrl}
-              onTokenChange={setToken}
-              onAdapterTypeChange={setSelectedAdapterType}
-              onUseLocalDefaults={useLocalGatewayDefaults}
-              onConnect={() => void connect()}
-            />
+        <div className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center bg-[#120a05]/76 px-4">
+          <div className="w-full max-w-[420px] rounded-2xl border border-amber-900/55 bg-[#120a05]/98 p-6 text-center shadow-2xl">
+            <div className="text-sm font-medium text-amber-100">No workspace configured</div>
+            <p className="mt-2 text-xs text-amber-100/70">
+              This office has no workspace to show. Set HERMES3D_GATEWAY_URL and
+              restart it.
+            </p>
           </div>
         </div>
       ) : null}
@@ -4908,7 +4898,7 @@ export function OfficeScreen({
           initialStep={companyCreatedSignal > 0 ? "complete" : "welcome"}
           initialCompletedSteps={
             companyCreatedSignal > 0
-              ? ["welcome", "prerequisites", "agents", "company", "complete"]
+              ? ["welcome", "agents", "complete"]
               : undefined
           }
           createdCompanyName={createdCompanyName}

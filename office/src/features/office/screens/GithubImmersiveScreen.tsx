@@ -369,8 +369,7 @@ export function GithubImmersiveScreen({
             </div>
             <p className="mt-3 text-sm leading-6 text-cyan-100/72">
               Open the Skills panel to install or enable the bundled GitHub
-              skill so agents can walk here and review pull requests through
-              Hermes.
+              skill so agents can walk here and review pull requests.
             </p>
             <div className="mt-5 space-y-2">
               {skillMissingDetails.length > 0 ? (

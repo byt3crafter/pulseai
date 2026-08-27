@@ -11,8 +11,6 @@ import {
 } from "@/features/agents/components/AgentInspectPanels";
 import { FleetSidebar } from "@/features/agents/components/FleetSidebar";
 import { HeaderBar } from "@/features/agents/components/HeaderBar";
-import { ConnectionPanel } from "@/features/agents/components/ConnectionPanel";
-import { GatewayConnectScreen } from "@/features/agents/components/GatewayConnectScreen";
 import { readPulseRuntime } from "@/lib/office/pulse-runtime";
 import { EmptyStatePanel } from "@/features/agents/components/EmptyStatePanel";
 import {
@@ -206,7 +204,6 @@ const AgentsPageScreen = () => {
   });
 
   const { state, dispatch, hydrateAgents, setError, setLoading } = useAgentStore();
-  const [showConnectionPanel, setShowConnectionPanel] = useState(false);
   const [focusFilter, setFocusFilter] = useState<FocusFilter>("all");
   const [focusedPreferencesLoaded, setFocusedPreferencesLoaded] = useState(false);
   const [agentsLoadedOnce, setAgentsLoadedOnce] = useState(false);
@@ -1243,7 +1240,6 @@ const AgentsPageScreen = () => {
     [dispatch, persistAvatarProfile]
   );
 
-  const connectionPanelVisible = showConnectionPanel;
   const hasAnyAgents = agents.length > 0;
   const configMutationStatusLine = activeConfigMutation
     ? `Applying config change: ${activeConfigMutation.label}`
@@ -1299,7 +1295,6 @@ const AgentsPageScreen = () => {
   }, [gatewayError]);
 
   if (
-    !connectionPanelVisible &&
     !agentsLoadedOnce &&
     (!connectPromptReady ||
       (gatewayUrl.trim().length > 0 &&
@@ -1312,10 +1307,10 @@ const AgentsPageScreen = () => {
         <div className="flex min-h-screen items-center justify-center px-6">
           <div className="glass-panel ui-panel w-full max-w-md px-6 py-6 text-center">
             <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Hermes3D
+              Pulse AI
             </div>
             <div className="mt-3 text-sm text-muted-foreground">
-              {status === "connecting" ? "Connecting to gateway…" : "Booting Studio…"}
+              {status === "connecting" ? "Connecting…" : "Opening your workspace…"}
             </div>
           </div>
         </div>
@@ -1324,77 +1319,11 @@ const AgentsPageScreen = () => {
   }
 
   // PULSE PATCH: the agents screen carried its own copy of the backend chooser,
-  // reachable from the office's own nav. `didAttemptGatewayConnect` alone was
-  // enough to show it, so one failed connect dropped you onto a form asking for
-  // a gateway URL. Inside Pulse this whole branch is unreachable.
-  if (
-    !PULSE_RUNTIME &&
-    connectPromptReady &&
-    status !== "connected" &&
-    !agentsLoadedOnce &&
-    (shouldPromptForConnect || didAttemptGatewayConnect)
-  ) {
-    return (
-      <div className="relative h-full w-full overflow-hidden bg-background">
-        <div className="relative z-10 flex h-full flex-col">
-          <HeaderBar
-            status={status}
-            onConnectionSettings={() => setShowConnectionPanel(true)}
-          />
-          <div className="flex min-h-0 flex-1 flex-col gap-4 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 md:px-6 md:pb-6 md:pt-4">
-            {settingsRouteActive ? (
-              <div className="w-full">
-                <button
-                  type="button"
-                  className="ui-btn-secondary px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.06em]"
-                  onClick={handleBackToChat}
-                >
-                  Back to chat
-                </button>
-              </div>
-            ) : null}
-            {connectionPanelVisible ? (
-              <div className="mx-auto w-full max-w-4xl">
-                <div className="glass-panel w-full !bg-card px-4 py-4 sm:px-6 sm:py-6">
-                  <ConnectionPanel
-                    gatewayUrl={gatewayUrl}
-                    token={token}
-                    selectedAdapterType={selectedAdapterType}
-                    activeAdapterType={activeAdapterType}
-                    localGatewayUrl={localGatewayDefaults?.url ?? null}
-                    localGatewayToken={localGatewayDefaults?.token ?? null}
-                    status={status}
-                    error={gatewayError}
-                    onGatewayUrlChange={setGatewayUrl}
-                    onTokenChange={setToken}
-                    onAdapterTypeChange={setSelectedAdapterType}
-                    onConnect={() => void connect()}
-                    onDisconnect={disconnect}
-                    onClose={() => setShowConnectionPanel(false)}
-                  />
-                </div>
-              </div>
-            ) : (
-              <GatewayConnectScreen
-                gatewayUrl={gatewayUrl}
-                token={token}
-                selectedAdapterType={selectedAdapterType}
-                activeAdapterType={activeAdapterType}
-                localGatewayDefaults={localGatewayDefaults}
-                status={status}
-                error={gatewayError}
-                onGatewayUrlChange={setGatewayUrl}
-                onTokenChange={setToken}
-                onAdapterTypeChange={setSelectedAdapterType}
-                onUseLocalDefaults={useLocalGatewayDefaults}
-                onConnect={() => void connect()}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // reachable from the office's own nav, and `didAttemptGatewayConnect` alone
+  // was enough to show it — so one failed connect dropped you onto a form
+  // asking for a gateway URL and token. There is no second backend to pick, so
+  // the branch and its screen are gone rather than merely hidden.
+
 
   if (status === "connected" && !agentsLoadedOnce) {
     return (
@@ -1421,34 +1350,8 @@ const AgentsPageScreen = () => {
         </div>
       ) : null}
       <div className="relative z-10 flex h-full flex-col">
-        <HeaderBar
-          status={status}
-          onConnectionSettings={() => setShowConnectionPanel(true)}
-        />
+        <HeaderBar status={status} />
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3 md:px-5 md:pb-5 md:pt-3">
-          {connectionPanelVisible ? (
-            <div className="pointer-events-none fixed inset-x-0 top-12 z-[140] flex justify-center px-3 sm:px-4 md:px-5">
-              <div className="glass-panel pointer-events-auto w-full max-w-4xl !bg-card px-4 py-4 sm:px-6 sm:py-6">
-                <ConnectionPanel
-                  gatewayUrl={gatewayUrl}
-                  token={token}
-                  selectedAdapterType={selectedAdapterType}
-                  activeAdapterType={activeAdapterType}
-                  localGatewayUrl={localGatewayDefaults?.url ?? null}
-                  localGatewayToken={localGatewayDefaults?.token ?? null}
-                  status={status}
-                  error={gatewayError}
-                  onGatewayUrlChange={setGatewayUrl}
-                  onTokenChange={setToken}
-                  onAdapterTypeChange={setSelectedAdapterType}
-                  onConnect={() => void connect()}
-                  onDisconnect={disconnect}
-                  onClose={() => setShowConnectionPanel(false)}
-                />
-              </div>
-            </div>
-          ) : null}
-
           {errorMessage ? (
             <div className="w-full">
               <div className="ui-alert-danger rounded-md px-4 py-2 text-sm">

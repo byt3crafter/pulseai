@@ -6,12 +6,7 @@
  * step registry.
  */
 
-export type OnboardingStepId =
-  | "welcome"
-  | "prerequisites"
-  | "agents"
-  | "company"
-  | "complete";
+export type OnboardingStepId = "welcome" | "agents" | "complete";
 
 export type OnboardingStep = {
   id: OnboardingStepId;
@@ -33,13 +28,26 @@ export type OnboardingState = {
 };
 
 /*
-  PULSE PATCH: the "Connect Your Gateway" step is gone.
+  PULSE PATCH: this is a tour, not a setup wizard.
 
-  It was skippable: false and the wizard shows on every browser missing a
-  localStorage flag — so every first-time visitor, a phone above all, was met
-  with a gateway URL and token form it could not get past. Inside Pulse there is
-  no gateway to link: the page already knows the runtime and the viewer is
-  already signed in.
+  Upstream's wizard walks someone through standing a Hermes3D install up, and
+  three of its five steps were meaningless or broken here:
+
+  - "Connect Your Gateway" (skippable: false) asked for a gateway URL and token.
+    The wizard shows on every browser missing a localStorage flag, so every
+    first-time visitor — a phone above all — hit a form it could not get past.
+    There is nothing to connect: the page already knows the runtime and the
+    viewer is already signed in.
+  - "Before You Start" told the reader to install Node.js, run
+    `npm run hermes-adapter` and find ~/.hermes/hermes.json. Nobody using a
+    hosted Pulse workspace has a terminal in this picture.
+  - "Build Your Company" offered to write agents into the runtime, which needs
+    config.patch / config.set / agents.create. Our adapter implements none of
+    them, so the button could only ever throw. Pulse agents are created in the
+    dashboard.
+
+  What is left is what a tour should be: here is your office, here is your
+  team, go in.
 */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
@@ -49,27 +57,15 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     skippable: false,
   },
   {
-    id: "prerequisites",
-    title: "Before You Start",
-    description: "What you'll need",
-    skippable: true,
-  },
-  {
     id: "agents",
     title: "Your Agents",
     description: "Meet your AI team",
     skippable: true,
   },
   {
-    id: "company",
-    title: "Build Your Company",
-    description: "Generate your org structure",
-    skippable: true,
-  },
-  {
     id: "complete",
-    title: "You're All Set",
-    description: "Start exploring",
+    title: "You're all set",
+    description: "Go in",
     skippable: false,
   },
 ];
