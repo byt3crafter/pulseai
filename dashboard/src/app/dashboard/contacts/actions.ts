@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
 import { contacts, tenants } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { scopedTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 
 export interface ContactRow {
@@ -40,7 +41,7 @@ export async function getContacts(): Promise<ContactRow[]> {
             metadata: contacts.metadata,
         })
             .from(contacts)
-            .where(eq(contacts.tenantId, tenantId))
+            .where(scopedTo(contacts, tenantId, tenantCheck.userId))
             .orderBy(asc(contacts.name));
         return rows.map(({ metadata, ...r }) => ({
             ...r,

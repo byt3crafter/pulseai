@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "../../../../../auth";
 import { db } from "../../../../../storage/db";
 import { documents } from "../../../../../storage/schema";
+import { scopedTo } from "../../../../../utils/visibility";
 
 /**
  * Tenant-scoped file download. Decodes the base64 `content` column back into
@@ -29,7 +30,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             content: documents.content,
         })
             .from(documents)
-            .where(and(eq(documents.id, id), eq(documents.tenantId, tenantId)))
+            .where(and(eq(documents.id, id), scopedTo(documents, tenantId, (session.user as any).id)))
             .limit(1);
 
         if (!doc || !doc.content) {

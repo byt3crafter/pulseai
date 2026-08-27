@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
 import { todos } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { scopedTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 
 export type TodoPriority = "low" | "normal" | "high";
@@ -37,7 +38,7 @@ export async function getTodos(): Promise<TodoRow[]> {
             createdAt: todos.createdAt,
         })
             .from(todos)
-            .where(eq(todos.tenantId, tenantId))
+            .where(scopedTo(todos, tenantId, tenantCheck.userId))
             .orderBy(asc(todos.done), asc(todos.dueAt), asc(todos.createdAt));
         return rows.map((r) => ({
             ...r,

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
 import { notes } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { scopedTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 
 export interface NoteRow {
@@ -34,7 +35,7 @@ export async function getNotes(): Promise<NoteRow[]> {
             updatedAt: notes.updatedAt,
         })
             .from(notes)
-            .where(eq(notes.tenantId, tenantId))
+            .where(scopedTo(notes, tenantId, tenantCheck.userId))
             .orderBy(desc(notes.pinned), desc(notes.updatedAt));
         return rows.map((r) => ({ ...r, pinned: !!r.pinned }));
     } catch (error) {

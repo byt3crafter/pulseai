@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
 import { bookmarks } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { scopedTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 
 export type BookmarkKind = "web" | "youtube";
@@ -45,7 +46,7 @@ export async function getBookmarks(): Promise<BookmarkRow[]> {
             updatedAt: bookmarks.updatedAt,
         })
             .from(bookmarks)
-            .where(eq(bookmarks.tenantId, tenantId))
+            .where(scopedTo(bookmarks, tenantId, tenantCheck.userId))
             .orderBy(desc(bookmarks.updatedAt));
         return rows.map((r) => ({ ...r, kind: (r.kind === "youtube" ? "youtube" : "web") as BookmarkKind }));
     } catch (error) {
