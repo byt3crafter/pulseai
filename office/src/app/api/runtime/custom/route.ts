@@ -69,7 +69,7 @@ type CachedToken = { token: string; expiresAt: number };
 const tokenCache = new Map<string, CachedToken>();
 const TOKEN_TTL_MS = 60_000;
 
-async function resolveRuntimeToken(request: Request): Promise<string> {
+export async function resolveRuntimeToken(request: Request): Promise<string> {
   // An explicit token still wins — useful for headless/CI and for running the
   // office against a runtime that has no dashboard in front of it.
   const explicit = (process.env.CUSTOM_RUNTIME_TOKEN || "").trim();

@@ -14,14 +14,99 @@
 
 import { FastifyPluginAsync } from "fastify";
 import { and, eq } from "drizzle-orm";
+import { onFloorEvent, type FloorEvent } from "../../utils/floor-bus.js";
 import { apiTokenAuth, getApiTokenContext } from "../middleware/api-token-auth.js";
 import { db } from "../../storage/db.js";
-import { agentProfiles } from "../../storage/schema.js";
+import { agentProfiles, agentRuns } from "../../storage/schema.js";
 import { logger } from "../../utils/logger.js";
 
 /** `Natalie Harrington` -> `natalie-harrington`. Hermes3D titlecases it back. */
-function slug(name: string): string {
+export function slug(name: string): string {
     return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agent";
+}
+
+
+/**
+ * Tool name -> what to say the agent is doing. Shown as a speech bubble over
+ * the agent's desk, so it reads as a person working, not as a log line.
+ * An unmapped tool falls back to the raw name rather than going silent —
+ * a new tool should look odd, not invisible.
+ */
+const TOOL_CAPTIONS: Record<string, string> = {
+    web_search: "searching the web",
+    web_fetch: "reading a page",
+    email_send: "sending an email",
+    email_search: "going through email",
+    email_fetch_unread: "checking email",
+    server_exec: "on the server",
+    server_list: "checking the servers",
+    bash_sandbox: "running some code",
+    pdf_read: "reading a PDF",
+    pdf_fill_form: "filling in a form",
+    memory_search: "checking my notes",
+    memory_store: "making a note",
+    workspace_update: "updating my setup",
+    delegate: "handing this over",
+    route_to_channel: "passing this along",
+};
+
+export function captionFor(tool: string): string {
+    return TOOL_CAPTIONS[tool] ?? tool.replace(/_/g, " ");
+}
+
+/** The office keys sessions as `agent:<id>:main`, where id is the /state slug. */
+export function sessionKeyFor(agentSlug: string): string {
+    return `agent:${agentSlug}:main`;
+}
+
+
+/**
+ * A Pulse floor event as the office's own event frames.
+ *
+ * Pure and exported so the mapping can be tested without a socket, a database
+ * or a running gateway — this is the part that has to stay exactly in step with
+ * what the office expects (`normalizeGatewayEvent` on its side), and it is the
+ * part that will silently stop animating anything if it drifts.
+ *
+ * Returns an array because one Pulse event is not always one office frame, and
+ * an empty array for events with nothing to show.
+ */
+export function floorEventToFrames(
+    event: FloorEvent,
+    who: { slug: string; name: string }
+): unknown[] {
+    const timestamp = Date.now();
+    const lifecycle = (phase: "start" | "end" | "error") => ({
+        type: "event",
+        event: "agent",
+        payload: {
+            stream: "lifecycle",
+            runId: event.runId,
+            sessionKey: sessionKeyFor(who.slug),
+            data: { phase },
+            timestamp,
+        },
+    });
+
+    if (event.type === "run:start") return [lifecycle("start")];
+    if (event.type === "run:end") {
+        return [lifecycle(event.status === "completed" ? "end" : "error")];
+    }
+    if (event.type === "run:tool") {
+        return [
+            {
+                type: "event",
+                event: "office.speech",
+                payload: {
+                    agentId: who.slug,
+                    name: who.name,
+                    text: captionFor(event.tool),
+                    timestamp,
+                },
+            },
+        ];
+    }
+    return [];
 }
 
 export const hermes3dRoutes: FastifyPluginAsync = async (fastify) => {
@@ -96,5 +181,129 @@ export const hermes3dRoutes: FastifyPluginAsync = async (fastify) => {
             logger.error({ err, tenantId: ctx.tenantId }, "hermes3d: /registry failed");
             return reply.code(500).send({ error: "Failed to read registry." });
         }
+    });
+    /**
+     * GET /events — live work, as Server-Sent Events.
+     *
+     * WHY THIS EXISTS: the office knew only about work it started itself. Its
+     * custom-runtime adapter is pure HTTP request/response — `connect()` is a
+     * /health probe and no socket is ever opened — so its only writer of
+     * "running" was its own outgoing chat. Give an agent a job from the
+     * dashboard, Telegram, a schedule or a commitment and the office sat at
+     * "0 working" for the whole run.
+     *
+     * Pulse was already emitting exactly the right thing: run-recorder fires
+     * every run into floor-bus regardless of what triggered it. Nothing was
+     * listening. This translates that stream into the frames the office already
+     * understands, so its existing "derive animation from runtime signals"
+     * logic lights up without the office learning anything about Pulse.
+     *
+     * SSE, not WebSocket: this is one-way, it survives proxies that mangle
+     * upgrades, and browsers reconnect it on their own.
+     */
+    fastify.get("/events", async (request, reply) => {
+        const ctx = getApiTokenContext(request);
+        if (!ctx) return reply.code(401).send({ error: "Unauthorized" });
+
+        const tenantId = ctx.tenantId;
+
+        // agentProfileId -> what the office calls that agent. Built once and
+        // refreshed only on a miss, so the common path touches no database.
+        let names = new Map<string, { slug: string; name: string }>();
+        const loadNames = async () => {
+            const profiles = await db
+                .select({ id: agentProfiles.id, name: agentProfiles.name })
+                .from(agentProfiles)
+                .where(eq(agentProfiles.tenantId, tenantId));
+            names = new Map(profiles.map((p) => [p.id, { slug: slug(p.name), name: p.name }]));
+        };
+        await loadNames();
+
+        reply.raw.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache, no-transform",
+            Connection: "keep-alive",
+            // nginx buffers SSE by default, which holds every frame until the
+            // response ends — i.e. forever. This is what makes it stream.
+            "X-Accel-Buffering": "no",
+        });
+
+        let open = true;
+        const send = (frame: unknown) => {
+            if (!open) return;
+            try {
+                reply.raw.write(`data: ${JSON.stringify(frame)}\n\n`);
+            } catch {
+                // A dead socket must never take a run down with it.
+                open = false;
+            }
+        };
+
+        const lifecycle = (agentSlug: string, runId: string, phase: "start" | "end" | "error") =>
+            send({
+                type: "event",
+                event: "agent",
+                payload: {
+                    stream: "lifecycle",
+                    runId,
+                    sessionKey: sessionKeyFor(agentSlug),
+                    data: { phase },
+                    timestamp: Date.now(),
+                },
+            });
+
+        // A browser that opens mid-run has to be told what is ALREADY running —
+        // a pure event stream can only ever describe the future, so without this
+        // an agent that started work before you opened the floor looks idle
+        // until it finishes.
+        try {
+            const running = await db
+                .select({ id: agentRuns.id, agentProfileId: agentRuns.agentProfileId })
+                .from(agentRuns)
+                .where(and(eq(agentRuns.tenantId, tenantId), eq(agentRuns.status, "running")));
+            for (const run of running) {
+                const who = run.agentProfileId ? names.get(run.agentProfileId) : null;
+                if (who) lifecycle(who.slug, run.id, "start");
+            }
+        } catch (err) {
+            logger.error({ err, tenantId }, "hermes3d: /events snapshot failed");
+        }
+
+        const unsubscribe = onFloorEvent((event: FloorEvent) => {
+            if (event.tenantId !== tenantId) return;
+            const who = event.agentProfileId ? names.get(event.agentProfileId) : null;
+            if (!who) {
+                // A profile added since this stream opened. Refresh once; the
+                // event is lost but the next one lands.
+                if (event.agentProfileId) void loadNames();
+                return;
+            }
+            for (const frame of floorEventToFrames(event, who)) send(frame);
+        });
+
+        // Idle connections get reaped by proxies; a comment line is not an event
+        // and costs the client nothing.
+        const heartbeat = setInterval(() => {
+            if (!open) return;
+            try {
+                reply.raw.write(": ping\n\n");
+            } catch {
+                open = false;
+            }
+        }, 25_000);
+
+        const close = () => {
+            if (!open) return;
+            open = false;
+            clearInterval(heartbeat);
+            unsubscribe();
+            try {
+                reply.raw.end();
+            } catch {
+                /* already gone */
+            }
+        };
+        request.raw.on("close", close);
+        request.raw.on("error", close);
     });
 };
