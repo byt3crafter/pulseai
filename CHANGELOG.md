@@ -3,6 +3,15 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.24] - 2026-08-27
+
+### Features
+- Phase 1 — one visibility rule, and a guard that enforces it
+- Phase 0 — record ownership, hide nothing
+
+### Documentation
+- plan for multi-user ownership, visibility and agent identity
+
 ## [0.20.23] - 2026-08-27
 
 ### Bug Fixes
