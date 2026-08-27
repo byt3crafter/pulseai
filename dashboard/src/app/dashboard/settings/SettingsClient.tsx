@@ -40,6 +40,8 @@ import WorkspaceToolsTab from "./WorkspaceToolsTab";
 import BriefingTab from "./BriefingTab";
 import AppearanceTab from "./AppearanceTab";
 import WebSearchTab from "./WebSearchTab";
+import MyEmailTab from "./MyEmailTab";
+import type { MyEmailConfig } from "./my-email-actions";
 import type { BriefingConfig, BrandingConfig, WebSearchSettings } from "./actions";
 import { PROVIDERS } from "../../../utils/models";
 import { CHANNEL_SETUP_CATALOG, type ChannelSetupDefinition } from "../../../utils/channel-catalog";
@@ -74,6 +76,7 @@ const TABS = [
     { id: "memory", label: "Memory" },
     { id: "briefing", label: "Briefing" },
     { id: "email", label: "Email" },
+    { id: "myemail", label: "My Email" },
     { id: "credentials", label: "Credentials" },
     { id: "api", label: "API & Developer" },
     { id: "billing", label: "Billing" },
@@ -167,6 +170,7 @@ interface Props {
         maxResults: number;
     };
     briefingConfig: BriefingConfig;
+    myEmailConfig: MyEmailConfig;
     appearanceConfig: BrandingConfig;
     webSearchConfig: WebSearchSettings;
     pendingPairings: PairingInfo[];
@@ -187,7 +191,7 @@ export default function SettingsClient({
     tab, initialPlugin, timezone, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, appearanceConfig, webSearchConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, myEmailConfig, appearanceConfig, webSearchConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -248,6 +252,7 @@ export default function SettingsClient({
                         />
                     )}
                     {tab === "email" && <EmailTab config={emailConfig} />}
+                    {tab === "myemail" && <MyEmailTab config={myEmailConfig} />}
                     {tab === "providers" && <ProvidersTab providerKeys={providerKeys} />}
                     {tab === "websearch" && <WebSearchTab config={webSearchConfig} />}
                     {tab === "tools" && <WorkspaceToolsTab enabledTools={enabledTools} />}

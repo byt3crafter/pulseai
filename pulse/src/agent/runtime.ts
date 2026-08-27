@@ -986,6 +986,14 @@ export class AgentRuntime {
                                 if (resolvedAgentProfileId) {
                                     toolArgs._agentId = resolvedAgentProfileId;
                                 }
+                                // ...and _actorUserId, so a tool acting on a
+                                // person's behalf can use THEIR mailbox and
+                                // credentials rather than the workspace's.
+                                // Absent for cron and API runs, where the agent
+                                // is acting as itself.
+                                if (inbound.actorUserId) {
+                                    toolArgs._actorUserId = inbound.actorUserId;
+                                }
                                 result = await tool.execute({
                                     tenantId: inbound.tenantId,
                                     conversationId: conversation.id,
