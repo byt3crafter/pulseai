@@ -191,7 +191,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 // coloured nav row would be the loudest thing on a quiet screen.
                 className={`group relative flex items-center transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 ${collapsed
                     ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px] font-medium"
-                    : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px]"} ${isActive
+                    : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px] leading-[17px]"} ${isActive
                     ? "bg-pulse-panel-alt text-pulse-text font-medium"
                     : "text-pulse-muted font-normal hover:bg-pulse-hover hover:text-pulse-text"
                     }`}
@@ -259,7 +259,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                             )}
                         <Link
                             href="/admin"
-                            className={`group relative flex items-center transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px] font-medium" : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px]"}`}
+                            className={`group relative flex items-center transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px] font-medium" : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px] leading-[17px]"}`}
                         >
                             <ShieldCheckIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft transition-colors motion-reduce:transition-none" style={{ width: collapsed ? 20 : 15, height: collapsed ? 20 : 15 }} />
                             {collapsed ? <span className="leading-none">Admin</span> : "Admin Panel"}
