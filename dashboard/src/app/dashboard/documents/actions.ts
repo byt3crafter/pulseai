@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
 import { documents } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { scopedTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 import { extractDocumentText, MAX_DOCUMENT_BYTES } from "./document-file";
 
@@ -43,7 +44,7 @@ export async function getDocuments(): Promise<DocumentRow[]> {
             updatedAt: documents.updatedAt,
         })
             .from(documents)
-            .where(eq(documents.tenantId, tenantId))
+            .where(scopedTo(documents, tenantId, tenantCheck.userId))
             .orderBy(desc(documents.createdAt));
         return rows;
     } catch (error) {

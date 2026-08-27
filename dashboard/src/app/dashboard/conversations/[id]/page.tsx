@@ -1,5 +1,6 @@
 import { db } from "../../../../storage/db";
 import { conversations, messages } from "../../../../storage/schema";
+import { scopedTo } from "../../../../utils/visibility";
 import { eq, and, asc } from "drizzle-orm";
 import { auth } from "../../../../auth";
 import { redirect, notFound } from "next/navigation";
@@ -23,7 +24,9 @@ export default async function ConversationDetailPage({
     const conversation = await db.query.conversations.findFirst({
         where: and(
             eq(conversations.id, id),
-            eq(conversations.tenantId, session.user.tenantId)
+            // Tenant AND row scope: a conversation id is guessable, so the URL
+            // must not be a way around visibility once threads become private.
+            scopedTo(conversations, session.user.tenantId, (session.user as any).id)
         ),
     });
 

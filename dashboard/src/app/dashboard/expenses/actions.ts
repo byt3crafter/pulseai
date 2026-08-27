@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../../storage/db";
 import { documents, expenses } from "../../../storage/schema";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { scopedTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 import { extractDocumentText, MAX_DOCUMENT_BYTES } from "../documents/document-file";
 
@@ -41,7 +42,7 @@ export async function getExpenses(): Promise<ExpenseRow[]> {
             updatedAt: expenses.updatedAt,
         })
             .from(expenses)
-            .where(eq(expenses.tenantId, tenantId))
+            .where(scopedTo(expenses, tenantId, tenantCheck.userId))
             .orderBy(asc(expenses.spentAt));
         // Most recent spend first; undated expenses (spentAt null) sort last.
         return rows.sort((a, b) => {

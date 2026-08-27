@@ -1,5 +1,6 @@
 import { db } from "../../../storage/db";
 import { conversations, messages } from "../../../storage/schema";
+import { scopedTo } from "../../../utils/visibility";
 import { eq, sql, desc } from "drizzle-orm";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
@@ -30,7 +31,7 @@ export default async function ConversationsPage() {
             messageCount: sql<number>`(select count(*) from messages where messages.conversation_id = ${conversations.id})`,
         })
         .from(conversations)
-        .where(eq(conversations.tenantId, session.user.tenantId))
+        .where(scopedTo(conversations, session.user.tenantId, (session.user as any).id))
         .orderBy(desc(conversations.updatedAt));
 
     const data = rows.map((r) => ({
