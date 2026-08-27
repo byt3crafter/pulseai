@@ -910,8 +910,15 @@ export default function AssistantClient({
                                         const shownPaid = freeOnly ? [] : paidModels;
                                         return (
                                             <>
-                                                <div className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
-                                                    <span className="text-pulse-faint">Model</span>
+                                                <div className="inline-flex items-center gap-[7px] h-[34px] pl-3 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
+                                                    {/* v4 shows WHO answers, then what they think with. The
+                                                        agent was only in a corner dropdown before; the model
+                                                        was labelled "Model", which is the one word a reader
+                                                        does not need next to a list of model names. */}
+                                                    <span className="flex items-center gap-[7px] text-pulse-text-soft">
+                                                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-pulse-accent" aria-hidden="true" />
+                                                        {activeAgent?.name ?? "Assistant"}
+                                                    </span>
                                                     <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[9rem] bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
                                                         <option value="">Default</option>
                                                         {freeModels.length > 0 && (
@@ -954,14 +961,11 @@ export default function AssistantClient({
                                 </button>
                             </div>
                         </div>
-                        {(recording || transcribing || voiceNotice) ? (
+                        {(recording || transcribing || voiceNotice) && (
                             <p className="mt-1.5 px-1 text-[11px]">
                                 {voiceNotice ? <span className="text-red-400">{voiceNotice}</span> : recording ? <span className="text-red-400">Listening…</span> : <span className="text-pulse-faint">Transcribing…</span>}
                             </p>
-                        ) : (
-                            <p className="mt-1.5 px-1 text-center text-[11px] text-pulse-faint sm:text-right">Enter to send · Shift+Enter for a new line</p>
                         )}
-
                         {/*
                             Suggestion chips. Only on an empty conversation — once you
                             are talking they are noise, and they exist to answer "what
