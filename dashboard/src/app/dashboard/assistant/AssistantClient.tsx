@@ -15,7 +15,7 @@ import {
     renameSessionAction, deleteSessionAction, pinSessionAction, type ChatSession,
 } from "./actions";
 
-interface AgentOpt { id: string; name: string; avatar: string | null; title: string | null; }
+interface AgentOpt { id: string; name: string; avatar: string | null; title: string | null; modelId?: string | null; }
 type ToolStep = { name: string; label: string; phase: "start" | "done" | "error"; detail?: string; agentProfileId?: string };
 type Attach = { id: string; name: string; mime: string; size: number; dataBase64: string; preview?: string };
 type Msg = { role: "user" | "assistant"; content: string; thinking?: string; streaming?: boolean; steps?: ToolStep[]; agentProfileId?: string | null; model?: string; routeReason?: string; files?: { name: string; mime: string; preview?: string }[] };
@@ -141,6 +141,8 @@ export default function AssistantClient({
     // Persisted settings (nothing hardcoded).
     const [reasoning, setReasoning] = useState<string>("auto");
     const [showThinking, setShowThinking] = useState<boolean>(true);
+    // The composer pill's menu (model / reasoning / thinking).
+    const [pillOpen, setPillOpen] = useState(false);
 
     // Voice input — record → POST to /dashboard/assistant/transcribe → append text.
     const [recording, setRecording] = useState(false);
@@ -177,6 +179,15 @@ export default function AssistantClient({
         if (known) return known.label;
         return id.replace(/^.*\//, "").replace(/-\d{6,8}$/, "");
     };
+    /*
+     * What the composer pill says it is thinking with.
+     *
+     * When no model is picked the agent uses its own, so the pill names THAT
+     * rather than the word "Default" — which told you nothing about what was
+     * about to answer you.
+     */
+    const agentModelName = modelLabel(activeAgent?.modelId ?? undefined);
+    const pillModelName = model ? modelLabel(model) : agentModelName;
 
     useEffect(() => {
         try {
@@ -810,7 +821,7 @@ export default function AssistantClient({
                         : "mx-auto w-full max-w-4xl"}>
                         {messages.length === 0 && (
                             <div className="flex items-center justify-center gap-4">
-                                <h1 className="text-center text-[32px] font-medium leading-tight tracking-[-0.02em] text-pulse-text">
+                                <h1 className="text-center text-[24px] font-medium leading-tight tracking-[-0.02em] text-pulse-text sm:text-[32px]">
                                     What should we get done{firstName ? `, ${firstName}` : ""}?
                                 </h1>
                                 <SparklesIcon aria-hidden="true" className="hidden h-[34px] w-[34px] shrink-0 text-pulse-border-strong sm:block" />
@@ -889,7 +900,7 @@ export default function AssistantClient({
                                 className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
                             {/* bottom control bar — lives inside the box */}
-                            <div className="flex items-center gap-2 px-3.5 pb-3.5">
+                            <div className="flex flex-nowrap items-center gap-2 px-3 pb-3 sm:px-3.5 sm:pb-3.5">
                                 <button type="button" onClick={() => fileInputRef.current?.click()} disabled={conn !== "online"}
                                     title="Attach files (or drag & drop)" aria-label="Attach files"
                                     className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full text-pulse-muted transition-colors hover:bg-pulse-hover hover:text-pulse-text disabled:opacity-40">
@@ -903,55 +914,51 @@ export default function AssistantClient({
                                     </button>
                                 )}
                                 <div className="flex-1" />
-                                <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11.5px]">
-                                    {models.length > 0 && (() => {
-                                        const freeModels = models.filter((m) => m.free);
-                                        const paidModels = models.filter((m) => !m.free);
-                                        const shownPaid = freeOnly ? [] : paidModels;
-                                        return (
-                                            <>
-                                                <div className="inline-flex items-center gap-[7px] h-[34px] pl-3 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
-                                                    {/* v4 shows WHO answers, then what they think with. The
-                                                        agent was only in a corner dropdown before; the model
-                                                        was labelled "Model", which is the one word a reader
-                                                        does not need next to a list of model names. */}
-                                                    <span className="flex items-center gap-[7px] text-pulse-text-soft">
-                                                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-pulse-accent" aria-hidden="true" />
-                                                        {activeAgent?.name ?? "Assistant"}
-                                                    </span>
-                                                    <select value={model} onChange={(e) => setModel(e.target.value)} title="Switch the model for this chat" className="max-w-[9rem] bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
-                                                        <option value="">Default</option>
-                                                        {freeModels.length > 0 && (
-                                                            <optgroup label={`✦ Free — no usage cost (${freeModels.length})`}>
-                                                                {freeModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                                                            </optgroup>
-                                                        )}
-                                                        {shownPaid.length > 0 && (
-                                                            <optgroup label={freeModels.length > 0 ? "All other models" : "Models"}>
-                                                                {shownPaid.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-                                                            </optgroup>
-                                                        )}
-                                                    </select>
-                                                </div>
-                                                {freeModels.length > 0 && (
-                                                    <button type="button" onClick={() => setFreeOnly((v) => !v)} aria-pressed={freeOnly} title="Only show models that are free to use"
-                                                        className={`h-7 px-2.5 rounded-lg border font-medium transition-colors ${freeOnly ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
-                                                        Free
-                                                    </button>
-                                                )}
-                                            </>
-                                        );
-                                    })()}
-                                    <div className="inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-lg border border-pulse-border-subtle bg-pulse-panel">
-                                        <SparklesIcon className="h-3.5 w-3.5 text-pulse-faint" />
-                                        <select value={reasoning} onChange={(e) => setReasoning(e.target.value)} title="Reasoning effort" className="bg-transparent text-pulse-text-soft font-medium outline-none cursor-pointer text-[11.5px]">
-                                            {REASONING_OPTS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-                                        </select>
-                                    </div>
-                                    <button type="button" onClick={() => setShowThinking((v) => !v)} aria-pressed={showThinking} title="Show the model's reasoning"
-                                        className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border font-medium transition-colors ${showThinking ? "border-indigo-500/40 bg-pulse-tint text-pulse-accent-hi" : "border-pulse-border-subtle text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"}`}>
-                                        <LightBulbIcon className="h-3.5 w-3.5" /> Thinking
+                                {/*
+                                    One capsule, as v4 draws it: who answers, and what they think with.
+                                    Model, reasoning and thinking used to be four controls sitting in a
+                                    row — fine on a desktop, and on a phone they wrapped into three
+                                    ragged lines that pushed Send out of reach. They live in this pill's
+                                    menu now, which is also where the artboard's chevron implies they are.
+                                */}
+                                <div className="relative min-w-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPillOpen((v) => !v)}
+                                        aria-expanded={pillOpen}
+                                        aria-haspopup="menu"
+                                        className="flex h-[34px] min-w-0 max-w-full items-center gap-[7px] rounded-full bg-pulse-panel-alt pl-3 pr-2 text-[13px] text-pulse-text-soft transition-colors motion-reduce:transition-none hover:text-pulse-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                                    >
+                                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-pulse-accent" aria-hidden="true" />
+                                        <span className="truncate">{activeAgent?.name ?? "Assistant"}</span>
+                                        <span className="hidden truncate text-pulse-faint sm:inline">{pillModelName}</span>
+                                        <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-pulse-faint" aria-hidden="true" />
                                     </button>
+                                    {pillOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setPillOpen(false)} aria-hidden="true" />
+                                            <div role="menu" className="absolute bottom-[42px] left-0 z-50 w-[264px] rounded-xl border border-pulse-border-strong bg-pulse-hover p-3 shadow-2xl">
+                                                <label className="block text-[11px] font-medium uppercase tracking-wide text-pulse-dim">Model</label>
+                                                <select value={model} onChange={(e) => setModel(e.target.value)}
+                                                    className="mt-1.5 w-full rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-[13px] text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50">
+                                                    <option value="">{agentModelName || "The agent's own model"}</option>
+                                                    {models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.free ? "  ✦ free" : ""}</option>)}
+                                                </select>
+                                                <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-pulse-dim">Reasoning</label>
+                                                <select value={reasoning} onChange={(e) => setReasoning(e.target.value)}
+                                                    className="mt-1.5 w-full rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-[13px] text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50">
+                                                    {REASONING_OPTS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                                                </select>
+                                                <button type="button" onClick={() => setShowThinking((v) => !v)} aria-pressed={showThinking}
+                                                    className="mt-3 flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-[13px] text-pulse-text-soft hover:text-pulse-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50">
+                                                    <span className="flex items-center gap-2"><LightBulbIcon className="h-4 w-4 text-pulse-faint" />Show thinking</span>
+                                                    <span className={`h-4 w-7 rounded-full transition-colors motion-reduce:transition-none ${showThinking ? "bg-pulse-accent" : "bg-pulse-border-strong"}`}>
+                                                        <span className={`block h-3 w-3 translate-y-0.5 rounded-full bg-white transition-transform motion-reduce:transition-none ${showThinking ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                                 {/* v4 primary: a light pill, the brightest thing on the screen. */}
                                 <button type="button" onClick={send} disabled={(!input.trim() && pendingFiles.length === 0) || conn !== "online"}

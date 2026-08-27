@@ -23,7 +23,7 @@ export default async function AssistantPage({
     if (!tenantId) return redirect("/login");
 
     const agents = await db
-        .select({ id: agentProfiles.id, name: agentProfiles.name, avatar: agentProfiles.avatar, title: agentProfiles.title, enabled: agentProfiles.enabled })
+        .select({ id: agentProfiles.id, name: agentProfiles.name, avatar: agentProfiles.avatar, title: agentProfiles.title, enabled: agentProfiles.enabled, modelId: agentProfiles.modelId })
         .from(agentProfiles)
         .where(eq(agentProfiles.tenantId, tenantId));
     const activeAgents = agents.filter((a) => a.enabled !== false);
