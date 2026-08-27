@@ -1,19 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Roboto, Roboto_Mono } from "next/font/google";
+import { Roboto_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 
-// UI face — Roboto. The v4 Studio design asks for 'Google Sans', which Google
-// does not actually serve as a webfont, so the design itself renders in its
-// declared fallback: Roboto. Using Roboto directly is what makes the build look
-// like the artboard rather than like an approximation of it.
+// UI face — Google Sans, the face the v4 Studio design actually specifies.
+// Google does not serve it from fonts.googleapis.com, so it is self-hosted
+// here under its SIL Open Font License (see GoogleSans-OFL.txt alongside).
 //
-// Both keep the historical `--font-geist-*` variable names so every consumer
-// across the app picks the new faces up without being touched.
-const geistSans = Roboto({
+// The shipped file is the variable font subset to Latin and compressed to
+// woff2: 4.7 MB of TTF becomes 86 KB. That matters more than usual here —
+// this deployment's edge has served an 8 KB page in 29 seconds, so a
+// multi-megabyte font would have been felt on every first load.
+//
+// Kept on the historical `--font-geist-sans` variable so every consumer across
+// the app picks it up without being touched.
+const geistSans = localFont({
+  src: "./fonts/GoogleSans-latin.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  display: "swap",
+  weight: "400 700",
+  fallback: ["Roboto", "system-ui", "sans-serif"],
 });
 
 const geistMono = Roboto_Mono({
