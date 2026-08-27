@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.16] - 2026-08-27
+
+### Bug Fixes
+- open on a new chat, not the last one
+
 ## [0.20.15] - 2026-08-27
 
 ### Features
