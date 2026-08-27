@@ -37,6 +37,14 @@ export async function hybridSearch(
         limit?: number;
         category?: string;
         minImportance?: number;
+        /**
+         * Restrict recall to this person's memories plus workspace ones.
+         *
+         * Omitted means no restriction, which is what automation and the
+         * pre-per-user callers get. Passing it is what stops one person's
+         * private context surfacing in another person's answer.
+         */
+        ownerUserId?: string | null;
         vectorWeight?: number;
     } = {}
 ): Promise<HybridResult[]> {
@@ -51,6 +59,11 @@ export async function hybridSearch(
     try {
         // Build WHERE clauses
         const conditions: string[] = [`agent_id = '${agentId}'`];
+        if (opts.ownerUserId) {
+            // Mine, or the workspace's. A uuid is validated by the cast — a
+            // malformed value fails the query rather than widening it.
+            conditions.push(`(owner_user_id = '${opts.ownerUserId}'::uuid OR owner_user_id IS NULL)`);
+        }
         if (category) conditions.push(`category = '${category}'`);
         if (minImportance !== undefined) conditions.push(`importance >= ${minImportance}`);
         const whereClause = conditions.join(" AND ");

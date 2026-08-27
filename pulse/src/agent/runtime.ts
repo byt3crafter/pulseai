@@ -560,7 +560,12 @@ export class AgentRuntime {
                     // bounded so they can't crowd the prompt.
                     const [persona, memoryContext] = await Promise.all([
                         memoryService.getPersona(inbound.tenantId, resolvedAgentProfileId).catch(() => null),
-                        memoryService.getRelevantContext(inbound.tenantId, resolvedAgentProfileId, inbound.content, 5).catch(() => null),
+                        memoryService.getRelevantContext(inbound.tenantId, resolvedAgentProfileId, inbound.content, 5, {
+                            // Recall the asker's own memories plus the workspace's.
+                            // Without this an agent could repeat something it
+                            // learned from one person back to another.
+                            ownerUserId: inbound.actorUserId ?? null,
+                        }).catch(() => null),
                     ]);
                     const parts: string[] = [];
                     if (persona) parts.push(`[profile] ${persona}`);

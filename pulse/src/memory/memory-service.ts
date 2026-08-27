@@ -76,6 +76,11 @@ export class MemoryService {
             category?: string;
             importance?: number;
             metadata?: Record<string, any>;
+            /**
+             * The person this memory belongs to. Omitted for automation runs,
+             * which produce workspace memory readable by everyone.
+             */
+            ownerUserId?: string | null;
         }
     ): Promise<string> {
         const embedding = await generateEmbedding(content, { ...(await resolveEmbeddingConfig(tenantId)), type: "db" });
@@ -96,6 +101,7 @@ export class MemoryService {
                 category: opts?.category || "general",
                 importance: opts?.importance?.toString() || "0.5",
                 metadata: opts?.metadata || {},
+                ownerUserId: opts?.ownerUserId ?? null,
             })
             .returning({ id: memoryEntries.id });
 
@@ -112,6 +118,8 @@ export class MemoryService {
         query: string,
         opts?: {
             limit?: number;
+            /** The person asking — recall returns their memories plus the workspace's. */
+            ownerUserId?: string | null;
             category?: string;
             minImportance?: number;
         }
@@ -121,6 +129,7 @@ export class MemoryService {
 
         // Run hybrid search
         const results = await hybridSearch(agentId, queryEmbedding, query, {
+            ownerUserId: opts?.ownerUserId ?? null,
             limit: limit * 2, // Fetch more for MMR filtering
             category: opts?.category,
             minImportance: opts?.minImportance,
@@ -181,13 +190,13 @@ export class MemoryService {
         agentId: string,
         message: string,
         limit = 5,
-        opts?: { maxChars?: number; timeoutMs?: number }
+        opts?: { maxChars?: number; timeoutMs?: number; ownerUserId?: string | null }
     ): Promise<string | null> {
         const maxChars = opts?.maxChars ?? 1500;
         const timeoutMs = opts?.timeoutMs ?? 4000;
         try {
             const results = await withTimeout(
-                this.search(tenantId, agentId, message, { limit }),
+                this.search(tenantId, agentId, message, { limit, ownerUserId: opts?.ownerUserId ?? null }),
                 timeoutMs,
                 [] as MemoryResult[]
             );
