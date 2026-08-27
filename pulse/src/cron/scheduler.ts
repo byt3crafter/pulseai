@@ -15,13 +15,29 @@ const APPROVAL_SWEEP_MS = 60 * 1000; // expire stale queued approvals every 60s
 const RECONCILE_MS = 30 * 1000; // reconcile scheduled jobs with the DB every 30s
 
 /** Fields whose change means a scheduled job must be re-created. */
+/**
+ * Everything about a job that, if changed, means the live scheduler is now
+ * holding a stale copy.
+ *
+ * addJob() closes over the job object, so whatever is captured here is what
+ * every future fire uses. Anything omitted from this signature is a setting a
+ * user can change in the dashboard and watch do nothing until the gateway
+ * restarts — which is exactly what happened to `precondition` and `tools`:
+ * both were editable, saved correctly, and silently ignored.
+ *
+ * If you add a field to a job that execution reads, add it here too.
+ */
 function jobSignature(job: any): string {
     return [
         job.scheduleType, job.cronExpression, job.intervalSeconds,
         job.runAt ? new Date(job.runAt).getTime() : "", job.timezone,
         job.agentId, job.message,
+        job.precondition ?? "",
+        Array.isArray(job.tools) ? job.tools.join(",") : "",
     ].join("|");
 }
+
+export const __jobSignatureForTests = jobSignature;
 
 export class CronScheduler {
     private jobs: Map<string, Cron> = new Map();
