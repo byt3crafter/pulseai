@@ -5,6 +5,7 @@ import { apiTokens, conversations, messages, usageRecords, agentRuns, agentProfi
 import { and, eq, asc, desc, gt, like, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { visibleTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 
 const WEBCHAT_TOKEN_NAME = "__webchat__";
@@ -98,6 +99,10 @@ export async function listSessionsAction(agentId: string = "", shared: boolean =
             .where(and(
                 eq(conversations.tenantId, tenantId),
                 eq(conversations.channelType, "webapp"),
+                // Row scope as well as tenant scope. A contact-id prefix says
+                // which agent a thread belongs to, not which person — so once
+                // threads can be private it is not, on its own, a permission.
+                visibleTo(conversations, tenantCheck.userId),
                 like(conversations.channelContactId, `${scopePrefix(tenantId, agentId, shared)}%`),
             ))
             .orderBy(desc(conversations.updatedAt))
@@ -152,6 +157,10 @@ export async function pinSessionAction(sessionId: string, pinned: boolean, agent
             .where(and(
                 eq(conversations.tenantId, tenantId),
                 eq(conversations.channelType, "webapp"),
+                // Row scope as well as tenant scope. A contact-id prefix says
+                // which agent a thread belongs to, not which person — so once
+                // threads can be private it is not, on its own, a permission.
+                visibleTo(conversations, tenantCheck.userId),
                 eq(conversations.channelContactId, contactId),
             ))
             .limit(1);
@@ -180,6 +189,10 @@ export async function getSessionHistoryAction(sessionId: string, agentId: string
             .where(and(
                 eq(conversations.tenantId, tenantId),
                 eq(conversations.channelType, "webapp"),
+                // Row scope as well as tenant scope. A contact-id prefix says
+                // which agent a thread belongs to, not which person — so once
+                // threads can be private it is not, on its own, a permission.
+                visibleTo(conversations, tenantCheck.userId),
                 eq(conversations.channelContactId, contactId),
             ))
             .limit(1);
@@ -213,6 +226,10 @@ export async function renameSessionAction(sessionId: string, title: string, agen
             .where(and(
                 eq(conversations.tenantId, tenantId),
                 eq(conversations.channelType, "webapp"),
+                // Row scope as well as tenant scope. A contact-id prefix says
+                // which agent a thread belongs to, not which person — so once
+                // threads can be private it is not, on its own, a permission.
+                visibleTo(conversations, tenantCheck.userId),
                 eq(conversations.channelContactId, contactId),
             ));
         return { success: true as const };
@@ -235,6 +252,10 @@ export async function deleteSessionAction(sessionId: string, agentId: string = "
             .where(and(
                 eq(conversations.tenantId, tenantId),
                 eq(conversations.channelType, "webapp"),
+                // Row scope as well as tenant scope. A contact-id prefix says
+                // which agent a thread belongs to, not which person — so once
+                // threads can be private it is not, on its own, a permission.
+                visibleTo(conversations, tenantCheck.userId),
                 eq(conversations.channelContactId, contactId),
             ))
             .limit(1);
@@ -347,6 +368,10 @@ export async function listAllWebSessionsAction(): Promise<
             .where(and(
                 eq(conversations.tenantId, tenantId),
                 eq(conversations.channelType, "webapp"),
+                // Row scope as well as tenant scope. A contact-id prefix says
+                // which agent a thread belongs to, not which person — so once
+                // threads can be private it is not, on its own, a permission.
+                visibleTo(conversations, tenantCheck.userId),
                 like(conversations.channelContactId, `web-${tenantId}%`),
             ))
             .orderBy(desc(conversations.updatedAt))

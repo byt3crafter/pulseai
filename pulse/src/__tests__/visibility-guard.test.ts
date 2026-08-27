@@ -29,8 +29,7 @@ const DASH = join(process.cwd(), "..", "dashboard", "src");
 const ALLOWED: Record<string, string> = {
     "app/dashboard/conversations/actions.ts": "cross-channel admin view; deletion is tenant-checked",
     "app/dashboard/conversations/ConversationsClient.tsx": "client component, no db access",
-    "app/dashboard/assistant/actions.ts": "chat scoping is by contact id, its own mechanism",
-    "app/dashboard/assistant/history/page.tsx": "delegates to assistant/actions.ts",
+    "app/dashboard/assistant/history/page.tsx": "delegates to assistant/actions.ts, which scopes",
     "utils/run-queries.ts": "reads agent_runs, which is not a scoped table",
     "app/admin/conversations/page.tsx": "admin plane — cross-tenant support view, gated by requireAdmin",
     "app/admin/conversations/[id]/page.tsx": "admin plane — cross-tenant support view, gated by requireAdmin",
