@@ -3,7 +3,7 @@
 import { createContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bars3Icon, XMarkIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import BrandMark from "./BrandMark";
 import ThemeToggle from "./ThemeToggle";
 import NotificationBell from "./notifications/NotificationBell";
@@ -110,13 +110,14 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children,
                                 <Mark size={28} logo={logo} />
                                 <span className="text-sm font-bold text-pulse-text tracking-tight truncate">{workspaceName}</span>
                             </Link>
+                            {/* v4 header is logo + collapse only; notifications live
+                                in the footer icon row with the other utilities. */}
                             <div className="flex items-center gap-0.5 flex-shrink-0">
-                                <NotificationBell align="left" />
                                 <button
                                     type="button"
                                     onClick={toggleCollapsed}
                                     aria-label="Collapse sidebar"
-                                    className="inline-flex items-center justify-center w-7 h-7 rounded-md text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                    className="inline-flex items-center justify-center w-[26px] h-[26px] rounded-[7px] text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
                                 >
                                     <ChevronDoubleLeftIcon className="w-4 h-4" aria-hidden="true" />
                                 </button>
@@ -149,9 +150,23 @@ export default function DashboardShell({ workspaceName, nav, userMenu, children,
                             </>
                         ) : (
                             <>
-                                <div className="flex items-center justify-between px-1">
-                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-pulse-faint">Theme</span>
+                                {/*
+                                    v4 Studio footer: a row of bordered 32x30 icon
+                                    buttons, then the user pill. The old layout gave
+                                    a whole labelled row to "Theme", which is a
+                                    once-a-year setting taking the most valuable strip
+                                    of the sidebar. Here it is one square among peers.
+                                */}
+                                <div className="flex items-center gap-1.5 px-0.5">
+                                    <NotificationBell align="left" />
                                     <ThemeToggle />
+                                    <Link
+                                        href="/dashboard/settings"
+                                        aria-label="Settings"
+                                        className="inline-flex items-center justify-center w-8 h-[30px] rounded-lg border border-pulse-border text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                                    >
+                                        <Cog6ToothIcon className="w-[15px] h-[15px]" aria-hidden="true" />
+                                    </Link>
                                 </div>
                                 {userMenu}
                             </>

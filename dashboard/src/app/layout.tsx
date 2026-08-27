@@ -53,7 +53,7 @@ export default function RootLayout({
             correct theme is applied before React hydrates. Honors the user's
             saved choice; otherwise defaults to light (the product default). */}
         <Script id="pulse-theme-init" strategy="beforeInteractive">
-          {`(function(){try{var t=localStorage.getItem('pulse-theme');if(t!=='light'&&t!=='dark'){t='light';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();`}
+          {`(function(){try{var t=localStorage.getItem('pulse-theme');if(t!=='light'&&t!=='dark'){t='dark';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='dark';}})();`}
         </Script>
         {children}
       </body>
