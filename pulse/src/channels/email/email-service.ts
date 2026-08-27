@@ -712,3 +712,40 @@ export async function testConnection(config: EmailConfig): Promise<{ smtp: boole
 
     return result;
 }
+
+/**
+ * How many unread messages are waiting — nothing more.
+ *
+ * Deliberately does not fetch bodies or envelopes: this exists to answer
+ * "is there anything to do?" before we decide whether to spend a language
+ * model on the question. An IMAP SEARCH is a few bytes over an open socket;
+ * asking an LLM the same question cost ~49,000 input tokens a time, forty
+ * times a day, to be told "no" in fifteen.
+ *
+ * Returns 0 on any failure. A probe that cannot answer must not be the reason
+ * a scheduled job stops running — the job itself will surface a real problem
+ * far better than a silent skip would.
+ */
+export async function countUnreadEmails(config: ImapConfig): Promise<number> {
+    const client = new ImapFlow({
+        host: config.host,
+        port: config.port,
+        secure: config.tls,
+        auth: { user: config.username, pass: config.password },
+        logger: false,
+    });
+    try {
+        await client.connect();
+        const lock = await client.getMailboxLock("INBOX");
+        try {
+            const uids = (await client.search({ seen: false }, { uid: true })) || [];
+            return uids.length;
+        } finally {
+            lock.release();
+        }
+    } finally {
+        await client.logout().catch(() => {
+            /* the answer is already in hand; a rude disconnect is not a failure */
+        });
+    }
+}
