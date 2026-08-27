@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.27] - 2026-08-27
+
+### Bug Fixes
+- shared-room chats open, and delete knows which room
+
 ## [0.20.26] - 2026-08-27
 
 ### Bug Fixes
