@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useContext, useState, useEffect } from "react";
 import {
-    AdjustmentsHorizontalIcon,
     Squares2X2Icon,
     CpuChipIcon,
     ChatBubbleLeftRightIcon,
@@ -13,6 +12,7 @@ import {
     CreditCardIcon,
     Cog6ToothIcon,
     ShieldCheckIcon,
+    ChevronRightIcon,
     ArrowsRightLeftIcon,
     BuildingOffice2Icon,
     WrenchScrewdriverIcon,
@@ -134,18 +134,31 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
     const pathname = usePathname();
     const collapsed = useContext(SidebarCollapseContext);
 
-    // Per-user "Simple view": hides the advanced (agent/infra/activity) sections
-    // so non-technical users see just their workspace. Persisted in localStorage;
-    // defaults to Simple. (SSR renders Simple, then hydrates from the stored value.)
-    const [simple, setSimple] = useState(true);
+    /*
+     * Collapsible groups, remembered per device.
+     *
+     * This replaces the old "Simple view", which HID the advanced sections
+     * outright — with ~28 destinations that meant half the product was
+     * unreachable until you found a toggle. Collapsing keeps everything one
+     * click away while leaving the sidebar short by default.
+     *
+     * Advanced groups start closed so a first load looks like the design; the
+     * group holding the current page is always forced open, so you can never
+     * be on a page whose section appears collapsed.
+     */
+    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
     useEffect(() => {
-        try { const v = localStorage.getItem("pulse_nav_simple"); if (v !== null) setSimple(v === "1"); } catch { /* ignore */ }
+        try {
+            const raw = localStorage.getItem("pulse_nav_groups");
+            if (raw) setOpenGroups(JSON.parse(raw));
+        } catch { /* a corrupt value just means defaults */ }
     }, []);
-    const toggleSimple = () => setSimple((s) => {
-        const next = !s;
-        try { localStorage.setItem("pulse_nav_simple", next ? "1" : "0"); } catch { /* ignore */ }
-        return next;
-    });
+    const toggleGroup = (label: string, isOpen: boolean) =>
+        setOpenGroups((prev) => {
+            const next = { ...prev, [label]: !isOpen };
+            try { localStorage.setItem("pulse_nav_groups", JSON.stringify(next)); } catch { /* ignore */ }
+            return next;
+        });
 
     const isVisible = (item: NavItem) => {
         if (item.feature === "chatgptConnect") return !!chatgptConnect;
@@ -162,11 +175,15 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 key={href}
                 href={href}
                 aria-current={isActive ? "page" : undefined}
-                className={`group relative flex items-center font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${collapsed
-                    ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px]"
-                    : "gap-3 pl-3.5 pr-3 py-2 rounded-lg text-[13.5px]"} ${isActive
-                    ? "bg-pulse-tint text-pulse-accent-hi"
-                    : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text"
+                // v4 Studio: 7.5/9 padding on a 9px radius, and an active state
+                // that lifts the surface rather than tinting it with the accent.
+                // The accent is reserved for links and state in this design; a
+                // coloured nav row would be the loudest thing on a quiet screen.
+                className={`group relative flex items-center transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 ${collapsed
+                    ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px] font-medium"
+                    : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px]"} ${isActive
+                    ? "bg-pulse-panel-alt text-pulse-text font-medium"
+                    : "text-pulse-muted font-normal hover:bg-pulse-hover hover:text-pulse-text"
                     }`}
             >
                 {/* Active left accent bar (expanded only) */}
@@ -198,35 +215,50 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
             )}
 
             <div className={collapsed ? "space-y-1" : "space-y-5"}>
-                {NAV_GROUPS.filter((g) => !simple || !g.advanced).map((group, gi) => {
+                {NAV_GROUPS.map((group, gi) => {
                     const items = group.items.filter(isVisible);
                     if (items.length === 0) return null;
+                    // The section you are standing in is never collapsed.
+                    const holdsCurrentPage = items.some((i) =>
+                        i.exact ? pathname === i.href : pathname.startsWith(i.href));
+                    const isOpen = openGroups[group.label] ?? (holdsCurrentPage || !group.advanced);
                     return (
                         <div key={group.label} className={collapsed ? "space-y-1" : "space-y-0.5"}>
                             {collapsed
                                 ? (gi > 0 && <div className="mx-2 my-1 border-t border-pulse-border-subtle" aria-hidden="true" />)
                                 : (
-                                    <div className="px-3.5 pb-1.5">
-                                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-pulse-faint">{group.label}</span>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleGroup(group.label, isOpen)}
+                                        aria-expanded={isOpen}
+                                        className="group/hdr flex w-full items-center gap-1.5 px-2 pt-4 pb-[7px] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 rounded"
+                                    >
+                                        <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-pulse-dim group-hover/hdr:text-pulse-faint transition-colors motion-reduce:transition-none">
+                                            {group.label}
+                                        </span>
+                                        <ChevronRightIcon
+                                            aria-hidden="true"
+                                            className={`w-3 h-3 text-pulse-dim transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
+                                        />
+                                    </button>
                                 )}
-                            {items.map(renderLink)}
+                            {(collapsed || isOpen) && items.map(renderLink)}
                         </div>
                     );
                 })}
 
-                {isAdmin && !simple && (
+                {isAdmin && (
                     <div className={collapsed ? "space-y-1" : "space-y-0.5"}>
                         {collapsed
                             ? <div className="mx-2 my-1 border-t border-pulse-border-subtle" aria-hidden="true" />
                             : (
-                                <div className="px-3.5 pb-1.5">
-                                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-pulse-faint">Administration</span>
+                                <div className="px-2 pt-4 pb-[7px]">
+                                    <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-pulse-dim">Administration</span>
                                 </div>
                             )}
                         <Link
                             href="/admin"
-                            className={`group relative flex items-center font-medium transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px]" : "gap-3 pl-3.5 pr-3 py-2 rounded-lg text-[13.5px]"}`}
+                            className={`group relative flex items-center transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px] font-medium" : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px]"}`}
                         >
                             <ShieldCheckIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft transition-colors motion-reduce:transition-none" style={{ width: collapsed ? 20 : 18, height: collapsed ? 20 : 18 }} />
                             {collapsed ? <span className="leading-none">Admin</span> : "Admin Panel"}
@@ -234,20 +266,6 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                     </div>
                 )}
 
-                {/* Simple / Full view toggle — hides the advanced admin sections for
-                    non-technical users. Per-user, remembered on this device. */}
-                <div className={collapsed ? "pt-1" : "pt-2 mt-1 border-t border-pulse-border-subtle"}>
-                    <button
-                        type="button"
-                        onClick={toggleSimple}
-                        title={simple ? "Show all sections" : "Show the simple menu"}
-                        aria-pressed={!simple}
-                        className={`group relative flex items-center font-medium text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none ${collapsed ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px]" : "gap-3 w-full pl-3.5 pr-3 py-2 rounded-lg text-[13px]"}`}
-                    >
-                        <AdjustmentsHorizontalIcon aria-hidden="true" className="flex-shrink-0 text-pulse-faint group-hover:text-pulse-text-soft" style={{ width: collapsed ? 20 : 18, height: collapsed ? 20 : 18 }} />
-                        {collapsed ? <span className="leading-none">{simple ? "More" : "Simple"}</span> : (simple ? "Show all sections" : "Simple view")}
-                    </button>
-                </div>
             </div>
         </nav>
     );

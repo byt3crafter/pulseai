@@ -32,6 +32,7 @@ body {
   --pulse-text-soft:     #3A424C;
   --pulse-muted:         #5F6570;
   --pulse-faint:         #929AA4;
+  --pulse-dim:           #AAB1BA;
   --pulse-accent:        #6470E6;
   --pulse-accent-hi:     #4F5AD6;
   /* Light's counterpart to the dark light-pill: an inked primary on a pale
@@ -67,6 +68,8 @@ body {
   --pulse-text-soft:     #C9C9CE;
   --pulse-muted:         #A9A9AE;
   --pulse-faint:         #77777D;
+  /* Dimmer than faint: group labels and placeholders sit a step back again. */
+  --pulse-dim:           #5C5C62;
   --pulse-accent:        #8AB4F8;
   --pulse-accent-hi:     #AECBFA;
   /* The primary action: a light pill on dark, text inverted. */
@@ -136,6 +139,7 @@ body {
   --color-pulse-text-soft:     var(--pulse-text-soft);
   --color-pulse-muted:         var(--pulse-muted);
   --color-pulse-faint:         var(--pulse-faint);
+  --color-pulse-dim:           var(--pulse-dim);
   --color-pulse-accent:        var(--pulse-accent);
   --color-pulse-accent-hi:     var(--pulse-accent-hi);
   --color-pulse-primary:       var(--pulse-primary);
