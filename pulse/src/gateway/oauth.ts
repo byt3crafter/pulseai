@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { config } from "../config.js";
+import { isAllowedRedirectUri } from "./oauth-redirect.js";
 
 function getBaseUrl(): string {
     return config.WEBHOOK_BASE_URL || `http://localhost:${config.PORT}`;
@@ -166,6 +167,27 @@ export const oauthRoutes: FastifyPluginAsync = async (server) => {
 
             if (!authCode || authCode.expiresAt < new Date()) {
                 return reply.code(400).send({ error: "invalid_grant" });
+            }
+
+            /*
+             * Re-check the redirect against what the CLIENT registered, not only
+             * against what was stored with the code.
+             *
+             * Comparing the two halves of the same request proves only that the
+             * caller is consistent with itself — the stored value came from the
+             * authorize request, so an attacker who chose it there matches it
+             * here. The dashboard now refuses to issue such a code; this stops
+             * any that were issued before, and stops a second issuing path from
+             * reintroducing the hole.
+             */
+            const issuedTo = await db.query.oauthClients.findFirst({
+                where: eq(oauthClients.clientId, client_id),
+            });
+            if (authCode.redirectUri && !isAllowedRedirectUri(authCode.redirectUri, issuedTo?.redirectUris)) {
+                return reply.code(400).send({
+                    error: "invalid_grant",
+                    error_description: "redirect_uri is not registered for this client",
+                });
             }
 
             // Validate redirect URI matches what was used during authorization

@@ -383,3 +383,69 @@ describe("isReadOnlyCommand", () => {
         expect(isReadOnlyCommand("   ")).toBe(false);
     });
 });
+
+/*
+ * Three ways observe mode still allowed arbitrary execution or credential
+ * theft, found 2026-08-27 by re-running the July audit against current main.
+ *
+ * All three share a shape: the guard was written against the DANGEROUS-LOOKING
+ * form of the attack (shell metacharacters, `find -exec`) and missed the form
+ * that looks exactly like a diagnostic. None of them needs a single special
+ * character.
+ */
+describe("observe mode cannot be turned into execution", () => {
+    it("'ip' is gated by sub-command — netns exec runs an arbitrary binary", () => {
+        // `ip netns exec <ns> <binary> <args>` is full command execution with no
+        // metacharacters at all, under a binary allowlisted as a diagnostic.
+        expect(checkCommandPolicy("ip netns exec pwn /usr/bin/touch /tmp/pwned", "observe").allowed).toBe(false);
+        expect(checkCommandPolicy("ip netns add pwn", "observe").allowed).toBe(false);
+        expect(checkCommandPolicy("ip link set eth0 down", "observe").allowed).toBe(false);
+    });
+
+    it("but 'ip' still reports state, which is what it is allowlisted for", () => {
+        for (const cmd of ["ip addr", "ip -s -br link show", "ip route get 1.1.1.1", "ip netns list"]) {
+            expect(checkCommandPolicy(cmd, "observe").allowed).toBe(true);
+        }
+    });
+
+    it("a binary named by path must live in a system bin directory", () => {
+        // The allowlist matches a NAME, so stripping the path made it meaningless:
+        // anything an agent could drop on disk could be named `ls`.
+        expect(checkCommandPolicy("/tmp/evil/ls", "observe").allowed).toBe(false);
+        expect(checkCommandPolicy("./ls", "observe").allowed).toBe(false);
+        expect(checkCommandPolicy("/usr/bin/ls -la /", "observe").allowed).toBe(true);
+        expect(checkCommandPolicy("ls -la /", "observe").allowed).toBe(true);
+    });
+
+    it("credential files cannot be printed, in observe or safe mode", () => {
+        for (const cmd of [
+            "cat /root/.ssh/id_rsa",
+            "cat /etc/shadow",
+            "base64 /opt/app/tls.key",
+            "grep -r AWS /home/deploy/.aws/credentials",
+        ]) {
+            expect(checkCommandPolicy(cmd, "observe").allowed).toBe(false);
+            expect(checkCommandPolicy(cmd, "safe").allowed).toBe(false);
+        }
+    });
+
+    it("listing and stat-ing those paths is still allowed", () => {
+        // Knowing a key exists is not the same as holding it, and blocking the
+        // listing would make the feature useless for its actual job.
+        expect(checkCommandPolicy("ls -la /root/.ssh", "observe").allowed).toBe(true);
+        expect(checkCommandPolicy("stat /home/app/.env", "observe").allowed).toBe(true);
+    });
+
+    it("safe mode still allows ordinary operational work on those files", () => {
+        // The rule targets printing contents, not touching the file at all.
+        expect(checkCommandPolicy("cp .env .env.bak", "safe").allowed).toBe(true);
+        expect(checkCommandPolicy("chmod 600 /home/app/.env", "safe").allowed).toBe(true);
+    });
+
+    it("the approval workflow inherits the fix", () => {
+        // isReadOnlyCommand reuses checkObserve, so a command that can execute
+        // must no longer be classified read-only and skip approval.
+        expect(isReadOnlyCommand("ip netns exec x /bin/sh")).toBe(false);
+        expect(isReadOnlyCommand("cat /root/.ssh/id_rsa")).toBe(false);
+    });
+});

@@ -5,6 +5,7 @@ import { db } from "../../../storage/db";
 import { oauthClients, oauthCodes, oauthTokens, tenants } from "../../../storage/schema";
 import { eq, and } from "drizzle-orm";
 import { randomBytes, createHash } from "crypto";
+import { isAllowedRedirectUri } from "../../../utils/oauth-redirect";
 
 /**
  * Approve an OAuth request from an external CLI tool.
@@ -35,6 +36,19 @@ export async function approveOAuthAction(params: {
 
     if (!client) {
         return { error: "Unknown OAuth client." };
+    }
+
+    /*
+     * The redirect target must be one the client registered.
+     *
+     * Without this, approving is enough to deliver a working authorization code
+     * to any address the link named — and the code exchange agrees, because it
+     * compares against the redirect_uri stored WITH the code, which is the same
+     * attacker-supplied value. The check has to happen here, where the decision
+     * is made, not there.
+     */
+    if (!isAllowedRedirectUri(params.redirectUri, client.redirectUris)) {
+        return { error: "That redirect address is not registered for this application." };
     }
 
     // Generate authorization code

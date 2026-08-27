@@ -47,9 +47,58 @@ const OBSERVE_ALLOWLIST = new Set([
     "ss", "netstat", "ip", "ping",
 ]);
 
-function baseBinary(token: string): string {
-    return token.split("/").pop() || token;
+/**
+ * Directories a system binary legitimately lives in.
+ *
+ * The allowlist matches on a binary's NAME, so a token's path has to be
+ * checked separately or the name means nothing: `/tmp/evil/ls` used to reduce
+ * to `ls` and sail through. Anything an agent can drop on disk — and safe and
+ * full mode can write anywhere — became a way to run arbitrary code under a
+ * mode whose whole promise is that it only observes.
+ */
+const TRUSTED_BIN_DIRS = ["/bin/", "/usr/bin/", "/sbin/", "/usr/sbin/", "/usr/local/bin/", "/usr/local/sbin/"];
+
+/**
+ * The binary a token names, and whether we may trust the name.
+ *
+ * A bare name (`ls`) resolves through the remote PATH, which is the shell's
+ * own business. A path is trusted only if it points into a system bin
+ * directory — so `/usr/bin/ls` is fine while `/tmp/evil/ls`, `./ls` and
+ * `../ls` are not, and are refused rather than silently matched by basename.
+ */
+function resolveBinary(token: string): { name: string; trustedPath: boolean } {
+    const cut = token.lastIndexOf("/");
+    if (cut === -1) return { name: token, trustedPath: true };
+    return {
+        name: token.slice(cut + 1),
+        trustedPath: TRUSTED_BIN_DIRS.includes(token.slice(0, cut + 1)),
+    };
 }
+
+/**
+ * `ip` sub-commands that only report state.
+ *
+ * `ip` was previously allowlisted whole, on the assumption that it is a
+ * networking diagnostic. It is not: `ip netns exec <ns> <any binary> <any
+ * args>` runs an arbitrary program, with no shell metacharacters involved, so
+ * observe mode allowed full command execution. Gated the way systemctl and
+ * docker already are — by sub-command, not by binary.
+ */
+const IP_READ_VERBS = new Set(["show", "list", "lst", "get", "sh", "ls"]);
+
+/**
+ * Files whose contents are credentials. Reading one is not "observing" — it is
+ * the most consequential read on the box, and unlike a destructive command it
+ * cannot be undone once the bytes have left.
+ */
+const SECRET_PATH_RE =
+    /(\/etc\/(shadow|gshadow|sudoers)\b|(^|\/|~)\.ssh\/|(^|\/)id_(rsa|dsa|ecdsa|ed25519)\b|(^|\/|~)\.aws\/credentials\b|(^|\/|~)\.docker\/config\.json\b|(^|\/|~)\.git-credentials\b|(^|\/|~)\.pgpass\b|(^|\/|~)\.netrc\b|(^|\/)\.env(\.\S+)?(\s|$)|\.pem(\s|$)|\.key(\s|$))/i;
+
+/** Commands that print a file's contents, as opposed to listing or stat-ing it. */
+const CONTENT_READERS = new Set([
+    "cat", "tac", "tail", "head", "less", "more", "nl", "strings", "xxd", "od",
+    "base64", "grep", "egrep", "fgrep", "awk", "sed", "cut",
+]);
 
 function checkObserve(command: string): PolicyResult {
     if (SHELL_METACHAR_RE.test(command)) {
@@ -60,7 +109,36 @@ function checkObserve(command: string): PolicyResult {
     }
 
     const tokens = command.split(/\s+/).filter(Boolean);
-    const bin = baseBinary(tokens[0] || "");
+    const resolved = resolveBinary(tokens[0] || "");
+    const bin = resolved.name;
+
+    if (!resolved.trustedPath) {
+        return {
+            allowed: false,
+            reason: "Observe mode runs system binaries only — a command given by path must live in /bin, /usr/bin, /sbin or /usr/sbin.",
+        };
+    }
+
+    // Listing or stat-ing a key file tells you nothing; printing it hands it over.
+    if (CONTENT_READERS.has(bin) && SECRET_PATH_RE.test(command)) {
+        return {
+            allowed: false,
+            reason: "Reading credential files (SSH keys, .env, .pem/.key, /etc/shadow, cloud credentials) is blocked — listing and stat are still allowed.",
+        };
+    }
+
+    if (bin === "ip") {
+        // Options first (`ip -s -br link show`), then object, then verb.
+        const rest = tokens.slice(1).filter((t) => !t.startsWith("-"));
+        const verb = rest[1];
+        if (verb && !IP_READ_VERBS.has(verb)) {
+            return {
+                allowed: false,
+                reason: `Observe mode only allows 'ip' for reporting state (show/list/get) — '${verb}' changes configuration or runs a command.`,
+            };
+        }
+        return { allowed: true };
+    }
 
     if (bin === "systemctl") {
         if (tokens[1] !== "status") {
@@ -170,6 +248,18 @@ const SAFE_BLOCKLIST: BlockRule[] = [
     // Database destruction.
     { pattern: /\bDROP\s+(TABLE|DATABASE)\b/i, reason: "SQL DROP TABLE/DATABASE is blocked in safe mode." },
     { pattern: /\bTRUNCATE\b/i, reason: "SQL TRUNCATE is blocked in safe mode." },
+    // Credential exfiltration. Safe mode is a blocklist of DESTRUCTIVE commands,
+    // and printing a private key destroys nothing — which is exactly why it was
+    // missing. It is still the worst thing an agent can do on a box it was
+    // trusted with, and it is the one action no rollback undoes.
+    {
+        // The path may sit anywhere in the arguments — `grep -r AWS ~/.aws/credentials`
+        // puts a pattern between the two. `[^;&|]` keeps the reader and the path
+        // in the SAME command segment, so a reader in one half of a chain cannot
+        // be paired with an unrelated filename in the other.
+        pattern: /\b(cat|tac|tail|head|less|more|nl|strings|xxd|od|base64|grep|egrep|fgrep|awk|sed|cut)\s[^;&|]*?(\/etc\/(shadow|gshadow|sudoers)\b|\.ssh\/|(^|\/)id_(rsa|dsa|ecdsa|ed25519)\b|\.aws\/credentials\b|\.git-credentials\b|\.pgpass\b|\.netrc\b|\.pem\b|\.key\b)/i,
+        reason: "Reading credential files (SSH keys, .pem/.key, /etc/shadow, cloud credentials) is blocked in safe mode.",
+    },
     // Covering tracks.
     { pattern: /\bhistory\s+-c\b/, reason: "Clearing shell history is blocked in safe mode." },
     { pattern: /\bcrontab\s+-r\b/, reason: "Removing all cron jobs (crontab -r) is blocked in safe mode." },
