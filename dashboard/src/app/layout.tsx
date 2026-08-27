@@ -1,19 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-// UI face — Inter: the humanist grotesque the clean-SaaS look is built on.
-// Kept on the existing `--font-geist-sans` CSS variable so nothing else has to
-// change; the variable name is historical, the face is Inter.
-const geistSans = Inter({
+// UI face — Roboto. The v4 Studio design asks for 'Google Sans', which Google
+// does not actually serve as a webfont, so the design itself renders in its
+// declared fallback: Roboto. Using Roboto directly is what makes the build look
+// like the artboard rather than like an approximation of it.
+//
+// Both keep the historical `--font-geist-*` variable names so every consumer
+// across the app picks the new faces up without being touched.
+const geistSans = Roboto({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
-const geistMono = Geist_Mono({
+const geistMono = Roboto_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  weight: ["400", "600"],
 });
 
 export const metadata: Metadata = {
