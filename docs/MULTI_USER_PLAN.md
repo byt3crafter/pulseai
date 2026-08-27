@@ -1,6 +1,7 @@
 # Multi-user workspaces: ownership, visibility and agent identity
 
-**Status:** plan, not yet started
+**Status:** Phases 0–5 shipped (v0.20.28 → v0.20.33). Notes below record what was
+actually built, including where it differs from the plan.
 **Written:** 2026-08-27
 
 ---
@@ -176,14 +177,36 @@ flipping the default back.
 - **Gate:** do not start until Phase 0's backfill is verified. A conversation
   with no owner that flips to private becomes invisible to everybody.
 
-### Phase 3 — Sharing (first visible change)
+### Phase 3 — Sharing (first visible change) — SHIPPED v0.20.33
 
-- `resource_shares` table + share/unshare actions, audit-logged.
-- UI: a share control on chats and notes — "Share with…" and "Share with
-  workspace".
-- Shared-with-me appears in History with an owner column.
+- `resource_shares` table (migration 0046), mirroring `channel_members` — the
+  sharing shape this codebase already uses.
+- `visibleTo()` resolves `shared` through an `EXISTS` on that table. EXISTS
+  rather than a join: a join multiplies rows when something is shared with
+  several people, and the caller silently gets duplicates in a list it thought
+  was distinct.
+- **Omitting the resource type narrows what you see rather than widening it.**
+  Every call site passes one, but the failure when someone forgets must be
+  "I cannot see a chat shared with me", never "I can see everyone's".
+- One `share-actions.ts` for every shareable type, not one per feature. Sharing
+  is the operation whose bug hands one person's private work to a colleague, and
+  five copies of an owner check means five chances to get it subtly wrong.
+- One `ShareDialog` for the same reason: if the chat sheet said "anyone in the
+  workspace" and the notes sheet said "public", people would eventually click
+  the wrong one.
+- Visibility and the share rows are kept consistent in both directions — sharing
+  flips `private` → `shared` (a share row against a still-private row is
+  invisible to the person it was shared with), and removing the last share puts
+  it back to `private` (a row left `shared` with nobody on it reads as "still
+  shared" in every badge).
+- UI: share control on History and Notes rows you own; a "shared by" label on
+  rows you received.
+- **Not built:** per-share `write` access is stored but nothing grants it yet —
+  every share is read today. Left deliberately: write-sharing needs an answer for
+  what happens when two people edit the same note, and that is a bigger question
+  than sharing.
 
-### Phase 4 — Email identity (the correctness fix)
+### Phase 4 — Email identity (the correctness fix) — SHIPPED v0.20.31
 
 Two layers, decided:
 
@@ -208,7 +231,7 @@ Which one is used depends on whose behalf the agent is acting:
   than not sending: if a person asked and has no mailbox connected, the agent
   says which address it is about to use.
 
-### Phase 5 — Memory, per user
+### Phase 5 — Memory, per user — SHIPPED v0.20.32
 
 Decided: **memory belongs to the person, the way it does in ChatGPT and Claude.**
 Simpler than the split I first proposed, and it matches what people already
