@@ -351,7 +351,7 @@ export async function getInFlightRunAction(
  * the contact id where it is present.
  */
 export async function listAllWebSessionsAction(): Promise<
-    (ChatSession & { agentName: string | null; agentId: string })[]
+    (ChatSession & { agentName: string | null; agentId: string; shared: boolean })[]
 > {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return [];
@@ -384,7 +384,7 @@ export async function listAllWebSessionsAction(): Promise<
             .where(eq(agentProfiles.tenantId, tenantId));
         const nameById = new Map(profiles.map((p) => [p.id, p.name]));
 
-        const out: (ChatSession & { agentName: string | null; agentId: string })[] = [];
+        const out: (ChatSession & { agentName: string | null; agentId: string; shared: boolean })[] = [];
         for (const c of convs) {
             const firstUser = await db
                 .select({ content: messages.content })
@@ -394,16 +394,40 @@ export async function listAllWebSessionsAction(): Promise<
                 .limit(1);
             if (!firstUser[0]) continue; // a chat nobody ever typed in is not history
 
-            // `web-<tenant>-<agent>-<session>`: the segment after the tenant is the
-            // agent when it matches one, and part of the session id when it does not.
-            const rest = (c.contactId || "").slice(`web-${tenantId}-`.length);
-            const firstSeg = rest.split("-").slice(0, 5).join("-");
-            const agentId = nameById.has(firstSeg) ? firstSeg : "";
-            const sessionId = agentId ? rest.slice(agentId.length + 1) : rest;
+            /*
+             * Work out which scope a thread belongs to by testing the scope
+             * prefixes themselves, rather than slicing the string by hand.
+             *
+             * The hand-rolled version could not see a shared room: those use
+             * `web-<tenant>-shared-<session>` (agentSeg returns the literal
+             * "shared"), so it took "shared-<session>" to BE the session id and
+             * the link it produced resolved to
+             * `web-<tenant>-shared-shared-<session>` — no such thread, and the
+             * chat opened empty. Reusing the same helpers the composer uses means
+             * the two can no longer disagree.
+             */
+            const contactId = c.contactId || "";
+            let agentId = "";
+            let isShared = false;
+            let sessionId = "";
+            const candidates: { agentId: string; shared: boolean }[] = [
+                { agentId: "", shared: true },
+                ...profiles.map((pr) => ({ agentId: pr.id, shared: false })),
+                { agentId: "", shared: false },
+            ];
+            const match = candidates.find((cand) => {
+                const base = scopePrefix(tenantId, cand.agentId, cand.shared);
+                return contactId === base || contactId.startsWith(`${base}-`);
+            });
+            if (!match) continue; // not a shape this build understands; skip rather than guess
+            agentId = match.agentId;
+            isShared = match.shared;
+            sessionId = sessionIdFromContact(tenantId, agentId, isShared, contactId);
 
             out.push({
                 sessionId,
                 agentId,
+                shared: isShared,
                 agentName: agentId ? nameById.get(agentId) ?? null : null,
                 title: firstUser[0].content.replace(/\s+/g, " ").slice(0, 80) || "New chat",
                 updatedAt: c.updatedAt?.toISOString() ?? new Date(0).toISOString(),
@@ -427,8 +451,7 @@ export async function listAllWebSessionsAction(): Promise<
  * this destroys messages.
  */
 export async function deleteSessionsAction(
-    items: { sessionId: string; agentId: string }[],
-    shared: boolean = false,
+    items: { sessionId: string; agentId: string; shared?: boolean }[],
 ) {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return { success: false as const, message: tenantCheck.message };
@@ -439,8 +462,10 @@ export async function deleteSessionsAction(
 
     let removed = 0;
     try {
-        for (const { sessionId, agentId } of wanted) {
-            const contactId = contactFromSession(tenantId, agentId || "", shared, sessionId.slice(0, 64));
+        for (const { sessionId, agentId, shared } of wanted) {
+            // The room is carried per row: a shared-room thread and an agent thread
+            // resolve to different contact ids for the same session id.
+            const contactId = contactFromSession(tenantId, agentId || "", !!shared, sessionId.slice(0, 64));
             const conv = await db
                 .select({ id: conversations.id })
                 .from(conversations)

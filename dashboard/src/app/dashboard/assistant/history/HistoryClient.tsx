@@ -5,7 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { PlusIcon, MagnifyingGlassIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { deleteSessionsAction } from "../actions";
 
-type Row = { sessionId: string; title: string; updatedAt: string; preview?: string; agentName?: string | null; agentId?: string };
+type Row = { sessionId: string; title: string; updatedAt: string; preview?: string; agentName?: string | null; agentId?: string; shared?: boolean };
 
 function when(iso: string) {
     const d = new Date(iso);
@@ -43,7 +43,7 @@ export default function HistoryClient({ sessions }: { sessions: Row[] }) {
         setNotice(null);
         startTransition(async () => {
             const res = await deleteSessionsAction(
-                rowsToDelete.map((r) => ({ sessionId: r.sessionId, agentId: r.agentId ?? "" })),
+                rowsToDelete.map((r) => ({ sessionId: r.sessionId, agentId: r.agentId ?? "", shared: !!r.shared })),
             );
             setNotice(res.message);
             setConfirming(false);
@@ -152,7 +152,7 @@ export default function HistoryClient({ sessions }: { sessions: Row[] }) {
                                 />
                             </label>
                             <Link
-                                href={`/dashboard/assistant?session=${encodeURIComponent(r.sessionId)}${r.agentId ? `&agent=${encodeURIComponent(r.agentId)}` : ""}`}
+                                href={`/dashboard/assistant?session=${encodeURIComponent(r.sessionId)}${r.agentId ? `&agent=${encodeURIComponent(r.agentId)}` : ""}${r.shared ? "&shared=1" : ""}`}
                                 className="grid flex-1 cursor-pointer grid-cols-[1fr_130px_120px] items-center px-2 py-3.5 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pulse-accent/50"
                             >
                                 <span className="truncate pr-4 text-pulse-text">{r.title || "New chat"}</span>
