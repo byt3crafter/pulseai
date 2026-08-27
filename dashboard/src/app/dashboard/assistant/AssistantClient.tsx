@@ -897,10 +897,10 @@ export default function AssistantClient({
                                 rows={1}
                                 placeholder={conn === "online" ? "Describe a task and let your agents do the rest" : "Connecting…"}
                                 disabled={conn !== "online"}
-                                className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
+                                className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 min-h-[78px] sm:min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
                             {/* bottom control bar — lives inside the box */}
-                            <div className="flex flex-nowrap items-center gap-2 px-3 pb-3 sm:px-3.5 sm:pb-3.5">
+                            <div className="flex flex-nowrap items-center gap-1.5 px-3 pb-3 sm:gap-2 sm:px-3.5 sm:pb-3.5">
                                 <button type="button" onClick={() => fileInputRef.current?.click()} disabled={conn !== "online"}
                                     title="Attach files (or drag & drop)" aria-label="Attach files"
                                     className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full text-pulse-muted transition-colors hover:bg-pulse-hover hover:text-pulse-text disabled:opacity-40">
@@ -927,10 +927,10 @@ export default function AssistantClient({
                                         onClick={() => setPillOpen((v) => !v)}
                                         aria-expanded={pillOpen}
                                         aria-haspopup="menu"
-                                        className="flex h-[34px] min-w-0 max-w-full items-center gap-[7px] rounded-full bg-pulse-panel-alt pl-3 pr-2 text-[13px] text-pulse-text-soft transition-colors motion-reduce:transition-none hover:text-pulse-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                                        className="flex h-[34px] min-w-0 shrink items-center gap-[7px] rounded-full bg-pulse-panel-alt pl-2.5 pr-1.5 sm:pl-3 sm:pr-2 text-[13px] text-pulse-text-soft transition-colors motion-reduce:transition-none hover:text-pulse-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
                                     >
                                         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-pulse-accent" aria-hidden="true" />
-                                        <span className="truncate">{activeAgent?.name ?? "Assistant"}</span>
+                                        <span className="max-w-[9ch] truncate sm:max-w-none">{activeAgent?.name ?? "Assistant"}</span>
                                         <span className="hidden truncate text-pulse-faint sm:inline">{pillModelName}</span>
                                         <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-pulse-faint" aria-hidden="true" />
                                     </button>
