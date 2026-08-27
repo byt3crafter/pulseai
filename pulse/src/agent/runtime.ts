@@ -369,6 +369,26 @@ export class AgentRuntime {
                 }
             }
 
+            // A job that declares what it needs pays only for what it needs. The
+            // agent keeps its full toolset everywhere else; this narrows a single
+            // invocation, and an empty or unmatched scope is ignored rather than
+            // leaving the agent with nothing to work with.
+            const scope = (inbound.allowedTools || []).filter(Boolean);
+            if (scope.length) {
+                const wanted = new Set(scope);
+                const narrowed = enabledTools.filter((t) => wanted.has(t.name));
+                if (narrowed.length) {
+                    tenantLog.debug(
+                        { requested: scope.length, matched: narrowed.length, from: enabledTools.length },
+                        "Tool scope applied for this run",
+                    );
+                    enabledTools.length = 0;
+                    enabledTools.push(...narrowed);
+                } else {
+                    tenantLog.warn({ scope }, "Tool scope matched nothing — running with the full toolset");
+                }
+            }
+
             const toolDefinitions = enabledTools.map((t) => ({
                 name: t.name,
                 description: t.description,

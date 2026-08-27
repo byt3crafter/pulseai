@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
     ChatBubbleLeftRightIcon,
@@ -9,7 +9,9 @@ import {
     GlobeAltIcon,
     InboxIcon,
     MagnifyingGlassIcon,
+    TrashIcon,
 } from "@heroicons/react/24/outline";
+import { deleteConversationsAction } from "./actions";
 import { PageHeader, Card, EmptyState, Toggle } from "../../../components/dashboard/ui";
 import AgentAvatar from "../../../components/dashboard/AgentAvatar";
 import { humanizeChannel, isSystemConversation, relativeTime, secondaryChannelLabel } from "./utils";
@@ -79,6 +81,29 @@ export default function ConversationsClient({
     const [channelFilter, setChannelFilter] = useState<string>("all");
     const [dateFilter, setDateFilter] = useState<string>("all");
     const [showSystem, setShowSystem] = useState(false);
+    // Selection for bulk delete. Kept as ids rather than indices so a filter
+    // change can't silently retarget what is about to be deleted.
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [confirming, setConfirming] = useState(false);
+    const [pending, startTransition] = useTransition();
+    const [notice, setNotice] = useState<string | null>(null);
+
+    const toggle = (id: string) =>
+        setSelected((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+
+    function doDelete() {
+        const ids = Array.from(selected);
+        startTransition(async () => {
+            const res = await deleteConversationsAction(ids);
+            setNotice(res.message);
+            setConfirming(false);
+            if (res.success) setSelected(new Set());
+        });
+    }
 
     const dateThreshold = useMemo(() => {
         const days = ({ "7d": 7, "30d": 30, "90d": 90 } as Record<string, number>)[dateFilter];
@@ -122,6 +147,64 @@ export default function ConversationsClient({
                 title="Conversations"
                 description="Every conversation thread with your contacts, across every channel."
             />
+
+            {notice && (
+                <p className="mb-3 text-sm text-pulse-muted">{notice}</p>
+            )}
+
+            {selected.size > 0 && (
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-pulse-border bg-pulse-panel-alt px-4 py-2.5">
+                    <span className="text-sm text-pulse-text">
+                        {selected.size} selected
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setSelected(new Set())}
+                        className="text-sm text-pulse-muted hover:text-pulse-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
+                    >
+                        Clear
+                    </button>
+                    <div className="ml-auto flex items-center gap-2">
+                        {confirming ? (
+                            <>
+                                {/*
+                                    Deliberately says what will happen and cannot be
+                                    undone, because it cannot: this removes the
+                                    messages too.
+                                */}
+                                <span className="text-sm text-pulse-text">
+                                    Delete {selected.size} conversation{selected.size === 1 ? "" : "s"} and all their messages? This cannot be undone.
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirming(false)}
+                                    disabled={pending}
+                                    className="px-3 py-1.5 rounded-lg text-sm border border-pulse-border text-pulse-text hover:bg-pulse-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={doDelete}
+                                    disabled={pending}
+                                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                                >
+                                    {pending ? "Deleting…" : "Delete"}
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => { setNotice(null); setConfirming(true); }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                            >
+                                <TrashIcon className="w-4 h-4" aria-hidden="true" />
+                                Delete
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Filter bar */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -240,11 +323,21 @@ export default function ConversationsClient({
                         {filtered.map((c) => {
                             const system = isSystemConversation(c);
                             return (
-                                <li key={c.id}>
+                                <li key={c.id} className="flex items-center hover:bg-pulse-hover transition-colors motion-reduce:transition-none">
+                                    {/* Outside the Link: ticking a row must not open it. */}
+                                    <label className="pl-5 pr-1 py-3.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selected.has(c.id)}
+                                            onChange={() => toggle(c.id)}
+                                            aria-label={`Select conversation with ${c.contactName || "unknown contact"}`}
+                                            className="h-4 w-4 rounded border-pulse-border bg-pulse-panel accent-indigo-600 cursor-pointer"
+                                        />
+                                    </label>
                                     <Link
                                         href={`/dashboard/conversations/${c.id}`}
                                         title={c.channelContactId}
-                                        className="flex items-center gap-4 px-5 py-3.5 hover:bg-pulse-hover transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+                                        className="flex flex-1 min-w-0 items-center gap-4 pl-2 pr-5 py-3.5 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
                                     >
                                         <AgentAvatar name={c.contactName || "?"} size="md" />
 
