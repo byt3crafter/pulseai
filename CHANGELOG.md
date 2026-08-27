@@ -3,6 +3,16 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.12] - 2026-08-27
+
+### Features
+- v4 Studio nav — grouped, collapsible, nothing hidden
+- self-host Google Sans, the face the design actually asks for
+- v4 Studio palette and type — the token layer
+
+### Bug Fixes
+- a job's settings now actually reach the scheduler
+
 ## [0.20.11] - 2026-08-27
 
 ### Features
