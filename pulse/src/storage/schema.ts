@@ -780,6 +780,10 @@ export const scheduledJobs = pgTable(
         intervalSeconds: integer("interval_seconds"),
         runAt: timestamp("run_at", { withTimezone: true }),
         message: text("message").notNull(),
+        // Cheap code check evaluated BEFORE the agent is invoked. NULL = always
+        // run. Exists so a polling job stops paying a language model to answer
+        // "is there anything to do?" — see cron/job-runner.ts.
+        precondition: varchar("precondition", { length: 32 }),
         timezone: varchar("timezone", { length: 50 }).default("UTC"),
         enabled: boolean("enabled").default(true),
         maxRetries: integer("max_retries").default(3),

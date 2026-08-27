@@ -134,6 +134,23 @@ export default async function AgentSchedulesPage({ params }: { params: Promise<{
                             <p className="text-xs text-pulse-faint mt-1">This is sent to the agent as a user message on each run.</p>
                         </div>
 
+                        <div>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Only run when</label>
+                            <select
+                                name="precondition"
+                                defaultValue=""
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+                            >
+                                <option value="">Always run</option>
+                                <option value="email_unread">There is unread email</option>
+                            </select>
+                            <p className="text-xs text-pulse-faint mt-1">
+                                A quick check before the agent is woken. A schedule that finds nothing
+                                still costs a full run, so a job that mostly has nothing to do is far
+                                cheaper with a condition on it.
+                            </p>
+                        </div>
+
                         <div className="flex justify-end">
                             <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none text-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel">
                                 Create Schedule

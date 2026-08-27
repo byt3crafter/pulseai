@@ -43,6 +43,9 @@ export async function createSchedule(formData: FormData) {
     const runAt = formData.get("runAt") as string;
     const message = formData.get("message") as string;
     const timezone = (formData.get("timezone") as string) || "UTC";
+    // Only run when there is something to do. Empty = always run (the default,
+    // and what every job did before this existed).
+    const precondition = ((formData.get("precondition") as string) || "").trim() || null;
 
     // Verify the agent belongs to this tenant before creating a schedule for it
     const agent = await db.query.agentProfiles.findFirst({
@@ -61,6 +64,7 @@ export async function createSchedule(formData: FormData) {
         intervalSeconds: scheduleType === "interval" ? intervalSeconds : null,
         runAt: scheduleType === "once" && runAt ? new Date(runAt) : null,
         message,
+        precondition,
         timezone,
         webhookToken,
         enabled: true,

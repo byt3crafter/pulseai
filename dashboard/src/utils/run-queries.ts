@@ -1,6 +1,6 @@
 import { db } from "../storage/db";
 import { agentRuns, agentProfiles } from "../storage/schema";
-import { and, eq, desc, gte, sql } from "drizzle-orm";
+import { and, eq, desc, gte, ne, or, notInArray, sql } from "drizzle-orm";
 
 /**
  * Read helpers over agent_runs — the operational record behind the executive
@@ -133,13 +133,29 @@ function mapRun(r: any): RunRow {
     };
 }
 
-/** Recent runs for the dashboard activity feed. */
+/**
+ * Recent runs for the dashboard activity feed.
+ *
+ * Routine automation is excluded. A schedule that runs every fifteen minutes
+ * and completes normally is not activity — it is a heartbeat, and forty of them
+ * a day pushed the two things a person actually did off the page. That belongs
+ * in the audit log, which already records it.
+ *
+ * A scheduled run that FAILED is still shown: an automation nobody is watching
+ * going quietly wrong is exactly what this feed should be for.
+ */
 export async function getRecentRuns(tenantId: string, limit = 12): Promise<RunRow[]> {
     const rows = await db
         .select(selectRunColumns())
         .from(agentRuns)
         .leftJoin(agentProfiles, eq(agentRuns.agentProfileId, agentProfiles.id))
-        .where(eq(agentRuns.tenantId, tenantId))
+        .where(and(
+            eq(agentRuns.tenantId, tenantId),
+            or(
+                notInArray(agentRuns.trigger, ["cron", "heartbeat"]),
+                ne(agentRuns.status, "completed"),
+            ),
+        ))
         .orderBy(desc(agentRuns.startedAt))
         .limit(limit);
     return rows.map(mapRun);
