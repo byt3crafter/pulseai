@@ -6,6 +6,7 @@ import { messages, conversations, usageRecords, agentRuns } from "../../../stora
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { deleteConversationsCascade } from "../../../utils/delete-conversation";
 import { logAudit } from "../../../utils/audit";
 
 export async function getConversationMessagesAction(conversationId: string) {
@@ -61,10 +62,7 @@ export async function deleteConversationsAction(ids: string[]) {
         const cids = owned.map((c) => c.id);
         if (cids.length === 0) return { success: false as const, message: "Nothing to delete." };
 
-        await db.delete(usageRecords).where(inArray(usageRecords.conversationId, cids));
-        await db.update(agentRuns).set({ conversationId: null }).where(inArray(agentRuns.conversationId, cids));
-        await db.delete(messages).where(inArray(messages.conversationId, cids));
-        await db.delete(conversations).where(inArray(conversations.id, cids));
+        await deleteConversationsCascade(cids);
 
         await logAudit({
             action: "conversation.delete",

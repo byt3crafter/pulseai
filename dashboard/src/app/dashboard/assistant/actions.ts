@@ -6,6 +6,7 @@ import { and, eq, asc, desc, gt, like, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
+import { deleteConversationsCascade } from "../../../utils/delete-conversation";
 import { visibleTo } from "../../../utils/visibility";
 import { logAudit } from "../../../utils/audit";
 
@@ -262,12 +263,7 @@ export async function deleteSessionAction(sessionId: string, agentId: string = "
             .limit(1);
         if (conv[0]) {
             const cid = conv[0].id;
-            // Clear rows that FK-reference the conversation, else the delete throws
-            // (which previously made "delete" silently do nothing).
-            await db.delete(usageRecords).where(eq(usageRecords.conversationId, cid));
-            await db.update(agentRuns).set({ conversationId: null }).where(eq(agentRuns.conversationId, cid));
-            await db.delete(messages).where(eq(messages.conversationId, cid));
-            await db.delete(conversations).where(eq(conversations.id, cid));
+            await deleteConversationsCascade([cid]);
 
             await logAudit({
                 action: "conversation.delete",
@@ -478,13 +474,7 @@ export async function deleteSessionsAction(
                 .limit(1);
             if (!conv[0]) continue;
 
-            const cid = conv[0].id;
-            // Same order as the single delete: rows that reference the
-            // conversation go first, or the delete throws on a foreign key.
-            await db.delete(usageRecords).where(eq(usageRecords.conversationId, cid));
-            await db.update(agentRuns).set({ conversationId: null }).where(eq(agentRuns.conversationId, cid));
-            await db.delete(messages).where(eq(messages.conversationId, cid));
-            await db.delete(conversations).where(eq(conversations.id, cid));
+            await deleteConversationsCascade([conv[0].id]);
             removed++;
         }
 
