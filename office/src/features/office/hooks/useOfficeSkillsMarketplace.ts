@@ -366,7 +366,7 @@ export const useOfficeSkillsMarketplace = ({
         });
         params.onProgress?.({
           percent: 92,
-          message: "Refreshing skill state in Hermes3D.",
+          message: "Refreshing skills.",
         });
         await loadMarketplace(targetAgentId);
         params.onProgress?.({

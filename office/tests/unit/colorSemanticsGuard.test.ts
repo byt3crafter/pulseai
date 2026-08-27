@@ -9,9 +9,7 @@ const REPO_ROOT = resolve(TEST_DIR, "..", "..");
 const COLOR_OWNED_FILES = [
   "src/features/agents/components/FleetSidebar.tsx",
   "src/features/agents/components/AgentChatPanel.tsx",
-  "src/features/agents/components/ConnectionPanel.tsx",
   "src/features/agents/components/AgentInspectPanels.tsx",
-  "src/features/agents/components/GatewayConnectScreen.tsx",
   "src/features/agents/components/AgentCreateModal.tsx",
   "src/features/agents/components/HeaderBar.tsx",
   "src/app/page.tsx",

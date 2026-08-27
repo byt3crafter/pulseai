@@ -11,8 +11,11 @@ const features = [
   },
   {
     icon: Users,
-    title: "Manage your fleet",
-    description: "Create, configure, and monitor agents from one place",
+    // PULSE PATCH: agents are created in the Pulse dashboard, not here —
+    // creating them needs runtime config APIs this runtime does not implement.
+    // Promising it in the tour would send people to a button that throws.
+    title: "See your whole team",
+    description: "Who is working, who is idle, and what they are doing",
   },
   {
     icon: MessageSquare,

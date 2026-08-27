@@ -16,10 +16,7 @@ import {
   type OnboardingStepId,
 } from "@/features/onboarding/types";
 import { WelcomeStep } from "@/features/onboarding/components/WelcomeStep";
-import { PrerequisitesStep } from "@/features/onboarding/components/PrerequisitesStep";
-import { ConnectStep } from "@/features/onboarding/components/ConnectStep";
 import { AgentsStep } from "@/features/onboarding/components/AgentsStep";
-import { CompanyStep } from "@/features/onboarding/components/CompanyStep";
 import { CompleteStep } from "@/features/onboarding/components/CompleteStep";
 
 export type OnboardingWizardProps = {
@@ -110,18 +107,8 @@ export const OnboardingWizard = ({
     switch (currentStep) {
       case "welcome":
         return <WelcomeStep />;
-      case "prerequisites":
-        return <PrerequisitesStep />;
       case "agents":
         return <AgentsStep agentCount={agentCount} connected={gatewayConnected} />;
-      case "company":
-        return (
-          <CompanyStep
-            connected={gatewayConnected}
-            agentCount={agentCount}
-            onOpenCompanyBuilder={onOpenCompanyBuilder}
-          />
-        );
       case "complete":
         return (
           <CompleteStep

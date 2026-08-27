@@ -219,7 +219,7 @@ export const AgentEditorModal = ({
                   <div>
                     <div className="text-sm font-semibold text-inherit">Delete Agent</div>
                     <div className="text-xs text-red-100/85">
-                      Remove this agent from Hermes3D and Hermes.
+                      Remove this agent from the office.
                     </div>
                   </div>
                 </button>

@@ -63,7 +63,7 @@ export const CompleteStep = ({
         <p className="max-w-sm text-sm text-white/60">
           {companyCreated
             ? `${companyName?.trim() || "Your company"} is ready. Your new team has been created in the connected runtime and placed into the office.`
-            : "Your gateway is connected and your agents are ready. Step inside and explore the 3D workspace where your AI team operates."}
+            : "Your team is ready. Step inside and watch them work."}
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export const CompleteStep = ({
       </div>
 
       <p className="text-[11px] text-white/35">
-        You can always re-run onboarding from Studio settings.
+        This tour only shows once.
       </p>
     </div>
   );

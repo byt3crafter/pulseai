@@ -39,8 +39,8 @@ export function TaskBoardPanel({
 }) {
   return (
     <TaskBoardView
-      title="Hermes Tasks"
-      subtitle="The Hermes agent task lifecycle at a glance."
+      title="Tasks"
+      subtitle="What your agents are working through."
       agents={agents}
       cardsByStatus={cardsByStatus}
       selectedCard={selectedCard}
