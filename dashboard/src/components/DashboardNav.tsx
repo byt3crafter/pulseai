@@ -45,7 +45,7 @@ type NavItem = {
     icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
     exact?: boolean;
     exclude?: string;
-    feature?: "billing" | "chatgptConnect";
+    feature?: "billing" | "chatgptConnect" | "floor";
 };
 
 // Grouped nav. `advanced` groups are hidden in the Simple view (for non-technical
@@ -56,7 +56,7 @@ const NAV_GROUPS: { label: string; items: NavItem[]; advanced?: boolean }[] = [
         items: [
             { href: "/dashboard", label: "Overview", icon: Squares2X2Icon, exact: true },
             { href: "/dashboard/assistant", label: "Assistant", icon: ChatBubbleOvalLeftEllipsisIcon },
-            { href: "/dashboard/floor", label: "The Floor", icon: BuildingOffice2Icon },
+            { href: "/dashboard/floor", label: "The Floor", icon: BuildingOffice2Icon, feature: "floor" },
             { href: "/dashboard/contacts", label: "Contacts", icon: IdentificationIcon },
             { href: "/dashboard/calendar", label: "Calendar", icon: CalendarDaysIcon },
             { href: "/dashboard/notes", label: "Notepad", icon: DocumentTextIcon },
@@ -131,7 +131,7 @@ function shortLabel(label: string): string {
     return SHORT_LABELS[label] ?? label;
 }
 
-export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = true }: { isAdmin?: boolean; chatgptConnect?: boolean; showBilling?: boolean }) {
+export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = true, floor = false }: { isAdmin?: boolean; chatgptConnect?: boolean; showBilling?: boolean; floor?: boolean }) {
     const pathname = usePathname();
     const collapsed = useContext(SidebarCollapseContext);
 
@@ -151,6 +151,8 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
     const isVisible = (item: NavItem) => {
         if (item.feature === "chatgptConnect") return !!chatgptConnect;
         if (item.feature === "billing") return showBilling;
+        // Beta: hidden until the workspace opts in (Settings -> Labs).
+        if (item.feature === "floor") return floor;
         return true;
     };
 
@@ -194,7 +196,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
         <nav className={`flex-1 overflow-y-auto overflow-x-hidden ${collapsed ? "px-2 py-3" : "px-3 py-4"}`}>
             {!collapsed && (
                 <div className="mb-4 px-0.5">
-                    <CommandPalette isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} />
+                    <CommandPalette isAdmin={isAdmin} chatgptConnect={chatgptConnect} showBilling={showBilling} floor={floor} />
                 </div>
             )}
 

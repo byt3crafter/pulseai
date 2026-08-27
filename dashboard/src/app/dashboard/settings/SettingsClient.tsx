@@ -40,6 +40,7 @@ import WorkspaceToolsTab from "./WorkspaceToolsTab";
 import BriefingTab from "./BriefingTab";
 import AppearanceTab from "./AppearanceTab";
 import WebSearchTab from "./WebSearchTab";
+import LabsTab from "./LabsTab";
 import type { BriefingConfig, BrandingConfig, WebSearchSettings } from "./actions";
 import { PROVIDERS } from "../../../utils/models";
 import { CHANNEL_SETUP_CATALOG, type ChannelSetupDefinition } from "../../../utils/channel-catalog";
@@ -77,6 +78,7 @@ const TABS = [
     { id: "credentials", label: "Credentials" },
     { id: "api", label: "API & Developer" },
     { id: "billing", label: "Billing" },
+    { id: "labs", label: "Labs" },
 ];
 
 interface ProviderKeyInfo {
@@ -167,6 +169,7 @@ interface Props {
         maxResults: number;
     };
     briefingConfig: BriefingConfig;
+    floorEnabled: boolean;
     appearanceConfig: BrandingConfig;
     webSearchConfig: WebSearchSettings;
     pendingPairings: PairingInfo[];
@@ -187,7 +190,7 @@ export default function SettingsClient({
     tab, initialPlugin, timezone, credits, telegramConnected, oauthClients, apiTokens, userEmail, userName, providerKeys,
     channelSetups,
     enableThirdPartyCli, apiBaseUrl,
-    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, appearanceConfig, webSearchConfig, pendingPairings, approvedUsers, approvedGroups,
+    telegramConfig, autoMemoryConfig, commitmentsConfig, toolSearchConfig, briefingConfig, floorEnabled, appearanceConfig, webSearchConfig, pendingPairings, approvedUsers, approvedGroups,
     plugins, savePluginCredentials,
     emailConfig,
     embeddingConfigured,
@@ -253,6 +256,7 @@ export default function SettingsClient({
                     {tab === "tools" && <WorkspaceToolsTab enabledTools={enabledTools} />}
                     {tab === "memory" && <MemoryTab embeddingConfigured={embeddingConfigured} autoMemoryConfig={autoMemoryConfig} commitmentsConfig={commitmentsConfig} />}
                     {tab === "briefing" && <BriefingTab config={briefingConfig} />}
+                    {tab === "labs" && <LabsTab floor={floorEnabled} />}
                     {tab === "plugins" && <PluginsTab plugins={plugins} savePluginCredentials={savePluginCredentials} toolSearchConfig={toolSearchConfig} initialPlugin={initialPlugin} />}
                     {tab === "credentials" && <CredentialsTab credentials={credentials} agents={credentialAgents} addCredential={addCredential} managedBy={Object.fromEntries(plugins.flatMap((p) => p.config.credentialSchema.map((f) => [f.name.toUpperCase(), p.name])))} />}
                     {tab === "api" && <ApiTab oauthClients={oauthClients} enableThirdPartyCli={enableThirdPartyCli} apiBaseUrl={apiBaseUrl} apiTokens={apiTokens} />}
