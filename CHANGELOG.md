@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.9] - 2026-08-27
+
+### Features
+- stop paying a language model to ask "anything new?"
+
+### Bug Fixes
+- clean up after the floor removal
+
 ## [0.20.8] - 2026-08-27
 
 ### Chores
