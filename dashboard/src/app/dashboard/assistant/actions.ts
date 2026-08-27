@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { apiTokens, conversations, messages, usageRecords, agentRuns, agentProfiles } from "../../../storage/schema";
-import { and, eq, asc, desc, gt, like, or, isNull } from "drizzle-orm";
+import { apiTokens, conversations, messages, usageRecords, agentRuns, agentProfiles, resourceShares, users } from "../../../storage/schema";
+import { and, eq, asc, desc, gt, like, or, isNull, inArray } from "drizzle-orm";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -104,7 +104,7 @@ export async function listSessionsAction(agentId: string = "", shared: boolean =
                 // Row scope as well as tenant scope. A contact-id prefix says
                 // which agent a thread belongs to, not which person — so once
                 // threads can be private it is not, on its own, a permission.
-                visibleTo(conversations, tenantCheck.userId),
+                visibleTo(conversations, tenantCheck.userId, "conversation"),
                 like(conversations.channelContactId, `${scopePrefix(tenantId, agentId, shared)}%`),
             ))
             .orderBy(desc(conversations.updatedAt))
@@ -162,7 +162,7 @@ export async function pinSessionAction(sessionId: string, pinned: boolean, agent
                 // Row scope as well as tenant scope. A contact-id prefix says
                 // which agent a thread belongs to, not which person — so once
                 // threads can be private it is not, on its own, a permission.
-                visibleTo(conversations, tenantCheck.userId),
+                visibleTo(conversations, tenantCheck.userId, "conversation"),
                 eq(conversations.channelContactId, contactId),
             ))
             .limit(1);
@@ -194,7 +194,7 @@ export async function getSessionHistoryAction(sessionId: string, agentId: string
                 // Row scope as well as tenant scope. A contact-id prefix says
                 // which agent a thread belongs to, not which person — so once
                 // threads can be private it is not, on its own, a permission.
-                visibleTo(conversations, tenantCheck.userId),
+                visibleTo(conversations, tenantCheck.userId, "conversation"),
                 eq(conversations.channelContactId, contactId),
             ))
             .limit(1);
@@ -231,7 +231,7 @@ export async function renameSessionAction(sessionId: string, title: string, agen
                 // Row scope as well as tenant scope. A contact-id prefix says
                 // which agent a thread belongs to, not which person — so once
                 // threads can be private it is not, on its own, a permission.
-                visibleTo(conversations, tenantCheck.userId),
+                visibleTo(conversations, tenantCheck.userId, "conversation"),
                 eq(conversations.channelContactId, contactId),
             ));
         return { success: true as const };
@@ -257,7 +257,7 @@ export async function deleteSessionAction(sessionId: string, agentId: string = "
                 // Row scope as well as tenant scope. A contact-id prefix says
                 // which agent a thread belongs to, not which person — so once
                 // threads can be private it is not, on its own, a permission.
-                visibleTo(conversations, tenantCheck.userId),
+                visibleTo(conversations, tenantCheck.userId, "conversation"),
                 eq(conversations.channelContactId, contactId),
             ))
             .limit(1);
@@ -347,7 +347,15 @@ export async function getInFlightRunAction(
  * the contact id where it is present.
  */
 export async function listAllWebSessionsAction(): Promise<
-    (ChatSession & { agentName: string | null; agentId: string; shared: boolean })[]
+    (ChatSession & {
+        agentName: string | null;
+        agentId: string;
+        shared: boolean;
+        conversationId: string;
+        mine: boolean;
+        visibility: string;
+        sharedBy: string | null;
+    })[]
 > {
     const tenantCheck = await requireTenant();
     if (!tenantCheck.authorized) return [];
@@ -360,6 +368,8 @@ export async function listAllWebSessionsAction(): Promise<
                 contactId: conversations.channelContactId,
                 updatedAt: conversations.updatedAt,
                 metadata: conversations.metadata,
+                ownerUserId: conversations.ownerUserId,
+                visibility: conversations.visibility,
             })
             .from(conversations)
             .where(and(
@@ -368,7 +378,7 @@ export async function listAllWebSessionsAction(): Promise<
                 // Row scope as well as tenant scope. A contact-id prefix says
                 // which agent a thread belongs to, not which person — so once
                 // threads can be private it is not, on its own, a permission.
-                visibleTo(conversations, tenantCheck.userId),
+                visibleTo(conversations, tenantCheck.userId, "conversation"),
                 like(conversations.channelContactId, `web-${tenantId}%`),
             ))
             .orderBy(desc(conversations.updatedAt))
@@ -380,7 +390,35 @@ export async function listAllWebSessionsAction(): Promise<
             .where(eq(agentProfiles.tenantId, tenantId));
         const nameById = new Map(profiles.map((p) => [p.id, p.name]));
 
-        const out: (ChatSession & { agentName: string | null; agentId: string; shared: boolean })[] = [];
+        // Who shared what with me, in one query rather than one per row.
+        const sharedIn = await db
+            .select({ resourceId: resourceShares.resourceId, sharedBy: resourceShares.sharedBy })
+            .from(resourceShares)
+            .where(and(
+                eq(resourceShares.resourceType, "conversation"),
+                eq(resourceShares.userId, tenantCheck.userId),
+            ));
+        const sharerIds = [...new Set(sharedIn.map((r) => r.sharedBy).filter(Boolean) as string[])];
+        const sharerNames = sharerIds.length
+            ? await db
+                  .select({ id: users.id, name: users.name, email: users.email })
+                  .from(users)
+                  .where(inArray(users.id, sharerIds))
+            : [];
+        const sharerName = new Map(sharerNames.map((u) => [u.id, u.name || u.email]));
+        const sharedByConv = new Map(
+            sharedIn.map((r) => [r.resourceId, r.sharedBy ? sharerName.get(r.sharedBy) ?? null : null]),
+        );
+
+        const out: (ChatSession & {
+            agentName: string | null;
+            agentId: string;
+            shared: boolean;
+            conversationId: string;
+            mine: boolean;
+            visibility: string;
+            sharedBy: string | null;
+        })[] = [];
         for (const c of convs) {
             const firstUser = await db
                 .select({ content: messages.content })
@@ -424,6 +462,12 @@ export async function listAllWebSessionsAction(): Promise<
                 sessionId,
                 agentId,
                 shared: isShared,
+                conversationId: c.id,
+                // Ownership, not visibility, decides who may share. An unowned
+                // legacy row is workspace property and nobody's to give away.
+                mine: !!c.ownerUserId && c.ownerUserId === tenantCheck.userId,
+                visibility: c.visibility ?? "workspace",
+                sharedBy: sharedByConv.get(c.id) ?? null,
                 agentName: agentId ? nameById.get(agentId) ?? null : null,
                 title: firstUser[0].content.replace(/\s+/g, " ").slice(0, 80) || "New chat",
                 updatedAt: c.updatedAt?.toISOString() ?? new Date(0).toISOString(),
@@ -469,7 +513,7 @@ export async function deleteSessionsAction(
                     eq(conversations.tenantId, tenantId),
                     eq(conversations.channelType, "webapp"),
                     eq(conversations.channelContactId, contactId),
-                    visibleTo(conversations, tenantCheck.userId),
+                    visibleTo(conversations, tenantCheck.userId, "conversation"),
                 ))
                 .limit(1);
             if (!conv[0]) continue;

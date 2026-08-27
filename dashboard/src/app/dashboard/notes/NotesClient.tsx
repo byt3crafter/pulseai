@@ -14,6 +14,8 @@ import {
 import { StarIcon as StarSolidIcon } from "@heroicons/react/24/solid";
 import { Card, EmptyState } from "../../../components/dashboard/ui";
 import { deleteNoteAction, saveNoteAction, type NoteRow } from "./actions";
+import ShareDialog from "../../../components/dashboard/ShareDialog";
+import { UserPlusIcon } from "@heroicons/react/24/outline";
 
 type FormState = {
     id: string;
@@ -57,6 +59,7 @@ export default function NotesClient({ notes }: { notes: NoteRow[] }) {
     const [formSaving, setFormSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [busyRows, setBusyRows] = useState<Record<string, boolean>>({});
+    const [sharing, setSharing] = useState<NoteRow | null>(null);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -319,6 +322,23 @@ export default function NotesClient({ notes }: { notes: NoteRow[] }) {
                                             <td className="px-4 py-3 align-top text-pulse-soft whitespace-nowrap">{formatDate(note.updatedAt)}</td>
                                             <td className="px-4 py-3 align-top text-right">
                                                 <div className="flex items-center justify-end gap-3">
+                                                    {/*
+                                                        Only on your own notes. Offering share on a
+                                                        note someone shared with you would promise
+                                                        something the server then refuses.
+                                                    */}
+                                                    {note.mine && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSharing(note)}
+                                                            aria-label={`Share ${displayTitle(note)}`}
+                                                            className={`p-1.5 rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                                                                note.visibility === "private" ? "text-pulse-faint hover:text-indigo-500" : "text-pulse-accent"
+                                                            }`}
+                                                        >
+                                                            <UserPlusIcon className="w-4 h-4" aria-hidden="true" />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         type="button"
                                                         onClick={() => openEditForm(note)}
@@ -346,6 +366,17 @@ export default function NotesClient({ notes }: { notes: NoteRow[] }) {
                     </div>
                 )}
             </Card>
+
+            {sharing && (
+                <ShareDialog
+                    resourceType="note"
+                    resourceId={sharing.id}
+                    label="this note"
+                    visibility={sharing.visibility}
+                    onClose={() => setSharing(null)}
+                    onChanged={() => router.refresh()}
+                />
+            )}
         </div>
     );
 }

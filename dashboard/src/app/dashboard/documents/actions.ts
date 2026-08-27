@@ -44,7 +44,7 @@ export async function getDocuments(): Promise<DocumentRow[]> {
             updatedAt: documents.updatedAt,
         })
             .from(documents)
-            .where(scopedTo(documents, tenantId, tenantCheck.userId))
+            .where(scopedTo(documents, tenantId, tenantCheck.userId, "document"))
             .orderBy(desc(documents.createdAt));
         return rows;
     } catch (error) {

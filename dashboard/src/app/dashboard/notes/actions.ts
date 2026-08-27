@@ -16,6 +16,9 @@ export interface NoteRow {
     tags: string | null;
     createdAt: Date | null;
     updatedAt: Date | null;
+    /** Mine to share. Ownership, not visibility — an unowned row is workspace property. */
+    mine: boolean;
+    visibility: string;
 }
 
 /** List the tenant's notes, pinned first then most recently updated. Returns [] on auth failure. */
@@ -33,11 +36,18 @@ export async function getNotes(): Promise<NoteRow[]> {
             tags: notes.tags,
             createdAt: notes.createdAt,
             updatedAt: notes.updatedAt,
+            ownerUserId: notes.ownerUserId,
+            visibility: notes.visibility,
         })
             .from(notes)
-            .where(scopedTo(notes, tenantId, tenantCheck.userId))
+            .where(scopedTo(notes, tenantId, tenantCheck.userId, "note"))
             .orderBy(desc(notes.pinned), desc(notes.updatedAt));
-        return rows.map((r) => ({ ...r, pinned: !!r.pinned }));
+        return rows.map((r) => ({
+            ...r,
+            pinned: !!r.pinned,
+            mine: !!r.ownerUserId && r.ownerUserId === tenantCheck.userId,
+            visibility: r.visibility ?? "workspace",
+        }));
     } catch (error) {
         console.error("Failed to load notes:", error);
         return [];

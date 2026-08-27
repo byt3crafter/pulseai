@@ -46,7 +46,7 @@ export async function getBookmarks(): Promise<BookmarkRow[]> {
             updatedAt: bookmarks.updatedAt,
         })
             .from(bookmarks)
-            .where(scopedTo(bookmarks, tenantId, tenantCheck.userId))
+            .where(scopedTo(bookmarks, tenantId, tenantCheck.userId, "bookmark"))
             .orderBy(desc(bookmarks.updatedAt));
         return rows.map((r) => ({ ...r, kind: (r.kind === "youtube" ? "youtube" : "web") as BookmarkKind }));
     } catch (error) {

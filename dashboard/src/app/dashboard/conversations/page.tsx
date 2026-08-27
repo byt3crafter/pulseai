@@ -31,7 +31,7 @@ export default async function ConversationsPage() {
             messageCount: sql<number>`(select count(*) from messages where messages.conversation_id = ${conversations.id})`,
         })
         .from(conversations)
-        .where(scopedTo(conversations, session.user.tenantId, (session.user as any).id))
+        .where(scopedTo(conversations, session.user.tenantId, (session.user as any).id, "conversation"))
         .orderBy(desc(conversations.updatedAt));
 
     const data = rows.map((r) => ({
