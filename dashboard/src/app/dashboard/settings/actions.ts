@@ -1952,3 +1952,57 @@ export async function saveBriefingSettingsAction(config: {
         return { success: false, message: "Failed to save daily briefing settings." };
     }
 }
+
+/**
+ * The Floor is a beta feature and is OFF until a workspace turns it on.
+ *
+ * It is the one surface built on a vendored 3D app rather than on our own
+ * dashboard components, so it is the one most likely to look or behave
+ * differently from the rest of Pulse while we finish shaping it. Off by default
+ * means nobody meets a half-finished room by accident; on is a deliberate "show
+ * me the beta".
+ *
+ * Stored in tenants.config.features.floor, so no migration and no new table —
+ * the same place branding and web search already live.
+ */
+export async function setFloorEnabledAction(enabled: boolean) {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const tenantId = tenantCheck.tenantId;
+
+    try {
+        const [row] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        const features = { ...(((row?.config as any)?.features || {}) as Record<string, any>), floor: !!enabled };
+
+        await db.execute(
+            sql`UPDATE tenants SET config = jsonb_set(coalesce(config, '{}'::jsonb), '{features}', ${JSON.stringify(features)}::jsonb), updated_at = now() WHERE id = ${tenantId}::uuid`
+        );
+
+        await logAudit({
+            action: "tenant.features.floor",
+            targetType: "tenant",
+            targetId: tenantId,
+            tenantId,
+            summary: enabled ? "Enabled The Floor (beta)" : "Disabled The Floor",
+            metadata: { enabled: !!enabled },
+        });
+
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard", "layout");
+        return { success: true, message: enabled ? "The Floor is on." : "The Floor is hidden." };
+    } catch (err) {
+        console.error("Failed to update the floor setting:", err);
+        return { success: false, message: "Failed to update the setting." };
+    }
+}
+
+/** Whether this workspace has opted into The Floor. Default: no. */
+export async function isFloorEnabled(tenantId: string): Promise<boolean> {
+    try {
+        const [row] = await db.select({ config: tenants.config }).from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+        return Boolean(((row?.config as any)?.features || {}).floor);
+    } catch {
+        // A workspace that cannot be read is not a workspace that opted in.
+        return false;
+    }
+}

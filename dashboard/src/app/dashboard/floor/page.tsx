@@ -1,6 +1,7 @@
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import OfficeFrame from "./OfficeFrame";
+import { isFloorEnabled } from "../settings/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,11 @@ export default async function FloorPage() {
 
     const session = await auth();
     if (!session?.user?.tenantId) redirect("/login");
+
+    // Beta, and off unless this workspace asked for it. Checked here and not
+    // only in the nav — a hidden link is not access control, and the URL is
+    // guessable.
+    if (!(await isFloorEnabled(session.user.tenantId))) redirect("/dashboard");
 
     return <OfficeFrame />;
 }
