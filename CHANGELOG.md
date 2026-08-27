@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.4] - 2026-08-27
+
+### Features
+- show work the office didn't start
+
+### Documentation
+- describe the integration as it now is
+
 ## [0.20.3] - 2026-08-27
 
 ### Bug Fixes
