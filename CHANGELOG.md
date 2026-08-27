@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.35] - 2026-08-27
+
+### Bug Fixes
+- the card states the real expiry, not a hardcoded "2 minutes"
+
 ## [0.20.34] - 2026-08-27
 
 ### Bug Fixes
