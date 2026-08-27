@@ -743,6 +743,10 @@ export const scheduledJobs = pgTable(
         // run. Exists so a polling job stops paying a language model to answer
         // "is there anything to do?" — see cron/job-runner.ts.
         precondition: varchar("precondition", { length: 32 }),
+        // Tool names this job may use. NULL/empty = the agent's full toolset.
+        // A run ships every enabled tool's schema, so a job that needs one tool
+        // out of a hundred pays for ninety-nine it will never call.
+        tools: jsonb("tools").$type<string[] | null>(),
         timezone: varchar("timezone", { length: 50 }).default("UTC"),
         enabled: boolean("enabled").default(true),
         maxRetries: integer("max_retries").default(3),

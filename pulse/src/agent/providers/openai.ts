@@ -370,6 +370,12 @@ export class OpenAIProvider {
                     temperature: 1,
                     max_tokens: getModelById(params.model || "")?.maxTokens ?? 8192,
                     stream: true,
+                    // Without this the API never sends the final usage chunk, so the
+                    // `chunk.usage` read below never fires and every streamed run
+                    // records 0 input and 0 output tokens. That is why MiniMax runs
+                    // showed no usage and therefore no cost, while non-streaming and
+                    // Codex runs looked fine.
+                    stream_options: { include_usage: true },
                 });
 
                 let content = "";

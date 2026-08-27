@@ -1,4 +1,4 @@
-import { getAgentSchedules, getJobRunHistory, createSchedule, toggleSchedule, deleteSchedule } from "./actions";
+import { getAgentSchedules, getJobRunHistory, createSchedule, updateSchedule, toggleSchedule, deleteSchedule } from "./actions";
 import { db } from "../../../../../storage/db";
 import { agentProfiles } from "../../../../../storage/schema";
 import { eq } from "drizzle-orm";
@@ -151,6 +151,21 @@ export default async function AgentSchedulesPage({ params }: { params: Promise<{
                             </p>
                         </div>
 
+                        <div>
+                            <label className="block text-sm font-medium text-pulse-text-soft mb-1">Tools it may use</label>
+                            <input
+                                type="text"
+                                name="tools"
+                                placeholder="Leave empty for all tools — e.g. email_fetch_unread, email_read"
+                                className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text placeholder:text-pulse-faint focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+                            />
+                            <p className="text-xs text-pulse-faint mt-1">
+                                Every run sends the schema for every tool the agent has, before it reads
+                                a word of the instruction. Naming just what this job needs makes each run
+                                far cheaper.
+                            </p>
+                        </div>
+
                         <div className="flex justify-end">
                             <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors motion-reduce:transition-none text-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-pulse-panel">
                                 Create Schedule
@@ -196,6 +211,46 @@ export default async function AgentSchedulesPage({ params }: { params: Promise<{
                                             <td className="px-6 py-3">
                                                 <div className="text-sm font-medium text-pulse-text">{job.name}</div>
                                                 <div className="text-xs text-pulse-faint truncate max-w-xs">{job.message}</div>
+                                                {/*
+                                                    Editable after creation, because the two settings that stop a
+                                                    job burning tokens are worth nothing if they only apply to
+                                                    schedules that do not exist yet.
+                                                */}
+                                                <details className="mt-1.5">
+                                                    <summary className="text-xs text-pulse-accent cursor-pointer select-none list-none hover:underline">
+                                                        {job.precondition || (job.tools as string[] | null)?.length
+                                                            ? `Runs when: ${job.precondition === "email_unread" ? "unread email" : "always"}${(job.tools as string[] | null)?.length ? ` · ${(job.tools as string[]).length} tools` : ""}`
+                                                            : "Limit when it runs"}
+                                                    </summary>
+                                                    <form action={updateSchedule} className="mt-2 space-y-2 rounded-lg border border-pulse-border bg-pulse-panel-alt p-3">
+                                                        <input type="hidden" name="jobId" value={job.id} />
+                                                        <input type="hidden" name="agentId" value={agentId} />
+                                                        <label className="block text-[11px] font-medium text-pulse-text-soft">Only run when</label>
+                                                        <select
+                                                            name="precondition"
+                                                            defaultValue={job.precondition || ""}
+                                                            className="w-full px-2 py-1.5 text-xs rounded border border-pulse-border bg-pulse-panel text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                        >
+                                                            <option value="">Always run</option>
+                                                            <option value="email_unread">There is unread email</option>
+                                                        </select>
+                                                        <label className="block text-[11px] font-medium text-pulse-text-soft">Tools it may use</label>
+                                                        <input
+                                                            type="text"
+                                                            name="tools"
+                                                            defaultValue={((job.tools as string[] | null) || []).join(", ")}
+                                                            placeholder="Leave empty for all tools"
+                                                            className="w-full px-2 py-1.5 text-xs rounded border border-pulse-border bg-pulse-panel text-pulse-text placeholder:text-pulse-faint outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                        />
+                                                        <p className="text-[10px] text-pulse-faint">
+                                                            Every run sends the schema for every tool the agent has. Naming
+                                                            just the ones this job needs makes it much cheaper.
+                                                        </p>
+                                                        <button type="submit" className="px-2.5 py-1 rounded bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                                                            Save
+                                                        </button>
+                                                    </form>
+                                                </details>
                                             </td>
                                             <td className="px-6 py-3">
                                                 <code className="text-xs bg-pulse-panel-alt text-pulse-text-soft px-2 py-1 rounded">{schedule}</code>
