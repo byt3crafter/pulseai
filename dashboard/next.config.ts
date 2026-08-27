@@ -20,16 +20,6 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/dashboard/docs/[[...slug]]': ['./src/content/docs/**/*'],
   },
-  // In development, stand in for the nginx rule that fronts the office in
-  // production (`location /office/ { proxy_pass http://localhost:3004/; }`).
-  // Both strip the /office prefix, so the iframe's src is the same path in
-  // both environments and the office stays reachable without a reverse proxy
-  // on the dev machine. No-op in production, where nginx does this instead.
-  async rewrites() {
-    if (process.env.NODE_ENV === 'production') return [];
-    const office = process.env.OFFICE_ORIGIN || 'http://localhost:3004';
-    return [{ source: '/office/:path*', destination: `${office}/:path*` }];
-  },
 };
 
 export default nextConfig;

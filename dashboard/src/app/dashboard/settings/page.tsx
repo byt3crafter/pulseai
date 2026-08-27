@@ -110,8 +110,6 @@ export default async function SettingsPage({
 
     const embeddingStatus = await getEmbeddingStatusAction();
     const briefingConfig = await getBriefingConfig();
-    // Labs: The Floor is beta and off unless this workspace opted in.
-    const floorEnabled = Boolean(((tenantConfig as any)?.features || {}).floor);
     const appearanceConfig = await getBrandingConfig();
     const webSearchConfig = await getWebSearchConfig();
 
@@ -276,7 +274,6 @@ export default async function SettingsPage({
                 maxResults: Math.max(1, Math.min(25, Math.floor(Number(tenantConfig.toolSearch?.maxResults ?? 6)))),
             }}
             briefingConfig={briefingConfig}
-            floorEnabled={floorEnabled}
             appearanceConfig={appearanceConfig}
             webSearchConfig={webSearchConfig}
             pendingPairings={pendingPairings.map(p => ({

@@ -25,7 +25,6 @@ interface CommandPaletteProps {
     isAdmin?: boolean;
     chatgptConnect?: boolean;
     showBilling?: boolean;
-    floor?: boolean;
 }
 
 type Group = "Pages" | "Settings" | "Administration";
@@ -61,7 +60,7 @@ const GROUP_ICONS: Record<Group, React.ComponentType<{ className?: string }>> = 
  * so the interaction pattern (shortcut, focus trap, arrow-key nav) stays
  * consistent between the tenant and admin consoles.
  */
-export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = true, floor = false }: CommandPaletteProps) {
+export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = true }: CommandPaletteProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
@@ -84,10 +83,6 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
         ];
         if (showBilling) {
             pages.push({ key: "page-usage", label: "Usage & Billing", href: "/dashboard/usage", group: "Pages", icon: ChartBarSquareIcon });
-        }
-        if (floor) {
-            // Beta: only findable once the workspace has turned it on.
-            pages.push({ key: "page-floor", label: "The Floor", href: "/dashboard/floor", group: "Pages", icon: BuildingOffice2Icon });
         }
         if (chatgptConnect) {
             pages.push({ key: "page-chatgpt", label: "ChatGPT Connect", href: "/dashboard/chatgpt", group: "Pages", icon: SparklesIcon });
@@ -115,7 +110,7 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
             : [];
 
         return [...pages, ...settings, ...admin];
-    }, [chatgptConnect, showBilling, isAdmin, floor]);
+    }, [chatgptConnect, showBilling, isAdmin]);
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();

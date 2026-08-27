@@ -25,14 +25,9 @@ export interface Credit {
 }
 
 export const CREDITS: Credit[] = [
-    {
-        name: "Hermes3D",
-        author: "Luke The Dev",
-        licence: "MIT",
-        url: "https://github.com/iamlukethedev/Hermes3D",
-        used: "The 3D office on The Floor. We run our own build of it, wired to Pulse and customised from there.",
-        required: true,
-    },
+    // Nothing here right now. The Hermes3D credit was removed with the 3D
+    // office it applied to — a credit for something we no longer ship is as
+    // wrong as a missing one for something we do.
 ];
 
 /** Credits the licence obliges us to display. */
