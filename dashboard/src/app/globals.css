@@ -20,30 +20,38 @@ body {
    too. The anti-FOUC script in layout.tsx stamps data-theme before paint. */
 :root,
 [data-theme="light"] {
-  --pulse-bg:            #F6F7F9;
+  /* The light counterpart to v4 Studio. Derived from it rather than kept from
+     the old theme: v4's character is NEUTRAL graphite with a blue accent and an
+     inverted pill for the primary action, so light mirrors that instead of the
+     blue-grey SaaS palette that used to live here.
+
+     The ramp is flipped, not re-hued — #131316 is v4's own button foreground,
+     and #77777D holds its meaning in both themes. The accent darkens to
+     Google-blue 600, because v4's #8AB4F8 is a dark-theme value and fails
+     contrast on white. */
+  --pulse-bg:            #FAFAFA;
   --pulse-panel:         #FFFFFF;
-  --pulse-panel-alt:     #F1F3F6;
-  --pulse-hover:         #EDEFF3;
-  --pulse-tint:          #EEF1FC;
-  --pulse-border:        #E2E6EB;
-  --pulse-border-subtle: #ECEEF2;
-  --pulse-border-strong: #CFD5DD;
-  --pulse-text:          #1F2328;
-  --pulse-text-soft:     #3A424C;
-  --pulse-muted:         #5F6570;
-  --pulse-faint:         #929AA4;
-  --pulse-dim:           #AAB1BA;
-  --pulse-accent:        #6470E6;
-  --pulse-accent-hi:     #4F5AD6;
-  /* Light's counterpart to the dark light-pill: an inked primary on a pale
-     ground. Same role, inverted, so a component written once works in both. */
-  --pulse-primary:       #1F2328;
-  --pulse-primary-hover: #33383F;
+  --pulse-panel-alt:     #F1F1F3;
+  --pulse-hover:         #F4F4F5;
+  --pulse-tint:          #EEF2FC;
+  --pulse-border-subtle: #ECECEE;
+  --pulse-border:        #E3E3E6;
+  --pulse-border-strong: #D3D3D7;
+  --pulse-text:          #131316;
+  --pulse-text-soft:     #3B3B40;
+  --pulse-muted:         #5C5C62;
+  --pulse-faint:         #77777D;
+  --pulse-dim:           #9A9AA0;
+  --pulse-accent:        #1A73E8;
+  --pulse-accent-hi:     #1557B0;
+  /* Light's primary pill: inked, the exact inverse of dark's. */
+  --pulse-primary:       #131316;
+  --pulse-primary-hover: #2C2C31;
   --pulse-primary-fg:    #FFFFFF;
   --pulse-profit:        #0F8A4F;
   --pulse-loss:          #CC2F26;
   --pulse-info:          #1A73E8;
-  --pulse-code:          #F1F3F6;
+  --pulse-code:          #F1F1F3;
 }
 [data-theme="dark"] {
   /* Pulse v4 Studio. Sampled from the design, not approximated: a graphite
