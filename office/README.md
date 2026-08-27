@@ -125,6 +125,46 @@ Four surfaces offered a backend picker, and each one could strand a user:
 
 All gone. A failure shows a named error with a retry, never a form.
 
+### 7. It sees work it did not start
+`src/lib/gateway/pulseEventStream.ts`, `src/app/api/runtime/custom/events/route.ts`,
+`GatewayClient.emitLocalEvent`, and `/events` on the Pulse gateway
+
+Upstream's design (their `ARCHITECTURE.md`, "Agent runtime flow") is that the
+gateway pushes runtime **events** and both the agents UI and the office derive
+all their state from that one stream. We had implemented only the
+request/response half of the contract — `/health`, `/state`, `/registry`,
+`/v1/chat/completions` — and none of the streaming half.
+
+The consequence was not subtle: `connect()` for this adapter is a `/health`
+probe and returns without opening a socket, so `onEvent` could never fire, and
+neither `/state` nor `agents.list` carries a status field. The only writer of
+"running" was the office's own outgoing chat. Give an agent a job from the
+dashboard, Telegram, a schedule or a commitment and the floor sat at
+"0 working" for the whole run.
+
+Pulse already emitted every run into its floor bus regardless of trigger, and
+nothing was listening. `/events` serves that as SSE — tenant from the API token,
+translated into the frames the office already parses (`agent`/`lifecycle` for
+start/end/error, `office.speech` for tool captions). Frames enter through
+`emitLocalEvent`, so the existing animation, run log and approval metrics work
+unchanged and learn nothing about Pulse.
+
+Two things that are easy to get wrong here:
+
+- **The stream opens with a snapshot of runs already in flight.** A pure event
+  stream can only describe the future; without it an agent already working when
+  you open the floor looks idle until it finishes.
+- **`X-Accel-Buffering: no` is required.** nginx buffers SSE by default, which
+  holds every frame until the response ends — i.e. forever.
+
+The translation lives in `floorEventToFrames` (`pulse/src/gateway/routes/hermes3d.ts`),
+pure and tested on purpose: it has to stay in step with the office's
+`normalizeGatewayEvent`, and if it drifts the failure is silent — frames keep
+arriving, they just stop meaning anything.
+
+Caption timing: `addToolCall` fires when a tool RETURNS, so a speech bubble
+describes what the agent just did, not what it is doing this instant.
+
 ### 7. Assets live under `/office` on the dashboard's origin
 `next.config.mjs` (`assetPrefix`), `Dockerfile` (`ARG HERMES3D_BASE_PATH`),
 `src/app/layout.tsx` (a `fetch` prefix wrapper)
