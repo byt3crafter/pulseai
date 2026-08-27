@@ -25,6 +25,8 @@ interface CommandPaletteProps {
     isAdmin?: boolean;
     chatgptConnect?: boolean;
     showBilling?: boolean;
+    /** Render as a single icon button (sidebar footer) rather than a field. */
+    icon?: boolean;
 }
 
 type Group = "Pages" | "Settings" | "Administration";
@@ -60,7 +62,7 @@ const GROUP_ICONS: Record<Group, React.ComponentType<{ className?: string }>> = 
  * so the interaction pattern (shortcut, focus trap, arrow-key nav) stays
  * consistent between the tenant and admin consoles.
  */
-export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = true }: CommandPaletteProps) {
+export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = true, icon = false }: CommandPaletteProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
@@ -220,16 +222,35 @@ export default function CommandPalette({ isAdmin, chatgptConnect, showBilling = 
 
     return (
         <>
-            <button
-                type="button"
-                onClick={openPalette}
-                className="w-full flex items-center gap-2 border border-pulse-border bg-pulse-panel-alt rounded-lg px-3 py-2 text-xs text-pulse-muted hover:border-pulse-border-strong hover:text-pulse-text-soft transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                aria-haspopup="dialog"
-            >
-                <MagnifyingGlassIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                <span className="flex-1 text-left">Find&hellip;</span>
-                <kbd className="border border-pulse-border rounded px-1 text-[10px] text-pulse-faint">&#8984;K</kbd>
-            </button>
+            {/*
+                `icon` renders the trigger as one square in the sidebar's footer
+                row, which is where v4 puts search. As a full-width field it took
+                a whole block at the top of the nav for something ⌘K already
+                opens from anywhere.
+            */}
+            {icon ? (
+                <button
+                    type="button"
+                    onClick={openPalette}
+                    aria-label="Search"
+                    title="Search (⌘K)"
+                    className="inline-flex items-center justify-center w-8 h-[30px] rounded-lg border border-pulse-border text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                    aria-haspopup="dialog"
+                >
+                    <MagnifyingGlassIcon className="w-[15px] h-[15px]" aria-hidden="true" />
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={openPalette}
+                    className="w-full flex items-center gap-2 border border-pulse-border bg-pulse-panel-alt rounded-lg px-3 py-2 text-xs text-pulse-muted hover:border-pulse-border-strong hover:text-pulse-text-soft transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                    aria-haspopup="dialog"
+                >
+                    <MagnifyingGlassIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                    <span className="flex-1 text-left">Find&hellip;</span>
+                    <kbd className="border border-pulse-border rounded px-1 text-[10px] text-pulse-faint">&#8984;K</kbd>
+                </button>
+            )}
 
             {open && (
                 <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] px-4" role="presentation">
