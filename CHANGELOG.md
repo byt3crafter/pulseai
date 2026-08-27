@@ -3,6 +3,17 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.20] - 2026-08-27
+
+### Features
+- one content column across every page
+
+### Bug Fixes
+- one pill, and a composer that survives a phone
+
+### Chores
+- a remote build that cannot fill the disk
+
 ## [0.20.19] - 2026-08-27
 
 ### Bug Fixes
