@@ -94,6 +94,9 @@ export async function executeJob(job: any): Promise<void> {
             // "heartbeat" channel, and title it with the job name.
             trigger: (job.scheduleType === "interval" ? "heartbeat" : "cron") as "cron" | "heartbeat",
             triggerRef: job.id,
+            // Narrow this run to the tools the job declares. Empty/absent leaves
+            // the agent with everything, exactly as before.
+            allowedTools: Array.isArray(job.tools) ? job.tools : null,
         };
 
         // Capture the response instead of sending to a channel
