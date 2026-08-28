@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { preAuthCheck } from "../../account/two-factor/actions";
+import { useBranding, accentStyle } from "../../../utils/use-branding";
 
 export default function AdminLoginPage() {
     const [email, setEmail] = useState("");
@@ -18,6 +19,7 @@ export default function AdminLoginPage() {
     const [totp, setTotp] = useState("");
     const [info, setInfo] = useState("");
     const totpInputRef = useRef<HTMLInputElement>(null);
+    const branding = useBranding();
 
     useEffect(() => {
         if (totpRequired) totpInputRef.current?.focus();
@@ -80,21 +82,25 @@ export default function AdminLoginPage() {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pulse-bg p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pulse-bg p-4" style={accentStyle(branding?.accent)}>
             <div className="w-full max-w-[400px]">
-                <div className="mb-7 flex items-center justify-center gap-2">
-                    <div className="w-7 h-7 bg-pulse-accent rounded-lg flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-white">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                        </svg>
-                    </div>
-                    <span className="text-[15px] font-semibold text-pulse-text">Pulse</span>
+                <div className="mb-7 flex items-center justify-center gap-2.5">
+                    {branding?.logoDataUrl ? (
+                        <img src={branding.logoDataUrl} alt="" className="h-8 w-8 rounded-lg object-contain" />
+                    ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pulse-accent">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-white">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                            </svg>
+                        </div>
+                    )}
+                    <span className="text-[17px] font-bold tracking-[-0.01em] text-pulse-text">{branding?.productName ?? "Pulse AI"}</span>
                 </div>
 
-                <div className="rounded-2xl border border-pulse-border bg-pulse-panel p-8 shadow-xl shadow-black/20">
+                <div className="rounded-2xl border border-pulse-border bg-pulse-panel px-7 py-8 shadow-xl shadow-black/25 sm:px-8">
                     <div className="mb-6 text-center">
-                        <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-pulse-text">Platform administration</h1>
-                        <p className="mt-1 text-[13px] text-pulse-muted">Sign in to continue</p>
+                        <h1 className="text-[22px] font-bold tracking-[-0.02em] text-pulse-text">Platform administration</h1>
+                        <p className="mt-1.5 text-[13.5px] text-pulse-muted">Sign in to continue</p>
                     </div>
 
                     {info && (

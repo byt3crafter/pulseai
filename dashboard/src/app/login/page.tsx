@@ -6,10 +6,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { preAuthCheck } from "../account/two-factor/actions";
+import { useBranding, accentStyle } from "../../utils/use-branding";
 
 function LoginForm() {
     const searchParams = useSearchParams();
     const message = searchParams.get("message");
+    const branding = useBranding();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -103,19 +105,23 @@ function LoginForm() {
          * Everything here is on --pulse-* tokens, so it follows both the theme
          * and per-tenant branding.
          */
-        <div className="flex min-h-screen items-center justify-center bg-pulse-bg p-4">
+        <div className="flex min-h-screen items-center justify-center bg-pulse-bg p-4" style={accentStyle(branding?.accent)}>
             <div className="w-full max-w-[400px]">
-                <Link href="/" className="mb-7 flex items-center justify-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-pulse-accent">
-                        <BoltMark className="h-4 w-4 text-white" />
-                    </span>
-                    <span className="text-[15px] font-semibold text-pulse-text">Pulse</span>
+                <Link href="/" className="mb-7 flex items-center justify-center gap-2.5">
+                    {branding?.logoDataUrl ? (
+                        <img src={branding.logoDataUrl} alt="" className="h-8 w-8 rounded-lg object-contain" />
+                    ) : (
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-pulse-accent">
+                            <BoltMark className="h-4 w-4 text-white" />
+                        </span>
+                    )}
+                    <span className="text-[17px] font-bold tracking-[-0.01em] text-pulse-text">{branding?.productName ?? "Pulse AI"}</span>
                 </Link>
 
-                <div className="rounded-2xl border border-pulse-border bg-pulse-panel p-8 shadow-xl shadow-black/20">
+                <div className="rounded-2xl border border-pulse-border bg-pulse-panel px-7 py-8 shadow-xl shadow-black/25 sm:px-8">
                     <div className="mb-6 text-center">
-                        <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-pulse-text">Welcome back</h1>
-                        <p className="mt-1 text-[13px] text-pulse-muted">Sign in to your workspace to continue</p>
+                        <h1 className="text-[22px] font-bold tracking-[-0.02em] text-pulse-text">Welcome back</h1>
+                        <p className="mt-1.5 text-[13.5px] text-pulse-muted">Sign in to continue to {branding?.productName ?? "your workspace"}</p>
                     </div>
 
                     {info && (
@@ -229,13 +235,20 @@ function LoginForm() {
                                     </svg>
                                     Signing in…
                                 </>
-                            ) : "Sign in"}
+                            ) : (
+                                <>
+                                    Sign in
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                                        <path fillRule="evenodd" d="M7.293 4.293a1 1 0 011.414 0l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414-1.414L11.586 10 7.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                </>
+                            )}
                         </button>
                     </form>
                 </div>
 
-                <p className="mt-6 text-center text-[12px] text-pulse-faint">
-                    <Link href="/" className="transition-colors hover:text-pulse-muted">← Back to Pulse</Link>
+                <p className="mt-5 text-center text-[12px] text-pulse-faint">
+                    <Link href="/" className="transition-colors hover:text-pulse-muted">← Back to {branding?.productName ?? "Pulse"}</Link>
                 </p>
             </div>
         </div>
