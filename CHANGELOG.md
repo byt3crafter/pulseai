@@ -3,6 +3,17 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.36] - 2026-08-28
+
+### Features
+- the UI — import, approve, grant, assign
+- Phases 2-3 — storage, gating chain, and the runtime
+- Phase 1 — parse and import Agent Skills (SKILL.md)
+
+### Bug Fixes
+- parse YAML block scalars, and read packs without git
+- remote-build.sh syncs source itself, never shipping .env
+
 ## [0.20.35] - 2026-08-27
 
 ### Bug Fixes
