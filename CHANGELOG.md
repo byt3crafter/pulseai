@@ -3,6 +3,12 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.42] - 2026-08-28
+
+### Features
+- set a workspace's plan from the admin UI
+- per-tenant terms, and suspension that actually works
+
 ## [0.20.41] - 2026-08-28
 
 ### Bug Fixes
