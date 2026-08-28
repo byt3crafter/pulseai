@@ -17,6 +17,7 @@ import { getTenantTimezone } from "./tools/tz-util.js";
 import { shouldRunGate, runTruthGate, isErrorResult, type ToolOutcome } from "./truth-gate.js";
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
 import { getAgentSkills, formatSkillCatalogue } from "../skills/skill-service.js";
+import { checkTenantAccess } from "../billing/tenant-access.js";
 import { ToolPolicy, isToolAllowed } from "./tools/tool-policy.js";
 import { ensureToolApproved } from "./tools/approval-gate.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
@@ -180,37 +181,36 @@ export class AgentRuntime {
         let boundConversationId: string | null = null;
 
         try {
-            // 0. Pre-Flight Check: Verify tenant has sufficient credits.
-            // Skipped entirely in self-hosted / "unlimited" billing mode — used for
-            // dedicated client deployments running on the client's own API keys.
-            const rootSettings = await db.query.globalSettings.findFirst({
-                where: eq(globalSettings.id, "root"),
-            });
-            const billingMode = (rootSettings?.config as any)?.billingMode ?? "credits";
+            // 0. Pre-flight: may this workspace run at all? (see checkTenantAccess)
             const tenantSettings = await db.query.tenants.findFirst({
                 where: eq(tenants.id, inbound.tenantId),
                 columns: { config: true },
             });
             const autoMemoryConfig = parseAutoMemoryConfig(tenantSettings?.config);
 
-            if (billingMode !== "unlimited") {
-                const balanceRecord = await db.query.tenantBalances.findFirst({
-                    where: eq(tenantBalances.tenantId, inbound.tenantId),
+            /*
+             * One gate for "may this workspace run at all".
+             *
+             * This used to be an inline credits check against a DEPLOYMENT-WIDE
+             * billingMode, which cannot express a vendor's reality: Runstate runs
+             * unlimited on its own keys while a paying customer is on a monthly
+             * plan, both on the same box. checkTenantAccess also enforces
+             * tenants.status and the subscription state — the former existed as a
+             * column that nothing ever read, so a non-paying customer could not
+             * actually be stopped.
+             */
+            const access = await checkTenantAccess(inbound.tenantId);
+            if (!access.allowed) {
+                tenantLog.warn({ reason: access.reason }, "Message rejected — workspace may not run");
+                await sendMessageCallback({
+                    conversationId: randomUUID(), // Fallback conversation string
+                    tenantId: inbound.tenantId,
+                    agentProfileId: inbound.agentProfileId,
+                    channelType: inbound.channelType,
+                    channelContactId: inbound.channelContactId,
+                    content: access.message ?? "This workspace cannot process messages right now.",
                 });
-
-                const currentBalance = balanceRecord?.balance ? parseFloat(balanceRecord.balance as string) : 0;
-                if (currentBalance <= 0) {
-                    tenantLog.warn({ currentBalance }, "Message rejected due to insufficient credits");
-                    await sendMessageCallback({
-                        conversationId: randomUUID(), // Fallback conversation string
-                        tenantId: inbound.tenantId,
-                        agentProfileId: inbound.agentProfileId,
-                        channelType: inbound.channelType,
-                        channelContactId: inbound.channelContactId,
-                        content: "Your account has insufficient credits to process this message. Please top up your balance in the dashboard.",
-                    });
-                    return;
-                }
+                return;
             }
             // 1. Get or Create Conversation thread for Sliding Context Window
             let conversation = await db.query.conversations.findFirst({

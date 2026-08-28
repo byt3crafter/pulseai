@@ -1583,3 +1583,32 @@ export const agentSkillAssignments = pgTable(
     },
     (table) => [unique("agent_skill_assignments_unique").on(table.agentProfileId, table.skillId)],
 );
+
+
+/**
+ * Per-tenant commercial terms (migration 0048).
+ *
+ * An absent row means "fall back to globalSettings.billingMode", so adding this
+ * changed no existing workspace's behaviour.
+ */
+export const tenantBilling = pgTable(
+    "tenant_billing",
+    {
+        tenantId: uuid("tenant_id")
+            .primaryKey()
+            .references(() => tenants.id, { onDelete: "cascade" }),
+        /** credits | flat | unlimited */
+        plan: varchar("plan", { length: 24 }).notNull().default("credits"),
+        monthlyPrice: decimal("monthly_price", { precision: 12, scale: 2 }),
+        currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+        /** trialing | active | past_due | suspended | cancelled */
+        status: varchar("status", { length: 24 }).notNull().default("active"),
+        periodStart: timestamp("period_start", { withTimezone: true }),
+        periodEnd: timestamp("period_end", { withTimezone: true }),
+        suspendedReason: text("suspended_reason"),
+        notes: text("notes"),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => [index("idx_tenant_billing_status").on(table.status)],
+);
