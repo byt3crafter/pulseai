@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import {
     ArrowDownTrayIcon, CheckCircleIcon, ExclamationTriangleIcon,
     TrashIcon, PlusIcon, ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { PageHeader, Card, CardHeader } from "../../../components/dashboard/ui";
-import { addPackAction, importPackAction, approvePackAction, revokePackAction, deletePackAction, type PackRow } from "./actions";
+import { addPackAction, importPackAction, approvePackAction, revokePackAction, deletePackAction, listPackSkills, type PackRow, type PackSkillRow } from "./actions";
 
 type Result = { success: boolean; message: string };
 
@@ -14,7 +14,7 @@ export default function AdminSkillsClient({ packs }: { packs: PackRow[] }) {
     const [pending, startTransition] = useTransition();
     const [notice, setNotice] = useState<Result | null>(null);
     const [adding, setAdding] = useState(false);
-    const [expanded, setExpanded] = useState<string | null>(null);
+    const [expanded, setExpanded] = useState<{ id: string; view: "skills" | "skipped" } | null>(null);
 
     function run(action: (fd: FormData) => Promise<Result>, fd: FormData) {
         setNotice(null);
@@ -93,8 +93,9 @@ export default function AdminSkillsClient({ packs }: { packs: PackRow[] }) {
                             <tbody>
                                 {packs.map((p) => (
                                     <PackRowView key={p.id} p={p} pending={pending}
-                                        expanded={expanded === p.id}
-                                        onToggle={() => setExpanded(expanded === p.id ? null : p.id)}
+                                        expanded={expanded?.id === p.id ? expanded.view : null}
+                                        onToggle={(view) =>
+                                            setExpanded(expanded?.id === p.id && expanded.view === view ? null : { id: p.id, view })}
                                         onImport={withPack(importPackAction, p.id)}
                                         onApprove={withPack(approvePackAction, p.id)}
                                         onRevoke={withPack(revokePackAction, p.id)}
@@ -110,10 +111,29 @@ export default function AdminSkillsClient({ packs }: { packs: PackRow[] }) {
 }
 
 function PackRowView({ p, pending, expanded, onToggle, onImport, onApprove, onRevoke, onDelete }: {
-    p: PackRow; pending: boolean; expanded: boolean; onToggle: () => void;
+    p: PackRow; pending: boolean; expanded: "skills" | "skipped" | null;
+    onToggle: (view: "skills" | "skipped") => void;
     onImport: () => void; onApprove: () => void; onRevoke: () => void; onDelete: () => void;
 }) {
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [skills, setSkills] = useState<PackSkillRow[] | null>(null);
+    const [matched, setMatched] = useState(0);
+    const [q, setQ] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    // Fetched on expand, not with the page: a pack can hold 800+ skills.
+    useEffect(() => {
+        if (expanded !== "skills") return;
+        let cancelled = false;
+        setLoading(true);
+        listPackSkills(p.id, q).then((res) => {
+            if (cancelled) return;
+            setSkills(res.skills);
+            setMatched(res.total);
+            setLoading(false);
+        });
+        return () => { cancelled = true; };
+    }, [expanded, p.id, q]);
 
     return (
         <>
@@ -128,9 +148,18 @@ function PackRowView({ p, pending, expanded, onToggle, onImport, onApprove, onRe
                     )}
                 </td>
                 <td className="px-4 py-3 align-top text-pulse-soft">
-                    {p.skillCount}
+                    {/* The count is the way in — seeing what a pack contains is the
+                        first thing you want after importing it. */}
+                    {p.skillCount > 0 ? (
+                        <button type="button" onClick={() => onToggle("skills")}
+                            className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-pulse-text">
+                            {p.skillCount}
+                        </button>
+                    ) : (
+                        p.skillCount
+                    )}
                     {p.skippedCount > 0 && (
-                        <button type="button" onClick={onToggle}
+                        <button type="button" onClick={() => onToggle("skipped")}
                             className="ml-2 cursor-pointer text-xs text-pulse-muted underline decoration-dotted hover:text-pulse-text">
                             {p.skippedCount} skipped
                         </button>
@@ -189,7 +218,46 @@ function PackRowView({ p, pending, expanded, onToggle, onImport, onApprove, onRe
                     </div>
                 </td>
             </tr>
-            {expanded && p.skipped.length > 0 && (
+            {expanded === "skills" && (
+                <tr className="border-b border-pulse-border-subtle bg-pulse-panel-alt">
+                    <td colSpan={4} className="px-5 py-3">
+                        <div className="mb-2 flex flex-wrap items-center gap-3">
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-pulse-text">
+                                <ChevronDownIcon className="h-3.5 w-3.5" /> Skills in this pack
+                            </span>
+                            <input type="search" value={q} onChange={(e) => setQ(e.target.value)}
+                                placeholder="Filter by name or description" aria-label="Filter skills"
+                                className="w-64 rounded-lg border border-pulse-border bg-pulse-panel px-2.5 py-1 text-xs text-pulse-text placeholder-pulse-faint outline-none focus:ring-2 focus:ring-pulse-accent/40" />
+                            {skills && (
+                                <span className="text-xs text-pulse-faint">
+                                    {/* Honest about truncation: a capped list must never read as complete. */}
+                                    {matched > skills.length
+                                        ? `showing ${skills.length} of ${matched}`
+                                        : `${matched} skill${matched === 1 ? "" : "s"}`}
+                                </span>
+                            )}
+                        </div>
+                        {loading && !skills ? (
+                            <p className="py-4 text-xs text-pulse-muted">Loading…</p>
+                        ) : skills && skills.length === 0 ? (
+                            <p className="py-4 text-xs text-pulse-muted">Nothing matches that.</p>
+                        ) : (
+                            <ul className="max-h-96 space-y-1.5 overflow-y-auto pr-2">
+                                {skills?.map((sk) => (
+                                    <li key={sk.qualifiedName} className="border-b border-pulse-border-subtle pb-1.5 last:border-b-0">
+                                        <div className="flex flex-wrap items-baseline gap-2">
+                                            <span className="text-[13px] font-medium text-pulse-text">{sk.qualifiedName}</span>
+                                            {sk.plugin && <span className="text-[11px] text-pulse-faint">{sk.plugin}</span>}
+                                        </div>
+                                        <p className="mt-0.5 line-clamp-2 text-xs text-pulse-muted">{sk.description}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </td>
+                </tr>
+            )}
+            {expanded === "skipped" && p.skipped.length > 0 && (
                 <tr className="border-b border-pulse-border-subtle bg-pulse-panel-alt">
                     <td colSpan={4} className="px-5 py-3">
                         {/* Skipped files are shown, not hidden — silently missing skills are worse. */}
