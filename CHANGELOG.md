@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.38] - 2026-08-28
+
+### Features
+- select-all in the skills library, and one page-width token
+
 ## [0.20.37] - 2026-08-28
 
 ### Bug Fixes
