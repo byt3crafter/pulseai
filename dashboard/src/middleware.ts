@@ -23,7 +23,7 @@ export default auth((req) => {
     }
 
     const isLoggedIn = !!req.auth;
-    const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth") || nextUrl.pathname === "/api/sso-status";
+    const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth") || nextUrl.pathname === "/api/sso-status" || nextUrl.pathname === "/api/branding";
     const isOAuthCallbackRoute = nextUrl.pathname.startsWith("/auth/callback"); // OpenAI OAuth popup callback + bridge
     const isOAuthRoute = nextUrl.pathname.startsWith("/oauth/");
     const isRoot = nextUrl.pathname === "/";
