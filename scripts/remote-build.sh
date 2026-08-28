@@ -16,6 +16,32 @@ HOST="${PULSE_VPS_HOST:-pulse-vps}"
 REGISTRY="${PULSE_REGISTRY:-registry.runstate.mu}"
 MIN_FREE_GB="${MIN_FREE_GB:-12}"
 
+# ─── Sync source to the build host ───────────────────────────────────────────
+#
+# The script used to build whatever happened to be on the box, leaving the sync
+# to whoever ran it. Hand-rolling it is how production went down: a manual
+#   rsync -a --delete ./ host:/opt/pulse-ai/
+# has no --exclude '.env', so it replaced the server's environment file with the
+# developer's local one. The gateway crash-looped on the next restart and the
+# real Postgres password was unrecoverable from every container.
+#
+# The exclusions below are deliberately identical to deploy.sh's. '.env' is the
+# one that matters: it exists ONLY on the server and must never be shipped or
+# deleted. Doing the sync here means there is no longer a hand-rolled route to
+# get wrong.
+if [ "${SKIP_SYNC:-0}" != "1" ]; then
+    echo "syncing source to ${HOST}…"
+    rsync -az --delete \
+        --exclude '.git' \
+        --exclude 'node_modules' \
+        --exclude '.next' \
+        --exclude '.env' \
+        --exclude 'data/' \
+        --exclude 'dist/' \
+        --exclude 'scripts/migrations/.applied' \
+        "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/" "${HOST}:/opt/pulse-ai/"
+fi
+
 read -r -d '' REMOTE <<REMOTE_EOF || true
 set -euo pipefail
 cd /opt/pulse-ai
