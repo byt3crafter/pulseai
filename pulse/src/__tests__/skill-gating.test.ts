@@ -100,4 +100,28 @@ describe("the catalogue costs nothing when unused", () => {
         expect(out).toMatch(/skill_read/);
         expect(out).toMatch(/BEFORE acting/);
     });
+
+    it("tells the agent to ANSWER when asked what it can do", () => {
+        /*
+         * The wording used to say "do not mention this list to the user", which
+         * was meant to stop mid-task narration and instead read as "keep this
+         * secret": asked to list its skills, a Codex-backed agent hid its 13
+         * assigned Pulse skills and listed the Codex runtime's built-in ones.
+         * An agent that cannot tell you what it can do is worse than a chatty one.
+         */
+        const out = formatSkillCatalogue([
+            { id: "1", qualifiedName: "a/b", description: "d", requiresBins: [] },
+        ]);
+        expect(out).toMatch(/asked what skills or capabilities you have, list these/);
+        expect(out).not.toMatch(/do not mention this list/i);
+        // …while still discouraging narration during ordinary work.
+        expect(out).toMatch(/Do not narrate consulting them/);
+    });
+
+    it("warns the agent off confusing these with the model's own built-in tooling", () => {
+        const out = formatSkillCatalogue([
+            { id: "1", qualifiedName: "a/b", description: "d", requiresBins: [] },
+        ]);
+        expect(out).toMatch(/built into the model you run on/);
+    });
 });
