@@ -243,3 +243,54 @@ export async function listPacks(): Promise<PackRow[]> {
         return [];
     }
 }
+
+export interface PackSkillRow {
+    qualifiedName: string;
+    plugin: string | null;
+    description: string;
+    sourcePath: string | null;
+}
+
+/**
+ * The skills inside one pack.
+ *
+ * Loaded on demand rather than with the pack list: a pack can hold 800+ skills
+ * and the page shows several packs, so fetching every skill up front would ship
+ * megabytes to render four rows of counts.
+ */
+export async function listPackSkills(
+    packId: string,
+    query = "",
+): Promise<{ skills: PackSkillRow[]; total: number }> {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.authorized) return { skills: [], total: 0 };
+
+    try {
+        const q = query.trim().toLowerCase();
+        const rows = await db
+            .select({
+                qualifiedName: skillDefinitions.qualifiedName,
+                plugin: skillDefinitions.plugin,
+                description: skillDefinitions.description,
+                sourcePath: skillDefinitions.sourcePath,
+            })
+            .from(skillDefinitions)
+            .where(eq(skillDefinitions.packId, packId))
+            .orderBy(skillDefinitions.qualifiedName);
+
+        const filtered = q
+            ? rows.filter(
+                  (r) =>
+                      r.qualifiedName.toLowerCase().includes(q) ||
+                      r.description.toLowerCase().includes(q),
+              )
+            : rows;
+
+        // Capped for rendering; the count above the list stays honest about
+        // how many actually matched, so a truncated view never reads as complete.
+        return { skills: filtered.slice(0, 400), total: filtered.length };
+    } catch (error) {
+        console.error("Failed to list pack skills:", error);
+        return { skills: [], total: 0 };
+    }
+}
