@@ -101,7 +101,7 @@ export default function HistoryClient({ sessions }: { sessions: Row[] }) {
     }
 
     return (
-        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
+        <div className="mx-auto w-full max-w-page px-6 py-7 sm:px-10 sm:py-9">
             <div className="mb-5 flex items-center gap-3">
                 <h1 className="flex-1 text-2xl font-semibold tracking-[-0.02em] text-pulse-text">History</h1>
                 <Link

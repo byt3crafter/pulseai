@@ -22,7 +22,7 @@ export default async function NotesPage() {
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-page mx-auto">
             <PageHeader
                 title="Notepad"
                 description="Quick notes for you and your agents — pin the ones you want to keep on top."

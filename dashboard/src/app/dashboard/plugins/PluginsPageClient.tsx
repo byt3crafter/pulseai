@@ -12,7 +12,7 @@ interface Props {
 
 export default function PluginsPageClient({ plugins, savePluginCredentials, toolSearchConfig, initialPlugin }: Props) {
     return (
-        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
+        <div className="mx-auto w-full max-w-page px-6 py-7 sm:px-10 sm:py-9">
             <PageHeader title="Plugins" description="Pick an integration to configure — its credentials are stored in your vault." />
             <div className="mt-6" />
             <PluginsTab

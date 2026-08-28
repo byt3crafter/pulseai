@@ -281,7 +281,7 @@ export default function PeopleClient({
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-page mx-auto">
             <PageHeader
                 title="People"
                 description="Account-wide access control for people messaging your agents on Telegram — applies to every group and DM, not per-channel."

@@ -11,7 +11,7 @@ export default function SkillsClient({ library, agents }: { library: LibrarySkil
     const [pending, startTransition] = useTransition();
 
     return (
-        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
+        <div className="mx-auto w-full max-w-page px-6 py-7 sm:px-10 sm:py-9">
             <PageHeader
                 title="Skills"
                 description="Playbooks your agents can consult. Add them to your library, then give each agent the ones it needs."
@@ -50,6 +50,9 @@ function Library({ library, pending, onNotice, startTransition }: {
             s.qualifiedName.toLowerCase().includes(n) || s.description.toLowerCase().includes(n));
     }, [library, q]);
 
+    const allShown = rows.length > 0 && rows.every((r) => selected.has(r.id));
+    const selectAllShown = () => setSelected(new Set(rows.map((r) => r.id)));
+
     function apply(granted: boolean) {
         const ids = [...selected];
         startTransition(async () => {
@@ -80,21 +83,40 @@ function Library({ library, pending, onNotice, startTransition }: {
                     <>
                         <span className="text-sm font-medium text-pulse-text">{selected.size} selected</span>
                         <button type="button" onClick={() => setSelected(new Set())} className="cursor-pointer text-sm text-pulse-muted hover:text-pulse-text">Clear</button>
+                        {/*
+                            Select-all applies to what the FILTER currently shows, not
+                            to all 862. With a search active, "all" meaning the whole
+                            library would add hundreds of skills the person never saw.
+                        */}
+                        {!allShown && (
+                            <button type="button" onClick={selectAllShown}
+                                className="cursor-pointer text-sm text-pulse-accent hover:underline">
+                                Select all {rows.length}{q ? " matching" : ""}
+                            </button>
+                        )}
                         <div className="ml-auto flex gap-2">
                             <button type="button" disabled={pending} onClick={() => apply(false)}
                                 className="cursor-pointer rounded-lg px-2.5 py-1.5 text-sm text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text disabled:opacity-50">Remove</button>
                             <button type="button" disabled={pending} onClick={() => apply(true)}
                                 className="cursor-pointer rounded-lg bg-pulse-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-pulse-accent-hi disabled:opacity-50">
-                                {pending ? "Saving…" : "Add to library"}
+                                {pending ? "Saving…" : `Add ${selected.size} to library`}
                             </button>
                         </div>
                     </>
                 ) : (
-                    <div className="relative w-full max-w-sm">
-                        <MagnifyingGlassIcon aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-pulse-faint" />
-                        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search skills" aria-label="Search skills"
-                            className="w-full bg-transparent py-2 pl-6 pr-3 text-sm text-pulse-text placeholder-pulse-faint outline-none" />
-                    </div>
+                    <>
+                        <div className="relative w-full max-w-sm">
+                            <MagnifyingGlassIcon aria-hidden="true" className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-pulse-faint" />
+                            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search skills" aria-label="Search skills"
+                                className="w-full bg-transparent py-2 pl-6 pr-3 text-sm text-pulse-text placeholder-pulse-faint outline-none" />
+                        </div>
+                        {rows.length > 0 && (
+                            <button type="button" onClick={selectAllShown}
+                                className="ml-auto shrink-0 cursor-pointer text-sm text-pulse-muted hover:text-pulse-text">
+                                Select all {rows.length}{q ? " matching" : ""}
+                            </button>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -139,6 +161,28 @@ function Agents({ library, agents, pending, onNotice, startTransition }: {
     const granted = library.filter((s) => s.granted);
     const [openAgent, setOpenAgent] = useState<string | null>(null);
     const [draft, setDraft] = useState<Set<string>>(new Set());
+    const [q, setQ] = useState("");
+
+    const shown = useMemo(() => {
+        const n = q.trim().toLowerCase();
+        if (!n) return granted;
+        return granted.filter((s) =>
+            s.qualifiedName.toLowerCase().includes(n) || s.description.toLowerCase().includes(n));
+    }, [granted, q]);
+
+    /*
+     * What this agent's catalogue will cost, every single message.
+     *
+     * Shown because the cost is invisible otherwise and the library can hold
+     * hundreds of skills: assigning all of them is one click and would put
+     * ~64k tokens into every request, which is more than most conversations.
+     * Roughly 4 characters per token — close enough to make the point.
+     */
+    const catalogueTokens = useMemo(() => {
+        let chars = 0;
+        for (const s of granted) if (draft.has(s.id)) chars += s.qualifiedName.length + s.description.length + 4;
+        return Math.round(chars / 4);
+    }, [granted, draft]);
 
     if (granted.length === 0) {
         return (
@@ -153,6 +197,7 @@ function Agents({ library, agents, pending, onNotice, startTransition }: {
     function open(a: AgentSkillView) {
         setOpenAgent(a.agentId);
         setDraft(new Set(a.skillIds));
+        setQ("");
     }
     function save(agentId: string) {
         startTransition(async () => {
@@ -199,10 +244,37 @@ function Agents({ library, agents, pending, onNotice, startTransition }: {
                             <h2 className="text-[15px] font-semibold text-pulse-text">
                                 Skills for {agents.find((a) => a.agentId === openAgent)?.agentName}
                             </h2>
-                            <p className="mt-0.5 text-xs text-pulse-muted">{draft.size} of {granted.length} selected</p>
+                            <p className="mt-0.5 text-xs text-pulse-muted">
+                                {draft.size} of {granted.length} selected
+                                {draft.size > 0 && (
+                                    <>
+                                        {" · "}
+                                        <span className={catalogueTokens > 8000 ? "text-amber-400" : ""}>
+                                            ~{catalogueTokens.toLocaleString()} tokens per message
+                                        </span>
+                                    </>
+                                )}
+                            </p>
+                            {catalogueTokens > 8000 && (
+                                <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+                                    That is a lot to carry on every message. An agent only needs the skills for
+                                    its own job — give the rest to a different agent instead.
+                                </p>
+                            )}
                         </div>
-                        <div className="max-h-80 overflow-y-auto px-5 py-3">
-                            {granted.map((s) => (
+                        <div className="border-b border-pulse-border-subtle px-5 py-2">
+                            <input type="search" value={q} onChange={(e) => setQ(e.target.value)}
+                                placeholder={`Search ${granted.length} skills`} aria-label="Search skills"
+                                className="w-full rounded-lg border border-pulse-border bg-pulse-panel px-3 py-1.5 text-sm text-pulse-text placeholder-pulse-faint outline-none focus:ring-2 focus:ring-pulse-accent/40" />
+                            <div className="mt-2 flex gap-3 text-xs">
+                                <button type="button" onClick={() => setDraft((p) => { const n = new Set(p); shown.forEach((s) => n.add(s.id)); return n; })}
+                                    className="cursor-pointer text-pulse-accent hover:underline">Select all {shown.length}{q ? " matching" : ""}</button>
+                                <button type="button" onClick={() => setDraft((p) => { const n = new Set(p); shown.forEach((s) => n.delete(s.id)); return n; })}
+                                    className="cursor-pointer text-pulse-muted hover:text-pulse-text">Clear shown</button>
+                            </div>
+                        </div>
+                        <div className="max-h-72 overflow-y-auto px-5 py-3">
+                            {shown.map((s) => (
                                 <label key={s.id} className="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-2 hover:bg-pulse-hover">
                                     <input type="checkbox" checked={draft.has(s.id)}
                                         onChange={() => setDraft((p) => { const n = new Set(p); n.has(s.id) ? n.delete(s.id) : n.add(s.id); return n; })}

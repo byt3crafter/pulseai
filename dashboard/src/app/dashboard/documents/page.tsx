@@ -22,7 +22,7 @@ export default async function DocumentsPage() {
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-page mx-auto">
             <PageHeader
                 title="Documents"
                 description="Your file locker — upload contracts, quotes, and receipts so you and your agents can find and read them later."

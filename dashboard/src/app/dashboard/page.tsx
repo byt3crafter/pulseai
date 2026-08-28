@@ -52,7 +52,7 @@ export default async function DashboardOverview() {
     const telegramBotToken = (telegramChannel?.channelConfig as any)?.botToken;
 
     return (
-        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9 space-y-6">
+        <div className="mx-auto w-full max-w-page px-6 py-7 sm:px-10 sm:py-9 space-y-6">
             <PageHeader
                 title="Workspace Overview"
                 description="Your AI workforce at a glance — what's running now, what got done today, and what needs you."
