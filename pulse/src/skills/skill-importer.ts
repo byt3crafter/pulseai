@@ -94,19 +94,41 @@ export function importSkillsFromDirectory(root: string): ImportReport {
     if (!existsSync(root)) {
         return { skills: [], skipped: [{ path: root, reason: "Folder not found." }], packChecksum: "" };
     }
+    const files: SkillFile[] = [];
+    for (const file of findSkillFiles(root).sort()) {
+        const rel = file.slice(root.length).replace(/^[/\\]/, "");
+        try {
+            files.push({ path: rel, source: readFileSync(file, "utf8") });
+        } catch (e) {
+            files.push({ path: rel, source: null, error: (e as Error).message });
+        }
+    }
+    return importSkillFiles(files);
+}
 
+/** One candidate SKILL.md, from disk or from an archive. */
+export interface SkillFile {
+    path: string;
+    source: string | null;
+    error?: string;
+}
+
+/**
+ * The importer proper: given candidate files, produce a report.
+ *
+ * Separated from the filesystem walk so a repo tarball feeds exactly the same
+ * logic — a second copy of the dedup and identity rules is a second place for
+ * them to drift, and those rules are what stop eleven real skills being lost.
+ */
+export function importSkillFiles(files: SkillFile[]): ImportReport {
     const skills: ImportedSkill[] = [];
     const skipped: { path: string; reason: string }[] = [];
     const seenQualified = new Map<string, string>();
     const seenContent = new Map<string, string>();
 
-    for (const file of findSkillFiles(root).sort()) {
-        const rel = file.slice(root.length).replace(/^[/\\]/, "");
-        let source: string;
-        try {
-            source = readFileSync(file, "utf8");
-        } catch (e) {
-            skipped.push({ path: rel, reason: `Could not read: ${(e as Error).message}` });
+    for (const { path: rel, source, error } of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
+        if (source === null) {
+            skipped.push({ path: rel, reason: `Could not read: ${error ?? "unknown error"}` });
             continue;
         }
 

@@ -10,6 +10,7 @@ import {
     ChatBubbleLeftRightIcon,
     ClipboardDocumentListIcon,
     Cog6ToothIcon,
+    AcademicCapIcon,
 } from "@heroicons/react/24/outline";
 
 const links = [
@@ -19,6 +20,7 @@ const links = [
     { href: "/admin/conversations", label: "Conversations", icon: ChatBubbleLeftRightIcon, exact: false },
     { href: "/admin/usage", label: "Usage Analytics", icon: PresentationChartBarIcon, exact: false },
     { href: "/admin/audit", label: "Audit Log", icon: ClipboardDocumentListIcon, exact: false },
+    { href: "/admin/skills", label: "Agent Skills", icon: AcademicCapIcon, exact: false },
     { href: "/admin/settings", label: "Global Settings", icon: Cog6ToothIcon, exact: false },
 ];
 
