@@ -136,7 +136,7 @@ export default function AgentsTableClient({
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-page mx-auto">
             <PageHeader
                 title="Agent Profiles"
                 description="Manage your AI workforce — models, departments, and status."

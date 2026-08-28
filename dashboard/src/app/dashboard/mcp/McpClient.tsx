@@ -62,7 +62,7 @@ export default function McpClient({ servers, agents, bindings }: Props) {
     };
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-page mx-auto">
             <PageHeader
                 title="MCP Servers"
                 description="Manage external tool servers and bind them to agents."

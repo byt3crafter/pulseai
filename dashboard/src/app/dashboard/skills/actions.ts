@@ -96,7 +96,7 @@ export async function setGrantsAction(skillIds: string[], granted: boolean) {
     const check = await requireTenant();
     if (!check.authorized) return { success: false, message: check.message };
 
-    const ids = (skillIds || []).filter(Boolean).slice(0, 1000);
+    const ids = (skillIds || []).filter(Boolean).slice(0, 2000);
     if (ids.length === 0) return { success: false, message: "Nothing selected." };
 
     try {
@@ -201,7 +201,9 @@ export async function setAgentSkillsAction(agentId: string, skillIds: string[]) 
         if (!agent) return { success: false, message: "Agent not found." };
 
         // Only skills the workspace has actually granted may be assigned.
-        const ids = (skillIds || []).filter(Boolean).slice(0, 500);
+        // Generous: the library can hold ~900, and a hard truncation here would
+        // silently drop assignments the person just made.
+        const ids = (skillIds || []).filter(Boolean).slice(0, 2000);
         const granted = ids.length
             ? await db
                   .select({ skillId: tenantSkillGrants.skillId })

@@ -526,7 +526,7 @@ export default function TeamClient({ members, channelOptions, currentUserId, can
     }
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-page mx-auto">
             <PageHeader
                 title="Team"
                 description="Invite people to sign in to Pulse and assign them to departments."

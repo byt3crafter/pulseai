@@ -27,7 +27,7 @@ export default function AdminSkillsClient({ packs }: { packs: PackRow[] }) {
     };
 
     return (
-        <div className="mx-auto w-full max-w-[1060px] px-6 py-7 sm:px-10 sm:py-9">
+        <div className="mx-auto w-full max-w-page px-6 py-7 sm:px-10 sm:py-9">
             <PageHeader
                 title="Agent Skills"
                 description="Skill packs available to workspaces. A pack must be imported and approved before any workspace can use it."

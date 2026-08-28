@@ -5,6 +5,23 @@
   --color-foreground: var(--pulse-text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /*
+   * The content column, in ONE place.
+   *
+   * It was previously written as max-w-page in forty separate page files,
+   * so changing it meant changing it forty times and any page that got missed
+   * silently disagreed with the rest. `max-w-page` / `max-w-page-wide` are the
+   * only correct way to set it now.
+   *
+   * 1280px is the common app-shell width (GitHub, Linear, Stripe all sit at
+   * 1200-1280): wide enough that a six-column table like Contacts stops
+   * truncating, narrow enough that prose and settings rows do not turn into
+   * uncomfortably long lines on a 27-inch monitor. `page-wide` is for the few
+   * screens that are genuinely all table.
+   */
+  --container-page: 1280px;
+  --container-page-wide: 1600px;
 }
 
 body {

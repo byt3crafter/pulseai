@@ -48,7 +48,7 @@ export function PageContainer({
     className?: string;
 }) {
     return (
-        <div className={`mx-auto w-full ${wide ? "max-w-[1400px]" : "max-w-[1060px]"} px-6 py-7 sm:px-10 sm:py-9 ${className}`}>
+        <div className={`mx-auto w-full ${wide ? "max-w-page-wide" : "max-w-page"} px-6 py-7 sm:px-10 sm:py-9 ${className}`}>
             {children}
         </div>
     );

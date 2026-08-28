@@ -62,7 +62,7 @@ export default async function TenantAuditPage({
     }));
 
     return (
-        <div className="p-4 sm:p-5 lg:p-6 max-w-[1060px] mx-auto">
+        <div className="p-4 sm:p-5 lg:p-6 max-w-page mx-auto">
             <PageHeader
                 title="Audit Log"
                 description="Everything that happened in this workspace — who changed what, and when."
