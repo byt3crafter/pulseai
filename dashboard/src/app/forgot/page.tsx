@@ -27,10 +27,10 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
-            <div className="w-full max-w-sm">
-                <h1 className="text-2xl font-bold text-slate-900 mb-1">Forgot password</h1>
-                <p className="text-sm text-slate-500 mb-8">
+        <div className="flex min-h-screen items-center justify-center bg-pulse-bg p-4">
+            <div className="w-full max-w-[400px]">
+                <h1 className="mb-1 text-[17px] font-semibold tracking-[-0.01em] text-pulse-text">Forgot password</h1>
+                <p className="mb-8 text-[13px] text-pulse-muted">
                     Enter your email and we&apos;ll send you a link to reset your password.
                 </p>
 
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
                 {!message && (
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
-                            <label htmlFor="forgot-email" className="block text-sm font-medium text-slate-700 mb-1.5">
+                            <label htmlFor="forgot-email" className="mb-1.5 block text-[13px] font-medium text-pulse-soft">
                                 Email Address
                             </label>
                             <input
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
                                 required
                                 autoComplete="email"
                                 placeholder="you@yourcompany.com"
-                                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 placeholder:text-slate-400 bg-white text-sm"
+                                className="w-full rounded-lg border border-pulse-border bg-pulse-bg px-3 py-2.5 text-sm text-pulse-text placeholder:text-pulse-faint outline-none transition-shadow focus:border-pulse-accent focus:ring-2 focus:ring-pulse-accent/30"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
@@ -65,15 +65,15 @@ export default function ForgotPasswordPage() {
                         <button
                             type="submit"
                             disabled={pending}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full cursor-pointer rounded-lg bg-pulse-accent py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-pulse-accent-hi disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {pending ? "Sending..." : "Send reset link"}
                         </button>
                     </form>
                 )}
 
-                <p className="text-center text-xs text-slate-400 mt-8">
-                    <Link href="/login" className="hover:text-slate-600 transition-colors">
+                <p className="mt-8 text-center text-[12px] text-pulse-faint">
+                    <Link href="/login" className="transition-colors hover:text-pulse-muted">
                         ← Back to sign in
                     </Link>
                 </p>
