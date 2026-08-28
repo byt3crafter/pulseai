@@ -42,6 +42,7 @@ import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as os from "os";
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
 import { config } from "../../config.js";
@@ -455,6 +456,16 @@ interface PoolEntry {
     client: CodexRpcClient | null;
     clientInit: Promise<CodexRpcClient> | null;
     threadId?: string;
+    /**
+     * Hash of the developerInstructions this thread was STARTED with.
+     *
+     * Codex takes the system prompt once, at thread/start, and a reused thread
+     * never sees it again. Without this, changing an agent's skills, persona or
+     * standing orders had no effect on a live conversation — the thread kept
+     * whatever it was created with until the process restarted, which made
+     * settings look broken in a way nothing in the logs explained.
+     */
+    promptHash?: string;
     tokenExpiresAt: number;
     lastUsed: number;
     queue: Promise<unknown>; // serializes turns within THIS conversation
@@ -677,6 +688,28 @@ export class CodexAppServerProvider {
             cached = undefined;
         }
 
+        /*
+         * Start a new thread when the instructions have changed.
+         *
+         * This is the only way a settings change reaches a live Codex
+         * conversation: developerInstructions are read once at thread/start, so
+         * a reused thread is frozen with the prompt it was born with. Assigning
+         * a skill, editing a persona or changing a standing order would
+         * otherwise do nothing until the gateway restarted.
+         *
+         * A thread restart costs one round-trip and loses no history — the
+         * conversation is replayed from our own store, not Codex's.
+         */
+        const promptHash = createHash("sha256").update(params.systemPrompt || "").digest("hex").slice(0, 16);
+        if (cached && entry.promptHash !== promptHash) {
+            log.info(
+                { conversationId: params.conversationId, was: entry.promptHash, now: promptHash },
+                "System prompt changed — starting a fresh Codex thread so the change takes effect",
+            );
+            entry.threadId = undefined;
+            cached = undefined;
+        }
+
         const startThread = async (): Promise<{ threadId: string; tokenExpiresAt: number }> => {
             // Tool access is an enhancement — degrade to plain chat on failure.
             let tenantMcp: TenantMcpConfig | null = null;
@@ -724,6 +757,7 @@ export class CodexAppServerProvider {
             threadId = started.threadId;
             if (cacheKey) {
                 entry.threadId = threadId;
+                entry.promptHash = promptHash;
                 entry.tokenExpiresAt = started.tokenExpiresAt;
                 entry.lastUsed = Date.now();
             }
