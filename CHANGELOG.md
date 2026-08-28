@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.43] - 2026-08-28
+
+### Features
+- Clerk-style centred logins, on tokens, no hardcoded company
+
 ## [0.20.42] - 2026-08-28
 
 ### Features
