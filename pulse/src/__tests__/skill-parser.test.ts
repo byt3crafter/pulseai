@@ -106,3 +106,54 @@ describe("SKILL.md parsing", () => {
         expect(s.description).toBe("d");
     });
 });
+
+/*
+ * YAML block scalars.
+ *
+ * Not an edge case: 179 of the 802 skills in the three real upstream packs
+ * write their description as a folded or literal block — 126 of the 151 in
+ * claude-for-legal alone. Reading the value as ">" gave those skills a
+ * one-character description, and since the description is the ONLY thing the
+ * agent sees in the catalogue, every one of them would have been impossible to
+ * choose. The feature would have looked broken for a quarter of what it loaded.
+ */
+describe("block scalars", () => {
+    it("folds a '>' description onto one line", () => {
+        const s = parseSkill("---\nname: a\ndescription: >\n  first line\n  second line\n---\nbody");
+        expect(s.description).toBe("first line second line");
+    });
+
+    it("keeps newlines for a '|' description", () => {
+        const s = parseSkill("---\nname: a\ndescription: |\n  first\n  second\n---\nbody");
+        expect(s.description).toBe("first\nsecond");
+    });
+
+    it("handles chomping indicators ('>-', '|+')", () => {
+        expect(parseSkill("---\nname: a\ndescription: >-\n  x y\n---\nb").description).toBe("x y");
+        expect(parseSkill("---\nname: a\ndescription: |+\n  x\n---\nb").description).toBe("x");
+    });
+
+    it("ends the block at the next unindented key", () => {
+        const s = parseSkill("---\nname: a\ndescription: >\n  the text\nhomepage: http://x\n---\nbody");
+        expect(s.description).toBe("the text");
+        expect(s.meta.homepage).toBe("http://x");
+    });
+
+    it("keeps the body out of the block", () => {
+        const s = parseSkill("---\nname: a\ndescription: >\n  desc\n---\nreal body here");
+        expect(s.body).toBe("real body here");
+    });
+
+    it("every vendored skill ends up with a usable description", () => {
+        // A one-character description means the parser silently mangled it.
+        const dirs = readdirSync(REF).filter((d) => existsSync(join(REF, d, "SKILL.md")));
+        for (const d of dirs) {
+            try {
+                const s = parseSkill(readFileSync(join(REF, d, "SKILL.md"), "utf8"), d);
+                expect(s.description.length, `${d} has a mangled description`).toBeGreaterThan(11);
+            } catch {
+                /* the one file with no frontmatter is covered above */
+            }
+        }
+    });
+});

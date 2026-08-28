@@ -67,8 +67,12 @@ export function parseSkill(source: string, fallbackName?: string): ParsedSkill {
     const [, frontmatter, body] = match;
 
     const meta: Record<string, string> = {};
+    const lines = frontmatter.split(/\r?\n/);
     let currentKey: string | null = null;
-    for (const raw of frontmatter.split(/\r?\n/)) {
+
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i];
+
         // A list item continues the previous key (read_when: / - a / - b).
         if (/^\s*-\s+/.test(raw)) {
             if (currentKey) {
@@ -77,10 +81,40 @@ export function parseSkill(source: string, fallbackName?: string): ParsedSkill {
             }
             continue;
         }
+
         const kv = raw.match(/^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/);
         if (!kv) continue;
         currentKey = kv[1];
-        const value = stripQuotes(kv[2]);
+        const rawValue = kv[2].trim();
+
+        /*
+         * YAML block scalars: `description: >` (folded) or `|` (literal),
+         * with an optional chomping indicator, followed by indented lines.
+         *
+         * Not an edge case — 179 of the 802 skills in the three upstream packs
+         * write their description this way, including 126 of the 151 in
+         * claude-for-legal. Reading the value as ">" gave those skills a
+         * one-character description, and since the description is the only
+         * thing the agent ever sees in the catalogue, every one of them would
+         * have been impossible to choose.
+         */
+        if (/^[|>][-+]?[0-9]*$/.test(rawValue)) {
+            const folded = rawValue.startsWith(">");
+            const block: string[] = [];
+            while (i + 1 < lines.length) {
+                const next = lines[i + 1];
+                // A blank line belongs to the block; a non-indented line ends it.
+                if (next.trim() !== "" && !/^\s/.test(next)) break;
+                block.push(next.trim());
+                i++;
+            }
+            while (block.length && block.at(-1) === "") block.pop();
+            const value = folded ? block.join(" ").replace(/\s+/g, " ").trim() : block.join("\n").trim();
+            if (value) meta[currentKey] = value;
+            continue;
+        }
+
+        const value = stripQuotes(rawValue);
         if (value) meta[currentKey] = value;
     }
 
