@@ -156,13 +156,32 @@ export async function readAgentSkill(
 export function formatSkillCatalogue(skills: ResolvedSkill[]): string {
     if (skills.length === 0) return "";
     const lines = skills.map((s) => `- ${s.qualifiedName}: ${s.description.replace(/\s+/g, " ").trim()}`);
+    /*
+     * The wording matters more than it looks.
+     *
+     * This previously ended with "do not mention this list to the user", which
+     * was meant to stop the agent narrating "consulting my skills…" mid-task.
+     * It read as "keep this secret": asked "what skills do you have?", a
+     * Codex-backed agent hid its 13 assigned Pulse skills and listed the Codex
+     * runtime's own built-in ones instead. Being unable to tell you what it can
+     * do is a worse failure than being chatty about it.
+     *
+     * So: answer honestly when asked, stay quiet when not, and do not confuse
+     * these with whatever tooling the underlying model ships with.
+     */
     return [
         "\n\n## Skills",
         "",
-        "Playbooks you can consult. Each line is a name and when it applies.",
-        "When one fits the task, call `skill_read` with its name to get the full",
-        "instructions BEFORE acting. Do not guess a skill's contents from its",
-        "description, and do not mention this list to the user.",
+        "These are YOUR skills — playbooks you can consult. Each line is a skill's",
+        "name and when it applies.",
+        "",
+        "When one fits the task, call `skill_read` with its exact name to get the",
+        "full instructions BEFORE acting. Never guess a skill's contents from its",
+        "description.",
+        "",
+        "If you are asked what skills or capabilities you have, list these — they",
+        "are the answer. Do not narrate consulting them during ordinary work, and",
+        "do not confuse them with any tooling built into the model you run on.",
         "",
         ...lines,
     ].join("\n");
