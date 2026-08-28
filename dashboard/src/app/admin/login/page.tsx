@@ -80,30 +80,28 @@ export default function AdminLoginPage() {
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
-            <div className="w-full max-w-sm">
-                <div className="flex items-center gap-2 mb-8 justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pulse-bg p-4">
+            <div className="w-full max-w-[400px]">
+                <div className="mb-7 flex items-center justify-center gap-2">
                     <div className="w-7 h-7 bg-pulse-accent rounded-lg flex items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-white">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                         </svg>
                     </div>
-                    <span className="text-base font-bold text-white">Pulse</span>
+                    <span className="text-[15px] font-semibold text-pulse-text">Pulse</span>
                 </div>
 
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
-                    <div className="flex items-center gap-2 mb-6">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-slate-500">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                        </svg>
-                        <h1 className="text-lg font-semibold text-white">Platform Administration</h1>
+                <div className="rounded-2xl border border-pulse-border bg-pulse-panel p-8 shadow-xl shadow-black/20">
+                    <div className="mb-6 text-center">
+                        <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-pulse-text">Platform administration</h1>
+                        <p className="mt-1 text-[13px] text-pulse-muted">Sign in to continue</p>
                     </div>
 
                     {info && (
-                        <div role="status" className="bg-slate-800 text-slate-300 p-3 rounded-lg text-sm mb-5 border border-slate-700">{info}</div>
+                        <div role="status" className="mb-5 rounded-lg border border-pulse-border bg-pulse-panel-alt p-3 text-[13px] text-pulse-soft">{info}</div>
                     )}
                     {error && (
-                        <div role="alert" className="bg-red-950/60 text-red-400 p-3 rounded-lg text-sm mb-5 border border-red-900/60">{error}</div>
+                        <div role="alert" className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[13px] text-red-400">{error}</div>
                     )}
 
                     {ssoEnabled && (
@@ -112,36 +110,36 @@ export default function AdminLoginPage() {
                                 type="button"
                                 onClick={handleSsoSignIn}
                                 disabled={ssoLoading}
-                                className="w-full flex items-center justify-center gap-2 border border-slate-700 hover:bg-slate-800 text-slate-200 font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+                                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-pulse-border bg-pulse-panel-alt py-2.5 text-[13.5px] font-medium text-pulse-text transition-colors hover:bg-pulse-hover disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {ssoLoading ? "Redirecting…" : `Sign in with ${ssoName}`}
                             </button>
                             <div className="flex items-center gap-3 my-5">
-                                <span className="h-px flex-1 bg-slate-800" aria-hidden="true" />
-                                <span className="text-xs text-slate-600">or</span>
-                                <span className="h-px flex-1 bg-slate-800" aria-hidden="true" />
+                                <span className="h-px flex-1 bg-pulse-border-subtle" aria-hidden="true" />
+                                <span className="text-[11px] uppercase tracking-wider text-pulse-faint">or</span>
+                                <span className="h-px flex-1 bg-pulse-border-subtle" aria-hidden="true" />
                             </div>
                         </>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label htmlFor="admin-login-email" className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Email</label>
+                            <label htmlFor="admin-login-email" className="mb-1.5 block text-[13px] font-medium text-pulse-soft">Email</label>
                             <input
                                 id="admin-login-email"
                                 type="email"
                                 required
                                 autoComplete="email"
-                                placeholder="admin@runstate.com"
-                                className="w-full px-3 py-2.5 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-pulse-accent focus:border-pulse-accent outline-none text-sm"
+                                placeholder="you@company.com"
+                                className="w-full rounded-lg border border-pulse-border bg-pulse-bg px-3 py-2.5 text-sm text-pulse-text placeholder:text-pulse-faint outline-none transition-shadow focus:border-pulse-accent focus:ring-2 focus:ring-pulse-accent/30"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <label htmlFor="admin-login-password" className="block text-xs font-medium text-slate-400 uppercase tracking-wider">Password</label>
-                                <Link href="/forgot" className="text-xs font-medium text-pulse-accent hover:text-pulse-accent-hi normal-case tracking-normal">Forgot password?</Link>
+                                <label htmlFor="admin-login-password" className="block text-[13px] font-medium text-pulse-soft">Password</label>
+                                <Link href="/forgot" className="text-[12.5px] font-medium text-pulse-accent hover:underline">Forgot password?</Link>
                             </div>
                             <div className="relative">
                                 <input
@@ -150,7 +148,7 @@ export default function AdminLoginPage() {
                                     required
                                     autoComplete="current-password"
                                     placeholder="••••••••"
-                                    className="w-full px-3 py-2.5 pr-11 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-pulse-accent focus:border-pulse-accent outline-none text-sm"
+                                    className="w-full rounded-lg border border-pulse-border bg-pulse-bg px-3 py-2.5 pr-11 text-sm text-pulse-text placeholder:text-pulse-faint outline-none transition-shadow focus:border-pulse-accent focus:ring-2 focus:ring-pulse-accent/30"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                 />
@@ -160,7 +158,7 @@ export default function AdminLoginPage() {
                                     aria-label={showPassword ? "Hide password" : "Show password"}
                                     aria-pressed={showPassword}
                                     tabIndex={-1}
-                                    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-300 transition-colors"
+                                    className="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-pulse-faint transition-colors hover:text-pulse-text"
                                 >
                                     {showPassword ? (
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -177,7 +175,7 @@ export default function AdminLoginPage() {
                         </div>
                         {totpRequired && (
                             <div>
-                                <label htmlFor="admin-login-totp" className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Authentication Code</label>
+                                <label htmlFor="admin-login-totp" className="mb-1.5 block text-[13px] font-medium text-pulse-soft">Authentication code</label>
                                 <input
                                     ref={totpInputRef}
                                     id="admin-login-totp"
@@ -188,7 +186,7 @@ export default function AdminLoginPage() {
                                     maxLength={6}
                                     required
                                     placeholder="123456"
-                                    className="w-full px-3 py-2.5 border border-slate-700 rounded-lg bg-slate-800 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-pulse-accent focus:border-pulse-accent outline-none text-sm font-mono tracking-widest"
+                                    className="w-full rounded-lg border border-pulse-border bg-pulse-bg px-3 py-2.5 text-sm font-mono tracking-widest text-pulse-text placeholder:text-pulse-faint outline-none transition-shadow focus:border-pulse-accent focus:ring-2 focus:ring-pulse-accent/30"
                                     value={totp}
                                     onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                                 />
@@ -197,7 +195,7 @@ export default function AdminLoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-pulse-accent hover:bg-pulse-accent-hi text-white font-semibold py-2.5 rounded-lg transition-colors mt-2 disabled:opacity-60 flex items-center justify-center gap-2 text-sm"
+                            className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-pulse-accent py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-pulse-accent-hi disabled:opacity-60"
                         >
                             {loading ? (
                                 <>
@@ -205,14 +203,14 @@ export default function AdminLoginPage() {
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    Signing in...
+                                    Signing in…
                                 </>
                             ) : "Sign In"}
                         </button>
                     </form>
                 </div>
 
-                <p className="text-center text-xs text-slate-700 mt-6">Internal access only — not for customers</p>
+                <p className="mt-6 text-center text-[12px] text-pulse-faint">Internal access only — not for customers</p>
             </div>
         </div>
     );
