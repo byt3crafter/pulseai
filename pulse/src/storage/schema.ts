@@ -1504,3 +1504,82 @@ export const resourceShares = pgTable(
         ),
     }),
 );
+
+
+// ─── Agent Skills (SKILL.md) — see docs/SKILLS_PLAN.md ───────────────────────
+//
+// NOT `tenantSkills` above, which despite its name gates built-in TOOLS by
+// name. Nothing here relates to it. A later phase renames that one to
+// tenantTools, which is what it has always meant.
+
+export const skillPacks = pgTable("skill_packs", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 120 }).notNull(),
+    slug: varchar("slug", { length: 120 }).notNull().unique(),
+    sourceType: varchar("source_type", { length: 16 }).notNull().default("git"),
+    sourceUrl: text("source_url"),
+    sourceRef: varchar("source_ref", { length: 120 }),
+    /** Hash of the pack's current content. */
+    packChecksum: varchar("pack_checksum", { length: 64 }),
+    /** What an admin approved. Differs after an upstream edit → pack is inert. */
+    approvedChecksum: varchar("approved_checksum", { length: 64 }),
+    approvedBy: uuid("approved_by").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    skillCount: integer("skill_count").notNull().default(0),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    lastImportAt: timestamp("last_import_at", { withTimezone: true }),
+    lastImportError: text("last_import_error"),
+    skipped: jsonb("skipped").notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const skillDefinitions = pgTable(
+    "skill_definitions",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        packId: uuid("pack_id").references(() => skillPacks.id, { onDelete: "cascade" }),
+        /** Set when the workspace authored it rather than importing it. */
+        tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
+        name: varchar("name", { length: 96 }).notNull(),
+        plugin: varchar("plugin", { length: 120 }),
+        /** plugin/name — part of the identity, see the importer. */
+        qualifiedName: varchar("qualified_name", { length: 220 }).notNull(),
+        /** The one line every request carries. */
+        description: text("description").notNull(),
+        /** Loaded on demand only. Never goes in the catalogue. */
+        body: text("body").notNull(),
+        requiresBins: jsonb("requires_bins").notNull().default([]),
+        sourcePath: text("source_path"),
+        checksum: varchar("checksum", { length: 64 }).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => [index("idx_skill_def_pack_id").on(table.packId)],
+);
+
+export const tenantSkillGrants = pgTable(
+    "tenant_skill_grants",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+        skillId: uuid("skill_id").references(() => skillDefinitions.id, { onDelete: "cascade" }).notNull(),
+        enabled: boolean("enabled").notNull().default(true),
+        grantedBy: uuid("granted_by").references(() => users.id, { onDelete: "set null" }),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => [unique("tenant_skill_grants_unique").on(table.tenantId, table.skillId)],
+);
+
+export const agentSkillAssignments = pgTable(
+    "agent_skill_assignments",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+        agentProfileId: uuid("agent_profile_id").references(() => agentProfiles.id, { onDelete: "cascade" }).notNull(),
+        skillId: uuid("skill_id").references(() => skillDefinitions.id, { onDelete: "cascade" }).notNull(),
+        assignedBy: uuid("assigned_by").references(() => users.id, { onDelete: "set null" }),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => [unique("agent_skill_assignments_unique").on(table.agentProfileId, table.skillId)],
+);

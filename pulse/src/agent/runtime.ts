@@ -16,6 +16,7 @@ import { buildAgentSystemPrompt, SILENT_REPLY_TOKEN } from "./system-prompt-buil
 import { getTenantTimezone } from "./tools/tz-util.js";
 import { shouldRunGate, runTruthGate, isErrorResult, type ToolOutcome } from "./truth-gate.js";
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
+import { getAgentSkills, formatSkillCatalogue } from "../skills/skill-service.js";
 import { ToolPolicy, isToolAllowed } from "./tools/tool-policy.js";
 import { ensureToolApproved } from "./tools/approval-gate.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
@@ -708,6 +709,34 @@ export class AgentRuntime {
                     if (section) activeSystemPrompt += section;
                 } catch (err) {
                     tenantLog.warn({ err }, "Failed to inject standing orders (non-fatal)");
+                }
+            }
+
+            /*
+             * 3.888 Inject the agent's skill catalogue.
+             *
+             * Names and one-line descriptions only. Measured on the real
+             * upstream packs, 802 skills' descriptions are ~64k tokens and
+             * their bodies far more — a catalogue carrying bodies would cost
+             * more per message than the conversation it belongs to. The agent
+             * calls `skill_read` once it has decided a skill applies.
+             *
+             * An agent with no skills gets an empty string here and no
+             * skill_read tool, so it costs exactly what it did before.
+             */
+            if (resolvedAgentProfileId) {
+                try {
+                    const skills = await getAgentSkills(inbound.tenantId, resolvedAgentProfileId);
+                    const section = formatSkillCatalogue(skills);
+                    if (section) {
+                        activeSystemPrompt += section;
+                        tenantLog.info(
+                            { agentProfileId: resolvedAgentProfileId, skillCount: skills.length },
+                            "Skill catalogue injected",
+                        );
+                    }
+                } catch (err) {
+                    tenantLog.warn({ err }, "Failed to inject skill catalogue (non-fatal)");
                 }
             }
 
