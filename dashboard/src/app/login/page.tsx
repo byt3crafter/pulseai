@@ -91,97 +91,38 @@ function LoginForm() {
     );
 
     return (
-        <div className="relative min-h-screen w-full overflow-hidden bg-[#070711] lg:grid lg:grid-cols-[1.05fr_1fr]">
-            {/* ── Left: brand stage (lg+) ─────────────────────────────── */}
-            <div className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-14">
-                {/* layered background */}
-                <div
-                    aria-hidden="true"
-                    className="absolute inset-0"
-                    style={{ background: "radial-gradient(120% 120% at 15% 10%, #1e1b4b 0%, #0b0b1c 45%, #070711 100%)" }}
-                />
-                <div
-                    aria-hidden="true"
-                    className="absolute -left-24 top-1/3 h-[32rem] w-[32rem] rounded-full opacity-60 blur-3xl"
-                    style={{ background: "radial-gradient(circle, rgba(99,102,241,0.55) 0%, rgba(139,92,246,0.18) 45%, transparent 70%)" }}
-                />
-                <div
-                    aria-hidden="true"
-                    className="absolute -bottom-32 right-0 h-[26rem] w-[26rem] rounded-full opacity-40 blur-3xl"
-                    style={{ background: "radial-gradient(circle, rgba(56,189,248,0.35) 0%, transparent 70%)" }}
-                />
-                <div
-                    aria-hidden="true"
-                    className="absolute inset-0 opacity-[0.14]"
-                    style={{
-                        backgroundImage:
-                            "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
-                        backgroundSize: "56px 56px",
-                        maskImage: "radial-gradient(120% 90% at 20% 20%, black 0%, transparent 75%)",
-                        WebkitMaskImage: "radial-gradient(120% 90% at 20% 20%, black 0%, transparent 75%)",
-                    }}
-                />
-
-                {/* content */}
-                <Link href="/" className="relative z-10 flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-violet-600 shadow-lg shadow-indigo-900/40">
-                        <BoltMark className="h-5 w-5 text-white" />
+        /*
+         * A single centred card — the shape Clerk uses for hosted sign-in.
+         *
+         * This replaced a split marketing panel whose form was hardcoded LIGHT
+         * (bg-slate-50, text-slate-900), so the login ignored the theme
+         * entirely: a workspace on dark mode still got a white form. It also
+         * carried a fixed company name in the footer, which is the wrong name
+         * to show on a white-labelled deployment.
+         *
+         * Everything here is on --pulse-* tokens, so it follows both the theme
+         * and per-tenant branding.
+         */
+        <div className="flex min-h-screen items-center justify-center bg-pulse-bg p-4">
+            <div className="w-full max-w-[400px]">
+                <Link href="/" className="mb-7 flex items-center justify-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-pulse-accent">
+                        <BoltMark className="h-4 w-4 text-white" />
                     </span>
-                    <span className="text-lg font-semibold tracking-tight text-white">Pulse</span>
+                    <span className="text-[15px] font-semibold text-pulse-text">Pulse</span>
                 </Link>
 
-                <div className="relative z-10 max-w-md">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-indigo-200 backdrop-blur">
-                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" /> AI Workforce Platform
-                    </span>
-                    <h2 className="mt-6 text-[2.6rem] font-bold leading-[1.08] tracking-tight text-white">
-                        Your AI workforce,
-                        <br />
-                        <span className="bg-gradient-to-r from-indigo-300 via-violet-300 to-sky-300 bg-clip-text text-transparent">ready to work.</span>
-                    </h2>
-                    <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-slate-400">
-                        Sign in to orchestrate your agents, departments, and connected tools — all from one workspace.
-                    </p>
-
-                    <ul className="mt-9 space-y-4">
-                        {[
-                            "Purpose-built AI agents for every team",
-                            "Departments that route work automatically",
-                            "Secure, tenant-isolated by design",
-                        ].map((line) => (
-                            <li key={line} className="flex items-center gap-3 text-sm text-slate-300">
-                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 ring-1 ring-inset ring-indigo-400/30">
-                                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-indigo-300">
-                                        <path fillRule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.1 3.1 6.8-6.8a1 1 0 0 1 1.4 0Z" clipRule="evenodd" />
-                                    </svg>
-                                </span>
-                                {line}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                <p className="relative z-10 text-xs text-slate-600">© {new Date().getFullYear()} Runstate Ltd</p>
-            </div>
-
-            {/* ── Right: form ─────────────────────────────────────────── */}
-            <div className="relative z-10 flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12 lg:min-h-0">
-                <div className="w-full max-w-sm">
-                    <div className="mb-10 flex items-center gap-2.5 lg:hidden">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-violet-600 shadow-lg shadow-indigo-900/20">
-                            <BoltMark className="h-5 w-5 text-white" />
-                        </span>
-                        <span className="text-base font-semibold text-slate-900">Pulse</span>
+                <div className="rounded-2xl border border-pulse-border bg-pulse-panel p-8 shadow-xl shadow-black/20">
+                    <div className="mb-6 text-center">
+                        <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-pulse-text">Welcome back</h1>
+                        <p className="mt-1 text-[13px] text-pulse-muted">Sign in to your workspace to continue</p>
                     </div>
 
-                    <h1 className="text-[1.7rem] font-bold tracking-tight text-slate-900">Welcome back</h1>
-                    <p className="mt-1.5 text-sm text-slate-500">Sign in to your workspace to continue.</p>
-
                     {info && (
-                        <div role="status" className="mt-6 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-700">{info}</div>
+                        <div role="status" className="mb-5 rounded-lg border border-pulse-border bg-pulse-panel-alt p-3 text-[13px] text-pulse-soft">{info}</div>
                     )}
                     {error && (
-                        <div role="alert" className="mt-6 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">{error}</div>
+                        <div role="alert" className="mb-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[13px] text-red-400">{error}</div>
                     )}
 
                     {ssoEnabled && (
@@ -190,36 +131,37 @@ function LoginForm() {
                                 type="button"
                                 onClick={handleSsoSignIn}
                                 disabled={ssoLoading}
-                                className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-pulse-border bg-pulse-panel-alt py-2.5 text-[13.5px] font-medium text-pulse-text transition-colors hover:bg-pulse-hover disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {ssoLoading ? "Redirecting…" : `Continue with ${ssoName}`}
+                                {ssoLoading ? "Redirecting…" : `Sign in with ${ssoName}`}
                             </button>
-                            <div className="my-6 flex items-center gap-3">
-                                <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-                                <span className="text-xs font-medium text-slate-400">or</span>
-                                <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+                            <div className="my-5 flex items-center gap-3">
+                                <span className="h-px flex-1 bg-pulse-border-subtle" aria-hidden="true" />
+                                <span className="text-[11px] uppercase tracking-wider text-pulse-faint">or</span>
+                                <span className="h-px flex-1 bg-pulse-border-subtle" aria-hidden="true" />
                             </div>
                         </>
                     )}
 
-                    <form onSubmit={handleSubmit} className={`space-y-4 ${ssoEnabled ? "" : "mt-7"}`}>
+                    <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-slate-700">Email address</label>
+                            <label htmlFor="login-email" className="mb-1.5 block text-[13px] font-medium text-pulse-soft">Email address</label>
                             <input
                                 id="login-email"
                                 type="email"
                                 required
                                 autoComplete="email"
-                                placeholder="you@yourcompany.com"
-                                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                                placeholder="you@company.com"
+                                className="w-full rounded-lg border border-pulse-border bg-pulse-bg px-3 py-2.5 text-sm text-pulse-text placeholder:text-pulse-faint outline-none transition-shadow focus:border-pulse-accent focus:ring-2 focus:ring-pulse-accent/30"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
+
                         <div>
                             <div className="mb-1.5 flex items-center justify-between">
-                                <label htmlFor="login-password" className="block text-sm font-medium text-slate-700">Password</label>
-                                <Link href="/forgot" className="text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-700">Forgot password?</Link>
+                                <label htmlFor="login-password" className="block text-[13px] font-medium text-pulse-soft">Password</label>
+                                <Link href="/forgot" className="text-[12.5px] font-medium text-pulse-accent hover:underline">Forgot password?</Link>
                             </div>
                             <div className="relative">
                                 <input
@@ -228,7 +170,7 @@ function LoginForm() {
                                     required
                                     autoComplete="current-password"
                                     placeholder="••••••••"
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-11 text-sm text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                                    className="w-full rounded-lg border border-pulse-border bg-pulse-bg px-3 py-2.5 pr-11 text-sm text-pulse-text placeholder:text-pulse-faint outline-none transition-shadow focus:border-pulse-accent focus:ring-2 focus:ring-pulse-accent/30"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                 />
@@ -238,7 +180,7 @@ function LoginForm() {
                                     aria-label={showPassword ? "Hide password" : "Show password"}
                                     aria-pressed={showPassword}
                                     tabIndex={-1}
-                                    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 transition-colors hover:text-slate-600"
+                                    className="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-pulse-faint transition-colors hover:text-pulse-text"
                                 >
                                     {showPassword ? (
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
@@ -253,9 +195,10 @@ function LoginForm() {
                                 </button>
                             </div>
                         </div>
+
                         {totpRequired && (
                             <div>
-                                <label htmlFor="login-totp" className="mb-1.5 block text-sm font-medium text-slate-700">Authentication code</label>
+                                <label htmlFor="login-totp" className="mb-1.5 block text-[13px] font-medium text-pulse-soft">Authentication code</label>
                                 <input
                                     ref={totpInputRef}
                                     id="login-totp"
@@ -266,16 +209,17 @@ function LoginForm() {
                                     maxLength={6}
                                     required
                                     placeholder="123456"
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-center font-mono text-lg tracking-[0.5em] text-slate-900 shadow-sm outline-none transition-all placeholder:tracking-[0.5em] placeholder:text-slate-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                                    className="w-full rounded-lg border border-pulse-border bg-pulse-bg px-3 py-2.5 font-mono text-sm tracking-widest text-pulse-text placeholder:text-pulse-faint outline-none transition-shadow focus:border-pulse-accent focus:ring-2 focus:ring-pulse-accent/30"
                                     value={totp}
                                     onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                                 />
                             </div>
                         )}
+
                         <button
                             type="submit"
                             disabled={loading}
-                            className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all hover:shadow-indigo-600/30 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                            className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-pulse-accent py-2.5 text-[13.5px] font-semibold text-white transition-colors hover:bg-pulse-accent-hi disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {loading ? (
                                 <>
@@ -288,11 +232,11 @@ function LoginForm() {
                             ) : "Sign in"}
                         </button>
                     </form>
-
-                    <p className="mt-8 text-center text-xs text-slate-400">
-                        <Link href="/" className="transition-colors hover:text-slate-600">← Back to Pulse</Link>
-                    </p>
                 </div>
+
+                <p className="mt-6 text-center text-[12px] text-pulse-faint">
+                    <Link href="/" className="transition-colors hover:text-pulse-muted">← Back to Pulse</Link>
+                </p>
             </div>
         </div>
     );
