@@ -26,6 +26,13 @@ const CATALOG = join(REPO, "dashboard/src/utils/tenant-skills-catalog.ts");
  */
 const INTENTIONALLY_UNCATALOGUED = new Map<string, string>([
     ["workspace_update", "injected only when an agent has selfConfigEnabled (registry.ts)"],
+    [
+        "skill_read",
+        "injected only when an agent has assigned skills (registry.ts). Gating it " +
+            "through tenant_skills would be wrong twice over: that table is hand-seeded, " +
+            "so a workspace could get a skill catalogue in its prompt with no way to " +
+            "read it, and the assignment already IS the gate.",
+    ],
 ]);
 
 function toolNamesIn(source: string): string[] {

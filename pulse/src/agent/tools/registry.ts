@@ -34,6 +34,8 @@ import { emailConfigureTool } from "./built-in/email-config.js";
 import { webSearchTool, webFetchTool } from "./built-in/web-search.js";
 import { db } from "../../storage/db.js";
 import { tenantSkills, mcpServers, agentProfileMcpBindings, agentProfiles } from "../../storage/schema.js";
+import { skillReadTool } from "./built-in/skill-tools.js";
+import { getAgentSkills } from "../../skills/skill-service.js";
 import { eq, and } from "drizzle-orm";
 import { logger } from "../../utils/logger.js";
 import { getMcpClient, getMcpTools } from "./mcp-client.js";
@@ -181,6 +183,25 @@ export class ToolRegistry {
                 const tool = this.builtInTools.get(skill.skillName);
                 if (tool) {
                     tools.push(tool);
+                }
+            }
+
+            /*
+             * skill_read is registered ONLY for an agent that has skills.
+             *
+             * Not gated through tenant_skills like the others: that table keys
+             * on built-in tool NAME and is hand-seeded, so a new workspace
+             * would get a catalogue in its prompt and no way to read it. The
+             * assignment is the gate here — if an agent has no skills it has
+             * no catalogue either, and the tool would be dead weight in every
+             * request's schema.
+             */
+            if (agentProfileId) {
+                try {
+                    const agentSkills = await getAgentSkills(tenantId, agentProfileId);
+                    if (agentSkills.length > 0) tools.push(skillReadTool);
+                } catch (err) {
+                    logger.warn({ err, tenantId, agentProfileId }, "Failed to check agent skills (non-fatal)");
                 }
             }
 
