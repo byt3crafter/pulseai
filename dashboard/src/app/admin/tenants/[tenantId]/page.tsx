@@ -4,6 +4,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import TenantSettingsClient from "./TenantSettingsClient";
+import TenantBillingCard from "./TenantBillingCard";
+import { getTenantBilling } from "./actions";
 import TenantDangerZone from "./TenantDangerZone";
 import { ui, PageHeader, Panel, Badge } from "../../../../components/admin/ui";
 
@@ -98,6 +100,8 @@ export default async function TenantDetailPage({
                 config={config}
                 clientId={oauthClient?.clientId}
             />
+
+            <TenantBillingCard tenantId={tenantId} initial={await getTenantBilling(tenantId)} />
 
             {/* Approvals Link */}
             <div>
