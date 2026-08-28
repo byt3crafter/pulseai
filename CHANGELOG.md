@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.45] - 2026-08-28
+
+### Features
+- logins carry the customer's brand, and match the reference polish
+
 ## [0.20.44] - 2026-08-28
 
 ### Bug Fixes
