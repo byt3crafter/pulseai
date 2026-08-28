@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.44] - 2026-08-28
+
+### Bug Fixes
+- every unauthenticated page follows the theme
+
 ## [0.20.43] - 2026-08-28
 
 ### Features
