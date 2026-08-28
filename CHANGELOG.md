@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.39] - 2026-08-28
+
+### Features
+- see what is actually inside a pack
+
 ## [0.20.38] - 2026-08-28
 
 ### Features
