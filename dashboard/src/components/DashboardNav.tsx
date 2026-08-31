@@ -36,6 +36,7 @@ import {
     BookmarkIcon,
     BanknotesIcon,
     AcademicCapIcon,
+    RectangleGroupIcon,
     RectangleStackIcon,
     FolderIcon,
 } from "@heroicons/react/24/outline";
@@ -83,6 +84,7 @@ const NAV_GROUPS: { label: string; items: NavItem[]; advanced?: boolean }[] = [
         items: [
             { href: "/dashboard/agents", label: "Agent Profiles", icon: CpuChipIcon, exclude: "/dashboard/agents/routing" },
             { href: "/dashboard/agents/routing", label: "Routing", icon: ArrowsRightLeftIcon },
+            { href: "/dashboard/agents/model-groups", label: "Model Groups", icon: RectangleGroupIcon },
             { href: "/dashboard/skills", label: "Skills", icon: AcademicCapIcon },
             { href: "/dashboard/departments", label: "Departments", icon: BuildingOffice2Icon },
             { href: "/dashboard/people", label: "People", icon: UsersIcon },

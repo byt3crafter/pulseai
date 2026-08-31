@@ -14,6 +14,7 @@ import {
 } from "./actions";
 import { getLiveModelsAction } from "../actions";
 import type { AgentDetailStats } from "../../../../utils/run-queries";
+import type { ModelGroupRow } from "../model-groups/actions";
 import { formatDuration, relativeTime } from "../../../../components/dashboard/run-ui";
 import { PROVIDERS, getModelDisplayName, getProviderName } from "../../../../utils/models";
 import ToolPolicyEditor from "./ToolPolicyEditor";
@@ -38,6 +39,7 @@ interface AgentData {
     modelId: string;
     smartRouting?: boolean;
     fastModelId?: string | null;
+    modelGroupId?: string | null;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
     hasWorkspace: boolean;
@@ -80,6 +82,7 @@ interface Props {
     telegramConnected: boolean;
     telegramBotUsername: string | null;
     stats: AgentDetailStats;
+    modelGroups?: ModelGroupRow[];
 }
 
 // Grouped left section-nav (Clerk/Stripe/Linear settings pattern). Section
@@ -133,6 +136,7 @@ const NAV_GROUPS: { label: string; items: { id: string; label: string }[] }[] = 
 
 export default function AgentWorkspaceClient({
     agent,
+    modelGroups = [],
     soulContent,
     identityContent,
     memoryContent,
@@ -390,7 +394,7 @@ export default function AgentWorkspaceClient({
                         <SandboxConfigEditor agentId={agent.id} initialConfig={agent.sandboxConfig} />
                     )}
                     {activeTab === "config" && (
-                        <ConfigTab agent={agent} activeProviders={activeProviders} />
+                        <ConfigTab agent={agent} activeProviders={activeProviders} modelGroups={modelGroups} />
                     )}
                     {activeTab === "revisions" && (
                         <RevisionsTab agentId={agent.id} />
@@ -496,8 +500,9 @@ function MiniStat({ label, value, tone }: { label: string; value: string; tone?:
     );
 }
 
-function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProviders: string[] }) {
+function ConfigTab({ agent, activeProviders, modelGroups = [] }: { agent: AgentData; activeProviders: string[]; modelGroups?: ModelGroupRow[] }) {
     const [modelId, setModelId] = useState(agent.modelId);
+    const [modelGroupId, setModelGroupId] = useState(agent.modelGroupId ?? "");
     const [smartRouting, setSmartRouting] = useState(agent.smartRouting === true);
     const [fastModelId, setFastModelId] = useState(agent.fastModelId ?? "");
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
@@ -527,6 +532,7 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
         const fd = new FormData();
         fd.set("agentId", agent.id);
         fd.set("modelId", modelId);
+        fd.set("modelGroupId", modelGroupId);
 
         const result = await updateAgentModelAction(fd);
         setStatus({
@@ -587,6 +593,27 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                         </div>
                     )}
 
+                    {modelGroups.length > 0 && (
+                        <div className="mb-4">
+                            <label className="block text-xs font-medium text-pulse-muted mb-1">Model group (optional)</label>
+                            <select
+                                value={modelGroupId}
+                                onChange={(e) => setModelGroupId(e.target.value)}
+                                className="w-full max-w-md px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-pulse-text bg-pulse-panel"
+                            >
+                                <option value="">Use the single model below</option>
+                                {modelGroups.map((g) => (
+                                    <option key={g.id} value={g.id}>{g.name} ({g.strategy}, {g.models.length} models)</option>
+                                ))}
+                            </select>
+                            {modelGroupId ? (
+                                <p className="mt-1 text-xs text-pulse-faint">This agent auto-picks from the group. The single model below is ignored while a group is set.</p>
+                            ) : (
+                                <p className="mt-1 text-xs text-pulse-faint">Or build one in <a href="/dashboard/agents/model-groups" className="underline">Model Groups</a> to auto-pick and fail over across models.</p>
+                            )}
+                        </div>
+                    )}
+
                     <select
                         value={modelId}
                         onChange={(e) => setModelId(e.target.value)}
@@ -617,7 +644,7 @@ function ConfigTab({ agent, activeProviders }: { agent: AgentData; activeProvide
                     <div className="mt-4 flex items-center gap-3">
                         <button
                             onClick={handleModelSave}
-                            disabled={modelId === agent.modelId || status.type === "saving"}
+                            disabled={(modelId === agent.modelId && modelGroupId === (agent.modelGroupId ?? "")) || status.type === "saving"}
                             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors motion-reduce:transition-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                         >
                             Save Model

@@ -93,7 +93,7 @@ describe("Provider Fallback Chain", () => {
         mockAnthropicChat.mockRejectedValue(new Error("Anthropic down"));
         mockOpenAIChat.mockRejectedValue(new Error("OpenAI down"));
 
-        await expect(manager.chat(BASE_PARAMS)).rejects.toThrow("All LLM providers failed");
+        await expect(manager.chat(BASE_PARAMS)).rejects.toThrow("All models failed");
     });
 
     it("should include both error messages when both fail", async () => {

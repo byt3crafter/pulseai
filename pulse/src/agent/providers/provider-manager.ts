@@ -38,6 +38,14 @@ export class ProviderManager {
         attachments?: ProviderAttachment[];
         /** Per-agent reasoning effort override (e.g. Codex/GPT-5.5). Undefined = provider default. */
         reasoningEffort?: string;
+        /**
+         * An explicit, ordered list of model ids to fall through on failure —
+         * a model GROUP resolved for this turn. When present it REPLACES the
+         * hardcoded model->model fallback map: the models tried are exactly what
+         * the customer configured, nothing hardcoded. `params.model` is the lead
+         * (chain[0]); the rest are the fallbacks.
+         */
+        fallbackChain?: string[];
     }): Promise<ProviderResponse & { provider: string; canonicalModel: string; wasFallback: boolean }> {
         const modelDef = getModelById(params.model);
         const providerDef = getProviderByModel(params.model);
@@ -109,59 +117,50 @@ export class ProviderManager {
                 "Primary provider failed, attempting fallback"
             );
 
-            // Try fallback provider
-            const fallbackModelId = getFallbackModelId(params.model);
-            if (!fallbackModelId) {
+            /*
+             * Fallback candidates, in order.
+             *
+             * A configured group (`fallbackChain`) is authoritative and replaces
+             * the hardcoded model->model map: the fallbacks are exactly the
+             * models the customer put in the group, after the one that just
+             * failed. With no group we keep the old single hardcoded fallback,
+             * so existing agents behave exactly as before.
+             */
+            const chain = (params.fallbackChain && params.fallbackChain.length > 0)
+                ? params.fallbackChain.filter((m) => m && m !== params.model)
+                : (getFallbackModelId(params.model) ? [getFallbackModelId(params.model)!] : []);
+
+            if (chain.length === 0) {
                 throw new Error(`Primary provider (${providerId}) failed and no fallback available: ${err.message}`);
             }
 
-            const fallbackProvider = getProviderByModel(fallbackModelId);
-            if (!fallbackProvider || fallbackProvider.id === providerId) {
-                throw new Error(`Primary provider (${providerId}) failed: ${err.message}`);
+            const failures: string[] = [`${params.model}: ${err.message}`];
+            for (const candidateModel of chain) {
+                const candProvider = getProviderByModel(candidateModel);
+                if (!candProvider) continue;
+                try {
+                    const resolved = await providerKeyService.resolveKey(params.tenantId, candProvider.id);
+                    const instance = this.getProviderInstance(candProvider.id);
+                    logger.info(
+                        { originalModel: params.model, fallbackModel: candidateModel, fallbackProvider: candProvider.id },
+                        "Using fallback model from group/chain"
+                    );
+                    const response = await instance.chat({
+                        ...params,
+                        model: candidateModel,
+                        tenantApiKey: resolved?.key,
+                        authMethod: resolved?.authMethod,
+                        baseURL: this.getBaseURL(candProvider.id),
+                    });
+                    return { ...response, provider: instance.name, canonicalModel: candidateModel, wasFallback: true };
+                } catch (fallbackErr: any) {
+                    failures.push(`${candidateModel}: ${fallbackErr.message}`);
+                    // keep walking the chain — the next model may be up
+                }
             }
 
-            const fallbackResolved = await providerKeyService.resolveKey(params.tenantId, fallbackProvider.id);
-            const fallbackInstance = this.getProviderInstance(fallbackProvider.id);
-
-            logger.debug(
-                {
-                    fallbackProvider: fallbackProvider.id,
-                    fallbackModel: fallbackModelId,
-                    hasKey: !!fallbackResolved?.key,
-                    authMethod: fallbackResolved?.authMethod,
-                },
-                "Fallback provider key resolved"
-            );
-
-            try {
-                logger.info(
-                    { originalModel: params.model, fallbackModel: fallbackModelId, fallbackProvider: fallbackProvider.id },
-                    "Using fallback provider"
-                );
-
-                const response = await fallbackInstance.chat({
-                    ...params,
-                    model: fallbackModelId,
-                    tenantApiKey: fallbackResolved?.key,
-                    authMethod: fallbackResolved?.authMethod,
-                    baseURL: this.getBaseURL(fallbackProvider.id),
-                });
-
-                return {
-                    ...response,
-                    provider: fallbackInstance.name,
-                    canonicalModel: fallbackModelId,
-                    wasFallback: true,
-                };
-            } catch (fallbackErr: any) {
-                logger.error(
-                    { primaryErr: err.message, fallbackErr: fallbackErr.message },
-                    "Both primary and fallback providers failed"
-                );
-                throw new Error(
-                    `All LLM providers failed. Primary (${providerId}): ${err.message}, Fallback (${fallbackProvider.id}): ${fallbackErr.message}`
-                );
-            }
+            logger.error({ failures }, "Every model in the group failed");
+            throw new Error(`All models failed. ${failures.join(" | ")}`);
         }
     }
 

@@ -7,6 +7,7 @@ import { readWorkspaceFile, workspaceExists } from "../../../../utils/workspace"
 import { getActiveProvidersAction } from "./actions";
 import { getAgentDetailStats } from "../../../../utils/run-queries";
 import AgentWorkspaceClient from "./AgentWorkspaceClient";
+import { listModelGroups } from "../model-groups/actions";
 
 export default async function AgentDetailPage({
     params,
@@ -98,9 +99,11 @@ export default async function AgentDetailPage({
 
     const agentStats = await getAgentDetailStats(session.user.tenantId, agent.id);
 
+    const agentModelGroups = await listModelGroups();
     return (
         <AgentWorkspaceClient
             stats={agentStats}
+            modelGroups={agentModelGroups}
             agent={{
                 id: agent.id,
                 name: agent.name,
@@ -112,6 +115,7 @@ export default async function AgentDetailPage({
                 modelId: agent.modelId ?? "claude-sonnet-4-20250514",
                 smartRouting: agent.smartRouting ?? false,
                 fastModelId: agent.fastModelId ?? null,
+                modelGroupId: (agent as any).modelGroupId ?? null,
                 dockerSandboxEnabled: agent.dockerSandboxEnabled ?? false,
                 selfConfigEnabled: agent.selfConfigEnabled ?? false,
                 hasWorkspace,

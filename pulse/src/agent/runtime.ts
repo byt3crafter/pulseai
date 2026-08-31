@@ -18,6 +18,8 @@ import { shouldRunGate, runTruthGate, isErrorResult, type ToolOutcome } from "./
 import { getActiveStandingOrders, formatStandingOrdersForPrompt } from "../standing-orders/standing-order-service.js";
 import { getAgentSkills, formatSkillCatalogue } from "../skills/skill-service.js";
 import { checkTenantAccess } from "../billing/tenant-access.js";
+import { modelGroups } from "../storage/schema.js";
+import { normalizeGroup, orderModelsForTurn } from "./providers/model-group-service.js";
 import { ToolPolicy, isToolAllowed } from "./tools/tool-policy.js";
 import { ensureToolApproved } from "./tools/approval-gate.js";
 import type { PromptMode, DelegatableAgent } from "./system-prompt-builder.js";
@@ -479,6 +481,7 @@ export class AgentRuntime {
             // 3.75 Resolve per-agent model and system prompt (workspace-first, DB fallback)
             let basePrompt = defaultSystemPrompt;
             let activeModelId = getDefaultModel().id;
+            let activeFallbackChain: string[] | undefined; // set when the agent uses a model group
             let routeReason: string | undefined; // set when smart routing picks the model
             let activeAgentName = "Agent";
             // Per-agent progress verbosity: "off" | "progress" (default) | "verbose".
@@ -514,10 +517,49 @@ export class AgentRuntime {
                     if (profile.modelId) {
                         activeModelId = profile.modelId;
                     }
+
+                    /*
+                     * Model group: the agent auto-picks from a configured, ordered
+                     * set of models with a selectable strategy. Takes precedence
+                     * over both the single model and smart routing — a group is
+                     * the explicit "use these, in this way" choice. The lead model
+                     * runs; the rest are the failover chain, walked by
+                     * provider-manager on error. Nothing here is hardcoded; the
+                     * models and strategy come from the group row.
+                     */
+                    let usedGroup = false;
+                    if ((profile as any).modelGroupId) {
+                        try {
+                            const row = await db.query.modelGroups.findFirst({
+                                where: and(
+                                    eq(modelGroups.id, (profile as any).modelGroupId),
+                                    eq(modelGroups.tenantId, inbound.tenantId),
+                                ),
+                            });
+                            const group = normalizeGroup(row as any);
+                            if (group) {
+                                const ordered = orderModelsForTurn(group, {
+                                    text: inbound.content || "",
+                                    hasTools: enabledTools.length > 0,
+                                    hasAttachments: Array.isArray(inbound.attachments) && inbound.attachments.length > 0,
+                                });
+                                if (ordered.length > 0) {
+                                    activeModelId = ordered[0];
+                                    activeFallbackChain = ordered;
+                                    routeReason = `group:${group.strategy}`;
+                                    usedGroup = true;
+                                    tenantLog.info({ model: activeModelId, strategy: group.strategy, chain: ordered }, "Model group resolved");
+                                }
+                            }
+                        } catch (err) {
+                            tenantLog.warn({ err }, "Model group resolution failed (non-fatal) — using single model");
+                        }
+                    }
+
                     // Smart routing: route trivial, tool-free turns to the agent's fast
-                    // model. Guards send anything with tools/attachments/complexity to the
-                    // capable model. A per-message model override (below) still wins.
-                    if ((profile as any).smartRouting && (profile as any).fastModelId) {
+                    // model. Skipped when a group is in charge. A per-message model
+                    // override (below) still wins.
+                    if (!usedGroup && (profile as any).smartRouting && (profile as any).fastModelId) {
                         const decision = routeModel(inbound.content || "", {
                             hasTools: enabledTools.length > 0,
                             hasAttachments: Array.isArray(inbound.attachments) && inbound.attachments.length > 0,
@@ -935,6 +977,7 @@ export class AgentRuntime {
                 stream: streamCallbacks,
                 attachments: inbound.attachments,
                 reasoningEffort: activeReasoningEffort,
+                fallbackChain: activeFallbackChain,
             });
 
             // 4.5. Handle tool calls in a loop (support multi-turn tool use)
@@ -1107,6 +1150,7 @@ export class AgentRuntime {
                     tools: activeToolDefinitions.length > 0 ? activeToolDefinitions : undefined,
                     attachments: inbound.attachments,
                     reasoningEffort: activeReasoningEffort,
+                    fallbackChain: activeFallbackChain,
                 });
 
                 totalInputTokens += llmResponse.usage.inputTokens;
@@ -1139,6 +1183,7 @@ export class AgentRuntime {
                         tools: undefined, // no tools → the model must produce text
                         attachments: inbound.attachments,
                         reasoningEffort: activeReasoningEffort,
+                        fallbackChain: activeFallbackChain,
                     });
                     totalInputTokens += finalResp.usage.inputTokens;
                     totalOutputTokens += finalResp.usage.outputTokens;
@@ -1207,6 +1252,7 @@ export class AgentRuntime {
                             messages: [{ role: "user", content: userText } as any],
                             tools: undefined,
                             reasoningEffort: "low",
+                            fallbackChain: activeFallbackChain,
                         });
                         totalInputTokens += resp.usage.inputTokens;
                         totalOutputTokens += resp.usage.outputTokens;
