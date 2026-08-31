@@ -25,6 +25,14 @@ export interface ProviderDefinition {
     authMethods: AuthMethod[];
     models: ModelDefinition[];
     envKeyName?: string; // Env var name for global fallback key
+    /**
+     * Default API endpoint for OpenAI-compatible providers. The registry is the
+     * single source of truth — NOT a hardcoded switch elsewhere. A deployment
+     * can override it with `${ENVKEY_PREFIX}_BASE_URL` (see provider-manager),
+     * so MiniMax can point at a different region without a code change.
+     * Undefined for Anthropic, which uses the SDK's own endpoint.
+     */
+    apiBase?: string;
 }
 
 // ─── Provider Definitions ────────────────────────────────────────────────────
@@ -201,6 +209,7 @@ const codexProvider: ProviderDefinition = {
 
 const googleProvider: ProviderDefinition = {
     id: "google",
+    apiBase: "https://generativelanguage.googleapis.com/v1beta/openai",
     name: "Google",
     authMethods: ["api_key"],
     envKeyName: "GOOGLE_API_KEY",
@@ -226,6 +235,7 @@ const googleProvider: ProviderDefinition = {
 
 const openrouterProvider: ProviderDefinition = {
     id: "openrouter",
+    apiBase: "https://openrouter.ai/api/v1",
     name: "OpenRouter",
     authMethods: ["api_key"],
     envKeyName: "OPENROUTER_API_KEY",
@@ -246,6 +256,7 @@ const minimaxProvider: ProviderDefinition = {
     name: "MiniMax",
     authMethods: ["api_key"],
     envKeyName: "MINIMAX_API_KEY",
+    apiBase: "https://api.minimax.io/v1",
     models: [
         {
             id: "MiniMax-M3",
@@ -317,6 +328,7 @@ const minimaxProvider: ProviderDefinition = {
 // Groq — genuinely free tier (no card, generous limits, works globally). Great for testing.
 const groqProvider: ProviderDefinition = {
     id: "groq",
+    apiBase: "https://api.groq.com/openai/v1",
     name: "Groq",
     authMethods: ["api_key"],
     envKeyName: "GROQ_API_KEY",
