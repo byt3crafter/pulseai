@@ -2,7 +2,7 @@
 
 import { auth } from "../../../../auth";
 import { db } from "../../../../storage/db";
-import { agentProfiles, workspaceRevisions, tenantProviderKeys, globalSettings, channelConnections, tenants } from "../../../../storage/schema";
+import { agentProfiles, modelGroups, workspaceRevisions, tenantProviderKeys, globalSettings, channelConnections, tenants } from "../../../../storage/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { readWorkspaceFile, writeWorkspaceFile } from "../../../../utils/workspace";
@@ -266,6 +266,9 @@ export async function updateAgentModelAction(formData: FormData) {
 
     const agentId = formData.get("agentId") as string;
     const modelId = formData.get("modelId") as string;
+    // Optional: a model group. "" clears it (back to the single model).
+    const rawGroup = formData.get("modelGroupId");
+    const modelGroupId = typeof rawGroup === "string" ? rawGroup.trim() : "";
 
     if (!agentId || !modelId) {
         return { success: false, message: "Missing required fields." };
@@ -282,8 +285,17 @@ export async function updateAgentModelAction(formData: FormData) {
         return { success: false, message: "Agent not found." };
     }
 
+    // A group id, if given, must belong to this tenant — it comes from the form.
+    let groupId: string | null = null;
+    if (modelGroupId) {
+        const grp = await db.query.modelGroups.findFirst({
+            where: and(eq(modelGroups.id, modelGroupId), eq(modelGroups.tenantId, session.user.tenantId)),
+        });
+        groupId = grp ? grp.id : null;
+    }
+
     await db.update(agentProfiles)
-        .set({ modelId, updatedAt: new Date() })
+        .set({ modelId, modelGroupId: groupId, updatedAt: new Date() })
         .where(eq(agentProfiles.id, agentId));
 
     await logAudit({

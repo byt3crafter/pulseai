@@ -51,7 +51,9 @@ export const agentProfiles = pgTable("agent_profiles", {
     // Smart model routing: when enabled, trivial tool-free turns use `fastModelId`
     // (cheap/fast), everything with tools/attachments/complexity uses `modelId`.
     smartRouting: boolean("smart_routing").default(false), // off by default
-    fastModelId: varchar("fast_model_id", { length: 100 }), // fast/cheap model for trivial turns; null = no routing
+    fastModelId: varchar("fast_model_id", { length: 100 }),
+    /** When set, the agent auto-picks from this group instead of modelId. Migration 0049. */
+    modelGroupId: uuid("model_group_id"), // fast/cheap model for trivial turns; null = no routing
     reasoningEffort: varchar("reasoning_effort", { length: 12 }), // "minimal"|"low"|"medium"|"high"|"xhigh"; null/absent = provider default
     progressVerbosity: varchar("progress_verbosity", { length: 12 }), // "off"|"progress"|"verbose"; null/absent = "progress"
     workspacePath: varchar("workspace_path", { length: 512 }),
@@ -1594,4 +1596,27 @@ export const tenantBilling = pgTable(
         updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     },
     (table) => [index("idx_tenant_billing_status").on(table.status)],
+);
+
+
+/**
+ * Model groups (migration 0049) — a named, ordered set of models an agent
+ * auto-picks from, with a selectable strategy. Replaces the hardcoded fallback
+ * map in model-registry and the two fixed smart-routing slots. The group is
+ * the config; nothing about the models or the strategy is hardcoded.
+ */
+export const modelGroups = pgTable(
+    "model_groups",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }).notNull(),
+        name: varchar("name", { length: 120 }).notNull(),
+        /** failover | cost | both */
+        strategy: varchar("strategy", { length: 24 }).notNull().default("failover"),
+        /** Ordered model ids. Failover order; for cost, cheap -> capable. */
+        models: jsonb("models").notNull().default([]),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    },
+    (table) => [unique("model_groups_tenant_name").on(table.tenantId, table.name)],
 );
