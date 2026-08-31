@@ -2,7 +2,7 @@ import { AnthropicProvider, ProviderResponse, StreamCallbacks, ProviderAttachmen
 import { OpenAIProvider } from "./openai.js";
 import { CodexAppServerProvider } from "./codex-app-server.js";
 import { providerKeyService } from "./provider-key-service.js";
-import { getModelById, getProviderByModel, getFallbackModelId, getDefaultModel } from "./model-registry.js";
+import { getModelById, getProviderByModel, getProviderById, getFallbackModelId, getDefaultModel } from "./model-registry.js";
 import { getModelPricing, ResolvedPricing } from "./model-pricing-service.js";
 import { logger } from "../../utils/logger.js";
 
@@ -183,19 +183,23 @@ export class ProviderManager {
         }
     }
 
+    /**
+     * The API endpoint for an OpenAI-compatible provider.
+     *
+     * No hardcoded switch: the default comes from the provider registry
+     * (single source of truth), and a deployment can override it per provider
+     * with `${ENVKEY_PREFIX}_BASE_URL` — e.g. MINIMAX_BASE_URL — so MiniMax can
+     * be pointed at another region without touching code. Anthropic and any
+     * provider with no apiBase return undefined and use their SDK default.
+     */
     private getBaseURL(providerId: string): string | undefined {
-        switch (providerId) {
-            case "minimax":
-                return "https://api.minimax.io/v1";
-            case "openrouter":
-                return "https://openrouter.ai/api/v1";
-            case "google":
-                return "https://generativelanguage.googleapis.com/v1beta/openai";
-            case "groq":
-                return "https://api.groq.com/openai/v1";
-            default:
-                return undefined;
-        }
+        const def = getProviderById(providerId);
+        // Env override keys off the provider's own env-key prefix (MINIMAX_API_KEY
+        // -> MINIMAX_BASE_URL), so it stays consistent with how keys are named.
+        const prefix = (def?.envKeyName || `${providerId.toUpperCase()}_API_KEY`).replace(/_API_KEY$/, "");
+        const override = process.env[`${prefix}_BASE_URL`];
+        if (override && override.trim()) return override.trim();
+        return def?.apiBase;
     }
 
     /**
