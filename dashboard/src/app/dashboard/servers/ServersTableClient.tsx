@@ -35,6 +35,8 @@ export default function ServersTableClient({ servers }: { servers: ServerRow[] }
     const [pending, startTransition] = useTransition();
     const [busyRows, setBusyRows] = useState<Record<string, boolean>>({});
     const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+    // Server pending deletion → shows the in-app confirm modal (no browser popup).
+    const [deleteTarget, setDeleteTarget] = useState<ServerRow | null>(null);
 
     function setBusy(id: string, busy: boolean) {
         setBusyRows((prev) => ({ ...prev, [id]: busy }));
@@ -50,8 +52,10 @@ export default function ServersTableClient({ servers }: { servers: ServerRow[] }
         });
     }
 
-    function handleDelete(server: ServerRow) {
-        if (!confirm(`Delete server "${server.name}"? Agents will immediately lose SSH access to it.`)) return;
+    function confirmDelete() {
+        const server = deleteTarget;
+        if (!server) return;
+        setDeleteTarget(null);
         setBusy(server.id, true);
         const fd = new FormData();
         fd.set("serverId", server.id);
@@ -199,7 +203,7 @@ export default function ServersTableClient({ servers }: { servers: ServerRow[] }
                                                     </Link>
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleDelete(s)}
+                                                        onClick={() => setDeleteTarget(s)}
                                                         disabled={busy || pending}
                                                         aria-label={`Delete ${s.name}`}
                                                         className="p-1.5 rounded-lg text-pulse-faint hover:text-red-500 hover:bg-red-500/10 transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -215,6 +219,53 @@ export default function ServersTableClient({ servers }: { servers: ServerRow[] }
                         </table>
                     </div>
                 </Card>
+            )}
+
+            {/* In-app delete confirmation — replaces the browser confirm() popup. */}
+            {deleteTarget && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="delete-server-title"
+                    onClick={() => setDeleteTarget(null)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl border border-pulse-border-strong bg-pulse-panel p-5 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/10">
+                                <ExclamationTriangleIcon className="h-5 w-5 text-red-500" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0">
+                                <h2 id="delete-server-title" className="text-[15px] font-semibold text-pulse-text">
+                                    Delete “{deleteTarget.name}”?
+                                </h2>
+                                <p className="mt-1 text-[13px] text-pulse-muted">
+                                    Agents will immediately lose SSH access to it, and its command
+                                    history for this server will be removed. This can’t be undone.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setDeleteTarget(null)}
+                                className="rounded-lg border border-pulse-border px-3.5 py-2 text-[13px] font-medium text-pulse-text-soft transition-colors hover:bg-pulse-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmDelete}
+                                className="rounded-lg bg-red-600 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-red-700 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                            >
+                                Delete server
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
