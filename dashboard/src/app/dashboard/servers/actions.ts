@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "../../../storage/db";
-import { servers, agentProfiles } from "../../../storage/schema";
+import { servers, agentProfiles, serverExecLogs, pendingApprovals } from "../../../storage/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -145,7 +145,25 @@ export async function deleteServerAction(formData: FormData): Promise<Result> {
     if (!check.authorized) return { success: false, message: check.message };
     const serverId = (formData.get("serverId") as string) || "";
     try {
-        await db.delete(servers).where(and(eq(servers.id, serverId), eq(servers.tenantId, check.tenantId)));
+        // Two tables reference servers.id with ON DELETE NO ACTION, so a server
+        // that has ever run a command (server_exec_logs) or has an approval tied
+        // to it (pending_approvals) could NOT be deleted — Postgres rejected the
+        // row and the user saw "Could not delete it." Clear the dependents first,
+        // in one transaction with the delete, all scoped to this tenant:
+        //   • server_exec_logs — audit for a server that's going away; delete it.
+        //   • pending_approvals — the column is nullable, so null it rather than
+        //     drop the approval row (it may carry more than just this server).
+        await db.transaction(async (tx) => {
+            await tx.delete(serverExecLogs).where(
+                and(eq(serverExecLogs.serverId, serverId), eq(serverExecLogs.tenantId, check.tenantId)),
+            );
+            await tx.update(pendingApprovals).set({ serverId: null }).where(
+                and(eq(pendingApprovals.serverId, serverId), eq(pendingApprovals.tenantId, check.tenantId)),
+            );
+            await tx.delete(servers).where(
+                and(eq(servers.id, serverId), eq(servers.tenantId, check.tenantId)),
+            );
+        });
 
         await logAudit({
             action: "server.delete",
