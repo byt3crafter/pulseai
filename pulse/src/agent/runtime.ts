@@ -592,6 +592,20 @@ export class AgentRuntime {
                 }
             }
 
+            /*
+             * The per-message model override (web-chat model picker) must win
+             * over the agent default, group, and smart routing — and it must be
+             * applied HERE, before the system prompt is built. It used to be set
+             * further down, AFTER the prompt was assembled, so the prompt's
+             * "you are model X" identity line named the agent's default model
+             * while the actual call went to the picked model. A model told it is
+             * GPT-5.5 then run on GLM reports GPT-5.5. Resolving it up front keeps
+             * the stated identity and the real model in sync.
+             */
+            if (options?.modelOverride && options.modelOverride.trim()) {
+                activeModelId = options.modelOverride.trim();
+            }
+
             tenantLog.info({ model: activeModelId, agentProfileId: resolvedAgentProfileId ?? "none", promptMode }, "Model resolved for request");
 
             // 3.8 Gather all context for the system prompt builder
@@ -957,11 +971,11 @@ export class AgentRuntime {
             if (options?.reasoningEffort) {
                 activeReasoningEffort = options.reasoningEffort === "auto" ? undefined : options.reasoningEffort;
             }
-            // Per-invocation MODEL override (assistant model picker). Provider is
-            // resolved from the model id downstream, so any configured provider works.
+            // Per-invocation MODEL override is applied earlier now (before the
+            // system prompt is built) so the stated model identity matches the
+            // model actually called. Kept idempotent here for safety.
             if (options?.modelOverride && options.modelOverride.trim()) {
                 activeModelId = options.modelOverride.trim();
-                tenantLog.debug({ modelOverride: activeModelId }, "Using per-message model override");
             }
 
             let llmResponse = await this.providerManager.chat({
