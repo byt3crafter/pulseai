@@ -967,6 +967,21 @@ export class AgentRuntime {
                 };
             }
 
+            // Web (forceStream): Codex runs its tools INSIDE the provider (over
+            // MCP), so the native tool loop below never fires onToolStep and a
+            // long Codex turn showed a frozen "..." for ~20s. Bridge the
+            // provider's onProgress to the web's tool-step frames so the user
+            // sees live activity ("thinking…", "server_list …"). Native providers
+            // don't call onProgress (they stream deltas + drive onToolStep in the
+            // loop), so there's no double-reporting.
+            if (!onProgress && options?.onToolStep && activeProgressVerbosity !== "off") {
+                onProgress = (text: string) => {
+                    try {
+                        options.onToolStep!({ name: "working", label: text, phase: "start" });
+                    } catch { /* progress is best-effort */ }
+                };
+            }
+
             // Per-invocation override (web chat composer) wins over the agent default.
             if (options?.reasoningEffort) {
                 activeReasoningEffort = options.reasoningEffort === "auto" ? undefined : options.reasoningEffort;

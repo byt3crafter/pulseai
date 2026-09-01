@@ -982,9 +982,17 @@ export class CodexAppServerProvider {
                             onProgress(`web_search  ${detailOf(item) || ""}`.trim());
                         } else if (item.type === "fileChange") {
                             onProgress("edit files");
-                        } else if (item.type === "reasoning" && params.progressVerbosity === "verbose") {
+                        } else if (item.type === "reasoning") {
+                            // The reasoning phase is the long silent one (~15-20s on
+                            // a hard turn). ALWAYS surface a "thinking…" beat so the
+                            // UI isn't frozen; include the summary text only when the
+                            // operator opted into verbose (private reasoning otherwise
+                            // stays out of the trail).
                             const sum = Array.isArray(item.summary) ? item.summary.join(" ") : "";
-                            onProgress(`💭 ${(sum || "reasoning").replace(/\s+/g, " ").trim().slice(0, 80)}`);
+                            const label = params.progressVerbosity === "verbose" && sum
+                                ? sum.replace(/\s+/g, " ").trim().slice(0, 80)
+                                : "thinking…";
+                            onProgress(`💭 ${label}`);
                         }
                     } catch { /* progress is best-effort */ }
                 };
