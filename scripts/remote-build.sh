@@ -50,6 +50,20 @@ cd /opt/pulse-ai
 docker builder prune -af >/dev/null 2>&1 || true
 docker image prune -f >/dev/null 2>&1 || true
 
+# Retire OLD RELEASE TAGS, not just build cache and dangling layers. Each
+# pulse-gateway tag is ~3GB, and cutting many releases a day filled the disk
+# three times before this was added. Keep the newest KEEP_TAGS of each repo
+# (plus whatever is running / :latest — a tag in use can't be removed anyway).
+# Deleting a LOCAL image never touches the registry, so the fleet can still pull
+# any version; this only frees THIS build host.
+KEEP_TAGS="\${KEEP_TAGS:-4}"
+for repo in ${REGISTRY}/pulse-gateway ${REGISTRY}/pulse-dashboard; do
+    docker images "\$repo" --format '{{.Tag}}' \
+        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\$' | sort -t. -k1,1n -k2,2n -k3,3n \
+        | head -n -"\$KEEP_TAGS" \
+        | while read -r t; do docker rmi "\$repo:\$t" >/dev/null 2>&1 || true; done
+done
+
 FREE_GB=\$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
 echo "free after prune: \${FREE_GB}G"
 if [ "\$FREE_GB" -lt ${MIN_FREE_GB} ]; then
