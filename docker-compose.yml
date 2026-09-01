@@ -81,6 +81,9 @@ services:
       - GATEWAY_WS_ENABLED=${GATEWAY_WS_ENABLED:-true}
       # Codex/ChatGPT-subscription backend: auth persists in the mounted volume.
       - CODEX_HOME=/app/.codex
+      # Codex reasoning effort (minimal|low|medium|high|xhigh). Lower = faster
+      # first response for interactive chat; blank keeps the code default.
+      - CODEX_REASONING_EFFORT=${CODEX_REASONING_EFFORT:-}
     volumes:
       - pulse-workspace-data:/app/data/workspaces
       - pulse-codex-home:/app/.codex
