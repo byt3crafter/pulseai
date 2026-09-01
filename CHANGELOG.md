@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.61] - 2026-09-01
+
+### Features
+- premium thinking indicator (shimmer + orb)
+
 ## [0.20.60] - 2026-09-01
 
 ### Features
