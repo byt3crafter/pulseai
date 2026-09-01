@@ -45,6 +45,32 @@ if [ "$SIZE" -lt 1024 ]; then
     exit 1
 fi
 
+# Restore-verification: a backup you can't restore is worthless. Size alone is
+# not enough — a truncated or corrupt dump can still be large. Verify the gzip
+# is intact AND that the SQL actually contains a schema (CREATE TABLE lines).
+if ! gunzip -t "$DEST" 2>/dev/null; then
+    log "ERROR: $DEST fails gzip integrity check — removing, aborting (no prune)."
+    rm -f "$DEST"; exit 1
+fi
+TABLES=$(gunzip -c "$DEST" | grep -c "CREATE TABLE" || true)
+MIN_TABLES="${MIN_TABLES:-20}"
+if [ "$TABLES" -lt "$MIN_TABLES" ]; then
+    log "ERROR: $DEST has only $TABLES CREATE TABLE stmts (< $MIN_TABLES) — dump looks incomplete. Removing, aborting (no prune)."
+    rm -f "$DEST"; exit 1
+fi
+log "verified: gzip intact, $TABLES tables present"
+
+# Optional off-box copy. Set BACKUP_OFFSITE to an rsync target (host:/path or a
+# path on a mounted remote) to push the latest dump off the machine — a backup
+# on the same box that dies with it is only half a backup. No hardcoded target.
+if [ -n "${BACKUP_OFFSITE:-}" ]; then
+    if rsync -a "$DEST" "$BACKUP_OFFSITE"/ 2>/dev/null; then
+        log "off-box copy -> $BACKUP_OFFSITE"
+    else
+        log "WARN: off-box copy to $BACKUP_OFFSITE failed (local backup still kept)"
+    fi
+fi
+
 # Retention: keep the newest $RETENTION, delete older.
 ls -t "$BACKUP_DIR"/pulse_backup_*.sql.gz 2>/dev/null | tail -n +$((RETENTION + 1)) | xargs -r rm -f
 

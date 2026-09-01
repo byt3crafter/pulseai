@@ -2,10 +2,11 @@
 
 import { db } from "../../../../storage/db";
 import { credentials, agentProfiles } from "../../../../storage/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireTenant } from "../../../../utils/tenant-auth";
 import { logAudit } from "../../../../utils/audit";
+import { decrypt as sharedDecrypt } from "../../../../utils/crypto";
 
 // Re-implement encrypt/decrypt for dashboard (uses same ENCRYPTION_KEY)
 import { createCipheriv, randomBytes } from "crypto";
@@ -34,7 +35,14 @@ export async function getCredentials(tenantId: string) {
     if (!tenantCheck.authorized) return [];
     if (tenantId !== tenantCheck.tenantId) return [];
 
-    return db.query.credentials.findMany({
+    /*
+     * `healthy` says whether the stored secret can actually be decrypted with
+     * the current ENCRYPTION_KEY. A row showing "Configured" while its value is
+     * undecryptable is exactly the trap that a key rotation creates — the UI
+     * has to be able to say "this needs re-entering" instead of lying. We fetch
+     * encryptedValue only to test it and NEVER return it to the browser.
+     */
+    const rows = await db.query.credentials.findMany({
         where: eq(credentials.tenantId, tenantCheck.tenantId),
         columns: {
             id: true,
@@ -45,7 +53,17 @@ export async function getCredentials(tenantId: string) {
             metadata: true,
             createdAt: true,
             updatedAt: true,
+            encryptedValue: true,
         },
+    });
+    return rows.map(({ encryptedValue, ...rest }) => {
+        let healthy = true;
+        try {
+            if (encryptedValue) sharedDecrypt(encryptedValue);
+        } catch {
+            healthy = false;
+        }
+        return { ...rest, healthy };
     });
 }
 
@@ -76,28 +94,37 @@ export async function addCredential(formData: FormData) {
         const metadata: Record<string, any> = {};
         if (baseUrl) metadata.baseUrl = baseUrl;
 
-        await db
-            .insert(credentials)
-            .values({
-                tenantId,
-                name,
-                encryptedValue: encrypt(value),
-                description: description || null,
-                credentialType: credentialType || "api_key",
-                agentId: agentId || null,
-                metadata,
-            })
-            .onConflictDoUpdate({
-                target: [credentials.tenantId, credentials.name],
-                set: {
-                    encryptedValue: encrypt(value),
-                    description: description || null,
-                    credentialType: credentialType || "api_key",
-                    agentId: agentId || null,
-                    metadata,
-                    updatedAt: new Date(),
-                },
-            });
+        /*
+         * Manual upsert, keyed on (tenant, name, agentScope). The old
+         * onConflictDoUpdate targeted (tenant, name), which after migration
+         * 0050 is no longer a single constraint — the same name can now exist
+         * once tenant-wide and once per agent. So we find the row for THIS
+         * scope and update it, else insert.
+         */
+        const scope = agentId || null;
+        const existing = (await db
+            .select({ id: credentials.id })
+            .from(credentials)
+            .where(and(
+                eq(credentials.tenantId, tenantId),
+                eq(credentials.name, name),
+                scope === null ? isNull(credentials.agentId) : eq(credentials.agentId, scope),
+            ))
+            .limit(1))[0];
+
+        const payload = {
+            encryptedValue: encrypt(value),
+            description: description || null,
+            credentialType: credentialType || "api_key",
+            agentId: scope,
+            metadata,
+            updatedAt: new Date(),
+        };
+        if (existing) {
+            await db.update(credentials).set(payload).where(eq(credentials.id, existing.id));
+        } else {
+            await db.insert(credentials).values({ tenantId, name, ...payload });
+        }
 
         await logAudit({
             action: "tenant.credential.add",
