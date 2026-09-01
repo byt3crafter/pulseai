@@ -215,11 +215,23 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
 
     // ── Agent-scoped tools (Codex operator mode) ────────────────────
     if (agentProfileId) {
-        const reserved = new Set(["send_message", "list_conversations", "get_conversation"]);
+        // `seen` starts with the conversation tools already registered above and
+        // then grows as we register agent tools. Deduping here is essential:
+        // getEnabledTools can return the SAME tool name twice (e.g.
+        // commitment_create exists both as a built-in and in the commitments
+        // plugin). mcp.tool() THROWS on a duplicate name, and that one throw used
+        // to abort the whole loop — leaving Codex with NONE of the agent's tools,
+        // so the model couldn't call server_list/server_exec and improvised with
+        // raw shell. Skipping the duplicate keeps every other tool available.
+        const seen = new Set(["send_message", "list_conversations", "get_conversation"]);
         try {
             const agentTools = await mcpToolRegistry.getEnabledTools(tenantId, agentProfileId);
             for (const tool of agentTools) {
-                if (reserved.has(tool.name)) continue;
+                if (seen.has(tool.name)) {
+                    logger.warn({ tenantId, agentProfileId, tool: tool.name }, "Skipping duplicate agent tool on MCP session");
+                    continue;
+                }
+                seen.add(tool.name);
                 mcp.tool(
                     tool.name,
                     tool.description,
