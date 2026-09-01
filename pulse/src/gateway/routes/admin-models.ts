@@ -12,6 +12,7 @@ import { db } from "../../storage/db.js";
 import { modelPricing } from "../../storage/schema.js";
 import { eq, and } from "drizzle-orm";
 import { discoverModels, DiscoveredModel } from "../../agent/providers/model-discovery.js";
+import { listCodexModels } from "../../agent/providers/codex-app-server.js";
 import { invalidatePricingCache, getAllModelPricing } from "../../agent/providers/model-pricing-service.js";
 import { providerKeyService } from "../../agent/providers/provider-key-service.js";
 import { logger } from "../../utils/logger.js";
@@ -43,6 +44,19 @@ export const adminModelsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get("/api/admin/models/pricing", { preHandler: adminAuth }, async (request, reply) => {
         const models = await getAllModelPricing();
         return reply.send({ models });
+    });
+
+    // GET /api/models/codex — the LIVE Codex/ChatGPT model catalogue.
+    //
+    // Codex is keyless (it rides the host's ChatGPT login), so this route
+    // needs no ADMIN_API_KEY: it exposes only model ids + display names, no
+    // secrets, and the dashboard picker calls it for every tenant. Returns
+    // `{ models: [], available: false }` when there is no Codex login here, so
+    // the dashboard can fall back to its static list without treating it as an
+    // error. Cached in listCodexModels(), so hammering it is cheap.
+    fastify.get("/api/models/codex", async (_request, reply) => {
+        const models = await listCodexModels();
+        return reply.send({ models: models ?? [], available: models !== null });
     });
 
     // POST /api/admin/models/discover — auto-pull models from provider API

@@ -289,6 +289,33 @@ export async function getLiveModelsAction(
     const staticModels = ((PROVIDERS.find((p) => p.id === providerId)?.models || []) as any[]).map(markFree);
     if (!tc.authorized) return staticModels;
 
+    // Codex/ChatGPT is keyless and has no /models REST endpoint — the app-server
+    // owns the catalogue. Ask the gateway (which runs it) for the LIVE list, the
+    // OpenClaw approach, so a new model like GPT-5.6-Sol appears the day it ships
+    // instead of waiting for someone to edit a hardcoded array. No login here →
+    // the gateway says available:false and we keep the curated fallback.
+    if (providerId === "codex") {
+        try {
+            const gatewayUrl = (process.env.PULSE_GATEWAY_URL || "http://pulse-gateway:8080").replace(/\/$/, "");
+            const r = await fetch(`${gatewayUrl}/api/models/codex`, { cache: "no-store" });
+            if (r.ok) {
+                const j = await r.json();
+                if (j?.available && Array.isArray(j.models) && j.models.length) {
+                    return j.models.map((m: any) => ({
+                        id: String(m.id),
+                        provider: "codex",
+                        displayName: m.displayName || m.id,
+                        category: "flagship" as const,
+                        free: false,
+                    }));
+                }
+            }
+        } catch (e) {
+            console.error("live codex model list failed, using static:", e);
+        }
+        return staticModels;
+    }
+
     const base = OPENAI_COMPAT_MODEL_BASE[providerId];
     if (!base) return staticModels; // anthropic/google etc. keep the curated list
 

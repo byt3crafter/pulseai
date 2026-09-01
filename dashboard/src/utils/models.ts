@@ -36,11 +36,11 @@ export const PROVIDERS: ProviderInfo[] = [
         name: "Codex (ChatGPT subscription)",
         authMethods: ["oauth"],
         models: [
+            // NOT A CATALOGUE — a single anchor. The real list is fetched LIVE
+            // from the gateway's /api/models/codex (app-server model/list), so
+            // new models like GPT-5.6-Sol appear with no code change. Don't grow
+            // this by hand — that's what the live fetch replaces.
             { id: "gpt-5.5", provider: "codex", displayName: "GPT-5.5 (Codex)", category: "flagship" },
-            { id: "gpt-5.5-pro", provider: "codex", displayName: "GPT-5.5 Pro (Codex)", category: "flagship" },
-            { id: "gpt-5.4", provider: "codex", displayName: "GPT-5.4 (Codex)", category: "flagship" },
-            { id: "gpt-5.4-codex", provider: "codex", displayName: "GPT-5.4 Codex", category: "flagship" },
-            { id: "gpt-5.4-mini", provider: "codex", displayName: "GPT-5.4 Mini (Codex)", category: "fast" },
         ],
     },
     {

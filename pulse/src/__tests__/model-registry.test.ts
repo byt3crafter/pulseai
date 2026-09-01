@@ -13,6 +13,7 @@ import {
     getAllProviders,
     getAllModels,
     getFallbackModelId,
+    inferProviderId,
 } from "../agent/providers/model-registry.js";
 
 // ─── getModelById ─────────────────────────────────────────────────────────────
@@ -129,6 +130,37 @@ describe("getProviderByModel", () => {
 });
 
 // ─── getProviderById ──────────────────────────────────────────────────────────
+
+// ─── inferProviderId — routing by PATTERN, no hand-kept name list ────────────
+describe("inferProviderId", () => {
+    it("routes bare gpt-5.x ChatGPT-subscription ids to codex", () => {
+        // These are the app-server (ChatGPT subscription) models — the OpenAI
+        // REST API does not sell them. A NEW one must route with no code change.
+        expect(inferProviderId("gpt-5.5")).toBe("codex");
+        expect(inferProviderId("gpt-5.6-sol")).toBe("codex");
+        expect(inferProviderId("gpt-5.6-terra")).toBe("codex");
+        expect(inferProviderId("gpt-5.7-whatever-ships-next")).toBe("codex");
+    });
+
+    it("keeps classic OpenAI ids on openai", () => {
+        expect(inferProviderId("gpt-4o")).toBe("openai");
+        expect(inferProviderId("gpt-4.1")).toBe("openai");
+        expect(inferProviderId("o1")).toBe("openai");
+    });
+
+    it("keeps OpenRouter's vendor-slugged gpt-5 copies on openrouter", () => {
+        // The `/` form is OpenRouter, billed through the OpenRouter key — NOT
+        // the ChatGPT subscription. Must not be captured by the codex rule.
+        expect(inferProviderId("openai/gpt-5.1")).toBe("openrouter");
+        expect(inferProviderId("openai/gpt-5.1-codex")).toBe("openrouter");
+    });
+
+    it("routes a live-selected codex model through getProviderByModel", () => {
+        // gpt-5.6-sol is not in the static catalogue (it's fetched live), so this
+        // exercises the infer path end-to-end.
+        expect(getProviderByModel("gpt-5.6-sol")?.id).toBe("codex");
+    });
+});
 
 describe("getProviderById", () => {
     it("returns the anthropic provider", () => {
