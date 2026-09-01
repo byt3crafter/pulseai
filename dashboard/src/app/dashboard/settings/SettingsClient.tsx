@@ -63,6 +63,7 @@ interface CredentialInfo {
     description: string | null;
     agentId: string | null;
     updatedAt: string | null;
+    healthy?: boolean;
 }
 
 const TABS = [
@@ -88,6 +89,7 @@ interface ProviderKeyInfo {
     keyAlias: string | null;
     isActive: boolean | null;
     lastValidatedAt: string | null;
+    healthy?: boolean;
 }
 
 interface PairingInfo {
@@ -1264,7 +1266,15 @@ function ProviderCard({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isConfigured && (
+                    {isConfigured && existingKey?.healthy === false && (
+                        <span
+                            title="The stored key can't be decrypted with the current encryption key — re-enter it."
+                            className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400"
+                        >
+                            Needs re-entry
+                        </span>
+                    )}
+                    {isConfigured && existingKey?.healthy !== false && (
                         <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400">
                             {existingKey?.authMethod === "setup_token" ? "Claude Account" : existingKey?.authMethod === "oauth" ? "ChatGPT Subscription" : isCodex ? "Server Subscription" : "Configured"}
                         </span>
@@ -2651,6 +2661,14 @@ function CredentialsTab({
                                             {owner && (
                                                 <span className="ml-2 inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 font-sans text-[11px] font-medium text-pulse-accent-hi">
                                                     Managed by {owner}
+                                                </span>
+                                            )}
+                                            {c.healthy === false && (
+                                                <span
+                                                    title="The stored value can't be decrypted with the current encryption key — re-enter it."
+                                                    className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 font-sans text-[11px] font-medium text-amber-400"
+                                                >
+                                                    Needs re-entry
                                                 </span>
                                             )}
                                         </td>

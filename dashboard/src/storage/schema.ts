@@ -9,6 +9,7 @@ import {
     boolean,
     integer,
     index,
+    uniqueIndex,
     unique,
     AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -924,7 +925,13 @@ export const credentials = pgTable(
         updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
     },
     (table) => [
-        unique("idx_unique_credential").on(table.tenantId, table.name),
+        // Partial uniques (migration 0050): one tenant-wide credential per name,
+        // and one per agent per name — so the same name can be scoped to
+        // different agents (e.g. two ERPNext instances). A plain composite
+        // unique would miss duplicate tenant-wide rows (NULL agent_id is
+        // distinct in Postgres), hence the split with .where().
+        uniqueIndex("credentials_tenant_name_global").on(table.tenantId, table.name).where(sql`agent_id IS NULL`),
+        uniqueIndex("credentials_tenant_name_agent").on(table.tenantId, table.name, table.agentId).where(sql`agent_id IS NOT NULL`),
         index("idx_credentials_tenant").on(table.tenantId),
     ]
 );

@@ -1,5 +1,6 @@
 import { auth } from "../../../auth";
 import { db } from "../../../storage/db";
+import { decrypt as _decrypt } from "../../../utils/crypto";
 import { tenants, tenantBalances, channelConnections, oauthClients, tenantProviderKeys, pairingCodes, allowlists, apiTokens, installedPlugins, tenantPluginConfigs, credentials, users, tenantSkills } from "../../../storage/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -11,6 +12,16 @@ import { getCredentials, getTenantAgents, addCredential } from "./credentials/ac
 import { CHANNEL_SETUP_CATALOG } from "../../../utils/channel-catalog";
 import { getMyEmailAction } from "./my-email-actions";
 import SettingsClient from "./SettingsClient";
+
+/**
+ * True if at least one stored secret on the key decrypts. Used to flag a
+ * provider that shows "Configured" but whose value can no longer be decrypted.
+ */
+function providerKeyHealthy(apiKeyEnc: string | null, oauthEnc: string | null): boolean {
+    const enc = apiKeyEnc || oauthEnc;
+    if (!enc) return true; // nothing stored (e.g. keyless Codex) — not a health failure
+    try { _decrypt(enc); return true; } catch { return false; }
+}
 
 export default async function SettingsPage({
     searchParams,
@@ -35,6 +46,8 @@ export default async function SettingsPage({
             keyAlias: tenantProviderKeys.keyAlias,
             isActive: tenantProviderKeys.isActive,
             lastValidatedAt: tenantProviderKeys.lastValidatedAt,
+            encryptedApiKey: tenantProviderKeys.encryptedApiKey,
+            oauthAccessTokenEnc: tenantProviderKeys.oauthAccessTokenEnc,
         }).from(tenantProviderKeys).where(eq(tenantProviderKeys.tenantId, tenantId)) : [],
         tenantId ? db.select({
             id: apiTokens.id,
@@ -249,6 +262,10 @@ export default async function SettingsPage({
                 keyAlias: k.keyAlias,
                 isActive: k.isActive,
                 lastValidatedAt: k.lastValidatedAt?.toISOString() ?? null,
+                // Can the stored secret still be decrypted? A "Configured" key whose
+                // value is undecryptable (e.g. after a key rotation) must say so.
+                // The encrypted material is tested here and never sent to the browser.
+                healthy: providerKeyHealthy(k.encryptedApiKey, k.oauthAccessTokenEnc),
             }))}
             telegramConfig={{
                 dmPolicy: tenantConfig.telegram_dm_policy ?? "open",
