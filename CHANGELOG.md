@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.54] - 2026-09-01
+
+### Features
+- live ChatGPT model list via app-server model/list
+
 ## [0.20.53] - 2026-09-01
 
 ### Features
