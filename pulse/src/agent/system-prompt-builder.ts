@@ -489,7 +489,21 @@ function buildRuntimeLine(params: SystemPromptParams): string[] {
         `tools=${params.enabledTools.length}`,
     ].filter(Boolean);
 
-    return ["## Runtime", parts.join(" | "), ""];
+    /*
+     * Explicit model identity.
+     *
+     * The `model=` field above is technical config the model ignores when asked
+     * "what model are you" — so it answers from its training instead, and many
+     * models confabulate a WRONG identity (GLM and others trained partly on GPT
+     * output routinely claim to be GPT). Stating it as a plain instruction the
+     * model will actually follow makes it report the real backing model.
+     */
+    const identity =
+        `You are powered by the model \`${sanitize(params.modelId)}\`. ` +
+        `If asked which model, LLM, or AI you are, answer with this accurately, ` +
+        `and never claim to be a different model or provider than the one named here.`;
+
+    return ["## Runtime", parts.join(" | "), "", identity, ""];
 }
 
 function buildToolsGuidanceSection(content: string): string[] {
