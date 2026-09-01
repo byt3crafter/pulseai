@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.57] - 2026-09-01
+
+### Bug Fixes
+- duplicate tool name no longer wipes Codex's whole toolset
+
 ## [0.20.56] - 2026-09-01
 
 ### Bug Fixes
