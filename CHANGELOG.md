@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.49] - 2026-09-01
+
+### Features
+- credential health signal, verified backups, per-agent credential scoping
+
 ## [0.20.48] - 2026-08-31
 
 ### Features
