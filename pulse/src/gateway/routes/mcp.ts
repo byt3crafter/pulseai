@@ -17,6 +17,33 @@ import { logger } from "../../utils/logger.js";
 const mcpToolRegistry = new ToolRegistry();
 
 /**
+ * Partition a tool list into what to register and what to skip, deduping by
+ * name against `reservedNames` and against earlier entries. The MCP SDK's
+ * `mcp.tool()` THROWS on a duplicate name, and a Codex agent's enabled-tool
+ * list legitimately carries the same name twice (a tool that exists as both a
+ * built-in and a plugin). Registering blindly threw and aborted the whole
+ * exposure, leaving the agent with no tools; this makes the dedup explicit and
+ * testable. First occurrence wins; later duplicates land in `skipped`.
+ */
+export function dedupeToolsForMcp<T extends { name: string }>(
+    tools: T[],
+    reservedNames: string[] = [],
+): { toRegister: T[]; skipped: string[] } {
+    const seen = new Set(reservedNames);
+    const toRegister: T[] = [];
+    const skipped: string[] = [];
+    for (const tool of tools) {
+        if (seen.has(tool.name)) {
+            skipped.push(tool.name);
+            continue;
+        }
+        seen.add(tool.name);
+        toRegister.push(tool);
+    }
+    return { toRegister, skipped };
+}
+
+/**
  * Convert a tool's JSON-schema `parameters` into a Zod raw shape the MCP SDK
  * accepts. Top-level properties only (string/number/boolean/array/object),
  * which covers Pulse's built-in tool schemas.
@@ -215,24 +242,31 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
 
     // ── Agent-scoped tools (Codex operator mode) ────────────────────
     if (agentProfileId) {
-        // `seen` starts with the conversation tools already registered above and
-        // then grows as we register agent tools. Deduping here is essential:
-        // getEnabledTools can return the SAME tool name twice (e.g.
-        // commitment_create exists both as a built-in and in the commitments
-        // plugin). mcp.tool() THROWS on a duplicate name, and that one throw used
-        // to abort the whole loop — leaving Codex with NONE of the agent's tools,
-        // so the model couldn't call server_list/server_exec and improvised with
-        // raw shell. Skipping the duplicate keeps every other tool available.
-        const seen = new Set(["send_message", "list_conversations", "get_conversation"]);
         try {
             const agentTools = await mcpToolRegistry.getEnabledTools(tenantId, agentProfileId);
-            for (const tool of agentTools) {
-                if (seen.has(tool.name)) {
-                    logger.warn({ tenantId, agentProfileId, tool: tool.name }, "Skipping duplicate agent tool on MCP session");
-                    continue;
-                }
-                seen.add(tool.name);
-                mcp.tool(
+            // Dedupe by name against the conversation tools already registered
+            // above AND against each other. getEnabledTools can return the SAME
+            // name twice (e.g. commitment_create exists both as a built-in and in
+            // the commitments plugin). mcp.tool() THROWS on a duplicate, and that
+            // one throw used to abort the whole loop — leaving a Codex agent with
+            // NONE of the tools listed after the dupe, including
+            // server_list/server_exec. Skip repeats; keep the rest.
+            const { toRegister, skipped } = dedupeToolsForMcp(
+                agentTools,
+                ["send_message", "list_conversations", "get_conversation"],
+            );
+            for (const name of skipped) {
+                logger.warn({ tenantId, agentProfileId, tool: name }, "Skipping duplicate agent tool on MCP session");
+            }
+            let registered = 0;
+            for (const tool of toRegister) {
+                // Isolate EACH registration. Dedup handles the known trigger, but
+                // this is the guarantee that matters: a single tool that fails to
+                // register (bad schema, an unforeseen collision) can never again
+                // take down the whole toolset and leave a Codex agent blind. Skip
+                // the one bad tool, keep the rest.
+                try {
+                    mcp.tool(
                     tool.name,
                     tool.description,
                     jsonSchemaToZodShape(tool.parameters),
@@ -278,9 +312,21 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
                             };
                         }
                     },
-                );
+                    );
+                    registered++;
+                } catch (regErr: any) {
+                    logger.error(
+                        { regErr: regErr?.message, tool: tool.name, tenantId, agentProfileId },
+                        "Failed to register one agent tool on MCP session — skipping it, keeping the rest",
+                    );
+                }
             }
-            logger.info({ tenantId, agentProfileId, toolCount: agentTools.length }, "Agent tools exposed on MCP session");
+            // Count what ACTUALLY registered, not what was requested — the old
+            // log claimed success even when the loop had aborted mid-way.
+            logger.info(
+                { tenantId, agentProfileId, registered, requested: agentTools.length },
+                "Agent tools exposed on MCP session",
+            );
         } catch (err) {
             logger.error({ err, tenantId, agentProfileId }, "Failed to expose agent tools on MCP session");
         }
