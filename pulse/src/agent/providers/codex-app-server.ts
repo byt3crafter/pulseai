@@ -62,9 +62,12 @@ const TURN_START_TIMEOUT_MS = 15_000;
 // notification (reasoning summary, item, token usage) resets the inactivity clock.
 const TURN_INACTIVITY_TIMEOUT_MS = Number(process.env.CODEX_TURN_INACTIVITY_MS) || 240_000;
 const TURN_ABSOLUTE_MAX_MS = Number(process.env.CODEX_TURN_MAX_MS) || 30 * 60_000;
-// Codex reasoning effort (minimal|low|medium|high|xhigh). Default high — Pulse
-// agents do multi-step tool work where thinking pays off. Override per deploy.
-const DEFAULT_REASONING_EFFORT = process.env.CODEX_REASONING_EFFORT || "high";
+// Codex reasoning effort (minimal|low|medium|high|xhigh). Default MEDIUM — a
+// chat assistant answering "hello" at `high` thinks for many seconds before a
+// single token appears, which reads as "stuck". Medium keeps real reasoning for
+// tool work while feeling responsive; raise per deploy (CODEX_REASONING_EFFORT)
+// or per agent for reasoning-heavy roles, or lower to `low`/`minimal` for speed.
+const DEFAULT_REASONING_EFFORT = process.env.CODEX_REASONING_EFFORT || "medium";
 // Verbose: log the agent's reasoning/plan trace. Off by default (private
 // reasoning shouldn't hit logs unless an operator opts in for debugging).
 const CODEX_VERBOSE = process.env.CODEX_VERBOSE === "true";
@@ -687,6 +690,11 @@ export class CodexAppServerProvider {
          *  so the channel can show "working…" activity during long turns. */
         onProgress?: (text: string) => void;
         progressVerbosity?: string;
+        /** Token-delta stream — same contract as the other providers. Codex only
+         *  used to return the FINAL message, so a slow turn showed nothing until
+         *  it finished. Now answer text (and reasoning, wrapped in <think>) is
+         *  streamed live, so the user sees it typing / thinking. */
+        stream?: { onDelta?: (delta: string) => void; onComplete?: () => void };
     }): Promise<ProviderResponse> {
         // Per-conversation pooling: same-conversation turns serialize on this
         // entry's queue (its client has one notification slot); DIFFERENT
@@ -736,13 +744,15 @@ export class CodexAppServerProvider {
         attachments?: ProviderAttachment[];
         onProgress?: (text: string) => void;
         progressVerbosity?: string;
+        reasoningEffort?: string;
+        stream?: { onDelta?: (delta: string) => void; onComplete?: () => void };
     }, poolKey: string, entry: PoolEntry): Promise<ProviderResponse> {
         // `remaining()` only bounds the short setup RPCs (initialize/thread/turn
         // start); the turn itself is governed by the inactivity watchdog below,
         // not this deadline — so base it on the absolute ceiling, never 120s.
         const deadline = Date.now() + TURN_ABSOLUTE_MAX_MS;
         const remaining = () => Math.max(1000, deadline - Date.now());
-        const reasoningEffort = (params as any).reasoningEffort || DEFAULT_REASONING_EFFORT;
+        const reasoningEffort = params.reasoningEffort || DEFAULT_REASONING_EFFORT;
         const log = logger.child({ component: "codex-app-server", model: params.model });
 
         let client: CodexRpcClient;
@@ -979,11 +989,38 @@ export class CodexAppServerProvider {
                     } catch { /* progress is best-effort */ }
                 };
 
+                // Live token streaming — the fix for "Codex shows nothing until it
+                // finishes". Answer deltas go straight to the UI; reasoning-summary
+                // deltas are wrapped in <think>…</think> (the same convention the
+                // OpenAI provider uses, which the web renders as live "thinking").
+                const onDelta = params.stream?.onDelta;
+                let thinkOpen = false;
+                const closeThink = () => { if (thinkOpen && onDelta) { onDelta("</think>"); thinkOpen = false; } };
+
                 client.onNotification((msg) => {
                     if (isOtherThread(msg.params)) return;
 
                     // Any activity for this thread means Codex is alive and working.
                     resetInactivity();
+
+                    // Stream the answer as it generates.
+                    if (msg.method === "item/agentMessage/delta") {
+                        const delta = msg.params?.delta;
+                        if (onDelta && typeof delta === "string" && delta) {
+                            closeThink();
+                            onDelta(delta);
+                        }
+                        return;
+                    }
+                    // Stream reasoning summary as live "thinking".
+                    if (msg.method === "item/reasoning/summaryTextDelta") {
+                        const delta = msg.params?.delta;
+                        if (onDelta && typeof delta === "string" && delta) {
+                            if (!thinkOpen) { onDelta("<think>"); thinkOpen = true; }
+                            onDelta(delta);
+                        }
+                        return;
+                    }
 
                     // Progress: surface tool/reasoning activity as it STARTS so the
                     // human sees the agent working during a long, silent turn.
@@ -1033,11 +1070,13 @@ export class CodexAppServerProvider {
 
                     if (msg.method === "turn/completed") {
                         turnCompleted = true;
+                        closeThink(); // never leave a dangling <think> if the turn was reasoning-only
                         const turn = msg.params?.turn;
                         if (turn?.status && turn.status !== "completed" && turn.status !== "interrupted") {
                             turnError = turn?.error?.message || `codex turn ended with status="${turn.status}"`;
                         }
                         cleanup();
+                        params.stream?.onComplete?.();
                         resolve();
                     }
                 });
