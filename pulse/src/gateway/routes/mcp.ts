@@ -11,6 +11,11 @@ import { AgentRuntime } from "../../agent/runtime.js";
 import { ToolRegistry } from "../../agent/tools/registry.js";
 import { ensureToolApproved } from "../../agent/tools/approval-gate.js";
 import { recordConversationToolCall } from "../../agent/run-recorder.js";
+import {
+    parseToolSearchConfig, rankDeferredTools, formatSearchResult,
+    toolSearchDefinition, TOOL_SEARCH_NAME,
+} from "../../agent/tools/tool-search.js";
+import type { Tool } from "../../agent/tools/tool.interface.js";
 import { logger } from "../../utils/logger.js";
 
 // Registry instance for agent-scoped MCP sessions (reads enablement from DB per call).
@@ -25,6 +30,66 @@ const mcpToolRegistry = new ToolRegistry();
  * exposure, leaving the agent with no tools; this makes the dedup explicit and
  * testable. First occurrence wins; later duplicates land in `skipped`.
  */
+/*
+ * Progressive tool disclosure for the Codex bridge.
+ *
+ * Codex gets its Pulse tools over MCP, and the bridge used to register EVERY
+ * enabled tool (111 for a fully-loaded agent) — ~48k prompt tokens the model
+ * re-reads on every single turn, which is most of why Codex felt slow. The
+ * native provider path already trims via tool-search; the MCP bridge never did.
+ *
+ * Now the bridge registers only what THIS question needs: a tiny always-core
+ * set + tools whose name/description match the user's latest message + a
+ * `tool_search` meta-tool. Everything else is deferred and revealed on demand
+ * (registering a tool after connect auto-sends tools/list_changed). "hello" →
+ * ~8 tools, fast; "check the erpnext invoice" → core + erpnext_* tools.
+ */
+const CODEX_CORE_TOOLS = new Set([
+    "get_current_time", "memory_search", "memory_store", "notify",
+    "delegate_to_agent", "list_agents", "activity_log", "pulse_help",
+]);
+const LEAN_TOOL_THRESHOLD = 20; // below this, registering everything is cheap — don't bother
+
+/** Relevance of a tool to the user's message tokens (name weighed over desc). */
+function scoreToolByTokens(tool: { name: string; description?: string }, tokens: string[]): number {
+    const name = tool.name.toLowerCase();
+    const desc = (tool.description || "").toLowerCase();
+    let s = 0;
+    for (const tok of tokens) {
+        // Stem a trailing plural 's' so "servers" matches server_list/server_exec,
+        // "invoices" matches erpnext invoice tools, etc. — a real query is plural
+        // far more often than a tool name is.
+        const stem = tok.endsWith("s") && tok.length > 3 ? tok.slice(0, -1) : tok;
+        if (name.includes(tok) || name.includes(stem)) s += 3;
+        else if (desc.includes(tok) || desc.includes(stem)) s += 1;
+    }
+    return s;
+}
+
+/**
+ * Split a tool list into what to register up front (`initial`) vs what to defer
+ * behind tool_search (`deferred`), for a given question. Always-core tools and
+ * any tool whose name/description matches the question are initial; the rest are
+ * deferred. Pure + exported so the selection is unit-tested.
+ */
+export function selectLeanToolset<T extends { name: string; description?: string }>(
+    tools: T[],
+    query: string,
+    coreNames: Set<string>,
+): { initial: T[]; deferred: T[] } {
+    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+    const initial: T[] = [];
+    const deferred: T[] = [];
+    for (const tool of tools) {
+        if (coreNames.has(tool.name) || (tokens.length > 0 && scoreToolByTokens(tool, tokens) > 0)) {
+            initial.push(tool);
+        } else {
+            deferred.push(tool);
+        }
+    }
+    return { initial, deferred };
+}
+
 export function dedupeToolsForMcp<T extends { name: string }>(
     tools: T[],
     reservedNames: string[] = [],
@@ -253,78 +318,114 @@ async function createMcpServer(tenantId: string, agentRuntime: AgentRuntime, age
             // server_list/server_exec. Skip repeats; keep the rest.
             const { toRegister, skipped } = dedupeToolsForMcp(
                 agentTools,
-                ["send_message", "list_conversations", "get_conversation"],
+                ["send_message", "list_conversations", "get_conversation", TOOL_SEARCH_NAME],
             );
             for (const name of skipped) {
                 logger.warn({ tenantId, agentProfileId, tool: name }, "Skipping duplicate agent tool on MCP session");
             }
-            let registered = 0;
-            for (const tool of toRegister) {
-                // Isolate EACH registration. Dedup handles the known trigger, but
-                // this is the guarantee that matters: a single tool that fails to
-                // register (bad schema, an unforeseen collision) can never again
-                // take down the whole toolset and leave a Codex agent blind. Skip
-                // the one bad tool, keep the rest.
+
+            // Registers ONE Pulse tool onto this MCP session, isolated so a single
+            // bad tool can never take down the rest, and idempotent so the reveal
+            // path can't double-register. Returns true only when it just added it.
+            const registeredNames = new Set<string>();
+            const registerOne = (tool: Tool): boolean => {
+                if (registeredNames.has(tool.name)) return false;
                 try {
                     mcp.tool(
-                    tool.name,
-                    tool.description,
-                    jsonSchemaToZodShape(tool.parameters),
-                    async (args: Record<string, any>) => {
-                        try {
-                            // Hard approval gate (same as the native runtime path): a tool
-                            // marked "ask" in the agent's Tool Policy must be approved first.
-                            const gate = await ensureToolApproved({
-                                tenantId,
-                                agentProfileId,
-                                toolName: tool.name,
-                                args,
-                            });
-                            if (!gate.ok) {
-                                return { content: [{ type: "text" as const, text: gate.message }], isError: true };
+                        tool.name,
+                        tool.description,
+                        jsonSchemaToZodShape(tool.parameters),
+                        async (args: Record<string, any>) => {
+                            try {
+                                // Hard approval gate (same as the native runtime path): a tool
+                                // marked "ask" in the agent's Tool Policy must be approved first.
+                                const gate = await ensureToolApproved({ tenantId, agentProfileId, toolName: tool.name, args });
+                                if (!gate.ok) {
+                                    return { content: [{ type: "text" as const, text: gate.message }], isError: true };
+                                }
+                                const toolStart = Date.now();
+                                const result = await tool.execute({
+                                    tenantId,
+                                    conversationId: conversationId || `codex-mcp-${agentProfileId}`,
+                                    args: { ...args, _agentId: agentProfileId },
+                                });
+                                recordConversationToolCall(conversationId, tool.name, true, Date.now() - toolStart);
+                                logger.info(
+                                    { tenantId, agentProfileId, tool: tool.name, resultHead: String(result.result).slice(0, 200) },
+                                    "Agent MCP tool executed",
+                                );
+                                return { content: [{ type: "text" as const, text: result.result }] };
+                            } catch (err: any) {
+                                recordConversationToolCall(conversationId, tool.name, false, 0);
+                                logger.error({ err, tool: tool.name, tenantId, agentProfileId }, "Agent MCP tool failed");
+                                return { content: [{ type: "text" as const, text: `Tool error: ${err?.message || "unknown"}` }], isError: true };
                             }
-                            const toolStart = Date.now();
-                            const result = await tool.execute({
-                                tenantId,
-                                // Real conversation when the codex provider passed one
-                                // (?conv=...) so channel-aware tools (screenshot ->
-                                // Telegram photo) can find the chat; synthetic otherwise.
-                                conversationId: conversationId || `codex-mcp-${agentProfileId}`,
-                                args: { ...args, _agentId: agentProfileId },
-                            });
-                            // Attribute this tool call to the run the runtime opened for
-                            // this conversation, so Codex agents' tool activity shows up in
-                            // the task queue (they execute out here, not in the native loop).
-                            recordConversationToolCall(conversationId, tool.name, true, Date.now() - toolStart);
-                            // Observability: agent tool results were previously invisible,
-                            // letting models claim success on silent error JSONs.
-                            logger.info(
-                                { tenantId, agentProfileId, tool: tool.name, resultHead: String(result.result).slice(0, 200) },
-                                "Agent MCP tool executed"
-                            );
-                            return { content: [{ type: "text" as const, text: result.result }] };
-                        } catch (err: any) {
-                            recordConversationToolCall(conversationId, tool.name, false, 0);
-                            logger.error({ err, tool: tool.name, tenantId, agentProfileId }, "Agent MCP tool failed");
-                            return {
-                                content: [{ type: "text" as const, text: `Tool error: ${err?.message || "unknown"}` }],
-                                isError: true,
-                            };
-                        }
-                    },
+                        },
                     );
-                    registered++;
+                    registeredNames.add(tool.name);
+                    return true;
                 } catch (regErr: any) {
                     logger.error(
                         { regErr: regErr?.message, tool: tool.name, tenantId, agentProfileId },
                         "Failed to register one agent tool on MCP session — skipping it, keeping the rest",
                     );
+                    return false;
                 }
+            };
+
+            // The user's latest message drives which tools are relevant this turn.
+            let query = "";
+            if (conversationId) {
+                const last = await db.query.messages.findFirst({
+                    where: eq(messages.conversationId, conversationId),
+                    orderBy: [desc(messages.createdAt)],
+                });
+                query = (last?.content as string) || "";
             }
-            // Count what ACTUALLY registered, not what was requested — the old
-            // log claimed success even when the loop had aborted mid-way.
+
+            const tenant = await db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
+            const tsConfig = parseToolSearchConfig(tenant?.config);
+            // Only trim when there's a real question to trim against and enough
+            // tools to matter; otherwise register everything (old behavior) so a
+            // tool-less CLI session or a huge-context turn is never surprised.
+            const leanActive = tsConfig.mode !== "off" && !!query.trim() && toRegister.length > LEAN_TOOL_THRESHOLD;
+
+            let deferred: Tool[] = [];
+            if (leanActive) {
+                const split = selectLeanToolset(toRegister, query, CODEX_CORE_TOOLS);
+                deferred = split.deferred;
+                for (const tool of split.initial) registerOne(tool);
+                // tool_search: the escape hatch. When the lean set doesn't cover
+                // the task, the agent describes what it needs and the matches are
+                // registered live (auto tools/list_changed) so it can call them.
+                try {
+                    mcp.tool(
+                        TOOL_SEARCH_NAME,
+                        toolSearchDefinition().description,
+                        { query: z.string().describe("What you want to do, in plain language.") },
+                        async ({ query: q }: { query: string }) => {
+                            const stillDeferred = deferred.filter((t) => !registeredNames.has(t.name));
+                            const { matches, total } = rankDeferredTools(stillDeferred, q, tsConfig.maxResults);
+                            let revealed = 0;
+                            for (const m of matches) if (registerOne(m)) revealed++;
+                            logger.info({ tenantId, agentProfileId, query: q, revealed, remaining: total }, "tool_search revealed tools");
+                            return { content: [{ type: "text" as const, text: formatSearchResult(matches, total, q) }] };
+                        },
+                    );
+                    registeredNames.add(TOOL_SEARCH_NAME);
+                } catch (regErr: any) {
+                    logger.error({ regErr: regErr?.message, tenantId, agentProfileId }, "Failed to register tool_search on MCP session");
+                }
+            } else {
+                for (const tool of toRegister) registerOne(tool);
+            }
+
             logger.info(
-                { tenantId, agentProfileId, registered, requested: agentTools.length },
+                {
+                    tenantId, agentProfileId,
+                    registered: registeredNames.size, requested: agentTools.length,
+                    lean: leanActive, deferred: deferred.length,
+                },
                 "Agent tools exposed on MCP session",
             );
         } catch (err) {
