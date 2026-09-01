@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.51] - 2026-09-01
+
+### Bug Fixes
+- agent states its real model instead of confabulating
+
 ## [0.20.50] - 2026-09-01
 
 ### Bug Fixes
