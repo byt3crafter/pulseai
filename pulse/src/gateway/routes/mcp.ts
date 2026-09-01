@@ -66,28 +66,53 @@ function scoreToolByTokens(tool: { name: string; description?: string }, tokens:
     return s;
 }
 
+// Words that must NOT drive tool relevance. Without this, "do you have access
+// to any servers" matched ~50 tools because "access"/"have"/"any"/"you" appear
+// in dozens of tool descriptions — defeating the whole point. Only meaningful
+// nouns/verbs should pull a tool in.
+const STOPWORDS = new Set([
+    "the", "and", "for", "you", "your", "are", "can", "have", "has", "will", "would",
+    "could", "should", "any", "all", "some", "was", "were", "with", "that", "this",
+    "there", "their", "them", "they", "what", "when", "where", "who", "why", "how",
+    "please", "tell", "give", "show", "let", "get", "got", "make", "need", "want",
+    "access", "use", "using", "used", "help", "know", "about", "into", "from", "out",
+    "now", "just", "like", "than", "then", "but", "not", "yes", "hey", "hello", "man",
+    "one", "two", "our", "own", "its", "his", "her", "him", "she", "does", "did", "done",
+]);
+
+// Never register more than this many tools up front — even a broad question
+// shouldn't blow the context back up. Extras stay deferred behind tool_search.
+const MAX_INITIAL_MATCHES = 12;
+
 /**
  * Split a tool list into what to register up front (`initial`) vs what to defer
- * behind tool_search (`deferred`), for a given question. Always-core tools and
- * any tool whose name/description matches the question are initial; the rest are
- * deferred. Pure + exported so the selection is unit-tested.
+ * behind tool_search (`deferred`), for a given question. Always-core tools plus
+ * the top few tools whose name/description match the question's MEANINGFUL words
+ * (stopwords removed) are initial; everything else is deferred. Pure + exported
+ * so the selection is unit-tested.
  */
 export function selectLeanToolset<T extends { name: string; description?: string }>(
     tools: T[],
     query: string,
     coreNames: Set<string>,
 ): { initial: T[]; deferred: T[] } {
-    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
-    const initial: T[] = [];
-    const deferred: T[] = [];
+    const tokens = query.toLowerCase().split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+
+    const core: T[] = [];
+    const scored: { tool: T; score: number }[] = [];
+    const rest: T[] = [];
     for (const tool of tools) {
-        if (coreNames.has(tool.name) || (tokens.length > 0 && scoreToolByTokens(tool, tokens) > 0)) {
-            initial.push(tool);
-        } else {
-            deferred.push(tool);
-        }
+        if (coreNames.has(tool.name)) { core.push(tool); continue; }
+        const score = tokens.length ? scoreToolByTokens(tool, tokens) : 0;
+        if (score > 0) scored.push({ tool, score });
+        else rest.push(tool);
     }
-    return { initial, deferred };
+    // Best-matching tools first, capped — the long tail stays searchable.
+    scored.sort((a, b) => b.score - a.score);
+    const matched = scored.slice(0, MAX_INITIAL_MATCHES).map((s) => s.tool);
+    const overflow = scored.slice(MAX_INITIAL_MATCHES).map((s) => s.tool);
+    return { initial: [...core, ...matched], deferred: [...overflow, ...rest] };
 }
 
 export function dedupeToolsForMcp<T extends { name: string }>(

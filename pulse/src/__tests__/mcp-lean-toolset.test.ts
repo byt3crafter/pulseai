@@ -50,4 +50,20 @@ describe("selectLeanToolset", () => {
         const { initial } = selectLeanToolset(tools, "", CORE);
         expect(initial.map((t) => t.name).sort()).toEqual(["get_current_time", "memory_search", "notify"]);
     });
+
+    it("stopwords don't drag in unrelated tools (the 48k-token bug)", () => {
+        // "have/access/any/you/do" are stopwords; only "servers" is meaningful.
+        // Without stopword filtering this pulled ~everything via description hits.
+        const { initial } = selectLeanToolset(tools, "do you have access to any of them", CORE);
+        // no meaningful noun → only core, nothing dragged in
+        expect(initial.map((t) => t.name).sort()).toEqual(["get_current_time", "memory_search", "notify"]);
+    });
+
+    it("caps the up-front set so a broad question can't reinflate context", () => {
+        const many = Array.from({ length: 40 }, (_, i) => ({ name: `report_${i}`, description: "generate a report" }));
+        const { initial, deferred } = selectLeanToolset(many, "make me a report", new Set<string>());
+        // capped at MAX_INITIAL_MATCHES (12); the rest stay searchable
+        expect(initial.length).toBeLessThanOrEqual(12);
+        expect(deferred.length).toBeGreaterThan(0);
+    });
 });
