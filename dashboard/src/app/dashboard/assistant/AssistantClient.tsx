@@ -26,6 +26,30 @@ const REASONING_OPTS = [
     { id: "low", label: "Low" }, { id: "medium", label: "Medium" }, { id: "high", label: "High" },
 ];
 
+/*
+ * How each provider is NAMED in the model picker, and the order its group
+ * appears in. The list mixed every provider's models into one flat dump — you
+ * could not tell Codex's real ChatGPT models from OpenRouter's `openai/…`
+ * namespaced ones from MiniMax. Grouping by provider with a human name is the
+ * fix. Anything not listed falls back to the raw provider id (still grouped,
+ * just un-prettified) so a new provider never vanishes — it lands at the end.
+ */
+const PROVIDER_LABELS: Record<string, string> = {
+    codex: "Codex — ChatGPT subscription",
+    anthropic: "Anthropic (Claude)",
+    openai: "OpenAI",
+    minimax: "MiniMax",
+    google: "Google (Gemini)",
+    groq: "Groq",
+    openrouter: "OpenRouter",
+};
+const PROVIDER_ORDER = ["codex", "anthropic", "openai", "minimax", "google", "groq", "openrouter"];
+const providerLabel = (id: string) => PROVIDER_LABELS[id] || id;
+const providerRank = (id: string) => {
+    const i = PROVIDER_ORDER.indexOf(id);
+    return i === -1 ? PROVIDER_ORDER.length : i;
+};
+
 function newSessionId(): string {
     try { return crypto.randomUUID().replace(/-/g, "").slice(0, 20); }
     catch { return `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`; }
@@ -137,6 +161,9 @@ export default function AssistantClient({
     const [model, setModel] = useState<string>("");
     const [models, setModels] = useState<{ id: string; label: string; provider: string; free?: boolean }[]>([]);
     const [freeOnly, setFreeOnly] = useState(false);
+    // Search box inside the model picker — the list can be hundreds of models
+    // (OpenRouter alone), so a filter is the difference between usable and not.
+    const [modelQuery, setModelQuery] = useState("");
 
     // Persisted settings (nothing hardcoded).
     const [reasoning, setReasoning] = useState<string>("auto");
@@ -188,6 +215,37 @@ export default function AssistantClient({
      */
     const agentModelName = modelLabel(activeAgent?.modelId ?? undefined);
     const pillModelName = model ? modelLabel(model) : agentModelName;
+
+    /*
+     * The picker list, filtered by the search box and grouped by provider.
+     * Grouping is what lets you tell Codex from OpenRouter from MiniMax; the
+     * search is what makes a hundreds-long list usable. Free-only is an extra
+     * narrowing. Groups come out in PROVIDER_ORDER, models alphabetical within.
+     */
+    const modelGroups = (() => {
+        const q = modelQuery.trim().toLowerCase();
+        const filtered = models.filter((m) => {
+            if (freeOnly && !m.free) return false;
+            if (!q) return true;
+            return m.id.toLowerCase().includes(q)
+                || m.label.toLowerCase().includes(q)
+                || providerLabel(m.provider).toLowerCase().includes(q);
+        });
+        const byProvider = new Map<string, typeof filtered>();
+        for (const m of filtered) {
+            const arr = byProvider.get(m.provider) ?? [];
+            arr.push(m);
+            byProvider.set(m.provider, arr);
+        }
+        return Array.from(byProvider.entries())
+            .sort((a, b) => providerRank(a[0]) - providerRank(b[0]) || a[0].localeCompare(b[0]))
+            .map(([provider, list]) => ({
+                provider,
+                label: providerLabel(provider),
+                models: list.slice().sort((a, b) => a.label.localeCompare(b.label)),
+            }));
+    })();
+    const modelResultCount = modelGroups.reduce((n, g) => n + g.models.length, 0);
 
     useEffect(() => {
         try {
@@ -937,13 +995,56 @@ export default function AssistantClient({
                                     {pillOpen && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setPillOpen(false)} aria-hidden="true" />
-                                            <div role="menu" className="absolute bottom-[42px] left-0 z-50 w-[264px] rounded-xl border border-pulse-border-strong bg-pulse-hover p-3 shadow-2xl">
-                                                <label className="block text-[11px] font-medium uppercase tracking-wide text-pulse-dim">Model</label>
-                                                <select value={model} onChange={(e) => setModel(e.target.value)}
-                                                    className="mt-1.5 w-full rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-[13px] text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50">
-                                                    <option value="">{agentModelName || "The agent's own model"}</option>
-                                                    {models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.free ? "  ✦ free" : ""}</option>)}
-                                                </select>
+                                            <div role="menu" className="absolute bottom-[42px] left-0 z-50 w-[320px] rounded-xl border border-pulse-border-strong bg-pulse-hover p-3 shadow-2xl">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="block text-[11px] font-medium uppercase tracking-wide text-pulse-dim">Model</label>
+                                                    <button type="button" onClick={() => setFreeOnly((v) => !v)} aria-pressed={freeOnly}
+                                                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${freeOnly ? "bg-pulse-accent/15 text-pulse-accent" : "text-pulse-faint hover:text-pulse-text-soft"}`}>
+                                                        ✦ Free only
+                                                    </button>
+                                                </div>
+                                                {/* search box — a flat list of hundreds is unusable without it */}
+                                                <div className="relative mt-1.5">
+                                                    <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-pulse-faint" />
+                                                    <input
+                                                        type="text" value={modelQuery} onChange={(e) => setModelQuery(e.target.value)}
+                                                        placeholder="Search models or provider…" aria-label="Search models"
+                                                        className="w-full rounded-lg border border-pulse-border bg-pulse-panel py-1.5 pl-8 pr-7 text-[13px] text-pulse-text outline-none placeholder:text-pulse-faint focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                                                    />
+                                                    {modelQuery && (
+                                                        <button type="button" onClick={() => setModelQuery("")} aria-label="Clear search"
+                                                            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-pulse-faint hover:text-pulse-text">
+                                                            <XMarkIcon className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {/* grouped, scrollable list */}
+                                                <div role="listbox" className="mt-1.5 max-h-[240px] overflow-y-auto rounded-lg border border-pulse-border bg-pulse-panel">
+                                                    <button type="button" role="option" aria-selected={model === ""}
+                                                        onClick={() => { setModel(""); setPillOpen(false); }}
+                                                        className={`flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-pulse-hover ${model === "" ? "text-pulse-accent" : "text-pulse-text"}`}>
+                                                        <span className="truncate">{agentModelName || "The agent's own model"}</span>
+                                                        {model === "" && <CheckIcon className="h-3.5 w-3.5 shrink-0" />}
+                                                    </button>
+                                                    {modelGroups.map((g) => (
+                                                        <div key={g.provider}>
+                                                            <div className="sticky top-0 bg-pulse-panel px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-pulse-dim">{g.label}</div>
+                                                            {g.models.map((m) => (
+                                                                <button key={m.id} type="button" role="option" aria-selected={model === m.id}
+                                                                    onClick={() => { setModel(m.id); setPillOpen(false); }}
+                                                                    className={`flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-pulse-hover ${model === m.id ? "text-pulse-accent" : "text-pulse-text"}`}>
+                                                                    <span className="truncate">{m.label}{m.free ? "  ✦" : ""}</span>
+                                                                    {model === m.id && <CheckIcon className="h-3.5 w-3.5 shrink-0" />}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                    {modelResultCount === 0 && (
+                                                        <p className="px-2.5 py-3 text-center text-[12px] text-pulse-faint">
+                                                            {models.length === 0 ? "No models available yet." : "No models match your search."}
+                                                        </p>
+                                                    )}
+                                                </div>
                                                 <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-pulse-dim">Reasoning</label>
                                                 <select value={reasoning} onChange={(e) => setReasoning(e.target.value)}
                                                     className="mt-1.5 w-full rounded-lg border border-pulse-border bg-pulse-panel px-2 py-1.5 text-[13px] text-pulse-text outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50">
