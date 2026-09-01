@@ -163,6 +163,13 @@ const codexProvider: ProviderDefinition = {
     id: "codex",
     name: "Codex (ChatGPT subscription)",
     authMethods: ["oauth"],
+    // NOT A CATALOGUE — a single routing/default anchor. The real, current
+    // Codex/ChatGPT model list is fetched LIVE from the app-server's
+    // `model/list` (see listCodexModels()), so new models like GPT-5.6-Sol
+    // appear with no code change. This one entry only exists so code that needs
+    // a default model / a non-empty provider (and pricing routing) has one; do
+    // NOT grow it into a hand-kept list — that is exactly what the live fetch
+    // replaces. Routing for every gpt-5.x id is handled by inferProviderId.
     models: [
         {
             id: "gpt-5.5",
@@ -171,38 +178,6 @@ const codexProvider: ProviderDefinition = {
             category: "flagship",
             pricing: { inputPerMillion: 0, outputPerMillion: 0 },
             maxTokens: 32768,
-        },
-        {
-            id: "gpt-5.5-pro",
-            provider: "codex",
-            displayName: "GPT-5.5 Pro (Codex)",
-            category: "reasoning",
-            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-            maxTokens: 32768,
-        },
-        {
-            id: "gpt-5.4",
-            provider: "codex",
-            displayName: "GPT-5.4 (Codex)",
-            category: "flagship",
-            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-            maxTokens: 32768,
-        },
-        {
-            id: "gpt-5.4-codex",
-            provider: "codex",
-            displayName: "GPT-5.4 Codex",
-            category: "reasoning",
-            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-            maxTokens: 32768,
-        },
-        {
-            id: "gpt-5.4-mini",
-            provider: "codex",
-            displayName: "GPT-5.4 Mini (Codex)",
-            category: "fast",
-            pricing: { inputPerMillion: 0, outputPerMillion: 0 },
-            maxTokens: 16384,
         },
     ],
 };
@@ -400,6 +375,13 @@ export function inferProviderId(modelId: string): string | undefined {
     if (id.startsWith("claude")) return "anthropic";
     if (id.startsWith("minimax") || id.startsWith("abab")) return "minimax";
     if (id.startsWith("gemini") || id.startsWith("models/gemini")) return "google";
+    // Bare `gpt-5.x` ids (gpt-5.5, gpt-5.6-sol, …) are the ChatGPT-subscription
+    // models the Codex app-server serves — the OpenAI REST API doesn't sell them
+    // (OpenRouter's copies carry a `vendor/` slug and hit the `/` rule below).
+    // Routing by this PATTERN, not a hand-kept name list, means a new gpt-5.x
+    // model routes to Codex the day it ships, no code change. Keep this above
+    // the generic gpt→openai rule.
+    if (/^gpt-5\.\d/.test(id)) return "codex";
     if (id.startsWith("gpt") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("o4")
         || id.startsWith("chatgpt") || id.startsWith("text-embedding") || id.startsWith("davinci")) return "openai";
     if (id.includes("/")) return "openrouter"; // vendor/model slugs, e.g. "meta-llama/llama-3.3-70b"

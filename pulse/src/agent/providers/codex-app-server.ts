@@ -564,6 +564,82 @@ export function shutdownCodexAppServer(): void {
     pool.clear();
 }
 
+// ── Live model list (the OpenClaw approach) ─────────────────────────────────
+//
+// The Codex/ChatGPT catalogue used to be a hardcoded snapshot in
+// model-registry.ts — it went stale the moment OpenAI shipped a new model
+// (e.g. GPT-5.6-Sol), so the picker never showed the latest. The app-server
+// exposes `model/list`, exactly what the Codex CLI itself uses to populate its
+// model picker; we call it and cache the result. Where there is no ChatGPT
+// login (a plain server, or a container with no `~/.codex/auth.json`) the call
+// fails and the caller falls back to the static list — so this never makes the
+// picker EMPTIER than before, only fresher when a login is present.
+
+export interface CodexModel {
+    id: string;
+    displayName: string;
+    description?: string;
+}
+
+let modelCache: { at: number; models: CodexModel[] } | null = null;
+let modelInflight: Promise<CodexModel[] | null> | null = null;
+const MODEL_CACHE_TTL_MS = 10 * 60_000; // models change rarely; 10 min is plenty
+const MODEL_FAIL_TTL_MS = 60_000; // when unavailable, don't respawn on every keystroke
+
+/**
+ * The live Codex/ChatGPT model catalogue via `model/list`, or null when Codex
+ * is unavailable here (no binary, no login). Cached; safe to call often. Never
+ * throws — a picker asking "what models?" must not crash on a missing login.
+ */
+export async function listCodexModels(
+    codexBin: string = process.env.CODEX_BIN || "codex",
+): Promise<CodexModel[] | null> {
+    const now = Date.now();
+    if (modelCache && now - modelCache.at < MODEL_CACHE_TTL_MS) {
+        // A cached empty array means "asked recently, none available" — honour
+        // the shorter fail-TTL so a fresh login is picked up within a minute.
+        if (modelCache.models.length > 0 || now - modelCache.at < MODEL_FAIL_TTL_MS) {
+            return modelCache.models.length ? modelCache.models : null;
+        }
+    }
+    if (modelInflight) return modelInflight;
+
+    modelInflight = (async () => {
+        let client: CodexRpcClient | null = null;
+        try {
+            client = new CodexRpcClient(codexBin);
+            await client.request(
+                "initialize",
+                { clientInfo: { name: "pulse", title: "Pulse AI", version: "1.0" }, capabilities: null },
+                INITIALIZE_TIMEOUT_MS,
+            );
+            client.notify("initialized");
+            const res = await client.request("model/list", { includeHidden: false }, INITIALIZE_TIMEOUT_MS);
+            const data: any[] = Array.isArray(res?.data) ? res.data : [];
+            const models: CodexModel[] = data
+                .filter((m) => m && typeof m.id === "string" && !m.hidden)
+                .map((m) => ({
+                    id: m.id,
+                    displayName: typeof m.displayName === "string" && m.displayName ? m.displayName : m.id,
+                    description: typeof m.description === "string" ? m.description : undefined,
+                }));
+            modelCache = { at: Date.now(), models };
+            return models.length ? models : null;
+        } catch (err: any) {
+            logger.info(
+                { component: "codex-app-server", err: err?.message },
+                "codex model/list unavailable — falling back to static list",
+            );
+            modelCache = { at: Date.now(), models: [] };
+            return null;
+        } finally {
+            try { client?.close(); } catch { /* already dead */ }
+            modelInflight = null;
+        }
+    })();
+    return modelInflight;
+}
+
 /**
  * Build a `turn/start` `input` array (codex's `UserInput` union — see
  * `/tmp/codex-proto/v2/UserInput.ts`): one `text` item plus, for each image
