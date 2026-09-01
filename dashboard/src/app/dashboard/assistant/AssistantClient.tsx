@@ -848,7 +848,7 @@ export default function AssistantClient({
                                     <div className="md-chat text-sm leading-relaxed text-pulse-text">
                                         {m.content
                                             ? <Markdown>{m.content}</Markdown>
-                                            : (!m.thinking && <TypingDots />)}
+                                            : (!m.thinking && (!m.steps || m.steps.length === 0) && <TypingDots />)}
                                         {m.streaming && m.content && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-pulse-accent align-middle" />}
                                     </div>
                                 </div>
@@ -1190,12 +1190,17 @@ function ThinkingPanel({ text, streaming }: { text: string; streaming: boolean }
     );
 }
 
-function TypingDots() {
+/**
+ * The "thinking" state — a breathing accent orb next to a gradient shimmer that
+ * sweeps across the status word. `label` reflects what the agent is actually
+ * doing this instant ("Thinking", "Checking servers", "Searching the web") so
+ * the wait feels alive and honest rather than a dead spinner.
+ */
+function TypingDots({ label = "Thinking" }: { label?: string }) {
     return (
-        <span className="inline-flex gap-1 py-1">
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-pulse-faint [animation-delay:-0.3s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-pulse-faint [animation-delay:-0.15s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-pulse-faint" />
+        <span className="inline-flex items-center gap-2 py-1 align-middle">
+            <span className="pulse-orb h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+            <span className="pulse-shimmer-text text-[13px] font-medium tracking-tight">{label}…</span>
         </span>
     );
 }

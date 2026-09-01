@@ -264,3 +264,38 @@ body {
 .docs-md th { font-weight: 600; color: var(--pulse-text); }
 .docs-md td { color: var(--pulse-soft); }
 .docs-md img { max-width: 100%; border: 1px solid var(--pulse-border); border-radius: 10px; }
+
+/* ── Premium "thinking" state (assistant) ─────────────────────────────────
+   A shimmering gradient sweep across the status text + a breathing accent
+   orb. Replaces the generic three-dot spinner with something that reads as
+   alive and intentional. Honors reduced-motion. */
+.pulse-shimmer-text {
+  background-image: linear-gradient(
+    100deg,
+    var(--pulse-muted) 0%, var(--pulse-muted) 35%,
+    var(--pulse-accent-hi) 50%,
+    var(--pulse-muted) 65%, var(--pulse-muted) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: pulse-shimmer 2s linear infinite;
+}
+@keyframes pulse-shimmer {
+  0%   { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}
+.pulse-orb {
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 30%, var(--pulse-accent-hi), var(--pulse-accent) 70%);
+  box-shadow: 0 0 10px 0 color-mix(in srgb, var(--pulse-accent) 65%, transparent);
+  animation: pulse-orb 1.6s ease-in-out infinite;
+}
+@keyframes pulse-orb {
+  0%, 100% { transform: scale(0.82); opacity: 0.85; }
+  50%      { transform: scale(1.12); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-shimmer-text { animation: none; -webkit-text-fill-color: var(--pulse-muted); color: var(--pulse-muted); }
+  .pulse-orb { animation: none; }
+}
