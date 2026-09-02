@@ -44,9 +44,19 @@ const mcpToolRegistry = new ToolRegistry();
  * (registering a tool after connect auto-sends tools/list_changed). "hello" →
  * ~8 tools, fast; "check the erpnext invoice" → core + erpnext_* tools.
  */
+// Always registered, regardless of the question. Two groups:
+//  • reflexive helpers the agent reaches for on any turn (time/memory/notify…);
+//  • CAPABILITY-DEFINING operator tools. The agent's system prompt tells it it
+//    has SSH/server access, web search, a shell — if the matching tool isn't
+//    loaded, the model wrongly concludes "not available" and refuses (exactly
+//    the false-"no access" bug). These are few and cheap, so they're never
+//    deferred; the long tail (email/pdf/expenses/bookmarks/todos/…) still is.
 const CODEX_CORE_TOOLS = new Set([
     "get_current_time", "memory_search", "memory_store", "notify",
     "delegate_to_agent", "list_agents", "activity_log", "pulse_help",
+    // capability-defining operator tools — always available
+    "server_list", "server_exec", "exec", "process",
+    "web_search", "web_fetch",
 ]);
 const LEAN_TOOL_THRESHOLD = 20; // below this, registering everything is cheap — don't bother
 
