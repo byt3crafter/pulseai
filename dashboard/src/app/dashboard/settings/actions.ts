@@ -711,7 +711,7 @@ export async function saveVoiceSettingsAction(config: { enabled: boolean; apiKey
             await db
                 .insert(credentials)
                 .values({ tenantId, name: ELEVENLABS_CREDENTIAL, description: "Voice dictation (ElevenLabs speech-to-text)", credentialType: "api_key", encryptedValue })
-                .onConflictDoUpdate({ target: [credentials.tenantId, credentials.name], set: { encryptedValue, updatedAt: new Date() } });
+                .onConflictDoUpdate({ target: [credentials.tenantId, credentials.name], targetWhere: sql`${credentials.agentId} is null`, set: { encryptedValue, updatedAt: new Date() } });
         }
 
         await db.execute(

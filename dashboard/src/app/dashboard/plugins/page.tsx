@@ -2,7 +2,7 @@ import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import { db } from "../../../storage/db";
 import { tenants, installedPlugins, tenantPluginConfigs, credentials } from "../../../storage/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { encrypt } from "../../../utils/crypto";
 import { requireTenant } from "../../../utils/tenant-auth";
@@ -105,7 +105,13 @@ export default async function PluginsPage({
                 description: `${pluginName} plugin credential`,
                 credentialType: "api_key",
             }).onConflictDoUpdate({
+                // Plugin credentials are tenant-wide (no agent). Migration 0050
+                // replaced the plain (tenant,name) unique with two PARTIAL
+                // indexes, so ON CONFLICT must name the global one's predicate
+                // (agent_id IS NULL) or Postgres finds no arbiter and the insert
+                // throws — which is exactly what broke saving ERPNext creds.
                 target: [credentials.tenantId, credentials.name],
+                targetWhere: sql`${credentials.agentId} is null`,
                 set: {
                     encryptedValue: encrypt(value),
                     description: `${pluginName} plugin credential`,
