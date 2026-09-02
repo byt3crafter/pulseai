@@ -34,10 +34,14 @@ export const erpnextReportTool: Tool = {
         const reportName = args.report_name as string;
         const filters = args.filters || {};
 
+        // frappe.desk.query_report.run is the real report runner (returns
+        // {message:{result,columns,...}}). The old frappe.client.get_report_data
+        // does not exist — ERPNext answered 417 "has no attribute
+        // get_report_data", so every report call failed.
         const res = await erpNextRequest(
             creds,
             "GET",
-            `/api/method/frappe.client.get_report_data`,
+            `/api/method/frappe.desk.query_report.run`,
             undefined,
             {
                 report_name: reportName,

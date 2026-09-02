@@ -728,6 +728,26 @@ export async function updateAgentEmailConfigAction(formData: FormData) {
 
     if (!agent) return { success: false, message: "Agent not found." };
 
+    // Password handling — the whole reason Natalie's mailbox said "No password
+    // configured". The editor sends a PLAINTEXT password ("encrypted
+    // server-side", it says) and omits the existing one entirely. This action
+    // used to save the JSON verbatim: so a typed password landed in the DB in
+    // PLAINTEXT, and a save without re-typing it DROPPED the stored one. Fix:
+    // encrypt any new password into `encryptedPassword`, never keep plaintext,
+    // and preserve the existing secret when the field was left blank.
+    const prev = (agent.emailConfig as any) || {};
+    for (const part of ["smtp", "imap"] as const) {
+        const section = emailConfig?.[part];
+        if (!section || typeof section !== "object") continue;
+        const plain = typeof section.password === "string" ? section.password : "";
+        delete section.password; // never persist plaintext
+        if (plain) {
+            section.encryptedPassword = encrypt(plain);
+        } else if (prev?.[part]?.encryptedPassword) {
+            section.encryptedPassword = prev[part].encryptedPassword; // keep the existing secret
+        }
+    }
+
     await db.update(agentProfiles)
         .set({ emailConfig, updatedAt: new Date() })
         .where(eq(agentProfiles.id, agentId));
