@@ -178,78 +178,82 @@ export default function HistoryClient({ sessions }: { sessions: Row[] }) {
                 </p>
             ) : (
                 grouped.map((group) => (
-                    <section key={group.label}>
-                        <h2 className="px-2 pb-1.5 pt-5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-pulse-dim">
+                    <section key={group.label} className="mb-1">
+                        <h2 className="px-3 pb-1 pt-5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-pulse-dim">
                             {group.label}
                         </h2>
-                        {group.items.map((r) => {
-                            const isOn = selected.has(r.sessionId);
-                            return (
-                                <div
-                                    key={r.sessionId}
-                                    className={`group flex items-center rounded-lg transition-colors motion-reduce:transition-none ${isOn ? "bg-pulse-panel-alt" : "hover:bg-pulse-hover"}`}
-                                >
-                                    {/*
-                                        The tick appears on hover, or stays out once a
-                                        selection is running. Fifteen permanently-drawn
-                                        checkboxes are noise on a list you mostly read.
-                                    */}
-                                    <label className={`flex w-9 cursor-pointer items-center justify-center self-stretch ${isOn || selecting ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`}>
-                                        <input
-                                            type="checkbox"
-                                            checked={isOn}
-                                            onChange={() => toggle(r.sessionId)}
-                                            aria-label={`Select ${r.title || "chat"}`}
-                                            className="h-4 w-4 cursor-pointer rounded border-pulse-border bg-pulse-panel accent-indigo-600"
-                                        />
-                                    </label>
-                                    <Link
-                                        href={`/dashboard/assistant?session=${encodeURIComponent(r.sessionId)}${r.agentId ? `&agent=${encodeURIComponent(r.agentId)}` : ""}${r.shared ? "&shared=1" : ""}`}
-                                        className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-2 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pulse-accent/50"
+                        <div className="flex flex-col">
+                            {group.items.map((r) => {
+                                const isOn = selected.has(r.sessionId);
+                                const title = r.title || "New chat";
+                                const initial = (r.agentName || "A").trim()[0]?.toUpperCase() ?? "A";
+                                return (
+                                    <div
+                                        key={r.sessionId}
+                                        className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors motion-reduce:transition-none ${isOn ? "bg-pulse-tint" : "hover:bg-pulse-hover"}`}
                                     >
-                                        <span className="min-w-0 flex-1 truncate text-pulse-text">{r.title || "New chat"}</span>
-                                        {r.agentName && (
-                                            <span className="hidden shrink-0 truncate text-xs text-pulse-muted sm:block">{r.agentName}</span>
-                                        )}
-                                        {r.sharedBy && (
-                                            <span className="hidden shrink-0 items-center gap-1 text-xs text-pulse-faint sm:flex">
-                                                <UsersIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                                                {r.sharedBy}
+                                        {/* Avatar — becomes a checkbox on hover / while selecting. */}
+                                        <div className="relative h-9 w-9 shrink-0">
+                                            <span className={`flex h-9 w-9 items-center justify-center rounded-full bg-pulse-tint text-[13px] font-semibold text-pulse-accent-hi transition-opacity ${isOn || selecting ? "opacity-0" : "opacity-100 group-hover:opacity-0"}`}>
+                                                {initial}
                                             </span>
-                                        )}
-                                        <span className="w-16 shrink-0 text-right text-xs text-pulse-faint">{when(r.updatedAt)}</span>
-                                    </Link>
-                                    {/*
-                                        Share sits next to delete and appears on the same
-                                        hover. Only on your own chats: offering it on a
-                                        chat someone shared with you would promise
-                                        something the server then refuses.
-                                    */}
-                                    {r.mine && r.conversationId && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setSharing(r)}
-                                            aria-label={`Share ${r.title || "chat"}`}
-                                            className={`rounded-lg p-2 transition-colors motion-reduce:transition-none hover:bg-pulse-panel-alt hover:text-pulse-text group-hover:opacity-100 focus-visible:opacity-100 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 ${
-                                                r.visibility === "private" ? "text-pulse-faint opacity-0" : "text-pulse-accent opacity-100"
-                                            }`}
+                                            <label className={`absolute inset-0 flex cursor-pointer items-center justify-center rounded-full transition-opacity ${isOn || selecting ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isOn}
+                                                    onChange={() => toggle(r.sessionId)}
+                                                    aria-label={`Select ${title}`}
+                                                    className="h-4 w-4 cursor-pointer rounded border-pulse-border bg-pulse-panel accent-indigo-600"
+                                                />
+                                            </label>
+                                        </div>
+
+                                        {/* Title + meta, two lines. Whole area opens the chat. */}
+                                        <Link
+                                            href={`/dashboard/assistant?session=${encodeURIComponent(r.sessionId)}${r.agentId ? `&agent=${encodeURIComponent(r.agentId)}` : ""}${r.shared ? "&shared=1" : ""}`}
+                                            className="flex min-w-0 flex-1 flex-col justify-center py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pulse-accent/50"
                                         >
-                                            <UserPlusIcon className="h-4 w-4" />
-                                        </button>
-                                    )}
-                                    {/* Destructive actions do not sit permanently under the cursor. */}
-                                    <button
-                                        type="button"
-                                        onClick={() => doDelete([r])}
-                                        disabled={pending}
-                                        aria-label={`Delete ${r.title || "chat"}`}
-                                        className="mr-1 rounded-lg p-2 text-pulse-faint opacity-0 transition-colors motion-reduce:transition-none hover:bg-pulse-panel-alt hover:text-red-400 group-hover:opacity-100 focus-visible:opacity-100 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                                    >
-                                        <TrashIcon className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            );
-                        })}
+                                            <span className="truncate text-[14px] font-medium leading-tight text-pulse-text">{title}</span>
+                                            <span className="mt-0.5 flex items-center gap-1.5 truncate text-[11.5px] text-pulse-muted">
+                                                {r.agentName && <span className="truncate">{r.agentName}</span>}
+                                                {r.agentName && <span className="text-pulse-faint">·</span>}
+                                                <span className="shrink-0 text-pulse-faint">{when(r.updatedAt)}</span>
+                                                {r.sharedBy && (
+                                                    <span className="ml-1 hidden shrink-0 items-center gap-1 text-pulse-faint sm:flex">
+                                                        <UsersIcon className="h-3 w-3" aria-hidden="true" /> {r.sharedBy}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </Link>
+
+                                        {/* Hover actions — share (own chats) + delete. */}
+                                        <div className="flex shrink-0 items-center gap-0.5">
+                                            {r.mine && r.conversationId && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSharing(r)}
+                                                    aria-label={`Share ${title}`}
+                                                    className={`rounded-lg p-2 transition-all motion-reduce:transition-none hover:bg-pulse-panel hover:text-pulse-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 ${
+                                                        r.visibility === "private" ? "text-pulse-faint opacity-0 group-hover:opacity-100 focus-visible:opacity-100" : "text-pulse-accent opacity-100"
+                                                    }`}
+                                                >
+                                                    <UserPlusIcon className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => doDelete([r])}
+                                                disabled={pending}
+                                                aria-label={`Delete ${title}`}
+                                                className="rounded-lg p-2 text-pulse-faint opacity-0 transition-all motion-reduce:transition-none hover:bg-pulse-panel hover:text-red-400 group-hover:opacity-100 focus-visible:opacity-100 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                                            >
+                                                <TrashIcon className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </section>
                 ))
             )}
