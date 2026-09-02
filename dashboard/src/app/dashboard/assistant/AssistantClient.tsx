@@ -856,8 +856,8 @@ export default function AssistantClient({
                         ))}
 
                         {busy && !messages.some((m) => m.streaming) && (
-                            <div className="flex gap-3">
-                                {showIdentity && <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi">{activeAgent?.name?.[0] ?? "A"}</div>}
+                            <div className="flex items-center gap-3">
+                                {showIdentity && <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-xs font-semibold text-pulse-accent-hi">{activeAgent?.name?.[0] ?? "A"}</div>}
                                 <div className="flex-1"><TypingDots /></div>
                             </div>
                         )}
