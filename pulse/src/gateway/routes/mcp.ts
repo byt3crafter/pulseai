@@ -96,12 +96,21 @@ const MAX_INITIAL_MATCHES = 12;
 
 /**
  * Split a tool list into what to register up front (`initial`) vs what to defer
- * behind tool_search (`deferred`), for a given question. Always-core tools plus
- * the top few tools whose name/description match the question's MEANINGFUL words
- * (stopwords removed) are initial; everything else is deferred. Pure + exported
- * so the selection is unit-tested.
+ * behind tool_search (`deferred`), for a given question.
+ *
+ * ALWAYS kept (never deferred):
+ *  • core-named tools (reflexive helpers + operator tools), and
+ *  • every CAPABILITY-DEFINING tool — anything from a plugin, custom HTTP tool,
+ *    MCP server, or the SSH/server toolset. These ARE the agent's job (ERPNext,
+ *    OneDrive, a customer's API, a server); deferring one makes the agent
+ *    falsely claim it can't do its core work. They're also few.
+ * Only the optional personal-productivity BUILT-INS (email, pdf, expenses,
+ * bookmarks, todos, calendar, contacts, notes, documents…) are deferred, and of
+ * those only the ones matching the question's meaningful words load up front.
+ * Pure + exported so the selection is unit-tested.
  */
-export function selectLeanToolset<T extends { name: string; description?: string }>(
+const ALWAYS_KEEP_SOURCES = new Set(["plugin", "custom", "mcp", "server"]);
+export function selectLeanToolset<T extends { name: string; description?: string; source?: string }>(
     tools: T[],
     query: string,
     coreNames: Set<string>,
@@ -113,7 +122,10 @@ export function selectLeanToolset<T extends { name: string; description?: string
     const scored: { tool: T; score: number }[] = [];
     const rest: T[] = [];
     for (const tool of tools) {
-        if (coreNames.has(tool.name)) { core.push(tool); continue; }
+        if (coreNames.has(tool.name) || (tool.source && ALWAYS_KEEP_SOURCES.has(tool.source))) {
+            core.push(tool);
+            continue;
+        }
         const score = tokens.length ? scoreToolByTokens(tool, tokens) : 0;
         if (score > 0) scored.push({ tool, score });
         else rest.push(tool);
