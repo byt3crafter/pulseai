@@ -340,13 +340,24 @@ const zaiProvider: ProviderDefinition = {
     authMethods: ["api_key"],
     envKeyName: "ZAI_API_KEY",
     apiBase: "https://api.z.ai/api/coding/paas/v4",
+    // Anchors = the coding plan's current models (GLM-5.3 + Flash). These show
+    // immediately; the live /models pull from the coding endpoint replaces them
+    // with whatever the key actually serves. Any bare glm-* id routes here.
     models: [
         {
-            id: "glm-4.6",
+            id: "glm-5.3",
             provider: "zai",
-            displayName: "GLM-4.6",
+            displayName: "GLM-5.3",
             category: "flagship",
             pricing: { inputPerMillion: 0.6, outputPerMillion: 2.2 },
+            maxTokens: 8192,
+        },
+        {
+            id: "glm-5.3-flash",
+            provider: "zai",
+            displayName: "GLM-5.3-Flash",
+            category: "fast",
+            pricing: { inputPerMillion: 0.1, outputPerMillion: 0.4 },
             maxTokens: 8192,
         },
     ],
