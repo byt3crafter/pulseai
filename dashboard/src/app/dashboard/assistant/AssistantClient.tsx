@@ -158,6 +158,25 @@ export default function AssistantClient({
     // Session list filter (the "Search" box in the rail).
     const [sessionQuery, setSessionQuery] = useState("");
 
+    // ── Open tabs (browser-style multi-session) ──
+    // Sessions you've opened this visit, shown as tabs above the thread. The
+    // ACTIVE tab renders the live chat; background tabs keep running server-side
+    // and light a "working" dot when their agent is active, so you can fan work
+    // out across agents and switch between them. Persisted so tabs survive reload.
+    type OpenTab = { sessionId: string; agentId: string; title: string };
+    const [openTabs, setOpenTabs] = useState<OpenTab[]>(() => {
+        try {
+            const raw = localStorage.getItem("pulse_open_tabs");
+            if (raw) { const t = JSON.parse(raw); if (Array.isArray(t) && t.length) return t; }
+        } catch { }
+        return [{ sessionId: initialSessionId || sessionId, agentId: agents[0]?.id ?? "", title: "" }];
+    });
+    // Per-session live "working" flag, driven by background ws frames.
+    const [tabWorking, setTabWorking] = useState<Record<string, boolean>>({});
+    const openTabsRef = useRef(openTabs);
+    openTabsRef.current = openTabs;
+    useEffect(() => { try { localStorage.setItem("pulse_open_tabs", JSON.stringify(openTabs.slice(0, 12))); } catch { } }, [openTabs]);
+
     // Model picker — change the model on the fly. "" = the agent's own model.
     const [model, setModel] = useState<string>("");
     const [models, setModels] = useState<{ id: string; label: string; provider: string; free?: boolean }[]>([]);
@@ -304,10 +323,21 @@ export default function AssistantClient({
         ws.onmessage = (ev) => {
             let m: any; try { m = JSON.parse(ev.data); } catch { return; }
 
-            // Frames carry the session they belong to. Without this check a reply
-            // that lands after you've switched threads is rendered into whichever
-            // thread happens to be open.
-            if (typeof m.sessionId === "string" && m.sessionId !== sessionRef.current) return;
+            // Frames carry the session they belong to. A frame for a session other
+            // than the active one is NOT rendered here — but if it's an OPEN TAB we
+            // reflect its live "working" state so its tab shows the agent is busy in
+            // the background, then stop.
+            if (typeof m.sessionId === "string" && m.sessionId !== sessionRef.current) {
+                const bg = m.sessionId;
+                if (openTabsRef.current.some((t) => t.sessionId === bg)) {
+                    if (m.type === "agent.message" || m.type === "error") {
+                        setTabWorking((w) => ({ ...w, [bg]: false }));
+                    } else if (m.type === "agent.tool" || m.type === "agent.thinking" || m.type === "agent.streaming") {
+                        setTabWorking((w) => ({ ...w, [bg]: true }));
+                    }
+                }
+                return;
+            }
 
             // Resumed stream: output republished on the chat bus, which reaches
             // whatever socket this user currently has. This is what lets a browser
@@ -505,6 +535,16 @@ export default function AssistantClient({
         // Shared room: the @mentioned agent answers, else the selected one leads.
         const answerAgent = shared ? (mentioned || agentId) : targetAgent;
 
+        // Make sure the session we're sending into is an open tab, and give a
+        // brand-new tab a title from the first message (so it isn't just "New chat").
+        setOpenTabs((prev) => {
+            const short = text.slice(0, 44);
+            const existing = prev.find((t) => t.sessionId === targetSession);
+            if (!existing) return [...prev, { sessionId: targetSession, agentId: targetAgent, title: short }];
+            if (!existing.title && short) return prev.map((t) => t.sessionId === targetSession ? { ...t, title: short } : t);
+            return prev;
+        });
+
         const files = pendingFiles;
         setLastSent(text);
         setMessages((prev) => [...prev, { role: "user", content: text, files: files.map((f) => ({ name: f.name, mime: f.mime, preview: f.preview })) }]);
@@ -591,9 +631,11 @@ export default function AssistantClient({
     useEffect(() => () => stopMicStream(), []);
 
     function startNewChat() {
-        setSessionId(newSessionId());
+        const sid = newSessionId();
+        setSessionId(sid);
         setMessages([]);
         setBusy(false);
+        setOpenTabs((prev) => prev.some((t) => t.sessionId === sid) ? prev : [...prev, { sessionId: sid, agentId, title: "" }]);
         if (isMobile()) setRailOpen(false);
     }
 
@@ -665,9 +707,32 @@ export default function AssistantClient({
         if (sid === sessionId) return;
         setSessionId(sid);
         setBusy(false);
+        ensureTab(sid, agentId);
+        setTabWorking((w) => ({ ...w, [sid]: false })); // it's now active — busy tracks it
         const hist = await getSessionHistoryAction(sid, agentId, shared);
         setMessages(hist.map((h) => ({ role: h.role as "user" | "assistant", content: h.content, agentProfileId: h.agentProfileId ?? null })));
         void reattach(sid, agentId, shared);
+    }
+
+    // The label a tab shows: the session's saved title, else "New chat".
+    function tabTitle(t: OpenTab): string {
+        if (t.title) return t.title;
+        const s = sessions.find((x) => x.sessionId === t.sessionId);
+        return (s?.title || "").trim() || "New chat";
+    }
+    // Add a session to the tab bar (no-op if already open).
+    function ensureTab(sid: string, aid: string, title = "") {
+        setOpenTabs((prev) => prev.some((t) => t.sessionId === sid) ? prev : [...prev, { sessionId: sid, agentId: aid, title }]);
+    }
+    // Close a tab (X) — removes it from the bar; the session itself is untouched.
+    function closeTab(sid: string) {
+        setTabWorking((w) => { const n = { ...w }; delete n[sid]; return n; });
+        setOpenTabs((prev) => prev.filter((t) => t.sessionId !== sid));
+        if (sid === sessionId) {
+            const rest = openTabsRef.current.filter((t) => t.sessionId !== sid);
+            if (rest.length > 0) void switchSession(rest[rest.length - 1].sessionId);
+            else startNewChat();
+        }
     }
 
     async function doRename(sid: string) {
@@ -795,15 +860,43 @@ export default function AssistantClient({
 
             {/* ── Main ── */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {/* Top bar — intentionally minimal + flat (no agent name/status bar).
-                    Only renders when there's something to show: the rail toggle /
-                    new-chat buttons while the rail is closed, or the agent picker
-                    when this workspace has more than one agent. */}
-                {/*
-                    No top bar. v4 puts the agent and model in the composer pill,
-                    where the choice is made, instead of parking a dropdown in a
-                    corner of an otherwise empty canvas.
-                */}
+                {/* Open-session tabs — browser-style. Appears once you have more than
+                    one session open; each tab lights a dot while its agent is working
+                    in the background, so you can fan work out and switch between them. */}
+                {openTabs.length >= 2 && (
+                    <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-pulse-border-subtle bg-pulse-bg px-2 py-1.5">
+                        {openTabs.map((t) => {
+                            const active = t.sessionId === sessionId;
+                            const working = active ? busy : !!tabWorking[t.sessionId];
+                            const ag = agents.find((a) => a.id === t.agentId) ?? activeAgent;
+                            return (
+                                <div
+                                    key={t.sessionId}
+                                    onClick={() => switchSession(t.sessionId)}
+                                    title={tabTitle(t)}
+                                    className={`group flex min-w-0 max-w-[220px] shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors motion-reduce:transition-none ${active ? "bg-pulse-panel text-pulse-text shadow-sm" : "text-pulse-muted hover:bg-pulse-hover hover:text-pulse-text-soft"}`}
+                                >
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pulse-tint text-[10px] font-semibold text-pulse-accent-hi">{ag?.name?.[0] ?? "A"}</span>
+                                    <span className="min-w-0 flex-1 truncate">{tabTitle(t)}</span>
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); closeTab(t.sessionId); }}
+                                            aria-label="Close tab"
+                                            className="hidden rounded p-0.5 text-pulse-faint hover:text-pulse-text group-hover:block"
+                                        >
+                                            <XMarkIcon className="h-3.5 w-3.5" />
+                                        </button>
+                                        {working && <span className="h-2 w-2 rounded-full bg-pulse-accent motion-safe:animate-pulse group-hover:hidden" aria-label="working" />}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                        <button type="button" onClick={startNewChat} aria-label="New tab" title="New chat" className="shrink-0 rounded-lg p-1.5 text-pulse-faint transition-colors hover:bg-pulse-hover hover:text-pulse-text">
+                            <PlusIcon className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
                 <div ref={scrollRef} className={`min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 ${messages.length === 0 ? "hidden" : ""}`}>
                     <div className="mx-auto w-full max-w-4xl space-y-6">
                         {messages.map((m, i) => m.role === "user" ? (
