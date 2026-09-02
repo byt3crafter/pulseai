@@ -917,8 +917,10 @@ export default function AssistantClient({
                                     </div>
                                 )}
                                 {m.content && (
-                                    <div className="max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text">
-                                        <span className="whitespace-pre-wrap break-words">{m.content}</span>
+                                    <div className="md-chat max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text">
+                                        {/* Markdown so pasted CSV/Excel renders as a scrollable table
+                                            (via formatTabularText) instead of a wrapped comma blob. */}
+                                        <Markdown>{m.content}</Markdown>
                                     </div>
                                 )}
                             </div>

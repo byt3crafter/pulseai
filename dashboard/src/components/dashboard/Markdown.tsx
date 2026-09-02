@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ChartBlock from "./ChartBlock";
+import { formatTabularText } from "../../utils/tabular";
 
 /**
  * Repair the common markdown mistakes weaker models make before rendering, so a
@@ -55,7 +56,7 @@ export default function Markdown({ children }: { children: string }) {
                     },
                 }}
             >
-                {repairMarkdown(children)}
+                {repairMarkdown(formatTabularText(children))}
             </ReactMarkdown>
         </div>
     );
