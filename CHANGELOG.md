@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.65] - 2026-09-02
+
+### Features
+- route Codex narration to thinking + premium answer tables
+
 ## [0.20.64] - 2026-09-02
 
 ### Bug Fixes
