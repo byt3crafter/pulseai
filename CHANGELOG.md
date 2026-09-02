@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.70] - 2026-09-02
+
+### Features
+- default anchors to GLM-5.3 + GLM-5.3-Flash
+
 ## [0.20.69] - 2026-09-02
 
 ### Bug Fixes
