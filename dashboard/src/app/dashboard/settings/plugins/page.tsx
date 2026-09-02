@@ -1,6 +1,6 @@
 import { db } from "../../../../storage/db";
 import { installedPlugins, tenantPluginConfigs, credentials } from "../../../../storage/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "../../../../auth";
 import { redirect } from "next/navigation";
@@ -110,7 +110,11 @@ async function savePluginCredentials(formData: FormData) {
                 credentialType: field.type === "secret" ? "api_key" : "api_key",
             })
             .onConflictDoUpdate({
+                // See plugins/page.tsx: migration 0050 made (tenant,name) a
+                // PARTIAL unique (agent_id IS NULL), so ON CONFLICT must name
+                // that predicate or the insert throws.
                 target: [credentials.tenantId, credentials.name],
+                targetWhere: sql`${credentials.agentId} is null`,
                 set: {
                     encryptedValue: encrypt(value),
                     description: `${pluginName} plugin credential`,

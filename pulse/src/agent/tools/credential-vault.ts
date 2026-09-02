@@ -40,29 +40,34 @@ export class CredentialVault {
         const encryptedValue = encrypt(value);
         const normalized = name.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
 
-        await db
-            .insert(credentials)
-            .values({
-                tenantId,
-                name: normalized,
-                encryptedValue,
-                agentId: opts?.agentId || null,
-                credentialType: opts?.type || "api_key",
-                description: opts?.description || null,
-                metadata: opts?.metadata || {},
-                updatedAt: new Date(),
-            })
-            .onConflictDoUpdate({
-                target: [credentials.tenantId, credentials.name],
-                set: {
-                    encryptedValue,
-                    agentId: opts?.agentId || null,
-                    credentialType: opts?.type || "api_key",
-                    description: opts?.description || null,
-                    metadata: opts?.metadata || {},
-                    updatedAt: new Date(),
-                },
-            });
+        // Manual upsert keyed on (tenant, name, agentScope). Migration 0050
+        // split the (tenant,name) unique into two PARTIAL indexes (global vs
+        // per-agent), so a single ON CONFLICT target can't cover both scopes —
+        // it throws. Find the row for THIS scope, update it, else insert.
+        const scope = opts?.agentId || null;
+        const existing = (await db
+            .select({ id: credentials.id })
+            .from(credentials)
+            .where(and(
+                eq(credentials.tenantId, tenantId),
+                eq(credentials.name, normalized),
+                scope === null ? isNull(credentials.agentId) : eq(credentials.agentId, scope),
+            ))
+            .limit(1))[0];
+
+        const payload = {
+            encryptedValue,
+            agentId: scope,
+            credentialType: opts?.type || "api_key",
+            description: opts?.description || null,
+            metadata: opts?.metadata || {},
+            updatedAt: new Date(),
+        };
+        if (existing) {
+            await db.update(credentials).set(payload).where(eq(credentials.id, existing.id));
+        } else {
+            await db.insert(credentials).values({ tenantId, name: normalized, ...payload });
+        }
 
         logger.info({ tenantId, name: normalized }, "Credential stored");
     }
