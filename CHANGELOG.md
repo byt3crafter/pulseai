@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.75] - 2026-09-02
+
+### Features
+- premium redesign of the chat history list
+
 ## [0.20.74] - 2026-09-02
 
 ### Features
