@@ -59,6 +59,26 @@ describe("selectLeanToolset", () => {
         expect(initial.map((t) => t.name).sort()).toEqual(["get_current_time", "memory_search", "notify"]);
     });
 
+    it("NEVER defers capability-defining tools (plugin/custom/mcp/server source)", () => {
+        // The agent's real job — ERPNext, a customer API, SSH — must always be
+        // loaded, even when the question doesn't name it. This is the fix for
+        // "check if there is any update" → "server tools not exposed".
+        const capabilityTools = [
+            { name: "get_current_time", description: "time" },
+            { name: "server_exec", description: "run over ssh", source: "server" },
+            { name: "erpnext_create", description: "create doc", source: "plugin" },
+            { name: "acme_api_call", description: "customer api", source: "custom" },
+            { name: "email_send", description: "send email", source: "builtin" },
+        ];
+        const { initial, deferred } = selectLeanToolset(capabilityTools, "check if there is any update", CORE);
+        const names = initial.map((t) => t.name);
+        expect(names).toContain("server_exec");   // source: server
+        expect(names).toContain("erpnext_create"); // source: plugin
+        expect(names).toContain("acme_api_call");  // source: custom
+        // the optional built-in with no query match is the only thing deferred
+        expect(deferred.map((t) => t.name)).toEqual(["email_send"]);
+    });
+
     it("caps the up-front set so a broad question can't reinflate context", () => {
         const many = Array.from({ length: 40 }, (_, i) => ({ name: `report_${i}`, description: "generate a report" }));
         const { initial, deferred } = selectLeanToolset(many, "make me a report", new Set<string>());
