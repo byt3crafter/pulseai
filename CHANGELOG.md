@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.79] - 2026-09-03
+
+### Features
+- synthesise Column N headers for headerless CSV tables
+
 ## [0.20.78] - 2026-09-02
 
 ### Features
