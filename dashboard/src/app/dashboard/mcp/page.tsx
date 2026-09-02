@@ -3,8 +3,9 @@ import {
     mcpServers,
     agentProfiles,
     agentProfileMcpBindings,
+    tenantProviderKeys,
 } from "../../../storage/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { auth } from "../../../auth";
 import { redirect } from "next/navigation";
 import McpClient from "./McpClient";
@@ -33,6 +34,17 @@ export default async function McpPage() {
             .select()
             .from(agentProfileMcpBindings),
     ]);
+
+    // Does this tenant have a Z.ai key? Drives the one-click "Connect Z.ai tools".
+    const [zaiKey] = await db.select({ id: tenantProviderKeys.id })
+        .from(tenantProviderKeys)
+        .where(and(
+            eq(tenantProviderKeys.tenantId, tenantId),
+            eq(tenantProviderKeys.provider, "zai"),
+            eq(tenantProviderKeys.isActive, true),
+        ))
+        .limit(1);
+    const hasZaiKey = !!zaiKey;
 
     // Filter bindings to only include ones for this tenant's servers
     const serverIds = new Set(servers.map((s) => s.id));
@@ -63,6 +75,7 @@ export default async function McpPage() {
             servers={serializedServers}
             agents={serializedAgents}
             bindings={serializedBindings}
+            hasZaiKey={hasZaiKey}
         />
     );
 }

@@ -8,6 +8,7 @@ import { providerKeyService } from "./providers/provider-key-service.js";
 import { memoryService } from "../memory/memory-service.js";
 import { autoMemoryService } from "../memory/auto-memory-service.js";
 import { getDelegatableAgents, getAgentDelegationConfig } from "./orchestration/agent-registry.js";
+import { addDelegatedTokens } from "./orchestration/agent-delegation.js";
 import { resolveAgent } from "./orchestration/agent-router.js";
 import { getChannelLeadContext } from "../gateway/channel-service.js";
 import { getPerson, canAddressAgent } from "../channels/people-service.js";
@@ -152,6 +153,10 @@ export class AgentRuntime {
             // the agent's own model. The provider is resolved from the model id, so a
             // Claude/OpenAI/MiniMax id works if that provider's key is configured.
             modelOverride?: string;
+            // Set when this run is itself a delegated sub-agent. Threads the
+            // originating conversation's id so nested delegations share one
+            // budget, and lets the runtime tally this run's tokens against it.
+            delegationContext?: { rootId: string };
             // Live tool-activity callback — fires when a tool starts and finishes,
             // so streaming surfaces (web chat) can show calm "step" rows. Fire-soft;
             // never affects execution.
@@ -1092,6 +1097,11 @@ export class AgentRuntime {
                                 if (resolvedAgentProfileId) {
                                     toolArgs._agentId = resolvedAgentProfileId;
                                 }
+                                // Thread the delegation root id so delegate_to_agent /
+                                // route_to_channel keep the same per-tree budget.
+                                if (options?.delegationContext?.rootId) {
+                                    toolArgs._delegationRootId = options.delegationContext.rootId;
+                                }
                                 // ...and _actorUserId, so a tool acting on a
                                 // person's behalf can use THEIR mailbox and
                                 // credentials rather than the workspace's.
@@ -1480,6 +1490,11 @@ export class AgentRuntime {
             // Keystone: snapshot the run's operational metrics.
             run.setAgent(resolvedAgentProfileId ?? inbound.agentProfileId);
             run.setUsage(usedModel, llmResponse.usage.inputTokens, llmResponse.usage.outputTokens, costUsd);
+            // When this run is a delegated sub-agent, tally its tokens against the
+            // originating conversation's delegation budget (opt-in cap).
+            if (options?.delegationContext?.rootId) {
+                addDelegatedTokens(options.delegationContext.rootId, llmResponse.usage.inputTokens + llmResponse.usage.outputTokens);
+            }
 
             tenantLog.info(
                 {

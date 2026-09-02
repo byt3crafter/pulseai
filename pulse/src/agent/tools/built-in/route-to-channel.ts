@@ -30,6 +30,7 @@ export const routeToChannelTool: Tool = {
         const target = await resolveChannelLeadByName(tenantId, channel);
         if (!target) return { result: `No department named "${channel}" with a lead was found.` };
 
+        const rootId = (args as any)._delegationRootId as string | undefined;
         const res = await delegateTask(
             sourceAgentId || conversationId,
             target.leadAgentId,
@@ -37,7 +38,7 @@ export const routeToChannelTool: Tool = {
             tenantId,
             conversationId,
             0,
-            { bypassPolicy: true },
+            { bypassPolicy: true, rootId },
         );
         if (!res.success) return { result: `Could not route to ${target.channelName}: ${res.result}` };
         return {

@@ -41,6 +41,24 @@ export interface DelegationConfig {
     delegateTo?: string[];
     maxDepth?: number;
     specialization?: string;
+    // Delegation BUDGET (per originating "root" conversation, across the whole
+    // sub-agent tree). All OPT-IN: 0 / undefined = no limit, i.e. exactly today's
+    // behaviour. Set on the agent that STARTS a fan-out.
+    maxConcurrent?: number; // max sub-agents running at once (0 = unlimited)
+    maxDelegationTokens?: number; // max total tokens across delegated runs (0 = unlimited)
+    maxTreeHops?: number; // max total delegations across the tree (0 = unlimited)
+}
+
+/** Resolve the delegation budget with non-breaking defaults (0 = unlimited). */
+export function resolveDelegationBudget(config?: DelegationConfig): {
+    maxConcurrent: number; maxDelegationTokens: number; maxTreeHops: number;
+} {
+    const c = config || {};
+    return {
+        maxConcurrent: Math.max(0, Number(c.maxConcurrent) || 0),
+        maxDelegationTokens: Math.max(0, Number(c.maxDelegationTokens) || 0),
+        maxTreeHops: Math.max(0, Number(c.maxTreeHops) || 0),
+    };
 }
 
 /**

@@ -22,13 +22,18 @@ export const delegateToAgentTool: Tool = {
     execute: async ({ tenantId, conversationId, args }) => {
         const { agentId, task } = args;
         const sourceAgentId = (args as any)._agentId || conversationId;
+        // Threaded from the runtime when this call is itself inside a delegated
+        // sub-agent; absent at the top level → the budget roots at this convo.
+        const rootId = (args as any)._delegationRootId as string | undefined;
 
         const result = await delegateTask(
             sourceAgentId,
             agentId,
             task,
             tenantId,
-            conversationId
+            conversationId,
+            0,
+            { rootId }
         );
 
         if (!result.success) {

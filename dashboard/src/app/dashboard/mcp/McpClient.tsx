@@ -7,6 +7,7 @@ import {
     deleteMcpServerAction,
     bindAgentToMcpAction,
     unbindAgentFromMcpAction,
+    connectZaiToolsAction,
 } from "./actions";
 import CreateMcpServerModal from "./CreateMcpServerModal";
 import ConfirmDialog from "../../../components/ConfirmDialog";
@@ -36,11 +37,26 @@ interface Props {
     servers: McpServer[];
     agents: Agent[];
     bindings: Binding[];
+    hasZaiKey?: boolean;
 }
 
-export default function McpClient({ servers, agents, bindings }: Props) {
+export default function McpClient({ servers, agents, bindings, hasZaiKey }: Props) {
     const router = useRouter();
     const [deleteServerId, setDeleteServerId] = useState<string | null>(null);
+    const [zaiBusy, setZaiBusy] = useState(false);
+    const [zaiMsg, setZaiMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+    const handleConnectZai = async () => {
+        setZaiBusy(true);
+        setZaiMsg(null);
+        try {
+            const r = await connectZaiToolsAction();
+            setZaiMsg({ ok: r.success, text: r.message });
+            if (r.success) router.refresh();
+        } finally {
+            setZaiBusy(false);
+        }
+    };
 
     const handleDelete = async () => {
         if (!deleteServerId) return;
@@ -66,8 +82,29 @@ export default function McpClient({ servers, agents, bindings }: Props) {
             <PageHeader
                 title="MCP Servers"
                 description="Manage external tool servers and bind them to agents."
-                action={<CreateMcpServerModal />}
+                action={
+                    <div className="flex items-center gap-2">
+                        {hasZaiKey && (
+                            <button
+                                type="button"
+                                onClick={handleConnectZai}
+                                disabled={zaiBusy}
+                                title="Register the Z.ai GLM Coding Plan tools (Web Search, Web Reader, Zread) using your Z.ai key"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-pulse-border px-3.5 py-2 text-sm font-medium text-pulse-text-soft transition-colors hover:bg-pulse-hover disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                            >
+                                {zaiBusy ? "Connecting…" : "Connect Z.ai tools"}
+                            </button>
+                        )}
+                        <CreateMcpServerModal />
+                    </div>
+                }
             />
+
+            {zaiMsg && (
+                <div className={`mb-4 rounded-lg border px-4 py-2.5 text-sm ${zaiMsg.ok ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
+                    {zaiMsg.text}
+                </div>
+            )}
 
             {servers.length === 0 && (
                 <Card>
