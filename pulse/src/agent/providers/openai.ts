@@ -18,6 +18,15 @@ import { logger } from "../../utils/logger.js";
 
 const CHATGPT_CODEX_URL = "https://chatgpt.com/backend-api/codex/responses";
 
+// Hang protection for OpenAI-compatible providers (OpenAI, Z.ai/GLM, OpenRouter,
+// MiniMax). The SDK default request timeout is 10 MINUTES with 2 retries — so a
+// stalled provider (we saw glm-5.3 dispatch and never return) freezes a turn for
+// up to half an hour with no feedback. These cap it: a hard per-request ceiling,
+// plus an idle-watchdog that aborts a stream if no chunk arrives for a while, so a
+// stall fails fast and visibly instead of looking "stuck forever".
+const OPENAI_REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_REQUEST_TIMEOUT_MS) || 180_000; // 3 min
+const OPENAI_STREAM_IDLE_MS = Number(process.env.OPENAI_STREAM_IDLE_MS) || 120_000; // 2 min between chunks
+
 let inlineToolSeq = 0;
 
 /**
@@ -283,7 +292,12 @@ export class OpenAIProvider {
         if (!key) {
             throw new Error("OPENAI_API_KEY not configured");
         }
-        return new OpenAI({ apiKey: key, ...(baseURL ? { baseURL } : {}) });
+        return new OpenAI({
+            apiKey: key,
+            ...(baseURL ? { baseURL } : {}),
+            timeout: OPENAI_REQUEST_TIMEOUT_MS,
+            maxRetries: 1,
+        });
     }
 
     async chat(params: {
@@ -360,23 +374,39 @@ export class OpenAIProvider {
             "OpenAI Chat Completions request"
         );
 
+        // Idle-watchdog for the streaming path: if the provider opens a stream but
+        // then goes silent (glm-5.3 has done this), abort so the turn fails fast and
+        // visibly instead of hanging. Declared out here so `finally` can clear it.
+        let idleTimer: ReturnType<typeof setTimeout> | undefined;
         try {
             // Streaming path
             if (params.stream?.onDelta) {
-                const stream = await client.chat.completions.create({
-                    model: params.model || "gpt-4o",
-                    messages,
-                    tools: tools && tools.length > 0 ? tools : undefined,
-                    temperature: 1,
-                    max_tokens: getModelById(params.model || "")?.maxTokens ?? 8192,
-                    stream: true,
-                    // Without this the API never sends the final usage chunk, so the
-                    // `chunk.usage` read below never fires and every streamed run
-                    // records 0 input and 0 output tokens. That is why MiniMax runs
-                    // showed no usage and therefore no cost, while non-streaming and
-                    // Codex runs looked fine.
-                    stream_options: { include_usage: true },
-                });
+                const idleAbort = new AbortController();
+                const bumpIdle = () => {
+                    if (idleTimer) clearTimeout(idleTimer);
+                    idleTimer = setTimeout(
+                        () => idleAbort.abort(new Error(`Provider stream idle for ${OPENAI_STREAM_IDLE_MS}ms (model ${params.model})`)),
+                        OPENAI_STREAM_IDLE_MS
+                    );
+                };
+                bumpIdle();
+                const stream = await client.chat.completions.create(
+                    {
+                        model: params.model || "gpt-4o",
+                        messages,
+                        tools: tools && tools.length > 0 ? tools : undefined,
+                        temperature: 1,
+                        max_tokens: getModelById(params.model || "")?.maxTokens ?? 8192,
+                        stream: true,
+                        // Without this the API never sends the final usage chunk, so the
+                        // `chunk.usage` read below never fires and every streamed run
+                        // records 0 input and 0 output tokens. That is why MiniMax runs
+                        // showed no usage and therefore no cost, while non-streaming and
+                        // Codex runs looked fine.
+                        stream_options: { include_usage: true },
+                    },
+                    { signal: idleAbort.signal }
+                );
 
                 let content = "";
                 // `visible` mirrors the non-<think> content; we forward it to the UI
@@ -398,6 +428,7 @@ export class OpenAIProvider {
                 // persisted answer.
                 let thinkOpen = false;
                 for await (const chunk of stream) {
+                    bumpIdle(); // a chunk arrived — reset the stall timer
                     const delta = chunk.choices[0]?.delta as any;
                     if (!delta) continue;
 
@@ -546,6 +577,8 @@ export class OpenAIProvider {
                 "OpenAI Chat Completions failed"
             );
             throw err;
+        } finally {
+            if (idleTimer) clearTimeout(idleTimer);
         }
     }
 
