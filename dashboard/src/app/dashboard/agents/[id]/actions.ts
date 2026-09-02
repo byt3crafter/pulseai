@@ -321,6 +321,7 @@ export async function updateAgentSmartRoutingAction(formData: FormData) {
     const agentId = formData.get("agentId") as string;
     const smartRouting = formData.get("smartRouting") === "1";
     const fastModelId = ((formData.get("fastModelId") as string) || "").trim();
+    const scheduledModelId = ((formData.get("scheduledModelId") as string) || "").trim();
 
     if (!agentId) {
         return { success: false, message: "Missing required fields." };
@@ -337,7 +338,7 @@ export async function updateAgentSmartRoutingAction(formData: FormData) {
     }
 
     await db.update(agentProfiles)
-        .set({ smartRouting, fastModelId: fastModelId || null, updatedAt: new Date() })
+        .set({ smartRouting, fastModelId: fastModelId || null, scheduledModelId: scheduledModelId || null, updatedAt: new Date() })
         .where(eq(agentProfiles.id, agentId));
 
     await logAudit({

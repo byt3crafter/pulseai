@@ -53,6 +53,10 @@ export const agentProfiles = pgTable("agent_profiles", {
     // (cheap/fast), everything with tools/attachments/complexity uses `modelId`.
     smartRouting: boolean("smart_routing").default(false), // off by default
     fastModelId: varchar("fast_model_id", { length: 100 }),
+    // Model for SCHEDULED work (cron jobs + heartbeats). Null = use the
+    // agent's own model, i.e. exactly today's behaviour. Lets background work
+    // run on a cheap/fast model (e.g. GLM-4.5-Air) without touching live chat.
+    scheduledModelId: varchar("scheduled_model_id", { length: 100 }),
     /** When set, the agent auto-picks from this group instead of modelId. Migration 0049. */
     modelGroupId: uuid("model_group_id"), // fast/cheap model for trivial turns; null = no routing
     reasoningEffort: varchar("reasoning_effort", { length: 12 }), // "minimal"|"low"|"medium"|"high"|"xhigh"; null/absent = provider default

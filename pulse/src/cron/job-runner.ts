@@ -5,6 +5,9 @@
 import { createJobRun, completeJobRun, updateJobLastRun } from "./job-store.js";
 import { logger } from "../utils/logger.js";
 import { countUnreadEmails, resolveEmailConfig } from "../channels/email/email-service.js";
+import { db } from "../storage/db.js";
+import { agentProfiles } from "../storage/schema.js";
+import { eq } from "drizzle-orm";
 
 // Import types only — actual runtime will be injected
 type AgentRuntime = any;
@@ -106,7 +109,17 @@ export async function executeJob(job: any): Promise<void> {
             return { channelMessageId: `cron-response-${run.id}` };
         };
 
-        await runtimeRef.processMessage(inbound, captureCallback);
+        // Run scheduled work on the agent's scheduled model when one is set;
+        // null (the default for every agent) = the agent's own model, i.e. the
+        // exact behaviour before this field existed.
+        const [prof] = await db
+            .select({ scheduledModelId: agentProfiles.scheduledModelId })
+            .from(agentProfiles)
+            .where(eq(agentProfiles.id, job.agentId))
+            .limit(1);
+        await runtimeRef.processMessage(inbound, captureCallback, {
+            modelOverride: prof?.scheduledModelId || undefined,
+        });
 
         await completeJobRun(run.id, "completed", capturedResponse.substring(0, 5000));
         await updateJobLastRun(job.id);
