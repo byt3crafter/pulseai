@@ -1005,19 +1005,32 @@ export class CodexAppServerProvider {
                 let thinkOpen = false;
                 const closeThink = () => { if (thinkOpen && onDelta) { onDelta("</think>"); thinkOpen = false; } };
 
+                // Codex narrates its work as INTERIM agentMessages between tool
+                // calls ("I'll check the host…", "checking Docker next…"). Only
+                // the LAST agentMessage is the real answer. We hold each completed
+                // message; when the next one completes, the previous was interim →
+                // flush it into the thinking card (<think>), leaving just the final
+                // answer in the answer box.
+                let heldAnswer = "";
+                const flushHeldToThinking = () => {
+                    if (heldAnswer.trim() && onDelta) {
+                        if (!thinkOpen) { onDelta("<think>"); thinkOpen = true; }
+                        onDelta(heldAnswer.trim() + "\n\n");
+                    }
+                    heldAnswer = "";
+                };
+
                 client.onNotification((msg) => {
                     if (isOtherThread(msg.params)) return;
 
                     // Any activity for this thread means Codex is alive and working.
                     resetInactivity();
 
-                    // Stream the answer as it generates.
+                    // agentMessage DELTAS are intentionally NOT streamed to the
+                    // answer: streaming interim narration live turned the answer box
+                    // into a running commentary. We use the completed-item text
+                    // (below) and route interim messages to the thinking card.
                     if (msg.method === "item/agentMessage/delta") {
-                        const delta = msg.params?.delta;
-                        if (onDelta && typeof delta === "string" && delta) {
-                            closeThink();
-                            onDelta(delta);
-                        }
                         return;
                     }
                     // Stream reasoning summary as live "thinking".
@@ -1051,7 +1064,11 @@ export class CodexAppServerProvider {
                     if (msg.method === "item/completed") {
                         const item = msg.params?.item;
                         if (item?.type === "agentMessage" && typeof item.text === "string") {
-                            finalText = item.text;
+                            // The previously-held message is now known to be interim
+                            // (this one supersedes it) → move it to the thinking card.
+                            flushHeldToThinking();
+                            heldAnswer = item.text;
+                            finalText = item.text; // last one wins as the answer
                             sawAgentMessage = true;
                         }
                         // Verbose: surface the agent's reasoning ("thinking") + its

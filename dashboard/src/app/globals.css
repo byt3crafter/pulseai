@@ -198,8 +198,14 @@ body {
 .md :not(pre) > code { background: var(--pulse-panel-alt); padding: 0.1rem 0.35rem; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; }
 .md pre { background: var(--pulse-panel-alt); border: 1px solid var(--pulse-border-subtle); border-radius: 8px; padding: 0.75rem 0.9rem; overflow-x: auto; margin: 0.7rem 0; }
 .md pre code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; }
-.md table { width: 100%; border-collapse: collapse; margin: 0.7rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
-.md th, .md td { border: 1px solid var(--pulse-border-subtle); padding: 0.35rem 0.55rem; text-align: left; }
+/* Premium table — rounded shell, a quiet header row, row separators instead of
+   a full grid, roomy cells. Reads like a status panel, not a spreadsheet. */
+.md table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0.85rem 0; font-size: 0.85rem; display: block; overflow-x: auto; border: 1px solid var(--pulse-border-subtle); border-radius: 12px; }
+.md thead th { background: var(--pulse-panel-alt); font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pulse-muted); white-space: nowrap; }
+.md th, .md td { padding: 0.6rem 0.9rem; text-align: left; border-bottom: 1px solid var(--pulse-border-subtle); vertical-align: top; }
+.md tbody tr:last-child td { border-bottom: none; }
+.md td { color: var(--pulse-text-soft); }
+.md th:first-child, .md tbody td:first-child { color: var(--pulse-text); font-weight: 500; }
 .md img { max-width: 100%; border-radius: 8px; }
 
 /* ── Documentation (/dashboard/docs) ─────────────────────────────────────── */
