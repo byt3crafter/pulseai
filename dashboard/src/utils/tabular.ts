@@ -58,6 +58,24 @@ function escapeCell(s: string): string {
     return s.trim().replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
+/** A cell that reads as data (a number, amount, or date) rather than a label. */
+function isDataCell(s: string): boolean {
+    const t = s.trim();
+    if (!t) return false;
+    if (/^-?[\d,]+(\.\d+)?%?$/.test(t)) return true;             // 1234 / 16000.00 / 12%
+    if (/^\d{1,4}[/.\-]\d{1,2}[/.\-]\d{1,4}$/.test(t)) return true; // 8/24/26 / 2026-08-24
+    return false;
+}
+
+/**
+ * A header row is all labels — no cell reads as a number or date. Bank/export
+ * dumps usually have NO header (row 1 is already a transaction), so we detect
+ * that and synthesise "Column N" headers instead of consuming the first row.
+ */
+function looksLikeHeaderRow(cells: string[]): boolean {
+    return !cells.some(isDataCell);
+}
+
 /** Build a GFM table from a block of rows, normalised to `cols` columns. */
 function toMarkdownTable(rows: string[][], cols: number): string {
     const norm = (r: string[]) => {
@@ -65,9 +83,12 @@ function toMarkdownTable(rows: string[][], cols: number): string {
         while (c.length < cols) c.push("");
         return `| ${c.join(" | ")} |`;
     };
-    const header = norm(rows[0]);
+    const hasHeader = looksLikeHeaderRow(rows[0]);
+    const header = hasHeader
+        ? norm(rows[0])
+        : `| ${Array.from({ length: cols }, (_, i) => `Column ${i + 1}`).join(" | ")} |`;
     const sep = `| ${Array(cols).fill("---").join(" | ")} |`;
-    const body = rows.slice(1).map(norm);
+    const body = (hasHeader ? rows.slice(1) : rows).map(norm);
     return [header, sep, ...body].join("\n");
 }
 
