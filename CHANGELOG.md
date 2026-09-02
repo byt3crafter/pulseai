@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.74] - 2026-09-02
+
+### Features
+- browser-style session tabs with live working dots
+
 ## [0.20.73] - 2026-09-02
 
 ### Bug Fixes
