@@ -10,9 +10,13 @@ import {
     PlusIcon,
     TrashIcon,
     XMarkIcon,
+    EyeIcon,
+    EyeSlashIcon,
+    ClipboardIcon,
+    CheckIcon,
 } from "@heroicons/react/24/outline";
 import { Card, EmptyState } from "../../../components/dashboard/ui";
-import { deleteLoginAction, saveLoginAction, type LoginRow } from "./actions";
+import { deleteLoginAction, saveLoginAction, revealLoginPasswordAction, type LoginRow } from "./actions";
 
 type AgentOption = { id: string; name: string };
 
@@ -50,6 +54,37 @@ export default function LoginsClient({
     const [formSaving, setFormSaving] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [busyRows, setBusyRows] = useState<Record<string, boolean>>({});
+    // Owner-revealed passwords (id → plaintext), shown inline until re-hidden.
+    const [revealed, setRevealed] = useState<Record<string, string>>({});
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+
+    async function handleReveal(login: LoginRow) {
+        if (revealed[login.id]) {
+            setRevealed((prev) => { const n = { ...prev }; delete n[login.id]; return n; });
+            return;
+        }
+        const res = await revealLoginPasswordAction(login.id);
+        if (!res.success || !res.password) {
+            setMessage({ type: "error", text: res.message || "Couldn't reveal that password." });
+            return;
+        }
+        setRevealed((prev) => ({ ...prev, [login.id]: res.password! }));
+        try {
+            await navigator.clipboard.writeText(res.password);
+            setCopiedId(login.id);
+            setTimeout(() => setCopiedId((c) => (c === login.id ? null : c)), 1500);
+        } catch { /* clipboard blocked — the value is still shown to copy manually */ }
+    }
+
+    async function copyRevealed(login: LoginRow) {
+        const pw = revealed[login.id];
+        if (!pw) return;
+        try {
+            await navigator.clipboard.writeText(pw);
+            setCopiedId(login.id);
+            setTimeout(() => setCopiedId((c) => (c === login.id ? null : c)), 1500);
+        } catch { /* ignore */ }
+    }
 
     const agentName = (agentId: string | null) => {
         if (!agentId) return "All agents";
@@ -155,7 +190,7 @@ export default function LoginsClient({
 
             <p className="flex items-center gap-1.5 text-xs text-pulse-muted mb-4">
                 <LockClosedIcon className="w-3.5 h-3.5 flex-shrink-0 text-pulse-faint" aria-hidden="true" />
-                Passwords are encrypted (AES-256-GCM) and never shown again or exposed to the assistant.
+                Passwords are encrypted (AES-256-GCM). The assistant never sees them — but you can reveal your own to copy (👁 in the Password column).
             </p>
 
             {/* Toolbar */}
@@ -357,10 +392,43 @@ export default function LoginsClient({
                                             <td className="px-4 py-3 align-top text-pulse-soft">{login.site || <span className="text-pulse-faint">—</span>}</td>
                                             <td className="px-4 py-3 align-top text-pulse-soft">{login.username}</td>
                                             <td className="px-4 py-3 align-top">
-                                                <span className="inline-flex items-center gap-1.5 text-pulse-faint">
-                                                    <KeyIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                                                    •••••••• saved
-                                                </span>
+                                                {revealed[login.id] ? (
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <code className="font-mono text-[13px] text-pulse-text break-all">{revealed[login.id]}</code>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copyRevealed(login)}
+                                                            aria-label="Copy password"
+                                                            title="Copy"
+                                                            className="p-1 rounded text-pulse-faint hover:text-indigo-500 hover:bg-pulse-hover transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                        >
+                                                            {copiedId === login.id ? <CheckIcon className="w-3.5 h-3.5 text-emerald-500" /> : <ClipboardIcon className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleReveal(login)}
+                                                            aria-label="Hide password"
+                                                            title="Hide"
+                                                            className="p-1 rounded text-pulse-faint hover:text-pulse-text hover:bg-pulse-hover transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                        >
+                                                            <EyeSlashIcon className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1.5 text-pulse-faint">
+                                                        <KeyIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                                                        •••••••• saved
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleReveal(login)}
+                                                            aria-label={`Reveal and copy password for ${login.label}`}
+                                                            title="Reveal & copy"
+                                                            className="p-1 rounded text-pulse-faint hover:text-indigo-500 hover:bg-pulse-hover transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                        >
+                                                            <EyeIcon className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 align-top text-pulse-soft">{agentName(login.agentId)}</td>
                                             <td className="px-4 py-3 align-top text-right">
