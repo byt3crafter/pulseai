@@ -11,6 +11,7 @@ import { openaiCompatRoutes } from "./routes/openai-compat.js";
 import { openResponsesRoutes } from "./routes/open-responses.js";
 import { cronWebhookRoutes } from "./routes/cron-webhooks.js";
 import { adminModelsRoutes } from "./routes/admin-models.js";
+import { emailApiRoutes } from "./routes/email-api.js";
 import { appApiRoutes } from "./routes/app-api.js";
 import { rateLimitPlugin, rateLimitConfig } from "./middleware/rate-limit.js";
 import { registerWebSocket } from "./ws/ws-server.js";
@@ -47,6 +48,7 @@ server.register(openaiCompatRoutes);
 server.register(openResponsesRoutes);
 server.register(cronWebhookRoutes);
 server.register(adminModelsRoutes);
+server.register(emailApiRoutes);
 server.register(appApiRoutes);
 
 // WebSocket control plane (gated by env flag)

@@ -82,6 +82,15 @@ export const PROVIDERS: ProviderInfo[] = [
         ],
     },
     {
+        id: "zai",
+        name: "Z.ai (GLM)",
+        authMethods: ["api_key"],
+        models: [
+            // Anchor only — the live list from api.z.ai is the real catalogue.
+            { id: "glm-4.6", provider: "zai", displayName: "GLM-4.6", category: "flagship" },
+        ],
+    },
+    {
         id: "minimax",
         name: "MiniMax",
         authMethods: ["api_key"],
