@@ -86,8 +86,9 @@ export const PROVIDERS: ProviderInfo[] = [
         name: "Z.ai (GLM Coding Plan)",
         authMethods: ["api_key"],
         models: [
-            // Anchor only — the live list from api.z.ai is the real catalogue.
-            { id: "glm-4.6", provider: "zai", displayName: "GLM-4.6", category: "flagship" },
+            // Anchors — the live list from the coding endpoint is the real catalogue.
+            { id: "glm-5.3", provider: "zai", displayName: "GLM-5.3", category: "flagship" },
+            { id: "glm-5.3-flash", provider: "zai", displayName: "GLM-5.3-Flash", category: "fast" },
         ],
     },
     {
