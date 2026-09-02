@@ -841,7 +841,7 @@ export default function AssistantClient({
                                             )}
                                         </p>
                                     )}
-                                    {m.steps && m.steps.length > 0 && <ToolSteps steps={m.steps} />}
+                                    {m.steps && m.steps.length > 0 && <ToolSteps steps={m.steps} done={!m.streaming} />}
                                     {showThinking && m.thinking && (
                                         <ThinkingPanel text={m.thinking} streaming={!!m.streaming && !m.content} />
                                     )}
@@ -1106,20 +1106,24 @@ export default function AssistantClient({
  *  spinner while running and a check/cross when each step finishes. Consecutive
  *  identical steps collapse into one row with a ×N count (e.g. running a server
  *  command four times shows "Running a server command ×4"). */
-function ToolSteps({ steps }: { steps: ToolStep[] }) {
+function ToolSteps({ steps, done }: { steps: ToolStep[]; done?: boolean }) {
     type Group = { label: string; count: number; phase: "start" | "done" | "error"; detail?: string };
     const groups: Group[] = [];
     for (const s of steps) {
+        // Once the message has finished, a step still marked "start" is really
+        // done — some providers (Codex over MCP) only emit start events, so
+        // without this the spinner would spin forever after the answer arrived.
+        const phase = done && s.phase === "start" ? "done" : s.phase;
         const last = groups[groups.length - 1];
         if (last && last.label === s.label) {
             last.count += 1;
             // running wins; else an error sticks; otherwise done.
-            if (s.phase === "start") last.phase = "start";
-            else if (s.phase === "error" && last.phase !== "start") last.phase = "error";
+            if (phase === "start") last.phase = "start";
+            else if (phase === "error" && last.phase !== "start") last.phase = "error";
             else if (last.phase !== "start" && last.phase !== "error") last.phase = "done";
             if (s.detail) last.detail = s.detail;
         } else {
-            groups.push({ label: s.label, count: 1, phase: s.phase, detail: s.detail });
+            groups.push({ label: s.label, count: 1, phase, detail: s.detail });
         }
     }
     const [open, setOpen] = useState(false);
