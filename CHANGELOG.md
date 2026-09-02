@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.67] - 2026-09-02
+
+### Bug Fixes
+- ERPNext report endpoint + agent email password never saved
+
 ## [0.20.66] - 2026-09-02
 
 ### Bug Fixes
