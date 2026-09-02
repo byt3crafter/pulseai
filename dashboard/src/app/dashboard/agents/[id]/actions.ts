@@ -757,6 +757,63 @@ export async function updateAgentEmailConfigAction(formData: FormData) {
 }
 
 /**
+ * Test an agent's mailbox login without saving — the "Test connection" button.
+ * Uses the values currently in the editor; a blank password falls back to the
+ * stored (encrypted) one, so a saved mailbox can be re-tested without retyping.
+ * Delegates to the gateway (which has nodemailer/imapflow + the key), returns a
+ * per-protocol ✅/❌ and the exact server error.
+ */
+export async function testAgentEmailConnectionAction(formData: FormData): Promise<{
+    ok: boolean; smtp?: boolean; imap?: boolean; hasSmtp?: boolean; hasImap?: boolean; message?: string;
+}> {
+    "use server";
+    const session = await auth();
+    if (!session?.user?.tenantId) return { ok: false, message: "Unauthorized." };
+
+    const agentId = formData.get("agentId") as string;
+    const raw = formData.get("emailConfig") as string;
+    if (!raw) return { ok: false, message: "Missing configuration." };
+    let cfg: any;
+    try { cfg = JSON.parse(raw); } catch { return { ok: false, message: "Invalid configuration." }; }
+
+    const gatewayUrl = (process.env.PULSE_GATEWAY_URL || "http://pulse-gateway:8080").replace(/\/$/, "");
+    const adminKey = process.env.ADMIN_API_KEY;
+    if (!adminKey) return { ok: false, message: "Connection testing isn't configured on this deployment." };
+
+    // Fill a blank password from the stored secret so an already-saved mailbox
+    // can be tested without re-typing it.
+    if (agentId) {
+        const agent = await db.query.agentProfiles.findFirst({
+            where: and(eq(agentProfiles.id, agentId), eq(agentProfiles.tenantId, session.user.tenantId)),
+        });
+        const prev = (agent?.emailConfig as any) || {};
+        for (const part of ["smtp", "imap"] as const) {
+            if (cfg?.[part] && !cfg[part].password && prev?.[part]?.encryptedPassword) {
+                cfg[part].encryptedPassword = prev[part].encryptedPassword;
+            }
+        }
+    }
+
+    try {
+        const res = await fetch(`${gatewayUrl}/api/email/test-connection`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminKey}` },
+            body: JSON.stringify({ smtp: cfg.smtp, imap: cfg.imap }),
+            cache: "no-store",
+        });
+        if (!res.ok) return { ok: false, message: "Couldn't reach the connection tester." };
+        const data = await res.json();
+        const hasSmtp = !!cfg.smtp, hasImap = !!cfg.imap;
+        const smtpOk = !hasSmtp || !!data.smtp;
+        const imapOk = !hasImap || !!data.imap;
+        return { ok: smtpOk && imapOk, smtp: !!data.smtp, imap: !!data.imap, hasSmtp, hasImap, message: data.error || undefined };
+    } catch (error) {
+        console.error("Failed to test email connection:", error);
+        return { ok: false, message: "Couldn't run the test. Please try again." };
+    }
+}
+
+/**
  * Connect (or update) a dedicated Telegram bot for one agent. Stored as its own
  * channel_connections row — tagged channelConfig.scope = "agent" — separate
  * from the tenant-wide default bot managed by Settings → Telegram

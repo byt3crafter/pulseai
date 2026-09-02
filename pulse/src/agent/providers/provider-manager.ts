@@ -171,6 +171,7 @@ export class ProviderManager {
             case "minimax": // MiniMax and OpenRouter use OpenAI-compatible APIs
             case "google":  // Gemini via its OpenAI-compatible endpoint
             case "groq":    // Groq (free) via its OpenAI-compatible endpoint
+            case "zai":     // Z.ai (GLM) via its OpenAI-compatible endpoint
                 return this.openai;
             case "codex":
                 // Runs on the host machine's ChatGPT/Codex subscription login

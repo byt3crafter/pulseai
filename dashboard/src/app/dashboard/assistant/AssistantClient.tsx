@@ -39,11 +39,12 @@ const PROVIDER_LABELS: Record<string, string> = {
     anthropic: "Anthropic (Claude)",
     openai: "OpenAI",
     minimax: "MiniMax",
+    zai: "Z.ai (GLM)",
     google: "Google (Gemini)",
     groq: "Groq",
     openrouter: "OpenRouter",
 };
-const PROVIDER_ORDER = ["codex", "anthropic", "openai", "minimax", "google", "groq", "openrouter"];
+const PROVIDER_ORDER = ["codex", "anthropic", "openai", "minimax", "zai", "google", "groq", "openrouter"];
 const providerLabel = (id: string) => PROVIDER_LABELS[id] || id;
 const providerRank = (id: string) => {
     const i = PROVIDER_ORDER.indexOf(id);

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateAgentEmailConfigAction } from "./actions";
+import { updateAgentEmailConfigAction, testAgentEmailConnectionAction } from "./actions";
 import SignatureEditor, { DEFAULT_SIGNATURE, type SignatureValue } from "../../../../components/dashboard/SignatureEditor";
 
 interface EmailConfig {
@@ -66,9 +66,16 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
     // even while sending through the company mailbox.
     const [signature, setSignature] = useState<SignatureValue>(emailConfig.signature ?? DEFAULT_SIGNATURE);
 
-    function handleSave() {
-        const config: any = { useCustom, signature };
+    // Result of the last "Test connection" run — a per-protocol ✅/❌.
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<null | {
+        ok: boolean; smtp?: boolean; imap?: boolean; hasSmtp?: boolean; hasImap?: boolean; message?: string;
+    }>(null);
 
+    // Build the config payload from the current form — shared by Save and Test
+    // so they always agree on what's being configured.
+    function buildConfig(): any {
+        const config: any = { useCustom, signature };
         if (useCustom) {
             config.smtp = {
                 host: smtpHost,
@@ -79,10 +86,7 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                 fromName: smtpFromName || undefined,
                 defaultCc: smtpDefaultCc || undefined,
             };
-            if (smtpPassword) {
-                config.smtp.password = smtpPassword; // Will be encrypted server-side
-            }
-
+            if (smtpPassword) config.smtp.password = smtpPassword; // encrypted server-side
             if (imapHost) {
                 config.imap = {
                     host: imapHost,
@@ -90,15 +94,16 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                     username: imapUsername,
                     tls: imapTls,
                 };
-                if (imapPassword) {
-                    config.imap.password = imapPassword;
-                }
+                if (imapPassword) config.imap.password = imapPassword;
             }
         }
+        return config;
+    }
 
+    function handleSave() {
         const fd = new FormData();
         fd.set("agentId", agentId);
-        fd.set("emailConfig", JSON.stringify(config));
+        fd.set("emailConfig", JSON.stringify(buildConfig()));
 
         startTransition(async () => {
             const result = await updateAgentEmailConfigAction(fd);
@@ -110,6 +115,22 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                 router.refresh();
             }
         });
+    }
+
+    function handleTest() {
+        setTestResult(null);
+        setTesting(true);
+        const fd = new FormData();
+        fd.set("agentId", agentId);
+        fd.set("emailConfig", JSON.stringify(buildConfig()));
+        (async () => {
+            try {
+                const r = await testAgentEmailConnectionAction(fd);
+                setTestResult(r);
+            } finally {
+                setTesting(false);
+            }
+        })();
     }
 
     return (
@@ -315,7 +336,7 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
             {/* Signature — independent of which mailbox is used above */}
             <SignatureEditor value={signature} onChange={setSignature} />
 
-            {/* Save button */}
+            {/* Save + Test buttons */}
             <div className="flex flex-wrap items-center gap-3">
                 <button
                     onClick={handleSave}
@@ -324,6 +345,15 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                 >
                     {pending ? "Saving..." : "Save Email Config"}
                 </button>
+                {useCustom && (smtpHost || imapHost) && (
+                    <button
+                        onClick={handleTest}
+                        disabled={testing}
+                        className="px-5 py-2.5 text-sm font-medium text-pulse-text-soft border border-pulse-border rounded-lg hover:bg-pulse-hover transition-colors motion-reduce:transition-none disabled:opacity-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50"
+                    >
+                        {testing ? "Testing…" : "Test connection"}
+                    </button>
+                )}
                 {status.type === "success" && (
                     <span className="text-sm text-green-400">{status.message || "Saved!"}</span>
                 )}
@@ -331,6 +361,31 @@ export default function EmailConfigEditor({ agentId, emailConfig, hasTenantEmail
                     <span className="text-sm text-red-400">{status.message || "Failed to save."}</span>
                 )}
             </div>
+
+            {/* Test connection result — a per-protocol pass/fail + the exact error. */}
+            {testResult && (
+                <div className={`rounded-lg border px-4 py-3 text-sm ${testResult.ok ? "border-emerald-500/30 bg-emerald-500/10" : "border-red-500/30 bg-red-500/10"}`}>
+                    <div className="flex flex-wrap items-center gap-4">
+                        {testResult.hasSmtp && (
+                            <span className={testResult.smtp ? "text-emerald-400" : "text-red-400"}>
+                                {testResult.smtp ? "✓" : "✕"} SMTP (send)
+                            </span>
+                        )}
+                        {testResult.hasImap && (
+                            <span className={testResult.imap ? "text-emerald-400" : "text-red-400"}>
+                                {testResult.imap ? "✓" : "✕"} IMAP (read)
+                            </span>
+                        )}
+                        {testResult.ok && <span className="text-emerald-400 font-medium">Mailbox login works.</span>}
+                    </div>
+                    {testResult.message && (
+                        <p className="mt-1.5 text-[13px] text-pulse-muted break-words">{testResult.message}</p>
+                    )}
+                    {!testResult.ok && !testResult.message && (
+                        <p className="mt-1.5 text-[13px] text-pulse-muted">The mailbox rejected the login. Check the username, password, host and port.</p>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

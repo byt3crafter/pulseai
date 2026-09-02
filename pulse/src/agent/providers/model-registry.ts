@@ -327,6 +327,29 @@ const groqProvider: ProviderDefinition = {
     ],
 };
 
+// Z.ai (Zhipu) — GLM models via the international OpenAI-compatible endpoint.
+// BYOK: the tenant adds a ZAI_API_KEY. Base is overridable per deploy with
+// ZAI_BASE_URL (e.g. to point at open.bigmodel.cn). The single anchor is a
+// routing/default fallback; the live /models list (getLiveModelsAction) is the
+// real catalogue, so a new model like GLM-5.3 shows up without a code change.
+const zaiProvider: ProviderDefinition = {
+    id: "zai",
+    name: "Z.ai (GLM)",
+    authMethods: ["api_key"],
+    envKeyName: "ZAI_API_KEY",
+    apiBase: "https://api.z.ai/api/paas/v4",
+    models: [
+        {
+            id: "glm-4.6",
+            provider: "zai",
+            displayName: "GLM-4.6",
+            category: "flagship",
+            pricing: { inputPerMillion: 0.6, outputPerMillion: 2.2 },
+            maxTokens: 8192,
+        },
+    ],
+};
+
 // ─── Registry ────────────────────────────────────────────────────────────────
 
 const ALL_PROVIDERS: ProviderDefinition[] = [
@@ -337,6 +360,7 @@ const ALL_PROVIDERS: ProviderDefinition[] = [
     groqProvider,
     openrouterProvider,
     minimaxProvider,
+    zaiProvider,
 ];
 
 const MODEL_MAP = new Map<string, ModelDefinition>();
@@ -374,6 +398,10 @@ export function inferProviderId(modelId: string): string | undefined {
     const id = (modelId || "").toLowerCase();
     if (id.startsWith("claude")) return "anthropic";
     if (id.startsWith("minimax") || id.startsWith("abab")) return "minimax";
+    // Bare glm-* ids (glm-4.6, glm-5.3, …) are Z.ai's GLM models. OpenRouter's
+    // copies carry a `z-ai/` prefix and hit the `/` rule below, so they aren't
+    // caught here.
+    if (id.startsWith("glm")) return "zai";
     if (id.startsWith("gemini") || id.startsWith("models/gemini")) return "google";
     // Bare `gpt-5.x` ids (gpt-5.5, gpt-5.6-sol, …) are the ChatGPT-subscription
     // models the Codex app-server serves — the OpenAI REST API doesn't sell them
