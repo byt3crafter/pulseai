@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.78] - 2026-09-02
+
+### Features
+- render pasted CSV/Excel as a scrollable table
+
 ## [0.20.77] - 2026-09-02
 
 ### Bug Fixes
