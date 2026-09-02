@@ -6,10 +6,11 @@ import {
     mcpServers,
     agentProfileMcpBindings,
     agentProfiles,
+    tenantProviderKeys,
 } from "../../../storage/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { encrypt } from "../../../utils/crypto";
+import { encrypt, decrypt } from "../../../utils/crypto";
 import { logAudit } from "../../../utils/audit";
 
 /**
@@ -40,6 +41,83 @@ async function assertOwned(tenantId: string, agentProfileId: string, mcpServerId
         }),
     ]);
     return !!agent && !!server;
+}
+
+/**
+ * The Z.ai (GLM Coding Plan) bundled MCP servers Pulse can consume. Vision is
+ * deliberately excluded — it ships only as a local stdio server, which the
+ * hosted gateway can't run. These are remote SSE endpoints (verified to connect
+ * with a Bearer header) and are entirely optional/additive: if one fails to
+ * connect at runtime the client returns null and the agent simply doesn't get
+ * those tools — it can never break the rest of the toolset.
+ */
+const ZAI_MCP_SERVERS = [
+    { name: "Z.ai Web Search", url: "https://api.z.ai/api/mcp/web_search_prime/sse" },
+    { name: "Z.ai Web Reader", url: "https://api.z.ai/api/mcp/web_reader/sse" },
+    { name: "Z.ai Zread (GitHub)", url: "https://api.z.ai/api/mcp/zread/sse" },
+] as const;
+
+/**
+ * One-click: register the Z.ai bundled MCP servers for this tenant, authed with
+ * their existing Z.ai (GLM) provider key. Idempotent — re-running updates the
+ * stored key (so it also serves as "refresh after a key rotation").
+ */
+export async function connectZaiToolsAction() {
+    const session = await auth();
+    if (!session?.user?.tenantId) return { success: false, message: "Unauthorized." };
+    const tenantId = session.user.tenantId;
+
+    // Resolve the tenant's active Z.ai key (BYOK).
+    const [keyRow] = await db.select({ enc: tenantProviderKeys.encryptedApiKey })
+        .from(tenantProviderKeys)
+        .where(and(
+            eq(tenantProviderKeys.tenantId, tenantId),
+            eq(tenantProviderKeys.provider, "zai"),
+            eq(tenantProviderKeys.isActive, true),
+        ))
+        .limit(1);
+    if (!keyRow?.enc) {
+        return { success: false, message: "Add a Z.ai (GLM) provider key in Settings → AI Providers first." };
+    }
+    let apiKey: string;
+    try { apiKey = decrypt(keyRow.enc); } catch { return { success: false, message: "Couldn't read the Z.ai key." }; }
+    const authHeaders = packAuthHeaders(JSON.stringify({ Authorization: `Bearer ${apiKey}` }));
+
+    try {
+        let created = 0;
+        let updated = 0;
+        for (const svc of ZAI_MCP_SERVERS) {
+            const existing = await db.query.mcpServers.findFirst({
+                where: and(eq(mcpServers.tenantId, tenantId), eq(mcpServers.name, svc.name)),
+            });
+            if (existing) {
+                await db.update(mcpServers)
+                    .set({ url: svc.url, authHeaders, status: "active" })
+                    .where(eq(mcpServers.id, existing.id));
+                updated++;
+            } else {
+                await db.insert(mcpServers).values({
+                    tenantId, name: svc.name, url: svc.url, authHeaders, status: "active",
+                });
+                created++;
+            }
+        }
+        await logAudit({
+            action: "mcp.connect_zai",
+            targetType: "mcp_server",
+            tenantId,
+            summary: `Connected Z.ai tools (${created} new, ${updated} updated)`,
+            metadata: { created, updated },
+        });
+        revalidatePath("/dashboard/mcp");
+        return {
+            success: true,
+            message: `Z.ai tools connected (${created + updated}: Web Search, Web Reader, Zread). Bind them to an agent below. Note: GLM Vision isn't included — it needs a local server the hosted gateway can't run.`,
+        };
+    } catch (error) {
+        console.error("Failed to connect Z.ai tools:", error);
+        return { success: false, message: "Couldn't connect Z.ai tools. Please try again." };
+    }
 }
 
 export async function createMcpServerAction(formData: FormData) {
