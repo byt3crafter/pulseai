@@ -3,6 +3,14 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.72] - 2026-09-02
+
+### Features
+- one-click Z.ai tools (MCP) + opt-in delegation budget
+
+### Bug Fixes
+- close review findings P1 (race) + P2 (hop leak)
+
 ## [0.20.71] - 2026-09-02
 
 ### Features
