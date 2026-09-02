@@ -860,10 +860,12 @@ export default function AssistantClient({
 
             {/* ── Main ── */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {/* Open-session tabs — browser-style. Appears once you have more than
-                    one session open; each tab lights a dot while its agent is working
-                    in the background, so you can fan work out and switch between them. */}
-                {openTabs.length >= 2 && (
+                {/* Open-session tabs — browser-style. Appears once you're in a
+                    conversation (or have more than one session open); each tab lights a
+                    dot while its agent is working in the background, so you can fan work
+                    out across agents and switch between them. The "+ New" button is the
+                    discoverable way to open a parallel session without leaving the page. */}
+                {(openTabs.length >= 2 || (openTabs.length >= 1 && messages.length > 0)) && (
                     <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-pulse-border-subtle bg-pulse-bg px-2 py-1.5">
                         {openTabs.map((t) => {
                             const active = t.sessionId === sessionId;
@@ -892,8 +894,9 @@ export default function AssistantClient({
                                 </div>
                             );
                         })}
-                        <button type="button" onClick={startNewChat} aria-label="New tab" title="New chat" className="shrink-0 rounded-lg p-1.5 text-pulse-faint transition-colors hover:bg-pulse-hover hover:text-pulse-text">
+                        <button type="button" onClick={startNewChat} aria-label="Open a new session" title="Open a new session" className="ml-1 flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-pulse-muted transition-colors hover:bg-pulse-hover hover:text-pulse-text">
                             <PlusIcon className="h-4 w-4" />
+                            <span>New</span>
                         </button>
                     </div>
                 )}
