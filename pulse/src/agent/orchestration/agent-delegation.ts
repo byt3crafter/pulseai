@@ -47,20 +47,40 @@ interface RootBudget {
     hops: number;
     limits: ReturnType<typeof resolveDelegationBudget>;
     at: number;
+    limitsPromise?: Promise<void>;
 }
 const rootBudgets = new Map<string, RootBudget>();
 const ROOT_BUDGET_TTL_MS = 30 * 60_000;
 
-async function getRootBudget(rootId: string, sourceAgentId: string): Promise<RootBudget> {
+/**
+ * SYNCHRONOUS atomic get-or-create. No await between the miss-check and the
+ * set(), so a parallel fan-out (Promise.all of N delegate calls that all share
+ * one rootId) gets ONE shared entry — otherwise each racer would build its own
+ * object and the caps would slip past on the very first batch.
+ */
+function getRootBudget(rootId: string): RootBudget {
     let b = rootBudgets.get(rootId);
     if (!b) {
-        // Limits come from the agent that STARTED the fan-out (first touch).
-        const src = await db.query.agentProfiles.findFirst({ where: eq(agentProfiles.id, sourceAgentId) });
-        b = { inFlight: 0, tokens: 0, hops: 0, limits: resolveDelegationBudget((src?.delegationConfig as DelegationConfig) || {}), at: Date.now() };
+        b = { inFlight: 0, tokens: 0, hops: 0, limits: resolveDelegationBudget(), at: Date.now() };
         rootBudgets.set(rootId, b);
     }
     b.at = Date.now();
     return b;
+}
+
+/**
+ * Resolve the caps once per root, from the agent that STARTED the fan-out, via a
+ * shared promise so every concurrent racer awaits the same lookup and enforces
+ * the same limits.
+ */
+async function ensureBudgetLimits(b: RootBudget, sourceAgentId: string): Promise<void> {
+    if (!b.limitsPromise) {
+        b.limitsPromise = (async () => {
+            const src = await db.query.agentProfiles.findFirst({ where: eq(agentProfiles.id, sourceAgentId) });
+            b.limits = resolveDelegationBudget((src?.delegationConfig as DelegationConfig) || {});
+        })();
+    }
+    await b.limitsPromise;
 }
 
 /** Runtime calls this as delegated sub-runs report usage, to tally against the budget. */
@@ -128,7 +148,8 @@ export async function delegateTask(
     // behaviour). Keyed by the originating conversation so a fan-out of many
     // sub-agents shares one budget.
     const rootId = opts.rootId || parentConversationId;
-    const budget = await getRootBudget(rootId, sourceAgentId);
+    const budget = getRootBudget(rootId);
+    await ensureBudgetLimits(budget, sourceAgentId);
     const { maxConcurrent, maxDelegationTokens, maxTreeHops } = budget.limits;
     if (maxTreeHops > 0 && budget.hops >= maxTreeHops) {
         return { success: false, result: `Delegation budget reached (max ${maxTreeHops} for this task). Please answer directly.`, tokensUsed: 0, delegationId: "" };
@@ -139,7 +160,8 @@ export async function delegateTask(
     if (maxConcurrent > 0 && budget.inFlight >= maxConcurrent) {
         return { success: false, result: `Too many sub-agents are already running (max ${maxConcurrent}). Please wait or answer directly.`, tokensUsed: 0, delegationId: "" };
     }
-    budget.hops++;
+    // NB: budget.hops++ is deferred to just before the spawn (below) so an early
+    // failure (record insert / missing runtime) can't leak a hop against the cap.
 
     // 3. Create delegation record
     const [delegation] = await db
@@ -184,9 +206,11 @@ export async function delegateTask(
             return { channelMessageId: `delegation-response-${delegation.id}` };
         };
 
-        // Track this sub-run as in-flight for the concurrency cap; decrement no
-        // matter how it ends. delegationContext threads the root id to the
-        // sub-agent so nested delegations share this budget.
+        // Count the hop and the in-flight sub-run now that we're actually
+        // spawning (so early failures above can't leak either). Decrement
+        // inFlight no matter how the run ends. delegationContext threads the
+        // root id so nested delegations share this budget.
+        budget.hops++;
         budget.inFlight++;
         try {
             await runtimeRef.processMessage(inbound, captureCallback, { delegationContext: { rootId } });
