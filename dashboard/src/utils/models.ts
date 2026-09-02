@@ -83,7 +83,7 @@ export const PROVIDERS: ProviderInfo[] = [
     },
     {
         id: "zai",
-        name: "Z.ai (GLM)",
+        name: "Z.ai (GLM Coding Plan)",
         authMethods: ["api_key"],
         models: [
             // Anchor only — the live list from api.z.ai is the real catalogue.
