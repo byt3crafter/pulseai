@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.73] - 2026-09-02
+
+### Bug Fixes
+- owner can reveal/copy a saved password + cap tool-output size
+
 ## [0.20.72] - 2026-09-02
 
 ### Features
