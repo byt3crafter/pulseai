@@ -39,6 +39,7 @@ interface AgentData {
     modelId: string;
     smartRouting?: boolean;
     fastModelId?: string | null;
+    scheduledModelId?: string | null;
     modelGroupId?: string | null;
     dockerSandboxEnabled: boolean;
     selfConfigEnabled: boolean;
@@ -505,6 +506,7 @@ function ConfigTab({ agent, activeProviders, modelGroups = [] }: { agent: AgentD
     const [modelGroupId, setModelGroupId] = useState(agent.modelGroupId ?? "");
     const [smartRouting, setSmartRouting] = useState(agent.smartRouting === true);
     const [fastModelId, setFastModelId] = useState(agent.fastModelId ?? "");
+    const [scheduledModelId, setScheduledModelId] = useState(agent.scheduledModelId ?? "");
     const [status, setStatus] = useState<{ type: "idle" | "saving" | "success" | "error"; message: string }>({
         type: "idle",
         message: "",
@@ -548,6 +550,7 @@ function ConfigTab({ agent, activeProviders, modelGroups = [] }: { agent: AgentD
         fd.set("agentId", agent.id);
         fd.set("smartRouting", smartRouting ? "1" : "0");
         fd.set("fastModelId", fastModelId);
+        fd.set("scheduledModelId", scheduledModelId);
         const result = await updateAgentSmartRoutingAction(fd);
         setStatus({ type: result.success ? "success" : "error", message: result.message ?? "" });
         if (result.success) router.refresh();
@@ -688,6 +691,29 @@ function ConfigTab({ agent, activeProviders, modelGroups = [] }: { agent: AgentD
                             </select>
                         </div>
                     )}
+
+                    {/* Scheduled-tasks model — independent of smart routing. Runs
+                        cron jobs + heartbeats on a cheaper/faster model. Blank =
+                        the agent's own model (unchanged behaviour). */}
+                    <div className="pt-1 border-t border-pulse-border-subtle">
+                        <label className="block text-xs font-medium text-pulse-muted mb-1 mt-3">Model for scheduled tasks (cron &amp; heartbeats)</label>
+                        <p className="text-xs text-pulse-faint mb-1.5">Background work runs on this model. Leave as default to use the agent&rsquo;s model; pick a cheap/fast one (e.g. GLM-4.5-Air, MiniMax) to save on routine checks.</p>
+                        <select
+                            value={scheduledModelId}
+                            onChange={(e) => setScheduledModelId(e.target.value)}
+                            className="w-full max-w-md px-3 py-2 border border-pulse-border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-pulse-text bg-pulse-panel"
+                        >
+                            <option value="">Agent&rsquo;s model (default)</option>
+                            {configuredProviders.map((provider) => (
+                                <optgroup key={provider.id} label={provider.name}>
+                                    {(liveModels[provider.id] ?? provider.models).map((model) => (
+                                        <option key={model.id} value={model.id}>{model.displayName} ({model.category})</option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                        </select>
+                    </div>
+
                     <div className="flex items-center gap-3">
                         <button
                             onClick={handleSmartRoutingSave}

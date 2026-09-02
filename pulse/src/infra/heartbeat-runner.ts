@@ -79,7 +79,10 @@ export async function runHeartbeatOnce(
             async (outbound) => {
                 capturedContent = outbound.content;
                 return { channelMessageId: randomUUID() };
-            }
+            },
+            // Run scheduled work on the agent's scheduled model when set; null =
+            // the agent's own model (unchanged behaviour).
+            { modelOverride: (profile as any).scheduledModelId || undefined },
         );
 
         // 6. Strip HEARTBEAT_OK (nothing to report)

@@ -115,6 +115,7 @@ export default async function AgentDetailPage({
                 modelId: agent.modelId ?? "claude-sonnet-4-20250514",
                 smartRouting: agent.smartRouting ?? false,
                 fastModelId: agent.fastModelId ?? null,
+                scheduledModelId: agent.scheduledModelId ?? null,
                 modelGroupId: (agent as any).modelGroupId ?? null,
                 dockerSandboxEnabled: agent.dockerSandboxEnabled ?? false,
                 selfConfigEnabled: agent.selfConfigEnabled ?? false,
