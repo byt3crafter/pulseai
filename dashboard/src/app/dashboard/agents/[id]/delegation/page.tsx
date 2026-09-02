@@ -116,6 +116,43 @@ export default async function AgentDelegationPage({ params }: { params: Promise<
                             </div>
                         </div>
 
+                        {/* Delegation budget — caps for fanning out to many sub-agents.
+                            0 = unlimited (the default), so leaving these at 0 keeps
+                            today's behaviour. Set them to bound a runaway fan-out. */}
+                        <div className="rounded-lg border border-pulse-border-subtle bg-pulse-panel-alt p-4">
+                            <p className="text-sm font-medium text-pulse-text-soft">Delegation budget</p>
+                            <p className="text-xs text-pulse-faint mt-0.5 mb-3">Caps applied across the whole sub-agent tree for one task. <span className="text-pulse-muted">0 = unlimited</span> (default).</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-pulse-muted mb-1">Max concurrent sub-agents</label>
+                                    <input
+                                        type="number" name="maxConcurrent" min={0} max={50}
+                                        defaultValue={delConfig.maxConcurrent || 0}
+                                        className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+                                    />
+                                    <p className="text-[11px] text-pulse-faint mt-1">Running at once. Try 16–30.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-pulse-muted mb-1">Max delegations per task</label>
+                                    <input
+                                        type="number" name="maxTreeHops" min={0} max={500}
+                                        defaultValue={delConfig.maxTreeHops || 0}
+                                        className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+                                    />
+                                    <p className="text-[11px] text-pulse-faint mt-1">Total hops across the tree.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-pulse-muted mb-1">Max delegation tokens</label>
+                                    <input
+                                        type="number" name="maxDelegationTokens" min={0} step={1000}
+                                        defaultValue={delConfig.maxDelegationTokens || 0}
+                                        className="w-full px-3 py-2 border border-pulse-border rounded-lg text-sm bg-pulse-panel text-pulse-text focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+                                    />
+                                    <p className="text-[11px] text-pulse-faint mt-1">Total tokens across sub-runs.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         {otherAgents.length > 0 && (
                             <div className="bg-pulse-panel-alt rounded-lg p-4">
                                 <p className="text-xs font-medium text-pulse-muted mb-2">Other agents in this tenant:</p>

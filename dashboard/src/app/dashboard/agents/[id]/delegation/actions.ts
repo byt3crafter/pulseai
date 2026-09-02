@@ -13,12 +13,19 @@ export async function saveDelegationConfig(formData: FormData) {
 
     const agentId = formData.get("agentId") as string;
 
+    const num = (name: string) => Math.max(0, parseInt(formData.get(name) as string) || 0);
     const delegationConfig = {
         canDelegate: formData.get("canDelegate") === "on",
         acceptsDelegation: formData.get("acceptsDelegation") === "on",
         specialization: (formData.get("specialization") as string) || "",
         maxDepth: parseInt(formData.get("maxDepth") as string) || 3,
         delegateTo: [] as string[],
+        // Delegation budget (per originating task, across the whole sub-agent
+        // tree). 0 = unlimited = default behaviour. Must be written here or a save
+        // would wipe them, since this rebuilds the whole config object.
+        maxConcurrent: num("maxConcurrent"),
+        maxDelegationTokens: num("maxDelegationTokens"),
+        maxTreeHops: num("maxTreeHops"),
     };
 
     // Parse comma-separated agent IDs
