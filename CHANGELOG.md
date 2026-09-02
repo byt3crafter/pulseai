@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.69] - 2026-09-02
+
+### Bug Fixes
+- GLM Coding Plan endpoint + register zai in key validation
+
 ## [0.20.68] - 2026-09-02
 
 ### Features
