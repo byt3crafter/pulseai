@@ -279,7 +279,7 @@ const OPENAI_COMPAT_MODEL_BASE: Record<string, string> = {
     groq: "https://api.groq.com/openai/v1",
     openrouter: "https://openrouter.ai/api/v1",
     minimax: "https://api.minimax.io/v1",
-    zai: "https://api.z.ai/api/paas/v4",
+    zai: "https://api.z.ai/api/coding/paas/v4",
 };
 
 export async function getLiveModelsAction(

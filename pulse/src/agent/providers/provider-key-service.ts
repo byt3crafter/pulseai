@@ -248,6 +248,17 @@ export class ProviderKeyService {
                     }
                     return { valid: true };
                 }
+                case "zai": {
+                    // GLM Coding Plan (Z.ai) — OpenAI-compatible coding endpoint.
+                    const base = process.env.ZAI_BASE_URL?.trim() || "https://api.z.ai/api/coding/paas/v4";
+                    const res = await fetch(`${base.replace(/\/$/, "")}/models`, {
+                        headers: { Authorization: `Bearer ${apiKey}` },
+                    });
+                    // Only a clear 401 is a bad key; the coding endpoint can 404 the
+                    // models path or 403 for scope with a perfectly valid key.
+                    if (res.status === 401) return { valid: false, error: "Invalid API key" };
+                    return { valid: true };
+                }
                 case "codex":
                     // Codex authenticates via the server's ChatGPT login, not a key.
                     return { valid: true };

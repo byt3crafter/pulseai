@@ -505,6 +505,16 @@ export async function validateProviderKeyAction(formData: FormData) {
                 }
                 return { valid: true };
             }
+            case "zai": {
+                // GLM Coding Plan (Z.ai) — OpenAI-compatible coding endpoint.
+                const res = await fetch("https://api.z.ai/api/coding/paas/v4/models", {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                });
+                if (res.status === 401) {
+                    return { valid: false, error: "Invalid API key" };
+                }
+                return { valid: true };
+            }
             case "codex":
                 // Codex authenticates via the server's ChatGPT login, not a key.
                 return { valid: true };

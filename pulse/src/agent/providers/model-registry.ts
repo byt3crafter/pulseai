@@ -327,17 +327,19 @@ const groqProvider: ProviderDefinition = {
     ],
 };
 
-// Z.ai (Zhipu) — GLM models via the international OpenAI-compatible endpoint.
-// BYOK: the tenant adds a ZAI_API_KEY. Base is overridable per deploy with
-// ZAI_BASE_URL (e.g. to point at open.bigmodel.cn). The single anchor is a
-// routing/default fallback; the live /models list (getLiveModelsAction) is the
-// real catalogue, so a new model like GLM-5.3 shows up without a code change.
+// Z.ai (Zhipu) — GLM models via the **GLM Coding Plan** OpenAI-compatible
+// endpoint (api.z.ai/api/coding/paas/v4), NOT the general pay-per-token
+// paas/v4. A coding-plan key only works against the coding base. BYOK: the
+// tenant adds a ZAI_API_KEY; base overridable per deploy with ZAI_BASE_URL
+// (e.g. the general paas/v4, or open.bigmodel.cn). The anchor is a
+// routing/default fallback; the live /models list is the real catalogue, and
+// bare glm-* ids all route here — so GLM-5.3 works whether or not it's listed.
 const zaiProvider: ProviderDefinition = {
     id: "zai",
-    name: "Z.ai (GLM)",
+    name: "Z.ai (GLM Coding Plan)",
     authMethods: ["api_key"],
     envKeyName: "ZAI_API_KEY",
-    apiBase: "https://api.z.ai/api/paas/v4",
+    apiBase: "https://api.z.ai/api/coding/paas/v4",
     models: [
         {
             id: "glm-4.6",
