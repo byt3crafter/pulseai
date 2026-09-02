@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.63] - 2026-09-02
+
+### Bug Fixes
+- never defer capability-defining tools (the real tools fix)
+
 ## [0.20.62] - 2026-09-02
 
 ### Bug Fixes
