@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.71] - 2026-09-02
+
+### Features
+- per-agent model for scheduled work (cron + heartbeats)
+
 ## [0.20.70] - 2026-09-02
 
 ### Features
