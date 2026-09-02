@@ -11,7 +11,7 @@ import { logAudit } from "../../../utils/audit";
 // dashboard/src/app/dashboard/settings/credentials/actions.ts. Never wire up
 // a decrypt() here: this vault's passwords are write-only from the UI's
 // perspective and are only ever decrypted by the agent runtime.
-import { createCipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
@@ -30,6 +30,46 @@ function encrypt(plaintext: string): string {
     const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
     const authTag = cipher.getAuthTag();
     return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`;
+}
+
+/**
+ * Decrypt — for OWNER reveal only. The assistant still never sees passwords
+ * (agents inject them at login time, never read them back); but the human owner
+ * who saved a login — or whose agent GENERATED one for them — must be able to
+ * retrieve it. Called only from revealLoginPasswordAction behind requireTenant.
+ */
+function decrypt(payload: string): string {
+    if (!payload) return "";
+    const [ivHex, tagHex, dataHex] = payload.split(":");
+    if (!ivHex || !tagHex || !dataHex) throw new Error("Malformed ciphertext");
+    const key = getEncryptionKey();
+    const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, "hex"));
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    return Buffer.concat([decipher.update(Buffer.from(dataHex, "hex")), decipher.final()]).toString("utf8");
+}
+
+/**
+ * Reveal a saved password to the authenticated OWNER (e.g. to copy a password an
+ * agent just generated). Tenant-scoped; audited; the plaintext is never logged.
+ */
+export async function revealLoginPasswordAction(id: string): Promise<{ success: boolean; password?: string; message?: string }> {
+    const tenantCheck = await requireTenant();
+    if (!tenantCheck.authorized) return { success: false, message: tenantCheck.message };
+    const [row] = await db.select({ enc: siteLogins.encryptedPassword, label: siteLogins.label })
+        .from(siteLogins)
+        .where(and(eq(siteLogins.id, id), eq(siteLogins.tenantId, tenantCheck.tenantId)))
+        .limit(1);
+    if (!row?.enc) return { success: false, message: "No password is saved for this login." };
+    let password: string;
+    try { password = decrypt(row.enc); } catch { return { success: false, message: "Couldn't read this password." }; }
+    await logAudit({
+        action: "login.reveal",
+        targetType: "login",
+        targetId: id,
+        tenantId: tenantCheck.tenantId,
+        summary: `Revealed password for ${row.label}`,
+    });
+    return { success: true, password };
 }
 
 export interface LoginRow {

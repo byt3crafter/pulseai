@@ -92,6 +92,22 @@ function parseAutoMemoryConfig(config: unknown): AutoMemoryConfig {
 }
 
 /** Human, present-tense label for a tool call, shown in the live step rows. */
+// A single tool result stays in the conversation and is re-sent to the model on
+// EVERY subsequent round of a multi-step turn. One big output (an SSH dump, a
+// log tail, a query result) therefore gets multiplied across rounds and blows
+// the context up — a 7-step turn was seen at 141k input tokens / 3 minutes.
+// Cap what's fed back: keep a generous head + a tail (command output's signal is
+// usually at both ends), drop the middle with a marker. The FULL result still
+// reaches the user for that step's display; only the model's re-read is trimmed.
+const MAX_TOOL_RESULT_CHARS = 10_000;
+function capToolResult(text: string): string {
+    if (typeof text !== "string" || text.length <= MAX_TOOL_RESULT_CHARS) return text;
+    const head = text.slice(0, 7500);
+    const tail = text.slice(-2000);
+    const omitted = text.length - head.length - tail.length;
+    return `${head}\n\n… [${omitted.toLocaleString()} characters truncated to keep the conversation fast — ask for a narrower command if you need the middle] …\n\n${tail}`;
+}
+
 function toolStepLabel(name: string): string {
     const map: Record<string, string> = {
         web_search: "Searching the web",
@@ -1139,7 +1155,7 @@ export class AgentRuntime {
                         return {
                             type: "tool_result" as const,
                             tool_use_id: toolCall.id,
-                            content: result.result,
+                            content: capToolResult(result.result),
                         };
                     })
                 );
