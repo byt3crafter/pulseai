@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.84] - 2026-09-03
+
+### Bug Fixes
+- honour reasoning-effort changes on live threads; rotate container logs
+
 ## [0.20.83] - 2026-09-03
 
 ### Bug Fixes
