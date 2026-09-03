@@ -1131,8 +1131,8 @@ export class AgentRuntime {
                                     conversationId: conversation.id,
                                     args: toolArgs,
                                 });
-                                run.addToolCall(toolCall.name, true, Date.now() - toolStart);
                                 const ok = !isErrorResult(result.result);
+                                run.addToolCall(toolCall.name, ok, Date.now() - toolStart);
                                 const count = (result.metadata as any)?.count;
                                 const detail = typeof count === "number" ? `${count} result${count === 1 ? "" : "s"}` : undefined;
                                 try { options?.onToolStep?.({ name: toolCall.name, label: stepLabel, phase: ok ? "done" : "error", detail }); } catch { /* fire-soft */ }

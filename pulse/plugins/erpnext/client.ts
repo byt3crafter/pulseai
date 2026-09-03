@@ -149,7 +149,7 @@ export async function erpNextRequest<T = any>(
 
             return {
                 ok: false,
-                error: `ERPNext error (${res.status}): ${errorMsg}`,
+                error: `Error: ERPNext (${res.status}) — ${errorMsg}`,
                 httpStatus: res.status,
             };
         }
@@ -157,11 +157,34 @@ export async function erpNextRequest<T = any>(
         return { ok: true, data: json.data ?? json.message ?? json };
     } catch (err: any) {
         if (err.name === "AbortError") {
-            return { ok: false, error: "ERPNext request timed out (30s)" };
+            return { ok: false, error: "Error: ERPNext request timed out (30s)" };
         }
         logger.error({ err, path }, "ERPNext request failed");
-        return { ok: false, error: `ERPNext request failed: ${err.message}` };
+        return { ok: false, error: `Error: ERPNext request failed: ${err.message}` };
     } finally {
         clearTimeout(timeout);
     }
+}
+
+/**
+ * Journal Entry rows: ERPNext recomputes the read-only `debit`/`credit` columns
+ * from `debit_in_account_currency`/`credit_in_account_currency` on save, so a
+ * payload that only sets `debit`/`credit` is silently zeroed and rejected with
+ * "Row 1: Both Debit and Credit values cannot be zero". Copy the plain amounts
+ * across when the *_in_account_currency fields are missing so either spelling
+ * works. Everything else passes through untouched.
+ */
+export function normalizeDocPayload(doctype: string, data: Record<string, any>): Record<string, any> {
+    if (doctype !== "Journal Entry" || !Array.isArray(data?.accounts)) return data;
+    const accounts = data.accounts.map((row: any) => {
+        if (!row || typeof row !== "object") return row;
+        const out = { ...row };
+        for (const side of ["debit", "credit"] as const) {
+            const acc = `${side}_in_account_currency`;
+            if (out[acc] == null && out[side] != null) out[acc] = Number(out[side]);
+            else if (out[acc] != null) out[acc] = Number(out[acc]);
+        }
+        return out;
+    });
+    return { ...data, accounts };
 }

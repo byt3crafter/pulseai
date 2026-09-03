@@ -1,5 +1,5 @@
 import { Tool } from "../../../src/agent/tools/tool.interface.js";
-import { getErpNextCredentials, erpNextRequest, MISSING_CREDENTIALS_MSG } from "../client.js";
+import { getErpNextCredentials, erpNextRequest, normalizeDocPayload, MISSING_CREDENTIALS_MSG } from "../client.js";
 
 export const erpnextUpdateTool: Tool = {
     name: "erpnext_update",
@@ -35,7 +35,7 @@ export const erpnextUpdateTool: Tool = {
             creds,
             "PUT",
             `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`,
-            data
+            normalizeDocPayload(doctype, data)
         );
 
         if (!res.ok) return { result: res.error };

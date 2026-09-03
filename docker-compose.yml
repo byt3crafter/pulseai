@@ -84,6 +84,10 @@ services:
       # Codex reasoning effort (minimal|low|medium|high|xhigh). Lower = faster
       # first response for interactive chat; blank keeps the code default.
       - CODEX_REASONING_EFFORT=${CODEX_REASONING_EFFORT:-}
+      # Image the python_execute tool runs on the HOST docker daemon. Registry boxes
+      # never build the `python-sandbox` service, so point this at the hub copy and
+      # `docker run` pulls it on first use.
+      - PYTHON_SANDBOX_IMAGE=${PYTHON_SANDBOX_IMAGE:-pulse-python-sandbox:latest}
     volumes:
       - pulse-workspace-data:/app/data/workspaces
       - pulse-codex-home:/app/.codex

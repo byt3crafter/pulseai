@@ -1,12 +1,15 @@
 import { Tool } from "../../../src/agent/tools/tool.interface.js";
-import { getErpNextCredentials, erpNextRequest, MISSING_CREDENTIALS_MSG } from "../client.js";
+import { getErpNextCredentials, erpNextRequest, normalizeDocPayload, MISSING_CREDENTIALS_MSG } from "../client.js";
 
 export const erpnextCreateTool: Tool = {
     name: "erpnext_create",
     description:
         "Create a new ERPNext document. The document is saved as Draft by default. " +
         "Use erpnext_method with 'frappe.client.submit' to submit it after creation. " +
-        "Provide all required fields for the DocType.",
+        "Provide all required fields for the DocType. " +
+        "Journal Entry rows go in `accounts` using `debit_in_account_currency` / `credit_in_account_currency` " +
+        "(plain `debit`/`credit` are read-only and recomputed). Child tables (e.g. Journal Entry Account) " +
+        "cannot be created or queried on their own — always send them inside the parent document.",
     parameters: {
         type: "object",
         properties: {
@@ -30,7 +33,7 @@ export const erpnextCreateTool: Tool = {
         if (!creds) return { result: MISSING_CREDENTIALS_MSG };
 
         const { doctype, data } = args as { doctype: string; data: Record<string, any> };
-        const res = await erpNextRequest(creds, "POST", `/api/resource/${encodeURIComponent(doctype)}`, data);
+        const res = await erpNextRequest(creds, "POST", `/api/resource/${encodeURIComponent(doctype)}`, normalizeDocPayload(doctype, data));
 
         if (!res.ok) return { result: res.error };
 
