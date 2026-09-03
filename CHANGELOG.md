@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.81] - 2026-09-03
+
+### Bug Fixes
+- mobile-responsive assistant picker, bubbles, sidebar customise
+
 ## [0.20.80] - 2026-09-03
 
 ### Bug Fixes
