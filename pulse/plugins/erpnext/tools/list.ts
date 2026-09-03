@@ -1,5 +1,5 @@
 import { Tool } from "../../../src/agent/tools/tool.interface.js";
-import { getErpNextCredentials, erpNextRequest, MISSING_CREDENTIALS_MSG } from "../client.js";
+import { getErpNextCredentials, erpNextRequest, MISSING_CREDENTIALS_MSG, normalizeListFilters, describeQueryFieldError } from "../client.js";
 
 export const erpnextListTool: Tool = {
     name: "erpnext_list",
@@ -23,14 +23,17 @@ export const erpnextListTool: Tool = {
                 description:
                     'Filter array — each element is [field, operator, value]. ' +
                     'Operators: =, !=, >, <, >=, <=, like, not like, in, not in, between. ' +
-                    'Example: [["status","=","Unpaid"],["grand_total",">",1000]]',
+                    'Example: [["customer","=","ACME"],["grand_total",">",1000]]. ' +
+                    'Draft / Submitted / Cancelled is the "docstatus" field (0 / 1 / 2) on every doctype — ' +
+                    'e.g. [["docstatus","=","1"]]. Only some doctypes (Sales Invoice, Sales Order…) also have a ' +
+                    '"status" column (Unpaid, Paid, Overdue…); Journal Entry, Payment Entry etc. do NOT.',
             },
             fields: {
                 type: "array",
                 items: { type: "string" },
                 description:
                     'Fields to return (default: ["name"]). Use ["*"] for all fields. ' +
-                    'Example: ["name","customer","grand_total","status"]',
+                    'Example: ["name","posting_date","docstatus","total_debit"]',
             },
             order_by: {
                 type: "string",
@@ -55,7 +58,7 @@ export const erpnextListTool: Tool = {
         const doctype = args.doctype as string;
         const query: Record<string, string> = {};
 
-        if (args.filters) query.filters = JSON.stringify(args.filters);
+        if (args.filters) query.filters = JSON.stringify(normalizeListFilters(args.filters));
         if (args.fields) query.fields = JSON.stringify(args.fields);
         if (args.order_by) query.order_by = args.order_by;
 
@@ -65,7 +68,7 @@ export const erpnextListTool: Tool = {
 
         const res = await erpNextRequest(creds, "GET", `/api/resource/${encodeURIComponent(doctype)}`, undefined, query);
 
-        if (!res.ok) return { result: res.error };
+        if (!res.ok) return { result: await describeQueryFieldError(creds, doctype, res.error) };
 
         const records = Array.isArray(res.data) ? res.data : [];
         return {

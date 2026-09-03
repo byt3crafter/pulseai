@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeDocPayload } from "../../plugins/erpnext/client.js";
+import { normalizeDocPayload, normalizeListFilters } from "../../plugins/erpnext/client.js";
 import { sanitizeExecError, maskSecrets } from "../agent/tools/built-in/exec-error.js";
 
 describe("normalizeDocPayload — Journal Entry rows", () => {
@@ -39,5 +39,20 @@ describe("sanitizeExecError", () => {
     });
     it("maskSecrets covers TOKEN/PASSWORD names", () => {
         expect(maskSecrets("SMTP_PASSWORD=hunter2 GH_TOKEN=ghp_1 FOO=bar")).toBe("SMTP_PASSWORD=*** GH_TOKEN=*** FOO=bar");
+    });
+});
+
+describe("normalizeListFilters — status → docstatus", () => {
+    it("rewrites Draft/Submitted/Cancelled to docstatus 0/1/2", () => {
+        expect(normalizeListFilters([["status", "=", "Draft"]])).toEqual([["docstatus", "=", 0]]);
+        expect(normalizeListFilters([["Status", "!=", "submitted"]])).toEqual([["docstatus", "!=", 1]]);
+        expect(normalizeListFilters([["status", "in", ["Draft", "Cancelled"]]])).toEqual([["docstatus", "in", [0, 2]]]);
+        expect(normalizeListFilters([["Journal Entry", "status", "=", "Submitted"]])).toEqual([["Journal Entry", "docstatus", "=", 1]]);
+    });
+    it("leaves real status values and other fields alone", () => {
+        const f = [["status", "=", "Unpaid"], ["grand_total", ">", 1000]];
+        expect(normalizeListFilters(f)).toEqual(f);
+        expect(normalizeListFilters([["status", "in", ["Paid", "Draft"]]])).toEqual([["status", "in", ["Paid", "Draft"]]]);
+        expect(normalizeListFilters("bogus")).toBe("bogus");
     });
 });

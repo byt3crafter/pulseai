@@ -167,6 +167,58 @@ export async function erpNextRequest<T = any>(
 }
 
 /**
+ * Filters the model writes as `status = Draft|Submitted|Cancelled` mean the
+ * workflow state, which on submittable doctypes (Journal Entry, Payment Entry,
+ * Stock Entry…) is `docstatus` 0/1/2 — many of them have no `status` column at
+ * all and ERPNext rejects the query with "Field not permitted in query: status".
+ * Rewrite those three values to docstatus (identical meaning on doctypes that DO
+ * have a status column); any other status value is a real one and passes through.
+ */
+const DOCSTATUS_BY_WORD: Record<string, number> = { draft: 0, submitted: 1, cancelled: 2, canceled: 2 };
+export function normalizeListFilters(filters: unknown): unknown {
+    if (!Array.isArray(filters)) return filters;
+    return filters.map((f) => {
+        if (!Array.isArray(f) || f.length < 3) return f;
+        // Both [field, op, value] and the 4-tuple [doctype, field, op, value] shapes.
+        const i = f.length >= 4 ? 1 : 0;
+        if (String(f[i]).toLowerCase() !== "status") return f;
+        const op = String(f[i + 1]);
+        const val = f[i + 2];
+        const map = (v: unknown) => DOCSTATUS_BY_WORD[String(v).trim().toLowerCase()];
+        if (Array.isArray(val) && /^(not )?in$/i.test(op)) {
+            const mapped = val.map(map);
+            if (mapped.some((m) => m === undefined)) return f;
+            const out = [...f]; out[i] = "docstatus"; out[i + 2] = mapped; return out;
+        }
+        const m = map(val);
+        if (m === undefined) return f;
+        const out = [...f]; out[i] = "docstatus"; out[i + 2] = m; return out;
+    });
+}
+
+/**
+ * When ERPNext refuses a field ("Field not permitted in query: X"), fetch the
+ * doctype's real field list so the model can correct itself in one step
+ * instead of guessing. Best-effort — the original error is returned untouched
+ * if the meta call fails.
+ */
+export async function describeQueryFieldError(creds: ErpNextCredentials, doctype: string, error: string): Promise<string> {
+    if (!/Field not permitted in query/i.test(error)) return error;
+    const meta = await erpNextRequest<any>(creds, "GET", "/api/method/frappe.desk.form.load.getdoctype", undefined, { doctype });
+    if (!meta.ok) return error;
+    const raw = meta.data?.docs ?? meta.data;
+    const docs: any[] = Array.isArray(raw) ? raw : [];
+    const main = docs.find((d) => d?.name === doctype);
+    if (!main || !Array.isArray(main.fields)) return error;
+    const names = main.fields
+        .filter((fd: any) => fd?.fieldname && !/^(Section Break|Column Break|Tab Break|HTML|Button|Table|Table MultiSelect)$/.test(fd.fieldtype))
+        .map((fd: any) => fd.fieldname);
+    const std = ["name", "docstatus", "creation", "modified", "owner"];
+    return `${error}. Valid ${doctype} fields: ${[...std, ...names].join(", ")}. ` +
+        `Draft/Submitted/Cancelled is docstatus 0/1/2 (there is no "status" column on this doctype).`;
+}
+
+/**
  * Journal Entry rows: ERPNext recomputes the read-only `debit`/`credit` columns
  * from `debit_in_account_currency`/`credit_in_account_currency` on save, so a
  * payload that only sets `debit`/`credit` is silently zeroed and rejected with
