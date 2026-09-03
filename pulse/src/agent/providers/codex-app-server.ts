@@ -786,11 +786,18 @@ export class CodexAppServerProvider {
          * A thread restart costs one round-trip and loses no history — the
          * conversation is replayed from our own store, not Codex's.
          */
-        const promptHash = createHash("sha256").update(params.systemPrompt || "").digest("hex").slice(0, 16);
+        // Reasoning effort is likewise fixed at thread/start (config.model_reasoning_effort),
+        // so it is folded into the hash: lowering an agent from xhigh to low, or picking a
+        // different think level in the composer, must not be silently ignored by a live thread.
+        const promptHash = createHash("sha256")
+            .update(params.systemPrompt || "")
+            .update(" effort=" + reasoningEffort)
+            .digest("hex")
+            .slice(0, 16);
         if (cached && entry.promptHash !== promptHash) {
             log.info(
                 { conversationId: params.conversationId, was: entry.promptHash, now: promptHash },
-                "System prompt changed — starting a fresh Codex thread so the change takes effect",
+                "System prompt or reasoning effort changed — starting a fresh Codex thread so the change takes effect",
             );
             entry.threadId = undefined;
             cached = undefined;

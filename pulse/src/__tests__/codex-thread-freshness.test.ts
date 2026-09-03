@@ -22,7 +22,13 @@ const src = readFileSync(
 
 describe("a cached Codex thread is abandoned when the prompt changes", () => {
     it("hashes the system prompt the thread was started with", () => {
-        expect(src).toMatch(/promptHash\s*=\s*createHash\("sha256"\)\.update\(params\.systemPrompt/);
+        expect(src).toMatch(/promptHash\s*=\s*createHash\("sha256"\)\s*\.update\(params\.systemPrompt/);
+    });
+
+    it("hashes the reasoning effort too — it is also fixed at thread/start", () => {
+        // c0rtex was lowered from xhigh to low and every live conversation kept
+        // thinking at xhigh: config.model_reasoning_effort is read once, like the prompt.
+        expect(src).toMatch(/\.update\(" effort=" \+ reasoningEffort\)/);
     });
 
     it("drops the cached thread when that hash no longer matches", () => {
@@ -38,7 +44,7 @@ describe("a cached Codex thread is abandoned when the prompt changes", () => {
     });
 
     it("says so in the log, because a silent thread restart is confusing too", () => {
-        expect(src).toMatch(/System prompt changed — starting a fresh Codex thread/);
+        expect(src).toMatch(/System prompt or reasoning effort changed — starting a fresh Codex thread/);
     });
 
     it("still passes the prompt at thread/start", () => {
