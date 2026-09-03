@@ -177,7 +177,7 @@ body {
 }
 
 /* ── Markdown rendering (agent messages: ChatGPT/Claude-style) ───────────── */
-.md { color: var(--pulse-text); font-size: 15.5px; line-height: 1.72; letter-spacing: -0.003em; }
+.md { color: var(--pulse-text); font-size: 15.5px; line-height: 1.72; letter-spacing: -0.003em; overflow-wrap: anywhere; min-width: 0; }
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
 .md p { margin: 0 0 0.7rem; }

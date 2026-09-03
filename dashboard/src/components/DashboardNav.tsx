@@ -228,7 +228,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 // coloured nav row would be the loudest thing on a quiet screen.
                 className={`group relative flex items-center transition-colors motion-reduce:transition-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 ${collapsed
                     ? "flex-col justify-center gap-[5px] rounded-xl w-[60px] h-[52px] mx-auto text-[9.5px] font-medium"
-                    : "gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px] leading-[17px]"} ${isActive
+                    : `gap-2.5 px-[9px] py-[7.5px] rounded-[9px] text-[13px] leading-[17px] ${editNav ? "pr-9" : ""}`} ${isActive
                     ? "bg-pulse-panel-alt text-pulse-text font-medium"
                     : "text-pulse-muted font-normal hover:bg-pulse-hover hover:text-pulse-text"
                     }`}
@@ -243,10 +243,12 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 />
                 {collapsed
                     ? <span className="leading-none text-center tracking-tight">{shortLabel(label)}</span>
-                    : label}
+                    : <span className="min-w-0 flex-1 truncate">{label}</span>}
             </Link>
         );
         // Edit mode (expanded rail only): overlay an eye toggle to hide/show the row.
+        // The link itself reserves `pr-9` above so its label truncates before the
+        // toggle rather than running underneath it.
         if (editNav && !collapsed) {
             return (
                 <div key={href} className={`relative ${itemHidden ? "opacity-40" : ""}`}>
@@ -256,7 +258,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleItemHidden(href); }}
                         title={itemHidden ? "Show in sidebar" : "Hide from sidebar"}
                         aria-label={itemHidden ? "Show in sidebar" : "Hide from sidebar"}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
+                        className="absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
                     >
                         {itemHidden ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                     </button>
@@ -307,7 +309,7 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                                                 onClick={() => toggleGroupHidden(group.label)}
                                                 title={groupHidden ? "Show this section" : "Hide this whole section"}
                                                 aria-label={groupHidden ? "Show this section" : "Hide this whole section"}
-                                                className="mr-1.5 rounded-md p-1 text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
+                                                className="mr-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
                                             >
                                                 {groupHidden ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                                             </button>
@@ -369,8 +371,8 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                             onClick={() => setEditNav(true)}
                             className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-normal text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
                         >
-                            <AdjustmentsHorizontalIcon className="h-4 w-4" />
-                            Customise sidebar{hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""}
+                            <AdjustmentsHorizontalIcon className="h-4 w-4 shrink-0" />
+                            <span className="min-w-0 truncate">Customise sidebar{hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""}</span>
                         </button>
                     )}
                 </div>
