@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.83] - 2026-09-03
+
+### Bug Fixes
+- always reconnect the chat socket after idle/network/auth failures
+
 ## [0.20.82] - 2026-09-03
 
 ### Bug Fixes
