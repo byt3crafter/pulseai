@@ -39,6 +39,9 @@ import {
     RectangleGroupIcon,
     RectangleStackIcon,
     FolderIcon,
+    EyeIcon,
+    EyeSlashIcon,
+    AdjustmentsHorizontalIcon,
 } from "@heroicons/react/24/outline";
 import { SidebarCollapseContext } from "./DashboardShell";
 
@@ -180,11 +183,41 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
         return true;
     };
 
+    /*
+     * Per-device sidebar customisation: hide individual items or whole parent
+     * groups you never use. "Customise" turns on an edit mode where every row and
+     * group gets an eye toggle; leaving edit mode collapses the sidebar down to
+     * only what you kept. Persisted like the collapse state; a Reset restores all.
+     */
+    const [editNav, setEditNav] = useState(false);
+    const [hiddenItems, setHiddenItems] = useState<Set<string>>(new Set());
+    const [hiddenGroups, setHiddenGroups] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("pulse_nav_hidden");
+            if (raw) {
+                const p = JSON.parse(raw);
+                setHiddenItems(new Set(Array.isArray(p?.items) ? p.items : []));
+                setHiddenGroups(new Set(Array.isArray(p?.groups) ? p.groups : []));
+            }
+        } catch { /* corrupt value → show everything */ }
+    }, []);
+    const persistHidden = (items: Set<string>, groups: Set<string>) => {
+        try { localStorage.setItem("pulse_nav_hidden", JSON.stringify({ items: [...items], groups: [...groups] })); } catch { /* ignore */ }
+    };
+    const toggleItemHidden = (href: string) =>
+        setHiddenItems((prev) => { const n = new Set(prev); n.has(href) ? n.delete(href) : n.add(href); persistHidden(n, hiddenGroups); return n; });
+    const toggleGroupHidden = (label: string) =>
+        setHiddenGroups((prev) => { const n = new Set(prev); n.has(label) ? n.delete(label) : n.add(label); persistHidden(hiddenItems, n); return n; });
+    const resetHidden = () => { setHiddenItems(new Set()); setHiddenGroups(new Set()); persistHidden(new Set(), new Set()); };
+    const hiddenCount = hiddenItems.size + hiddenGroups.size;
+
     const renderLink = (item: NavItem) => {
         const { href, label, icon: Icon, exact, exclude } = item;
         let isActive = exact ? pathname === href : pathname.startsWith(href);
         if (isActive && exclude && pathname.startsWith(exclude)) isActive = false;
-        return (
+        const itemHidden = hiddenItems.has(href);
+        const link = (
             <Link
                 key={href}
                 href={href}
@@ -213,6 +246,24 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                     : label}
             </Link>
         );
+        // Edit mode (expanded rail only): overlay an eye toggle to hide/show the row.
+        if (editNav && !collapsed) {
+            return (
+                <div key={href} className={`relative ${itemHidden ? "opacity-40" : ""}`}>
+                    {link}
+                    <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleItemHidden(href); }}
+                        title={itemHidden ? "Show in sidebar" : "Hide from sidebar"}
+                        aria-label={itemHidden ? "Show in sidebar" : "Hide from sidebar"}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
+                    >
+                        {itemHidden ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                    </button>
+                </div>
+            );
+        }
+        return link;
     };
 
     return (
@@ -221,31 +272,47 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 Stacking space-y-5 on top of it doubled every gap. */}
             <div className={collapsed ? "space-y-1" : ""}>
                 {NAV_GROUPS.map((group, gi) => {
-                    const items = group.items.filter(isVisible);
-                    if (items.length === 0) return null;
-                    // The section you are standing in is never collapsed.
-                    const holdsCurrentPage = items.some((i) =>
-                        i.exact ? pathname === i.href : pathname.startsWith(i.href));
-                    const isOpen = openGroups[group.label] ?? true;
+                    const groupHidden = hiddenGroups.has(group.label);
+                    if (groupHidden && !editNav) return null;                 // hidden group
+                    const items = group.items
+                        .filter(isVisible)
+                        .filter((i) => editNav || !hiddenItems.has(i.href));   // hidden items
+                    if (items.length === 0 && !editNav) return null;
+                    const isOpen = editNav ? true : (openGroups[group.label] ?? true);
                     return (
-                        <div key={group.label} className={collapsed ? "space-y-1" : "space-y-0.5"}>
+                        <div key={group.label} className={`${collapsed ? "space-y-1" : "space-y-0.5"} ${groupHidden && editNav ? "opacity-40" : ""}`}>
                             {collapsed
                                 ? (gi > 0 && <div className="mx-2 my-1 border-t border-pulse-border-subtle" aria-hidden="true" />)
                                 : (
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleGroup(group.label, isOpen)}
-                                        aria-expanded={isOpen}
-                                        className="group/hdr flex w-full items-center gap-1.5 px-2 pt-4 pb-[7px] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 rounded"
-                                    >
-                                        <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-pulse-dim group-hover/hdr:text-pulse-faint transition-colors motion-reduce:transition-none">
-                                            {group.label}
-                                        </span>
-                                        <ChevronRightIcon
-                                            aria-hidden="true"
-                                            className={`w-3 h-3 text-pulse-dim transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
-                                        />
-                                    </button>
+                                    <div className="group/hdr flex w-full items-center pt-4 pb-[7px]">
+                                        <button
+                                            type="button"
+                                            onClick={() => !editNav && toggleGroup(group.label, isOpen)}
+                                            aria-expanded={isOpen}
+                                            className="flex flex-1 items-center gap-1.5 px-2 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-pulse-accent/50 rounded"
+                                        >
+                                            <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-pulse-dim group-hover/hdr:text-pulse-faint transition-colors motion-reduce:transition-none">
+                                                {group.label}
+                                            </span>
+                                            {!editNav && (
+                                                <ChevronRightIcon
+                                                    aria-hidden="true"
+                                                    className={`w-3 h-3 text-pulse-dim transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
+                                                />
+                                            )}
+                                        </button>
+                                        {editNav && (
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleGroupHidden(group.label)}
+                                                title={groupHidden ? "Show this section" : "Hide this whole section"}
+                                                aria-label={groupHidden ? "Show this section" : "Hide this whole section"}
+                                                className="mr-1.5 rounded-md p-1 text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
+                                            >
+                                                {groupHidden ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             {(collapsed || isOpen) && items.map(renderLink)}
                         </div>
@@ -272,6 +339,42 @@ export default function DashboardNav({ isAdmin, chatgptConnect, showBilling = tr
                 )}
 
             </div>
+
+            {/* Customise sidebar — hide items/sections you never use (per device). */}
+            {!collapsed && (
+                <div className="mt-3 border-t border-pulse-border-subtle px-1 pt-3">
+                    {editNav ? (
+                        <div className="flex items-center gap-2 px-1">
+                            <button
+                                type="button"
+                                onClick={() => setEditNav(false)}
+                                className="flex-1 rounded-lg bg-pulse-panel-alt px-2.5 py-1.5 text-[12px] font-medium text-pulse-text hover:bg-pulse-hover"
+                            >
+                                Done
+                            </button>
+                            {hiddenCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={resetHidden}
+                                    title="Show everything again"
+                                    className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
+                                >
+                                    Reset
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setEditNav(true)}
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-normal text-pulse-faint hover:bg-pulse-hover hover:text-pulse-text"
+                        >
+                            <AdjustmentsHorizontalIcon className="h-4 w-4" />
+                            Customise sidebar{hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""}
+                        </button>
+                    )}
+                </div>
+            )}
         </nav>
     );
 }

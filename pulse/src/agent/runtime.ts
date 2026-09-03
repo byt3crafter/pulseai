@@ -1257,9 +1257,20 @@ export class AgentRuntime {
             // surfaces that opt in (web chat's collapsible "thinking" panel) can show
             // it; it is never written to the DB or sent to channels that don't ask.
             let capturedThinking = "";
+            // Closed <think>…</think> pairs → thinking.
             llmResponse.content = llmResponse.content
-                .replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, (_m, inner) => { capturedThinking += inner; return ""; })
-                .replace(/<\/?think(?:ing)?>/gi, "")                          // stray tags
+                .replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, (_m, inner) => { capturedThinking += inner; return ""; });
+            // An UNCLOSED <think> (GLM-5.3 opens one and streams reasoning without ever
+            // closing it): everything from the tag onward is reasoning, not the answer.
+            // Without this the lone tag was merely stripped and the whole reasoning ran
+            // on as the visible reply.
+            const openThinkIdx = llmResponse.content.search(/<think(?:ing)?>/i);
+            if (openThinkIdx !== -1) {
+                capturedThinking += "\n" + llmResponse.content.slice(openThinkIdx).replace(/<think(?:ing)?>/i, "");
+                llmResponse.content = llmResponse.content.slice(0, openThinkIdx);
+            }
+            llmResponse.content = llmResponse.content
+                .replace(/<\/?think(?:ing)?>/gi, "")                          // any stray tags
                 .trim();
             capturedThinking = capturedThinking.trim();
 
@@ -1272,9 +1283,14 @@ export class AgentRuntime {
             // reasoning block — promote it back so nothing is lost.
             let recoveredIntoContent = false;
             const strippedAnswer = llmResponse.content;
+            // Only rescue when there is essentially NO answer left outside the reasoning
+            // block — otherwise a verbose-reasoning model (GLM-5.3) with a genuinely
+            // short answer would have its entire chain-of-thought promoted into the
+            // visible reply. A real answer is almost always longer than a stub; a truly
+            // trapped answer leaves only a scrap (a bare follow-up line) outside.
             const looksCollapsed =
                 capturedThinking.length > 500 &&
-                strippedAnswer.length < 300 &&
+                strippedAnswer.length < 80 &&
                 capturedThinking.length > strippedAnswer.length * 3;
             if (looksCollapsed) {
                 llmResponse.content = strippedAnswer
