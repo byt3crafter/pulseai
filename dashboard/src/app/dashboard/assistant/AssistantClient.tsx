@@ -917,7 +917,7 @@ export default function AssistantClient({
                                     </div>
                                 )}
                                 {m.content && (
-                                    <div className="md-chat max-w-[85%] rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text">
+                                    <div className="md-chat min-w-0 max-w-[85%] break-words rounded-2xl rounded-br-md bg-pulse-panel-alt px-4 py-2.5 text-[15px] leading-relaxed text-pulse-text">
                                         {/* Markdown so pasted CSV/Excel renders as a scrollable table
                                             (via formatTabularText) instead of a wrapped comma blob. */}
                                         <Markdown>{m.content}</Markdown>
@@ -944,7 +944,7 @@ export default function AssistantClient({
                                     {showThinking && m.thinking && (
                                         <ThinkingPanel text={m.thinking} streaming={!!m.streaming && !m.content} />
                                     )}
-                                    <div className="md-chat text-sm leading-relaxed text-pulse-text">
+                                    <div className="md-chat min-w-0 break-words text-sm leading-relaxed text-pulse-text">
                                         {m.content
                                             ? <Markdown>{m.content}</Markdown>
                                             : (!m.thinking && (!m.steps || m.steps.length === 0) && <TypingDots />)}
@@ -1094,7 +1094,7 @@ export default function AssistantClient({
                                     {pillOpen && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setPillOpen(false)} aria-hidden="true" />
-                                            <div role="menu" className="absolute bottom-[42px] left-0 z-50 w-[320px] rounded-xl border border-pulse-border-strong bg-pulse-hover p-3 shadow-2xl">
+                                            <div role="menu" className="absolute bottom-[42px] left-0 z-50 w-[320px] max-sm:fixed max-sm:inset-x-3 max-sm:bottom-3 max-sm:w-auto rounded-xl border border-pulse-border-strong bg-pulse-hover p-3 shadow-2xl">
                                                 <div className="flex items-center justify-between">
                                                     <label className="block text-[11px] font-medium uppercase tracking-wide text-pulse-dim">Model</label>
                                                     <button type="button" onClick={() => setFreeOnly((v) => !v)} aria-pressed={freeOnly}
@@ -1118,7 +1118,7 @@ export default function AssistantClient({
                                                     )}
                                                 </div>
                                                 {/* grouped, scrollable list */}
-                                                <div role="listbox" className="mt-1.5 max-h-[240px] overflow-y-auto rounded-lg border border-pulse-border bg-pulse-panel">
+                                                <div role="listbox" className="mt-1.5 max-h-[min(240px,60vh)] overflow-y-auto rounded-lg border border-pulse-border bg-pulse-panel">
                                                     <button type="button" role="option" aria-selected={model === ""}
                                                         onClick={() => { setModel(""); setPillOpen(false); }}
                                                         className={`flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-pulse-hover ${model === "" ? "text-pulse-accent" : "text-pulse-text"}`}>
