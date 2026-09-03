@@ -208,6 +208,9 @@ export default function AssistantClient({
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const attemptsRef = useRef(0);
+    const [attempts, setAttempts] = useState(0);
+    const lastPongRef = useRef(Date.now());
     const sessionRef = useRef(sessionId);
     sessionRef.current = sessionId;
 
@@ -306,21 +309,37 @@ export default function AssistantClient({
     useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
     // ── WebSocket ──
+    // Every failure path must schedule a retry. The old version returned early when
+    // the token fetch failed (expired login after a long idle, a network blip) and
+    // had no handshake timeout, so the composer sat on "Connecting…" forever.
     const connect = useCallback(async () => {
+        if (reconnectRef.current) { clearTimeout(reconnectRef.current); reconnectRef.current = null; }
         setConn("connecting");
-        const res = await getChatTokenAction();
-        if (!res.ok) { setConn("offline"); return; }
+        const retry = () => {
+            if (reconnectRef.current) clearTimeout(reconnectRef.current);
+            const n = ++attemptsRef.current;
+            setAttempts(n);
+            const delay = Math.min(3000 * 2 ** Math.min(n - 1, 4), 30000); // 3s → 30s
+            reconnectRef.current = setTimeout(() => connect(), delay);
+        };
+        let res: Awaited<ReturnType<typeof getChatTokenAction>>;
+        try { res = await getChatTokenAction(); } catch { setConn("offline"); retry(); return; }
+        if (!res.ok) { setConn("offline"); retry(); return; }
         const proto = window.location.protocol === "https:" ? "wss" : "ws";
         const ws = new WebSocket(`${proto}://${window.location.host}/ws?token=${encodeURIComponent(res.token)}`);
         wsRef.current = ws;
-        ws.onopen = () => setConn("online");
+        // Handshake watchdog: a proxy that swallows the upgrade never fires close.
+        const handshake = setTimeout(() => { if (ws.readyState !== 1) ws.close(); }, 10000);
+        ws.onopen = () => { clearTimeout(handshake); attemptsRef.current = 0; setAttempts(0); lastPongRef.current = Date.now(); setConn("online"); };
         ws.onclose = () => {
+            clearTimeout(handshake);
+            if (wsRef.current !== ws) return; // superseded by a newer socket
             setConn("offline");
-            if (reconnectRef.current) clearTimeout(reconnectRef.current);
-            reconnectRef.current = setTimeout(() => connect(), 3000);
+            retry();
         };
         ws.onerror = () => ws.close();
         ws.onmessage = (ev) => {
+            lastPongRef.current = Date.now();
             let m: any; try { m = JSON.parse(ev.data); } catch { return; }
 
             // Frames carry the session they belong to. A frame for a session other
@@ -409,8 +428,34 @@ export default function AssistantClient({
 
     useEffect(() => {
         connect();
-        const ping = setInterval(() => { if (wsRef.current?.readyState === 1) wsRef.current.send(JSON.stringify({ type: "ping" })); }, 25000);
-        return () => { clearInterval(ping); if (reconnectRef.current) clearTimeout(reconnectRef.current); wsRef.current?.close(); };
+        // Keepalive + dead-socket detection: a half-open TCP connection (laptop
+        // sleep, proxy idle-timeout) keeps readyState at OPEN but nothing arrives.
+        // No frame for 75s after pinging every 25s → force a reconnect.
+        const ping = setInterval(() => {
+            const ws = wsRef.current;
+            if (!ws || ws.readyState !== 1) return;
+            if (Date.now() - lastPongRef.current > 75000) { ws.close(); return; }
+            ws.send(JSON.stringify({ type: "ping" }));
+        }, 25000);
+        // Coming back to the tab / regaining network: reconnect right away instead
+        // of waiting out a (browser-throttled) backoff timer.
+        const wake = () => {
+            if (document.visibilityState !== "visible") return;
+            if (wsRef.current?.readyState === 1) return;
+            attemptsRef.current = 0;
+            connect();
+        };
+        document.addEventListener("visibilitychange", wake);
+        window.addEventListener("online", wake);
+        window.addEventListener("focus", wake);
+        return () => {
+            clearInterval(ping);
+            document.removeEventListener("visibilitychange", wake);
+            window.removeEventListener("online", wake);
+            window.removeEventListener("focus", wake);
+            if (reconnectRef.current) clearTimeout(reconnectRef.current);
+            const ws = wsRef.current; wsRef.current = null; ws?.close();
+        };
     }, [connect]);
 
     function upsertStreaming(prev: Msg[], patch: Partial<Msg>): Msg[] {
@@ -1052,7 +1097,7 @@ export default function AssistantClient({
                                 }}
                                 onPaste={(e) => { const fs = Array.from(e.clipboardData?.files || []); if (fs.length) { e.preventDefault(); void addFiles(fs); } }}
                                 rows={1}
-                                placeholder={conn === "online" ? "Describe a task and let your agents do the rest" : "Connecting…"}
+                                placeholder={conn === "online" ? "Describe a task and let your agents do the rest" : attempts >= 3 ? "Disconnected — retrying… (if this persists, reload the page to sign in again)" : "Connecting…"}
                                 disabled={conn !== "online"}
                                 className="block w-full resize-none bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 min-h-[78px] sm:min-h-[54px] max-h-44 text-pulse-text outline-none placeholder:text-pulse-faint disabled:opacity-60"
                             />
