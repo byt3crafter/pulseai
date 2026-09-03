@@ -2,6 +2,7 @@ import { Tool } from "../tool.interface.js";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../../utils/logger.js";
+import { sanitizeExecError } from "./exec-error.js";
 import { parseSandboxConfig } from "./sandbox-config.js";
 import { evaluate } from "../safety/exec-policy.js";
 import { credentialVault } from "../credential-vault.js";
@@ -96,12 +97,15 @@ export function createSandboxTool(sandboxConfig?: any, workspacePath?: string): 
                     metadata: { stderr: stderr || undefined }
                 };
             } catch (err: any) {
-                logger.error({ err, tenantId }, "Sandboxed execution failed");
+                // Never log or return err.message / err.cmd: they carry the full
+                // `docker run -e KEY=VALUE …` line, i.e. injected secrets in plaintext.
+                const safe = sanitizeExecError(err);
+                logger.error({ ...safe, tenantId }, "Sandboxed execution failed");
                 if (err.killed) {
                     return { result: "Error: Script execution timed out." };
                 }
                 return {
-                    result: `Error executing script: ${err.message}\nStderr: ${err.stderr || ""}`
+                    result: `Error executing script (exit ${safe.code ?? "?"})\nStderr: ${safe.stderr || ""}`
                 };
             }
         }

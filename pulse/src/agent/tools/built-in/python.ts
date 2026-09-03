@@ -4,14 +4,15 @@
  */
 
 import { Tool } from "../tool.interface.js";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import { logger } from "../../../utils/logger.js";
+import { sanitizeExecError } from "./exec-error.js";
 import { evaluate } from "../safety/exec-policy.js";
 import { credentialVault } from "../credential-vault.js";
 import { config } from "../../../config.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const PYTHON_IMAGE = config.PYTHON_SANDBOX_IMAGE;
 
@@ -63,14 +64,13 @@ export const pythonExecuteTool: Tool = {
                 logger.warn({ err, tenantId }, "Failed to load vault credentials for Python sandbox");
             }
 
-            // Build the command
-            const escapedCode = code.replace(/'/g, "'\\''");
-            let script = "";
+            // Build the command. The code is passed as its own argv element (no
+            // shell) so quotes/newlines survive and nothing needs escaping.
+            let script = "python3 -c \"$0\"";
             if (packages.length > 0) {
                 const pkgList = packages.join(" ");
-                script = `pip install --quiet ${pkgList} 2>/dev/null && `;
+                script = `pip install --quiet ${pkgList} 2>/dev/null && ${script}`;
             }
-            script += `python3 -c '${escapedCode}'`;
 
             const dockerArgs = [
                 "run", "--rm",
@@ -79,23 +79,29 @@ export const pythonExecuteTool: Tool = {
                 "--network=bridge", // Allow network for API calls
                 ...envFlags,
                 PYTHON_IMAGE,
-                "sh", "-c", script,
+                "sh", "-c", script, code,
             ];
 
-            const cmd = `docker ${dockerArgs.join(" ")}`;
-            const { stdout, stderr } = await execAsync(cmd, { timeout: effectiveTimeout });
+            const { stdout, stderr } = await execFileAsync("docker", dockerArgs, {
+                timeout: effectiveTimeout,
+                maxBuffer: 10 * 1024 * 1024,
+            });
 
             return {
                 result: stdout || "Python script executed successfully (no output).",
                 metadata: { stderr: stderr || undefined },
             };
         } catch (err: any) {
-            logger.error({ err, tenantId }, "Python execution failed");
+            // Never log or return err.message / err.cmd: for child_process errors
+            // they contain the full `docker run -e KEY=VALUE …` line, i.e. every
+            // vault secret in plaintext.
+            const safe = sanitizeExecError(err);
+            logger.error({ ...safe, tenantId }, "Python execution failed");
             if (err.killed) {
                 return { result: `Error: Python script timed out after ${timeout}s.` };
             }
             return {
-                result: `Python error:\n${err.stderr || err.message || "Unknown error"}`,
+                result: `Error: Python execution failed (exit ${safe.code ?? "?"})\n${safe.stderr || "No stderr output."}`,
             };
         }
     },

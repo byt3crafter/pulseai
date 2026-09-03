@@ -13,6 +13,10 @@ services:
   pulse-gateway:
     image: ${PULSE_REGISTRY:-registry.runstate.mu}/pulse-gateway:${PULSE_VERSION:-latest}
     pull_policy: always
+    environment:
+      # Python sandbox image lives on the hub too (built + pushed by remote-build.sh
+      # when you name `python-sandbox`); the gateway pulls it on first use.
+      - PYTHON_SANDBOX_IMAGE=${PYTHON_SANDBOX_IMAGE:-${PULSE_REGISTRY:-registry.runstate.mu}/pulse-python-sandbox:latest}
 
   pulse-dashboard:
     image: ${PULSE_REGISTRY:-registry.runstate.mu}/pulse-dashboard:${PULSE_VERSION:-latest}
