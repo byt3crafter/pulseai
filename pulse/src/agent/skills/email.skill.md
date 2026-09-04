@@ -1,6 +1,7 @@
 ---
 name: email
 description: Send and read emails via SMTP/IMAP. Use when asked to send emails, check inbox, or manage email communications.
+requires: email_send, email_list, email_read
 ---
 
 # Email Communication

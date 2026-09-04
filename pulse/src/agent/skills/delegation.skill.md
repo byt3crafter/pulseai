@@ -1,6 +1,7 @@
 ---
 name: delegation
 description: Delegate tasks to other specialized agents. Use when a task is better suited for another agent's expertise.
+requires: delegate_to_agent, list_agents
 ---
 
 # Multi-Agent Delegation

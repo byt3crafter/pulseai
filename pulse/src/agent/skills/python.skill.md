@@ -1,6 +1,7 @@
 ---
 name: python
 description: Execute Python code in a sandboxed environment. Use for data analysis, calculations, file processing, or any computational task.
+requires: python_execute
 ---
 
 # Python Sandbox Execution

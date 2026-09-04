@@ -1,6 +1,7 @@
 ---
 name: scripts
 description: Save, load, and manage reusable code scripts. Use when asked to create automations, save code snippets, or reuse previous scripts.
+requires: script_save, script_list
 ---
 
 # Script Management

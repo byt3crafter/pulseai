@@ -1,6 +1,7 @@
 ---
 name: workspace
 description: Manage your own workspace configuration files. Use when asked to update your personality, identity, tools guidance, or other self-configuration.
+requires: workspace_update
 ---
 
 # Workspace Management

@@ -56,4 +56,9 @@ export const BUILTIN_SKILLS: BuiltInSkill[] = [
         description: "Send and read emails via SMTP/IMAP",
         category: "core",
     },
+    {
+        name: "erpnext",
+        description: "Query and post ERPNext documents (docstatus, field names, journal entries) — active only when ERPNext tools are enabled",
+        category: "productivity",
+    },
 ];

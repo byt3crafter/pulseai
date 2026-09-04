@@ -28,6 +28,10 @@ export interface SkillEntry {
     description: string;
     body: string;
     source: "built-in" | "custom";
+    /** Tool names this skill is about. When set, the skill is only injected for
+     *  agents that have at least one of them — domain skills (ERPNext, …) must
+     *  not cost prompt tokens on agents without the integration. */
+    requires?: string[];
 }
 
 export interface SkillConfig {
@@ -61,14 +65,20 @@ export function parseSkillFile(content: string): SkillEntry | null {
     // Simple YAML parsing for name and description
     const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
     const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+    const reqMatch = frontmatter.match(/^requires:\s*(.+)$/m);
 
     if (!nameMatch || !descMatch) return null;
+
+    const requires = reqMatch
+        ? reqMatch[1].split(",").map((t) => t.trim()).filter(Boolean)
+        : undefined;
 
     return {
         name: nameMatch[1].trim(),
         description: descMatch[1].trim(),
         body,
         source: "built-in",
+        ...(requires && requires.length ? { requires } : {}),
     };
 }
 
@@ -126,8 +136,12 @@ export function clearSkillCache(): void {
  */
 export async function resolveAgentSkills(
     tenantId: string,
-    agentProfileId: string
+    agentProfileId: string,
+    /** Names of the tools this agent can actually call; gates `requires:` skills.
+     *  Omitted (legacy callers) = no gating. */
+    availableTools?: Iterable<string>
 ): Promise<SkillEntry[]> {
+    const toolSet = availableTools ? new Set(availableTools) : null;
     const builtIn = loadBuiltInSkills();
 
     // Get admin global defaults
@@ -163,6 +177,12 @@ export async function resolveAgentSkills(
     for (const skill of builtIn) {
         // If agent explicitly disabled this skill, skip it
         if (skillConfig.disabledBuiltIn?.includes(skill.name)) {
+            continue;
+        }
+
+        // Domain skill for tools this agent doesn't have — skip regardless of
+        // defaults/overrides; guidance for absent tools only invites hallucinated calls.
+        if (skill.requires && toolSet && !skill.requires.some((t) => toolSet.has(t))) {
             continue;
         }
 
