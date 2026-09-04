@@ -696,7 +696,7 @@ export class AgentRuntime {
             let skillsContent: string | undefined;
             if (resolvedAgentProfileId) {
                 try {
-                    const skills = await resolveAgentSkills(inbound.tenantId, resolvedAgentProfileId);
+                    const skills = await resolveAgentSkills(inbound.tenantId, resolvedAgentProfileId, enabledTools.map((t) => t.name));
                     if (skills.length > 0) {
                         skillsContent = formatSkillsForPrompt(skills);
                         tenantLog.debug({ skillCount: skills.length, skills: skills.map(s => s.name) }, "Resolved agent skills");

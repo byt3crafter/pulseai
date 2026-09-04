@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && npm run build:assets",
+    "build:assets": "mkdir -p dist/src/agent/skills && cp src/agent/skills/*.skill.md dist/src/agent/skills/",
     "start": "node dist/src/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

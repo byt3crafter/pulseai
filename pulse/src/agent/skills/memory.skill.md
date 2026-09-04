@@ -1,6 +1,7 @@
 ---
 name: memory
 description: Store, search, and forget persistent memories. Use when asked to remember something, recall past conversations, or forget specific details.
+requires: memory_store, memory_search
 ---
 
 # Memory Management

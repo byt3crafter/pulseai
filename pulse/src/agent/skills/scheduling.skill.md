@@ -1,6 +1,7 @@
 ---
 name: scheduling
 description: Create cron jobs and one-time scheduled tasks. Use when asked to set reminders, recurring reports, or timed actions.
+requires: schedule_job, schedule_once, list_jobs
 ---
 
 # Job Scheduling
