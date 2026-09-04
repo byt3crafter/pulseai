@@ -3,6 +3,11 @@
 All notable changes to Pulse AI will be documented in this file.
 This changelog is auto-generated from conventional commits.
 
+## [0.20.86] - 2026-09-04
+
+### Features
+- built-in ERPNext skill + ship skill files in the build
+
 ## [0.20.85] - 2026-09-03
 
 ### Bug Fixes
